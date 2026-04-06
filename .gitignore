@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Jupyter / Notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environment
+.env
+.env.local
+.env.*.local
+venv/
+.venv/
+env/
+
+# Secrets & Credentials
+*.key
+*.pem
+secrets/
+credentials/
+config/local_settings.py
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Fabric / Azure
+.fabric/
+*.pbix
+*.pbids
+
+# Data files (do not commit raw data)
+sample-data/raw/
+*.csv.gz
+*.parquet
+
+# Logs
+logs/
+*.log
+
+# OS
+Thumbs.db
