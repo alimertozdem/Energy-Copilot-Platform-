@@ -188,9 +188,10 @@ log_step("Silver building_master okundu", df_building.count(), "silver_building_
 # DP-600: Broadcast join için building_master'ı hazırla.
 # 3 satır = sıfır shuffle maliyeti. Her join'de tüm worker'lara kopyalanır.
 df_bld_lookup = broadcast(df_building.select(
-    "building_id", "country_code", "floor_area_m2",
-    "solar_capacity_kwp", "battery_capacity_kwh",
-    "has_solar", "has_battery", "has_heat_pump",
+    "building_id", "country_code",
+    col("conditioned_area_m2").alias("floor_area_m2"),  # EUI hesabında kondisyonlu alan kullan
+    "pv_capacity_kwp", "battery_capacity_kwh",
+    "has_pv", "has_battery", "has_heat_pump",
     "emission_factor_kg_kwh", "subscription_tier"
 ))
 
@@ -254,26 +255,22 @@ df_solar_h = (
     .withColumn("hour_utc", date_trunc("hour", col("timestamp_utc")))
     .groupBy("building_id", "hour_utc")
     .agg(
-        spark_sum("generation_kwh").alias("solar_generated_kwh"),
+        spark_sum("generated_kwh").alias("solar_generated_kwh"),
         spark_sum("self_consumed_kwh").alias("solar_self_consumed_kwh"),
-        spark_sum("exported_to_grid_kwh").alias("solar_exported_kwh"),
+        spark_sum("exported_kwh").alias("solar_exported_kwh"),
     )
 )
 
 # ── 5C: Batarya saatlik aggregate ─────────────────────────────
-# net_power_kw > 0 = şarj oluyor, < 0 = deşarj oluyor
-# kWh = kW * (15/60) = kW * 0.25 (her 15-dk aralığı için)
+# Silver tablosunda charge_kw ve discharge_kw ayrı kolonlar olarak var.
+# kWh = kW * 0.25 (15 dakikalık aralık = 0.25 saat)
 df_battery_h = (
     df_battery_q
     .withColumn("hour_utc", date_trunc("hour", col("timestamp_utc")))
     .groupBy("building_id", "hour_utc")
     .agg(
-        spark_sum(
-            when(col("net_power_kw") > 0, col("net_power_kw") * 0.25).otherwise(0.0)
-        ).alias("battery_charged_kwh"),
-        spark_sum(
-            when(col("net_power_kw") < 0, spark_abs(col("net_power_kw")) * 0.25).otherwise(0.0)
-        ).alias("battery_discharged_kwh"),
+        spark_sum(col("charge_kw") * 0.25).alias("battery_charged_kwh"),
+        spark_sum(col("discharge_kw") * 0.25).alias("battery_discharged_kwh"),
         spark_min("soc_pct").alias("battery_soc_min_pct"),
         spark_max("soc_pct").alias("battery_soc_max_pct"),
         spark_avg("soc_pct").alias("battery_soc_avg_pct"),
@@ -294,7 +291,7 @@ df_weather_h = (
     .groupBy("building_id", "hour_utc")
     .agg(
         spark_avg("temperature_c").alias("avg_temperature_c"),
-        spark_avg("irradiance_wm2").alias("avg_irradiance_wm2"),
+        spark_avg("solar_irradiance").alias("avg_irradiance_wm2"),
         spark_sum("heating_degree_day").alias("hdd_hour"),
         spark_sum("cooling_degree_day").alias("cdd_hour"),
     )
@@ -351,11 +348,11 @@ df_gold_hourly = (
     .withColumn("solar_performance_ratio",
         spark_round(
             when(
-                (col("has_solar") == True) &
+                (col("has_pv") == True) &
                 (col("avg_irradiance_wm2") > MIN_IRRADIANCE_WM2) &
-                (col("solar_capacity_kwp") > 0) &
+                (col("pv_capacity_kwp") > 0) &
                 (col("irradiance_kwh_per_m2") > 0),
-                col("solar_generated_kwh") / (col("solar_capacity_kwp") * col("irradiance_kwh_per_m2"))
+                col("solar_generated_kwh") / (col("pv_capacity_kwp") * col("irradiance_kwh_per_m2"))
             ).otherwise(lit(None)), 4)
     )
 
@@ -415,8 +412,8 @@ df_gold_hourly = (
         # Şebeke & Karbon
         "net_grid_consumption_kwh", "co2_emissions_kg", "co2_savings_from_solar_kg",
         # Meta
-        "emission_factor_kg_kwh", "floor_area_m2", "solar_capacity_kwp",
-        "battery_capacity_kwh", "has_solar", "has_battery", "has_heat_pump",
+        "emission_factor_kg_kwh", "floor_area_m2", "pv_capacity_kwp",
+        "battery_capacity_kwh", "has_pv", "has_battery", "has_heat_pump",
         "subscription_tier", "processed_at"
     )
 )
@@ -490,10 +487,10 @@ df_gold_daily = (
 
         # Meta
         spark_max("floor_area_m2").alias("floor_area_m2"),
-        spark_max("solar_capacity_kwp").alias("solar_capacity_kwp"),
+        spark_max("pv_capacity_kwp").alias("pv_capacity_kwp"),
         spark_max("battery_capacity_kwh").alias("battery_capacity_kwh"),
         spark_max("emission_factor_kg_kwh").alias("emission_factor_kg_kwh"),
-        spark_max("has_solar").alias("has_solar"),
+        spark_max("has_pv").alias("has_pv"),
         spark_max("has_battery").alias("has_battery"),
         spark_max("has_heat_pump").alias("has_heat_pump"),
         spark_max("subscription_tier").alias("subscription_tier"),
@@ -599,10 +596,10 @@ df_gold_monthly = (
         spark_sum("estimated_savings_eur").alias("total_savings_eur"),
 
         spark_max("floor_area_m2").alias("floor_area_m2"),
-        spark_max("solar_capacity_kwp").alias("solar_capacity_kwp"),
+        spark_max("pv_capacity_kwp").alias("pv_capacity_kwp"),
         spark_max("battery_capacity_kwh").alias("battery_capacity_kwh"),
         spark_max("emission_factor_kg_kwh").alias("emission_factor_kg_kwh"),
-        spark_max("has_solar").alias("has_solar"),
+        spark_max("has_pv").alias("has_pv"),
         spark_max("has_battery").alias("has_battery"),
         spark_max("has_heat_pump").alias("has_heat_pump"),
         spark_max("subscription_tier").alias("subscription_tier"),
@@ -621,8 +618,8 @@ df_gold_monthly = (
     # Benchmark: Berlin ~900 kWh/kWp/yıl, İstanbul ~1400 kWh/kWp/yıl
     .withColumn("solar_specific_yield_kwh_kwp",
         spark_round(
-            when((col("has_solar") == True) & (col("solar_capacity_kwp") > 0),
-                 col("solar_generated_kwh") / col("solar_capacity_kwp"))
+            when((col("has_pv") == True) & (col("pv_capacity_kwp") > 0),
+                 col("solar_generated_kwh") / col("pv_capacity_kwp"))
             .otherwise(lit(None)), 2)
     )
 
@@ -783,7 +780,7 @@ anomaly_frames.append(df_night_anomaly)
 df_pr_drop = (
     df_gh
     .filter(
-        (col("has_solar") == True) &
+        (col("has_pv") == True) &
         col("solar_performance_ratio").isNotNull() &
         (col("avg_irradiance_wm2") > MIN_IRRADIANCE_WM2) &
         (col("solar_performance_ratio") < lit(MIN_PR_THRESHOLD))

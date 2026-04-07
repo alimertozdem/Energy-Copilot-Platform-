@@ -203,9 +203,9 @@ def optimize_silver_table(path, table_name, zorder_cols):
     try:
         zorder_str = ", ".join(zorder_cols)
         spark.sql(f"OPTIMIZE delta.`{path}` ZORDER BY ({zorder_str})")
-        log_step(f"⚡ Z-ORDER OPTIMIZE", table_name=f"{table_name} [{zorder_str}]")
+        log_step(f"⚡ Z-ORDER OPTIMIZE", table=f"{table_name} [{zorder_str}]")
     except Exception as e:
-        log_step(f"⚠️  OPTIMIZE atlandı: {str(e)[:60]}", table_name=table_name)
+        log_step(f"⚠️  OPTIMIZE atlandı: {str(e)[:60]}", table=table_name)
 
 
 # =============================================================================
