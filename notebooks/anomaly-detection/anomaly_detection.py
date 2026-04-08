@@ -256,8 +256,41 @@ print("\n" + "="*60)
 print("VERİ OKUMA")
 print("="*60)
 
-# Analiz penceresi: son LOOKBACK_DAYS gün
-analysis_start = expr(f"date_sub(current_date(), {LOOKBACK_DAYS})")
+# ── Bağımlılık kontrolü ──────────────────────────────────────
+# Bu notebook gold_kpi_daily ve silver_building_master tablolarına
+# bağımlıdır. Bunlar yoksa notebook hata vermeden çıkar —
+# pipeline'da upstream adımların başarısız olduğu durumu yönetir.
+
+missing = []
+for key, path in [("gold_kpi_daily", PATHS["kpi_daily"]),
+                  ("silver_building_master", PATHS["building"])]:
+    if not table_exists(path):
+        missing.append(key)
+
+if missing:
+    print(f"\n⚠️  Bağımlı tablolar henüz oluşturulmamış: {missing}")
+    print("   Lütfen önce şu notebook'ları çalıştır:")
+    if "gold_kpi_daily" in missing:
+        print("   → 03_gold_kpi_engine.py")
+    if "silver_building_master" in missing:
+        print("   → 02_silver_transformation.py")
+    print("\n   Anomaly detection atlanıyor — boş gold_anomalies tablosu oluşturuluyor.")
+
+    # Downstream pipeline adımları bozulmasın diye boş tablo oluştur
+    if not table_exists(PATHS["anomalies"]):
+        empty_df = spark.createDataFrame([], ANOMALY_SCHEMA)
+        (empty_df.write
+            .format("delta")
+            .mode("overwrite")
+            .option("overwriteSchema", "true")
+            .save(PATHS["anomalies"])
+        )
+        print("   ✅ Boş gold_anomalies tablosu oluşturuldu.")
+
+    # Notebook'u sessizce sonlandır
+    dbutils.notebook.exit("SKIPPED: upstream tables not ready")
+
+# ── Tablolar mevcut, veriyi oku ──────────────────────────────
 
 # gold_kpi_daily — son 30 gün
 df_kpi = (
