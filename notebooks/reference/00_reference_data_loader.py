@@ -544,6 +544,9 @@ sim_schema = StructType([
     StructField("target_wall_u_value",      DoubleType(),  True),   # Hedef duvar U-değeri
     StructField("target_window_u_value",    DoubleType(),  True),   # Hedef pencere U-değeri
     StructField("target_roof_u_value",      DoubleType(),  True),   # Hedef çatı U-değeri
+    # İklim Verileri (ısıtma/soğutma enerji talebi hesabı için)
+    StructField("hdd_annual",              DoubleType(),  True),   # Yıllık Isıtma Derece Günü (18°C baz)
+    StructField("cdd_annual",              DoubleType(),  True),   # Yıllık Soğutma Derece Günü (18°C baz)
     # Finansal Parametreler
     StructField("discount_rate_pct",        DoubleType(),  True),   # NPV hesabı için iskonto oranı
     StructField("energy_price_escalation_pct", DoubleType(), True), # Yıllık enerji fiyat artışı
@@ -562,6 +565,7 @@ sim_data = [
      5, 3.5, 17.5, 72.0,                  # 5 kat, 3.5m, 17.5m yükseklik, 72m çevre
      500.0, 100.0,                          # şebeke 500kW, max ihracat 100kW
      45.0, 0.0, 0.18, 1.0, 0.12,          # HP 45kW, ek batarya yok, duvar→0.18, pencere→1.0, çatı→0.12
+     3200.0, 100.0,                         # HDD 3200 (Berlin, 18°C baz), CDD 100
      0.06, 0.03, 15,                        # %6 iskonto, %3 enerji fiyat artışı, 15 yıl proje
      "ESTIMATED",
      "Radyatör sistemi LT uyumlu (55°C) — Daikin Altherma 3 HT veya Viessmann Vitocal ideal. "
@@ -577,6 +581,7 @@ sim_data = [
      3, 4.0, 12.0, 140.0,                  # 3 kat, 4m (AVM yükseklik), 12m, 140m çevre (büyük bina)
      800.0, 150.0,
      0.0, 200.0, 0.25, 1.2, 0.15,         # HP yok (klima sistemi farklı), 200kWh batarya ekle
+     1150.0, 400.0,                         # HDD 1150 (İstanbul, 18°C baz), CDD 400
      0.08, 0.05, 15,
      "ESTIMATED",
      "Mevcut elektrikli klima sistemi — ısı pompası değişimi değil, "
@@ -593,6 +598,7 @@ sim_data = [
      2, 8.0, 16.0, 360.0,                  # 2 kat (yüksek tavan depolar), 8m/kat, 360m çevre (büyük)
      1200.0, 300.0,                         # Büyük endüstriyel şebeke
      80.0, 200.0, 0.20, 1.1, 0.10,         # HP 80kW, +200kWh batarya, yalıtım iyileştirme
+     3400.0, 80.0,                          # HDD 3400 (Hamburg, 18°C baz), CDD 80
      0.06, 0.03, 20,                        # 20 yıl proje (lojistik bina uzun dönem)
      "ESTIMATED",
      "Büyük çatı alanı → solar kapasitesi artırımı potansiyeli. "
