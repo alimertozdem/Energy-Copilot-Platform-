@@ -152,8 +152,11 @@ def log_step(step, count=None, table=None):
 
 
 def table_exists(path):
+    # Fabric'te var olmayan Delta tablosu sorgulandığında
+    # Java katmanından Py4JJavaError (400 Bad Request) fırlatılır.
+    # spark.read ile limit(0) daha sağlam yakalanır.
     try:
-        DeltaTable.forPath(spark, path)
+        spark.read.format("delta").load(path).limit(0).count()
         return True
     except Exception:
         return False
