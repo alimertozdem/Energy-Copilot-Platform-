@@ -1120,6 +1120,7 @@ df_results = df_ins.select(
     col("ins_recommended_product"),
     spark_round(col("ins_wall_area_m2"), 0).alias("ins_wall_area_m2"),
     spark_round(col("ins_roof_area_m2"), 0).alias("ins_roof_area_m2"),
+    spark_round(col("ins_wall_area_m2") + col("ins_roof_area_m2"), 0).alias("ins_total_area_m2"),
     spark_round(col("ins_annual_heat_reduction_kwh"), 0).alias("ins_annual_heat_reduction_kwh"),
     spark_round(col("ins_annual_saving_eur"), 0).alias("ins_annual_saving_eur"),
     spark_round(col("ins_co2_saving_kg"), 0).alias("ins_co2_saving_kg"),
@@ -1152,6 +1153,9 @@ log_step("WRITE", "Writing gold_simulation_results …",
 target_path = GOLD_PATHS["simulation_results"]
 
 if DeltaTable.isDeltaTable(spark, target_path):
+    # mergeSchema=true: allows new columns (e.g. ins_total_area_m2) to be added
+    # to the existing Delta table without a full overwrite
+    spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
     delta_tbl = DeltaTable.forPath(spark, target_path)
     (
         delta_tbl.alias("tgt")
@@ -1170,6 +1174,7 @@ else:
         .write
         .format("delta")
         .mode("overwrite")
+        .option("overwriteSchema", "true")
         .partitionBy("country_code")
         .save(target_path)
     )
