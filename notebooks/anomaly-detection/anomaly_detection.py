@@ -351,19 +351,22 @@ df_daily = (
         "total_consumption_kwh",
         "eui_kwh_m2",
         "avg_solar_pr",
-        "avg_irradiance_wm2",
+        "solar_generated_kwh",   # irradiance proxy: üretim > 0 ise güneşli gün
         "battery_charged_kwh",
         "battery_discharged_kwh",
         "carbon_intensity_kg_m2",
-        "has_heat_pump",       # kpi_daily'den
-        "heat_pump_cop_rated", # building_master'dan
-        "has_pv",              # kpi_daily'den
-        "pv_capacity_kwp",     # kpi_daily'den
-        "has_battery",         # kpi_daily'den
-        "battery_capacity_kwh",# kpi_daily'den
-        "building_type",       # building_master'dan
-        "conditioned_area_m2", # building_master'dan
+        "has_heat_pump",         # kpi_daily'den
+        "heat_pump_cop_rated",   # building_master'dan
+        "has_pv",                # kpi_daily'den
+        "pv_capacity_kwp",       # kpi_daily'den
+        "has_battery",           # kpi_daily'den
+        "battery_capacity_kwh",  # kpi_daily'den
+        "building_type",         # building_master'dan
+        "conditioned_area_m2",   # building_master'dan
         "hdd_day"
+        # NOT: avg_irradiance_wm2 gold_kpi_daily'de yok — saatlik hesaplamada
+        # kullanılıyor ama günlük tabloya yazılmıyor. Proxy olarak
+        # solar_generated_kwh > 0 kullanıyoruz (üretim varsa güneşli gün).
     )
     .orderBy("building_id", "date")
 )
@@ -507,9 +510,12 @@ df_solar = (
         (col("has_pv") == "true") &
         (col("pv_capacity_kwp") > lit(0)) &
         (coalesce(col("avg_solar_pr"), lit(1.0)) < lit(SOLAR_PR_LOW)) &
-        (coalesce(col("avg_irradiance_wm2"), lit(0.0)) > lit(SOLAR_IRRADIANCE_MIN))
+        # avg_irradiance_wm2 gold_kpi_daily'de yok.
+        # Proxy: solar_generated_kwh > 0 → inverter çalışıyor, güneş var
+        # ama PR hâlâ düşük → gerçek underperformance
+        (coalesce(col("solar_generated_kwh"), lit(0.0)) > lit(0.5))
     )
-    .select("building_id", "date", "avg_solar_pr", "avg_irradiance_wm2", "pv_capacity_kwp")
+    .select("building_id", "date", "avg_solar_pr", "solar_generated_kwh", "pv_capacity_kwp")
 )
 
 solar_rows = df_solar.collect()
@@ -517,7 +523,7 @@ for row in solar_rows:
     bid  = row["building_id"]
     dt   = row["date"]
     pr   = round(row["avg_solar_pr"] or 0, 3)
-    irr  = round(row["avg_irradiance_wm2"] or 0, 1)
+    gen  = round(row["solar_generated_kwh"] or 0, 1)
     cap  = row["pv_capacity_kwp"]
     sev  = SEV_CRITICAL if pr < 0.50 else (SEV_HIGH if pr < 0.58 else SEV_MEDIUM)
 
@@ -528,9 +534,9 @@ for row in solar_rows:
         detected_date  = dt,
         metric_value   = pr,
         threshold_value= SOLAR_PR_LOW,
-        desc_en = f"Solar Performance Ratio {pr:.3f} is below threshold {SOLAR_PR_LOW} at irradiance {irr:.1f} W/m². System capacity: {cap} kWp.",
-        desc_de = f"Solar-Performance-Ratio {pr:.3f} unterschreitet Schwellenwert {SOLAR_PR_LOW} bei Einstrahlung {irr:.1f} W/m². Anlagenkapazität: {cap} kWp.",
-        desc_tr = f"Solar Performans Oranı {pr:.3f}, {irr:.1f} W/m² ışınım altında {SOLAR_PR_LOW} eşiğinin altında. Sistem kapasitesi: {cap} kWp.",
+        desc_en = f"Solar Performance Ratio {pr:.3f} is below threshold {SOLAR_PR_LOW} despite active generation ({gen:.1f} kWh). System capacity: {cap} kWp.",
+        desc_de = f"Solar-Performance-Ratio {pr:.3f} unterschreitet Schwellenwert {SOLAR_PR_LOW} trotz aktiver Erzeugung ({gen:.1f} kWh). Anlagenkapazität: {cap} kWp.",
+        desc_tr = f"Solar Performans Oranı {pr:.3f}, aktif üretim ({gen:.1f} kWh) olmasına rağmen {SOLAR_PR_LOW} eşiğinin altında. Sistem kapasitesi: {cap} kWp.",
         action_en = f"Check inverter status, panel soiling/shading, string fuses, and monitoring data for gaps. Consider professional IR inspection.",
     ))
 
