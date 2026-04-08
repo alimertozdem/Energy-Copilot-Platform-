@@ -116,6 +116,13 @@ NPV_YEARS               = 10      # investment horizon
 
 ENERGY_PRICE_ESCALATION = 0.03    # 3 % annual energy price increase
 
+# Government grant rates — regulatory constants, not product-specific
+# Sources: KfW BEG 2024 (DE), BAFA BEG 2024 (DE), YEKA 2024 (TR)
+KFW_HP_GRANT_PCT      = 0.15   # KfW BEG individual measure: 15 % base grant (heat pump)
+BAFA_HP_GRANT_EUR_KW  = 150.0  # BAFA BEG: approx €150/kW flat component for HP
+KFW_BAT_GRANT_PCT     = 0.10   # KfW 270/442: 10 % for battery storage
+KFW_INS_GRANT_PCT     = 0.15   # KfW BEG: 15 % for building envelope insulation
+
 # Battery parameters
 BATTERY_ROUNDTRIP_EFF   = 0.90    # 90 % round-trip efficiency
 BATTERY_USABLE_SOC      = 0.80    # 80 % usable state of charge
@@ -427,19 +434,19 @@ df_hp = df_hp.withColumn(
     col("hlc_current_w_k") * design_delta_t / 1000.0
 )
 
-# Fetch price per kW from catalog (price_range_eur_kw_min + max avg)
+# Fetch price per kW from catalog
+# category uses prefix match: HEAT_PUMP_ASHP / HEAT_PUMP_GSHP / HEAT_PUMP_EXHAUST
+# capex_per_unit is EUR/kW for heat pumps (capex_unit = "EUR/kW")
 df_hp_catalog = (
     df_tech
-    .filter(col("technology_type") == "HEAT_PUMP")
+    .filter(col("category").startswith("HEAT_PUMP"))
     .select(
         col("product_id"),
-        col("price_range_eur_kw_min"),
-        col("price_range_eur_kw_max"),
+        col("capex_per_unit_min_eur").alias("price_range_eur_kw_min"),
+        col("capex_per_unit_max_eur").alias("price_range_eur_kw_max"),
         col("kfw_eligible"),
         col("bafa_eligible"),
         col("yeka_eligible"),
-        col("kfw_grant_pct"),
-        col("bafa_grant_eur_kw"),
     )
 )
 
@@ -463,12 +470,12 @@ df_hp = df_hp.withColumn(
 #   BAFA: bafa_grant_eur_kw × peak_demand_kw (only DE)
 hp_kfw_grant = when(
     col("kfw_eligible") & (col("country_code") == "DE"),
-    col("hp_capex_eur") * col("kfw_grant_pct")
+    col("hp_capex_eur") * lit(KFW_HP_GRANT_PCT)
 ).otherwise(lit(0.0))
 
 hp_bafa_grant = when(
     col("bafa_eligible") & (col("country_code") == "DE"),
-    col("bafa_grant_eur_kw") * col("hp_peak_demand_kw")
+    lit(BAFA_HP_GRANT_EUR_KW) * col("hp_peak_demand_kw")
 ).otherwise(lit(0.0))
 
 hp_yeka_grant = when(
@@ -626,15 +633,16 @@ recommended_bat_product = when(
 df_bat = df_bat.withColumn("bat_recommended_product", recommended_bat_product)
 
 # Fetch battery price from catalog
+# category prefix: BATTERY_LFP / BATTERY_NMC
+# capex_per_unit is EUR/kWh for batteries (capex_unit = "EUR/kWh")
 df_bat_catalog = (
     df_tech
-    .filter(col("technology_type") == "BATTERY")
+    .filter(col("category").startswith("BATTERY"))
     .select(
         col("product_id"),
-        col("price_range_eur_kwh_min"),
-        col("price_range_eur_kwh_max"),
+        col("capex_per_unit_min_eur").alias("price_range_eur_kwh_min"),
+        col("capex_per_unit_max_eur").alias("price_range_eur_kwh_max"),
         col("kfw_eligible").alias("bat_kfw_eligible"),
-        col("kfw_grant_pct").alias("bat_kfw_grant_pct"),
     )
 )
 
@@ -653,10 +661,10 @@ df_bat = df_bat.withColumn(
     avg_bat_price_kwh * col("bat_incremental_size_kwh")
 )
 
-# KfW 270 / 442 grants for battery storage (typically 10–15 %)
+# KfW 270 / 442 grants for battery storage — KFW_BAT_GRANT_PCT constant (10 %)
 bat_kfw_grant = when(
     col("bat_kfw_eligible") & (col("country_code") == "DE"),
-    col("bat_capex_eur") * col("bat_kfw_grant_pct")
+    col("bat_capex_eur") * lit(KFW_BAT_GRANT_PCT)
 ).otherwise(lit(0.0))
 
 df_bat = (
@@ -754,15 +762,16 @@ recommended_ins_product = when(
 df_ins = df_ins.withColumn("ins_recommended_product", recommended_ins_product)
 
 # Fetch insulation price from catalog
+# category prefix: INSULATION_EPS / INSULATION_MW / INSULATION_PIR / INSULATION_AEROGEL
+# capex_per_unit is EUR/m² for insulation (capex_unit = "EUR/m²")
 df_ins_catalog = (
     df_tech
-    .filter(col("technology_type") == "INSULATION")
+    .filter(col("category").startswith("INSULATION"))
     .select(
         col("product_id"),
-        col("price_range_eur_m2_min"),
-        col("price_range_eur_m2_max"),
+        col("capex_per_unit_min_eur").alias("price_range_eur_m2_min"),
+        col("capex_per_unit_max_eur").alias("price_range_eur_m2_max"),
         col("kfw_eligible").alias("ins_kfw_eligible"),
-        col("kfw_grant_pct").alias("ins_kfw_grant_pct"),
     )
 )
 
@@ -781,7 +790,7 @@ df_ins = df_ins.withColumn(
 
 ins_kfw_grant = when(
     col("ins_kfw_eligible") & (col("country_code") == "DE"),
-    col("ins_capex_eur") * col("ins_kfw_grant_pct")
+    col("ins_capex_eur") * lit(KFW_INS_GRANT_PCT)
 ).otherwise(lit(0.0))
 
 df_ins = (
