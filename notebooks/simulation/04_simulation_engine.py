@@ -229,14 +229,14 @@ df_actuals = (
     .groupBy("building_id")
     .agg(
         spark_sum("total_consumption_kwh").alias("actual_annual_consumption_kwh"),
-        spark_avg("solar_self_consumption_pct").alias("avg_self_consumption_pct"),
-        spark_avg("battery_soc_avg_pct").alias("avg_battery_soc_pct"),
-        spark_avg("load_factor").alias("avg_load_factor"),
+        spark_avg("avg_self_consumption_rate").alias("avg_self_consumption_pct"),
+        spark_avg((col("battery_soc_min_pct") + col("battery_soc_max_pct")) / 2).alias("avg_battery_soc_pct"),
+        spark_avg("avg_load_factor").alias("avg_load_factor"),
         percentile_approx("total_consumption_kwh", 0.90).alias("p90_daily_demand_kwh"),
         spark_max("total_consumption_kwh").alias("max_daily_demand_kwh"),
         spark_sum("solar_generated_kwh").alias("actual_annual_solar_kwh"),
         spark_sum("solar_exported_kwh").alias("actual_annual_exported_kwh"),
-        spark_sum("co2_kg").alias("actual_annual_co2_kg"),
+        spark_sum("co2_emissions_kg").alias("actual_annual_co2_kg"),
         count("date").alias("days_with_data"),
     )
 )
