@@ -989,8 +989,8 @@ else:
 
 log_step("OPTIMIZE", "Running OPTIMIZE on compliance tables …")
 
-spark.sql(f"OPTIMIZE delta.`{target_results}` ZORDER BY (country_code, overall_score)")
-spark.sql(f"OPTIMIZE delta.`{target_issues}` ZORDER BY (country_code, regulation, severity)")
+spark.sql(f"OPTIMIZE delta.`{target_results}` ZORDER BY (overall_score, building_type)")
+spark.sql(f"OPTIMIZE delta.`{target_issues}` ZORDER BY (regulation, severity)")
 
 log_step("OPTIMIZE", "OPTIMIZE complete")
 
