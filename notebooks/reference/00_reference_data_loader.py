@@ -47,7 +47,7 @@ def write_ref_table(data, schema, path, table_name):
     """Referans tablosunu overwrite ile yaz (her zaman en güncel veri)."""
     df = spark.createDataFrame(data, schema)
     df = df.withColumn("loaded_at", current_timestamp())
-    df.write.format("delta").mode("overwrite").save(path)
+    df.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(path)
     print(f"✅ {table_name}: {df.count()} satır yazıldı → {path}")
     return df
 
