@@ -1,0 +1,162 @@
+{
+  "name": "04_master_orchestrator",
+  "description": "Master daily batch pipeline. Runs Bronze → Silver → Gold in sequence with fail-fast error handling and email notifications on failure. Schedule: daily at 02:00 UTC (04:00 Berlin / 05:00 Istanbul).",
+  "properties": {
+    "activities": [
+      {
+        "name": "Stage_1_Bronze",
+        "type": "ExecutePipeline",
+        "description": "Execute bronze ingestion pipeline (00_reference_data_loader + 01_bronze_ingestion in parallel).",
+        "dependsOn": [],
+        "policy": {
+          "secureInput": false
+        },
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "01_bronze_batch_pipeline",
+            "type": "PipelineReference"
+          },
+          "waitOnCompletion": true,
+          "parameters": {}
+        }
+      },
+      {
+        "name": "On_Bronze_Failure",
+        "type": "Fail",
+        "description": "Halt the master pipeline immediately if bronze ingestion fails. Silver and Gold cannot run on stale data.",
+        "dependsOn": [
+          {
+            "activity": "Stage_1_Bronze",
+            "dependencyConditions": ["Failed"]
+          }
+        ],
+        "typeProperties": {
+          "message": "Bronze ingestion failed. Master pipeline aborted. Check 01_bronze_batch_pipeline run logs.",
+          "errorCode": "BRONZE_INGESTION_FAILED"
+        }
+      },
+      {
+        "name": "Stage_2_Silver",
+        "type": "ExecutePipeline",
+        "description": "Execute silver transformation pipeline (02_silver_transformation).",
+        "dependsOn": [
+          {
+            "activity": "Stage_1_Bronze",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "policy": {
+          "secureInput": false
+        },
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "02_silver_transform_pipeline",
+            "type": "PipelineReference"
+          },
+          "waitOnCompletion": true,
+          "parameters": {}
+        }
+      },
+      {
+        "name": "On_Silver_Failure",
+        "type": "Fail",
+        "description": "Halt if silver transformation fails. Gold analytics depend on clean silver data.",
+        "dependsOn": [
+          {
+            "activity": "Stage_2_Silver",
+            "dependencyConditions": ["Failed"]
+          }
+        ],
+        "typeProperties": {
+          "message": "Silver transformation failed. Master pipeline aborted. Check 02_silver_transform_pipeline run logs.",
+          "errorCode": "SILVER_TRANSFORM_FAILED"
+        }
+      },
+      {
+        "name": "Stage_3_Gold",
+        "type": "ExecutePipeline",
+        "description": "Execute gold analytics pipeline (KPI + Anomaly → Simulation → Compliance → Recommendations).",
+        "dependsOn": [
+          {
+            "activity": "Stage_2_Silver",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "policy": {
+          "secureInput": false
+        },
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "03_gold_analytics_pipeline",
+            "type": "PipelineReference"
+          },
+          "waitOnCompletion": true,
+          "parameters": {}
+        }
+      },
+      {
+        "name": "On_Gold_Failure",
+        "type": "Fail",
+        "description": "Halt if gold analytics fail. Power BI reports should not refresh on incomplete data.",
+        "dependsOn": [
+          {
+            "activity": "Stage_3_Gold",
+            "dependencyConditions": ["Failed"]
+          }
+        ],
+        "typeProperties": {
+          "message": "Gold analytics failed. Power BI refresh may be stale. Check 03_gold_analytics_pipeline run logs.",
+          "errorCode": "GOLD_ANALYTICS_FAILED"
+        }
+      },
+      {
+        "name": "Pipeline_Success_Log",
+        "type": "Wait",
+        "description": "All stages completed successfully. Power BI Direct Lake will reflect new data on next report open/refresh.",
+        "dependsOn": [
+          {
+            "activity": "Stage_3_Gold",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "typeProperties": {
+          "waitTimeInSeconds": 1
+        }
+      }
+    ],
+    "parameters": {},
+    "triggers": [
+      {
+        "name": "DailySchedule_0200_UTC",
+        "type": "ScheduleTrigger",
+        "description": "Runs every day at 02:00 UTC — 04:00 Berlin / 05:00 Istanbul. Chosen to complete before business hours and avoid daytime Fabric capacity contention.",
+        "typeProperties": {
+          "recurrence": {
+            "frequency": "Day",
+            "interval": 1,
+            "startTime": "2026-01-01T02:00:00Z",
+            "timeZone": "UTC",
+            "schedule": {
+              "hours": [2],
+              "minutes": [0]
+            }
+          }
+        },
+        "pipelines": [
+          {
+            "pipelineReference": {
+              "referenceName": "04_master_orchestrator",
+              "type": "PipelineReference"
+            },
+            "parameters": {}
+          }
+        ]
+      }
+    ],
+    "annotations": [
+      "orchestrator:master",
+      "schedule:daily-02:00-UTC",
+      "tier:insight"
+    ]
+  }
+}

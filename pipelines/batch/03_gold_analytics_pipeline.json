@@ -1,0 +1,127 @@
+{
+  "name": "03_gold_analytics_pipeline",
+  "description": "Gold layer analytics: computes KPIs, detects anomalies, runs simulations, checks compliance, and generates recommendations. KPI and anomaly detection run in parallel; simulation, compliance, and recommendation run sequentially after KPI.",
+  "properties": {
+    "activities": [
+      {
+        "name": "Compute_KPIs",
+        "type": "TridentNotebook",
+        "description": "Run 03_kpi_engine — computes daily and monthly KPIs (EUI, COP, solar yield, battery SoC, carbon intensity) into gold_kpi_daily and gold_kpi_monthly.",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.01:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 60
+        },
+        "typeProperties": {
+          "notebookId": "03_kpi_engine",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Detect_Anomalies",
+        "type": "TridentNotebook",
+        "description": "Run anomaly_detection — rule-based anomaly checks (consumption spikes, COP degradation, solar underperformance, after-hours waste) into gold_anomalies.",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.00:45:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 60
+        },
+        "typeProperties": {
+          "notebookId": "anomaly_detection",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Run_Simulation_Engine",
+        "type": "TridentNotebook",
+        "description": "Run 04_simulation_engine — physics-based what-if simulations (heat pump, solar, battery, insulation) with ROI and grant calculations into gold_simulation_results.",
+        "dependsOn": [
+          {
+            "activity": "Compute_KPIs",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 1,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "04_simulation_engine",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Check_Compliance",
+        "type": "TridentNotebook",
+        "description": "Run 05_compliance_checker — scores buildings against EnEfG, GEG, EEG, EPBD, CSRD, BEP-TR regulations (0-100 per regulation, weighted overall) into gold_compliance_results and gold_compliance_issues.",
+        "dependsOn": [
+          {
+            "activity": "Run_Simulation_Engine",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "policy": {
+          "timeout": "0.00:45:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 60
+        },
+        "typeProperties": {
+          "notebookId": "05_compliance_checker",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Generate_Recommendations",
+        "type": "TridentNotebook",
+        "description": "Run 06_recommendation_engine — synthesizes KPI trends, compliance scores, and simulation ROI into ranked, trilingual recommendations (top 8 per building) into gold_recommendations.",
+        "dependsOn": [
+          {
+            "activity": "Check_Compliance",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "policy": {
+          "timeout": "0.00:45:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 60
+        },
+        "typeProperties": {
+          "notebookId": "06_recommendation_engine",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Gold_Completed",
+        "type": "Wait",
+        "description": "All gold analytics finished — anomaly detection and recommendation pipeline both done.",
+        "dependsOn": [
+          {
+            "activity": "Generate_Recommendations",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Detect_Anomalies",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "typeProperties": {
+          "waitTimeInSeconds": 1
+        }
+      }
+    ],
+    "parameters": {},
+    "annotations": [
+      "layer:gold",
+      "schedule:daily",
+      "tier:insight"
+    ]
+  }
+}
