@@ -303,14 +303,20 @@ df_kpi = (
 log_step("gold_kpi_daily okundu", df_kpi.count(), "gold_kpi_daily")
 
 # silver_building_master — broadcast (küçük referans tablosu)
+# DP-600 NOT: gold_kpi_daily zaten şu kolonları içeriyor (KPI engine'den geliyor):
+#   has_heat_pump, has_pv, has_battery, pv_capacity_kwp, battery_capacity_kwh
+# Bunları df_building'den seçmiyoruz — join sonrası AMBIGUOUS_REFERENCE hatası verir.
+# Sadece gold_kpi_daily'de OLMAYAN kolonları alıyoruz:
 df_building = broadcast(
     spark.read.format("delta").load(PATHS["building"])
     .select(
-        "building_id", "building_type", "country_code",
-        "has_heat_pump", "heat_pump_cop_rated", "heat_pump_capacity_kw",
-        "has_pv", "pv_capacity_kwp",
-        "has_battery", "battery_capacity_kwh",
-        "conditioned_area_m2", "subscription_tier"
+        "building_id",
+        "building_type",          # kpi_daily'de yok
+        "country_code",           # kpi_daily'de yok
+        "heat_pump_cop_rated",    # kpi_daily'de yok — COP degradasyon tespiti için
+        "heat_pump_capacity_kw",  # kpi_daily'de yok
+        "conditioned_area_m2",    # kpi_daily'de floor_area_m2 adıyla var, biz orijinalini alıyoruz
+        "subscription_tier",      # kpi_daily'de yok
     )
 )
 log_step("silver_building_master okundu", df_building.count(), "silver_building_master")
@@ -335,6 +341,10 @@ print("ROLLING PENCERE — 7 GÜNLÜK ORTALAMA")
 print("="*60)
 
 # Gün bazında toplam tüketim (zaten günlük KPI tablosunda mevcut)
+# has_heat_pump, has_pv, has_battery, pv_capacity_kwp, battery_capacity_kwh
+# → gold_kpi_daily'den geliyor (df_kpi)
+# heat_pump_cop_rated, building_type, conditioned_area_m2
+# → silver_building_master'dan geliyor (df_building)
 df_daily = (
     df.select(
         "building_id", "date",
@@ -345,10 +355,14 @@ df_daily = (
         "battery_charged_kwh",
         "battery_discharged_kwh",
         "carbon_intensity_kg_m2",
-        "has_heat_pump", "heat_pump_cop_rated",
-        "has_pv", "pv_capacity_kwp",
-        "has_battery", "battery_capacity_kwh",
-        "building_type", "conditioned_area_m2",
+        "has_heat_pump",       # kpi_daily'den
+        "heat_pump_cop_rated", # building_master'dan
+        "has_pv",              # kpi_daily'den
+        "pv_capacity_kwp",     # kpi_daily'den
+        "has_battery",         # kpi_daily'den
+        "battery_capacity_kwh",# kpi_daily'den
+        "building_type",       # building_master'dan
+        "conditioned_area_m2", # building_master'dan
         "hdd_day"
     )
     .orderBy("building_id", "date")
