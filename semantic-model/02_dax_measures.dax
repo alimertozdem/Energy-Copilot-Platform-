@@ -1,0 +1,400 @@
+// ============================================================
+// Energy Copilot Platform — DAX Measures
+// Semantic Model: EnergycopilotModel
+// ============================================================
+// NASIL KULLANILIR:
+//   Model editöründe her measure için:
+//   New Measure → İsim yaz → Aşağıdaki formülü yapıştır → Enter
+//
+// MEASURE GRUPLARI (Home Table: her grubu ayrı tabloya ekle):
+//   📊 KPI Measures       → gold_kpi_daily tablosuna ekle
+//   🚨 Anomaly Measures   → gold_anomalies tablosuna ekle
+//   🔮 Forecast Measures  → gold_consumption_forecast tablosuna ekle
+//   💡 Rec Measures       → gold_recommendations tablosuna ekle
+//   🏢 Occupancy Measures → gold_occupancy_profile tablosuna ekle
+//   🌱 Carbon Measures    → gold_kpi_daily tablosuna ekle
+// ============================================================
+
+
+// ============================================================
+// 📊 BÖLÜM 1 — TEMEL ENERJİ KPI'LARI
+// Sayfa: Portfolio Overview + Building Detail
+// ============================================================
+
+// Toplam tüketim
+Total Consumption kWh =
+SUM(gold_kpi_daily[total_consumption_kwh])
+
+// Ortalama günlük tüketim (seçili dönem için)
+Avg Daily Consumption kWh =
+AVERAGE(gold_kpi_daily[total_consumption_kwh])
+
+// Pik güç talebi
+Peak Demand kW =
+MAX(gold_kpi_daily[peak_demand_kw])
+
+// Enerji Kullanım Yoğunluğu (kWh/m²)
+// Benchmark: iyi ofis ≤ 100 kWh/m²/yıl = 0.27/gün
+Avg EUI kWh m2 =
+AVERAGEX(
+    FILTER(gold_kpi_daily, gold_kpi_daily[eui_kwh_m2] <> BLANK()),
+    gold_kpi_daily[eui_kwh_m2]
+)
+
+// İklim normalize EUI (HDD'ye göre düzeltilmiş — farklı iklim karşılaştırması için)
+Avg HDD Normalized EUI =
+AVERAGEX(
+    FILTER(gold_kpi_daily, gold_kpi_daily[hdd_normalized_eui] <> BLANK()),
+    gold_kpi_daily[hdd_normalized_eui]
+)
+
+// Net şebeke tüketimi
+Total Grid Consumption kWh =
+SUM(gold_kpi_daily[net_grid_consumption_kwh])
+
+// Tahmini enerji maliyeti (EUR)
+Total Energy Cost EUR =
+SUM(gold_kpi_daily[estimated_cost_eur])
+
+// Solar'dan elde edilen tahmini tasarruf (EUR)
+Total Solar Savings EUR =
+SUM(gold_kpi_daily[estimated_savings_eur])
+
+// Ortalama dış sıcaklık
+Avg Temperature C =
+AVERAGE(gold_kpi_daily[avg_temperature_c])
+
+// Kaç farklı bina var (filtre bağlamında)
+Buildings Count =
+DISTINCTCOUNT(gold_kpi_daily[building_id])
+
+
+// ============================================================
+// ☀️ BÖLÜM 2 — SOLAR & BATARYA
+// Sayfa: Portfolio Overview + Building Detail
+// ============================================================
+
+// Toplam solar üretim
+Total Solar Generated kWh =
+SUM(gold_kpi_daily[solar_generated_kwh])
+
+// Solar kapsama oranı: tüketimin kaçta kaçı solar'dan karşılandı
+Solar Coverage Pct =
+DIVIDE(
+    [Total Solar Generated kWh],
+    [Total Consumption kWh],
+    0
+) * 100
+
+// Öz-tüketim oranı: üretilen solar'ın kaçta kaçı binada kullanıldı
+Avg Self Consumption Rate Pct =
+AVERAGE(gold_kpi_daily[avg_self_consumption_rate]) * 100
+
+// Enerji bağımsızlık oranı: tüketimin kaçta kaçı kendi kaynaklardan
+Avg Self Sufficiency Rate Pct =
+AVERAGE(gold_kpi_daily[avg_self_sufficiency_rate]) * 100
+
+// Ortalama solar performans oranı (PR)
+// PR < 0.75 → sorun var (kirleme, gölge, arıza)
+Avg Solar PR Pct =
+AVERAGE(gold_kpi_daily[avg_solar_pr]) * 100
+
+// Toplam şebekeye verilen solar
+Total Solar Exported kWh =
+SUM(gold_kpi_daily[solar_exported_kwh])
+
+// Batarya net işlem (şarj - deşarj)
+Battery Net kWh =
+SUM(gold_kpi_daily[battery_charged_kwh]) - SUM(gold_kpi_daily[battery_discharged_kwh])
+
+// Günlük ortalama batarya döngüsü
+Avg Battery Cycles Day =
+AVERAGE(gold_kpi_daily[battery_cycles_day])
+
+
+// ============================================================
+// 🚨 BÖLÜM 3 — ANOMALİ & ALERT
+// Sayfa: Anomalies & Alerts
+// ============================================================
+
+// Toplam anomali sayısı (seçili dönem)
+Total Anomalies =
+COUNTROWS(gold_anomalies)
+
+// Aktif (çözülmemiş) anomaliler
+Active Anomalies =
+CALCULATE(
+    COUNTROWS(gold_anomalies),
+    gold_anomalies[is_resolved] = FALSE
+)
+
+// Kritik anomaliler
+Critical Anomalies =
+CALCULATE(
+    COUNTROWS(gold_anomalies),
+    gold_anomalies[severity] = "critical"
+)
+
+// Yüksek öncelikli anomaliler
+High Anomalies =
+CALCULATE(
+    COUNTROWS(gold_anomalies),
+    gold_anomalies[severity] = "high"
+)
+
+// Çözülmüş anomaliler
+Resolved Anomalies =
+CALCULATE(
+    COUNTROWS(gold_anomalies),
+    gold_anomalies[is_resolved] = TRUE
+)
+
+// Aktif anomali oranı
+Active Anomaly Rate Pct =
+DIVIDE([Active Anomalies], [Total Anomalies], 0) * 100
+
+// Ortalama aşım oranı (metrik eşiğin ne kadar üzerinde)
+Avg Threshold Breach Pct =
+AVERAGEX(
+    FILTER(
+        gold_anomalies,
+        gold_anomalies[threshold_value] > 0
+    ),
+    DIVIDE(
+        gold_anomalies[metric_value] - gold_anomalies[threshold_value],
+        gold_anomalies[threshold_value],
+        0
+    ) * 100
+)
+
+// Kritik + Yüksek toplam (dashboard badge için)
+High Priority Anomalies =
+[Critical Anomalies] + [High Anomalies]
+
+
+// ============================================================
+// 🔮 BÖLÜM 4 — TÜKETİM TAHMİNİ (FORECAST)
+// Sayfa: Forecast & Recommendations
+// ============================================================
+
+// Önümüzdeki 7 günlük toplam tahmin
+7 Day Forecast Total kWh =
+SUM(gold_consumption_forecast[predicted_kwh])
+
+// Ortalama günlük tahmin
+Avg Daily Forecast kWh =
+AVERAGE(gold_consumption_forecast[predicted_kwh])
+
+// Model doğruluk hatası (düşük = iyi)
+// < 10% → Mükemmel, 10-20% → İyi, > 30% → Veri az
+Avg Model MAPE Pct =
+AVERAGE(gold_consumption_forecast[model_mape_pct])
+
+// Güven aralığı genişliği (belirsizlik göstergesi)
+// Dar = model emindir, Geniş = tahmin zorlu
+Avg Forecast Confidence Width kWh =
+AVERAGE(gold_consumption_forecast[upper_bound_kwh]) -
+AVERAGE(gold_consumption_forecast[lower_bound_kwh])
+
+// Model eğitildiği gün sayısı
+Avg Trained On Days =
+AVERAGE(gold_consumption_forecast[trained_on_days])
+
+
+// ============================================================
+// 💡 BÖLÜM 5 — ÖNERİLER (RECOMMENDATIONS)
+// Sayfa: Forecast & Recommendations
+// ============================================================
+
+// Toplam potansiyel yıllık tasarruf
+Total Annual Saving EUR =
+SUM(gold_recommendations[annual_saving_eur])
+
+// Toplam CO₂ azaltma potansiyeli
+Total CO2 Saving kg =
+SUM(gold_recommendations[co2_saving_kg])
+
+// Toplam CO₂ azaltma (ton cinsinden)
+Total CO2 Saving tCO2 =
+[Total CO2 Saving kg] / 1000
+
+// Toplam gerekli yatırım
+Total Capex EUR =
+SUM(gold_recommendations[capex_eur])
+
+// Toplam sübvansiyon/hibe tutarı
+Total Grant EUR =
+SUM(gold_recommendations[grant_eur])
+
+// Net yatırım maliyeti (hibeler düşüldükten sonra)
+Total Net Capex EUR =
+SUM(gold_recommendations[net_capex_eur])
+
+// Ortalama geri ödeme süresi (yıl)
+Avg Payback Years =
+AVERAGE(gold_recommendations[payback_years])
+
+// Kritik öncelikli öneri sayısı
+Critical Recommendations =
+CALCULATE(
+    COUNTROWS(gold_recommendations),
+    gold_recommendations[priority_label] = "Critical"
+)
+
+// Yüksek + Kritik öneri sayısı
+High Priority Recommendations =
+CALCULATE(
+    COUNTROWS(gold_recommendations),
+    gold_recommendations[priority_label] IN {"Critical", "High"}
+)
+
+// Toplam öneri sayısı
+Total Recommendations =
+COUNTROWS(gold_recommendations)
+
+
+// ============================================================
+// 🏢 BÖLÜM 6 — DOLULUK (OCCUPANCY)
+// Sayfa: Occupancy Analysis
+// ============================================================
+
+// İş saatleri (09-18) ortalama doluluk oranı
+Avg Business Hours Occupancy Pct =
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+    gold_occupancy_profile[hour_of_day] >= 9,
+    gold_occupancy_profile[hour_of_day] <= 18
+) * 100
+
+// Mesai dışı (20:00-07:00) ortalama doluluk oranı
+// Yüksekse → gereksiz enerji harcaması riski
+Avg After Hours Occupancy Pct =
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+    gold_occupancy_profile[hour_of_day] >= 20 ||
+    gold_occupancy_profile[hour_of_day] <= 7
+) * 100
+
+// Kalibre edilmiş bina sayısı (gerçek veriyle iyileştirilmiş profil)
+Calibrated Buildings Count =
+CALCULATE(
+    DISTINCTCOUNT(gold_occupancy_profile[building_id]),
+    gold_occupancy_profile[profile_source] = "calibrated"
+)
+
+// Ortalama profil güven skoru
+Avg Profile Confidence =
+AVERAGE(gold_occupancy_profile[confidence_score])
+
+// Hafta sonu ortalama doluluk
+Avg Weekend Occupancy Pct =
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+    gold_occupancy_profile[day_of_week] >= 5
+) * 100
+
+// Hafta içi ortalama doluluk
+Avg Weekday Occupancy Pct =
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+    gold_occupancy_profile[day_of_week] < 5
+) * 100
+
+
+// ============================================================
+// 🌱 BÖLÜM 7 — SÜRDÜRÜLEBİLİRLİK & KARBON
+// Sayfa: Sustainability & Compliance
+// ============================================================
+
+// Toplam CO₂ emisyonu (kg)
+Total CO2 Emissions kg =
+SUM(gold_kpi_daily[co2_emissions_kg])
+
+// Toplam CO₂ emisyonu (ton — ESG raporlama için)
+Total CO2 Emissions tCO2 =
+[Total CO2 Emissions kg] / 1000
+
+// Solar'dan CO₂ tasarrufu (kg)
+Total CO2 Savings from Solar kg =
+SUM(gold_kpi_daily[co2_savings_from_solar_kg])
+
+// Solar'dan CO₂ tasarrufu (ton)
+Total CO2 Savings from Solar tCO2 =
+[Total CO2 Savings from Solar kg] / 1000
+
+// Net karbon ayak izi (emisyon - solar tasarrufu)
+Net Carbon Footprint tCO2 =
+[Total CO2 Emissions tCO2] - [Total CO2 Savings from Solar tCO2]
+
+// Ortalama karbon yoğunluğu (kg CO₂/m²)
+Avg Carbon Intensity kg m2 =
+AVERAGEX(
+    FILTER(gold_kpi_daily, gold_kpi_daily[carbon_intensity_kg_m2] <> BLANK()),
+    gold_kpi_daily[carbon_intensity_kg_m2]
+)
+
+// Karbon azaltma oranı (solar sayesinde)
+Carbon Reduction from Solar Pct =
+DIVIDE(
+    [Total CO2 Savings from Solar kg],
+    [Total CO2 Emissions kg] + [Total CO2 Savings from Solar kg],
+    0
+) * 100
+
+// Isıtma derece-günleri toplamı (iklim sertliği göstergesi)
+Total HDD =
+SUM(gold_kpi_daily[hdd_day])
+
+// Soğutma derece-günleri toplamı
+Total CDD =
+SUM(gold_kpi_daily[cdd_day])
+
+
+// ============================================================
+// ⏱️ BÖLÜM 8 — ZAMAN KARŞILAŞTIRMA (TIME INTELLIGENCE)
+// Tüm sayfalar — dönem karşılaştırma için
+// ============================================================
+
+// Önceki dönem tüketim (MoM veya YoY — rapor filtresine göre)
+Previous Period Consumption kWh =
+CALCULATE(
+    [Total Consumption kWh],
+    PREVIOUSMONTH(Date[Date])
+)
+
+// Tüketim değişimi (%)
+Consumption Change Pct =
+DIVIDE(
+    [Total Consumption kWh] - [Previous Period Consumption kWh],
+    [Previous Period Consumption kWh],
+    0
+) * 100
+
+// Önceki dönem maliyet
+Previous Period Cost EUR =
+CALCULATE(
+    [Total Energy Cost EUR],
+    PREVIOUSMONTH(Date[Date])
+)
+
+// Maliyet değişimi (%)
+Cost Change Pct =
+DIVIDE(
+    [Total Energy Cost EUR] - [Previous Period Cost EUR],
+    [Previous Period Cost EUR],
+    0
+) * 100
+
+// YTD (Yılbaşından bugüne) tüketim
+YTD Consumption kWh =
+CALCULATE(
+    [Total Consumption kWh],
+    DATESYTD(Date[Date])
+)
+
+// YTD CO₂ emisyonu
+YTD CO2 Emissions tCO2 =
+CALCULATE(
+    [Total CO2 Emissions tCO2],
+    DATESYTD(Date[Date])
+)
