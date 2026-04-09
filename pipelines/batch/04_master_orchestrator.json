@@ -1,16 +1,20 @@
 {
   "name": "04_master_orchestrator",
-  "description": "Master daily batch pipeline. Runs Bronze → Silver → Gold in sequence with fail-fast error handling and email notifications on failure. Schedule: daily at 02:00 UTC (04:00 Berlin / 05:00 Istanbul).",
+  "description": "Master daily batch pipeline. Execution order: Bronze → Silver → Occupancy → Gold KPI + Anomaly + Recommendation → Consumption Forecast. Occupancy failure is non-blocking (Gold uses neutral 0.5 fallback). Schedule: daily at 02:00 UTC (04:00 Berlin / 05:00 Istanbul).",
+  "_architecture_notes": {
+    "trial_vs_production": "Trial: sequential stages to avoid TooManyRequestsForCapacity (430). Production: Occupancy + KPI run in parallel (Gold Wave 1), then Forecast + Anomaly + Recommendation run in parallel (Gold Wave 2).",
+    "occupancy_dependency": "Occupancy (08) depends on Silver. Gold KPI (03) depends on Silver. Forecast (07) depends on Gold KPI + Occupancy. Anomaly (anomaly_detection) depends on Gold KPI.",
+    "soft_fail_pattern": "Stage_3_Occupancy failure is soft — Stage_4_Gold runs regardless via ['Succeeded','Failed'] dependency. Forecast notebook has built-in fallback (nötr 0.5) when gold_occupancy_profile is missing."
+  },
   "properties": {
     "activities": [
+
       {
         "name": "Stage_1_Bronze",
         "type": "ExecutePipeline",
-        "description": "Execute bronze ingestion pipeline (00_reference_data_loader + 01_bronze_ingestion in parallel).",
+        "description": "Run bronze ingestion pipeline: 00_reference_data_loader + 01_bronze_ingestion in parallel. Watermark-based incremental load — only new records since last run.",
         "dependsOn": [],
-        "policy": {
-          "secureInput": false
-        },
+        "policy": { "secureInput": false },
         "typeProperties": {
           "pipeline": {
             "referenceName": "01_bronze_batch_pipeline",
@@ -20,34 +24,28 @@
           "parameters": {}
         }
       },
+
       {
         "name": "On_Bronze_Failure",
         "type": "Fail",
-        "description": "Halt the master pipeline immediately if bronze ingestion fails. Silver and Gold cannot run on stale data.",
+        "description": "Hard fail — Bronze failed means no new data. Silver and Gold cannot run on stale data.",
         "dependsOn": [
-          {
-            "activity": "Stage_1_Bronze",
-            "dependencyConditions": ["Failed"]
-          }
+          { "activity": "Stage_1_Bronze", "dependencyConditions": ["Failed"] }
         ],
         "typeProperties": {
           "message": "Bronze ingestion failed. Master pipeline aborted. Check 01_bronze_batch_pipeline run logs.",
           "errorCode": "BRONZE_INGESTION_FAILED"
         }
       },
+
       {
         "name": "Stage_2_Silver",
         "type": "ExecutePipeline",
-        "description": "Execute silver transformation pipeline (02_silver_transformation).",
+        "description": "Run silver transformation: 02_silver_transformation. Cleans, validates, de-duplicates bronze data. Produces silver_energy_readings + silver_building_master.",
         "dependsOn": [
-          {
-            "activity": "Stage_1_Bronze",
-            "dependencyConditions": ["Succeeded"]
-          }
+          { "activity": "Stage_1_Bronze", "dependencyConditions": ["Succeeded"] }
         ],
-        "policy": {
-          "secureInput": false
-        },
+        "policy": { "secureInput": false },
         "typeProperties": {
           "pipeline": {
             "referenceName": "02_silver_transform_pipeline",
@@ -57,34 +55,50 @@
           "parameters": {}
         }
       },
+
       {
         "name": "On_Silver_Failure",
         "type": "Fail",
-        "description": "Halt if silver transformation fails. Gold analytics depend on clean silver data.",
+        "description": "Hard fail — Silver failed means Gold analytics will run on stale or invalid data.",
         "dependsOn": [
-          {
-            "activity": "Stage_2_Silver",
-            "dependencyConditions": ["Failed"]
-          }
+          { "activity": "Stage_2_Silver", "dependencyConditions": ["Failed"] }
         ],
         "typeProperties": {
           "message": "Silver transformation failed. Master pipeline aborted. Check 02_silver_transform_pipeline run logs.",
           "errorCode": "SILVER_TRANSFORM_FAILED"
         }
       },
+
       {
-        "name": "Stage_3_Gold",
+        "name": "Stage_3_Occupancy",
         "type": "ExecutePipeline",
-        "description": "Execute gold analytics pipeline (KPI + Anomaly → Simulation → Compliance → Recommendations).",
+        "description": "Run 08_occupancy_prediction: generates gold_occupancy_profile (hourly occupancy probability per building × 7 days × 24 hours). SOFT DEPENDENCY — Gold KPI runs regardless of this stage's outcome. Forecast uses neutral 0.5 fallback if occupancy is unavailable.",
+        "dependsOn": [
+          { "activity": "Stage_2_Silver", "dependencyConditions": ["Succeeded"] }
+        ],
+        "policy": { "secureInput": false },
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "08_occupancy_pipeline",
+            "type": "PipelineReference"
+          },
+          "waitOnCompletion": true,
+          "parameters": {}
+        }
+      },
+
+      {
+        "name": "Stage_4_Gold_KPI_Anomaly",
+        "type": "ExecutePipeline",
+        "description": "Run gold analytics: 03_gold_kpi_engine (daily KPIs per building) + anomaly_detection + recommendation_engine. Runs regardless of occupancy outcome (Succeeded OR Failed dependency on Stage_3_Occupancy).",
         "dependsOn": [
           {
-            "activity": "Stage_2_Silver",
-            "dependencyConditions": ["Succeeded"]
+            "activity": "Stage_3_Occupancy",
+            "dependencyConditions": ["Succeeded", "Failed"]
           }
         ],
-        "policy": {
-          "secureInput": false
-        },
+        "_note": "dependencyConditions includes 'Failed' to implement soft-fail: if occupancy notebook errors or finds no silver data, Gold KPI still runs. Gold KPI does not need occupancy data.",
+        "policy": { "secureInput": false },
         "typeProperties": {
           "pipeline": {
             "referenceName": "03_gold_analytics_pipeline",
@@ -94,42 +108,72 @@
           "parameters": {}
         }
       },
+
       {
-        "name": "On_Gold_Failure",
+        "name": "On_Gold_KPI_Failure",
         "type": "Fail",
-        "description": "Halt if gold analytics fail. Power BI reports should not refresh on incomplete data.",
+        "description": "Hard fail — KPI engine failed means Forecast has no gold_kpi_daily to train on. Power BI reports should not refresh on incomplete data.",
         "dependsOn": [
-          {
-            "activity": "Stage_3_Gold",
-            "dependencyConditions": ["Failed"]
-          }
+          { "activity": "Stage_4_Gold_KPI_Anomaly", "dependencyConditions": ["Failed"] }
         ],
         "typeProperties": {
-          "message": "Gold analytics failed. Power BI refresh may be stale. Check 03_gold_analytics_pipeline run logs.",
-          "errorCode": "GOLD_ANALYTICS_FAILED"
+          "message": "Gold KPI/Anomaly/Recommendation pipeline failed. Forecast stage skipped. Check 03_gold_analytics_pipeline run logs.",
+          "errorCode": "GOLD_KPI_ANALYTICS_FAILED"
         }
       },
+
+      {
+        "name": "Stage_5_Forecast",
+        "type": "ExecutePipeline",
+        "description": "Run 07_consumption_forecast: 7-day Prophet forecast per building. Uses gold_kpi_daily (HDD/CDD regressors) + gold_occupancy_profile (occupancy regressor, if available). Runs after Gold KPI to ensure gold_kpi_daily exists.",
+        "dependsOn": [
+          { "activity": "Stage_4_Gold_KPI_Anomaly", "dependencyConditions": ["Succeeded"] }
+        ],
+        "policy": { "secureInput": false },
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "07_forecast_pipeline",
+            "type": "PipelineReference"
+          },
+          "waitOnCompletion": true,
+          "parameters": {}
+        }
+      },
+
+      {
+        "name": "On_Forecast_Warning",
+        "type": "Wait",
+        "description": "Soft warning only — Forecast failure does not abort the pipeline. Power BI shows last available forecast. Alert should be sent but pipeline is considered partially successful.",
+        "dependsOn": [
+          { "activity": "Stage_5_Forecast", "dependencyConditions": ["Failed"] }
+        ],
+        "_note": "In production: replace with WebActivity to call alerting webhook. Do not use Fail activity — stale forecasts are acceptable, missing KPIs are not.",
+        "typeProperties": {
+          "waitTimeInSeconds": 1
+        }
+      },
+
       {
         "name": "Pipeline_Success_Log",
         "type": "Wait",
-        "description": "All stages completed successfully. Power BI Direct Lake will reflect new data on next report open/refresh.",
+        "description": "All critical stages completed successfully. Power BI Direct Lake will reflect new data on next report open/refresh.",
         "dependsOn": [
-          {
-            "activity": "Stage_3_Gold",
-            "dependencyConditions": ["Succeeded"]
-          }
+          { "activity": "Stage_5_Forecast", "dependencyConditions": ["Succeeded"] }
         ],
         "typeProperties": {
           "waitTimeInSeconds": 1
         }
       }
+
     ],
+
     "parameters": {},
+
     "triggers": [
       {
         "name": "DailySchedule_0200_UTC",
         "type": "ScheduleTrigger",
-        "description": "Runs every day at 02:00 UTC — 04:00 Berlin / 05:00 Istanbul. Chosen to complete before business hours and avoid daytime Fabric capacity contention.",
+        "description": "Runs every day at 02:00 UTC — 04:00 Berlin / 05:00 Istanbul. Chosen to complete before business hours (08:00) and avoid daytime Fabric Trial capacity contention. Typical run time: 25-40 minutes for 3-10 buildings.",
         "typeProperties": {
           "recurrence": {
             "frequency": "Day",
@@ -153,10 +197,12 @@
         ]
       }
     ],
+
     "annotations": [
       "orchestrator:master",
       "schedule:daily-02:00-UTC",
-      "tier:insight"
+      "tier:insight",
+      "version:2.0-with-occupancy-forecast"
     ]
   }
 }

@@ -1,0 +1,33 @@
+{
+  "name": "08_occupancy_pipeline",
+  "description": "Runs 08_occupancy_prediction notebook. Generates gold_occupancy_profile — hourly occupancy probability per building per day-of-week. Called by 04_master_orchestrator as Stage_3_Occupancy. SOFT DEPENDENCY: failure is non-blocking for downstream Gold KPI stage.",
+  "properties": {
+    "activities": [
+      {
+        "name": "Run_Occupancy_Prediction",
+        "type": "TridentNotebook",
+        "description": "08_occupancy_prediction: two-step hybrid occupancy model. Step 1: rule-based archetypes by building_type (ASHRAE 90.1). Step 2: calibration via silver_energy_readings consumption signal. Output: gold_occupancy_profile (168 rows per building).",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "01:00:00",
+          "retry": 1,
+          "retryIntervalInSeconds": 120,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "typeProperties": {
+          "notebookId": "08_occupancy_prediction",
+          "workspaceId": "your-workspace-id",
+          "parameters": {}
+        }
+      }
+    ],
+    "parameters": {},
+    "annotations": [
+      "layer:gold",
+      "notebook:08_occupancy_prediction",
+      "output:gold_occupancy_profile",
+      "dependency:silver_energy_readings,silver_building_master"
+    ]
+  }
+}

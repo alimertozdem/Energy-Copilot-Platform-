@@ -79,6 +79,7 @@ PATHS = {
     "kpi_daily":  "Tables/gold_kpi_daily",
     "building":   "Tables/silver_building_master",
     "forecast":   "Tables/gold_consumption_forecast",
+    "occupancy":  "Tables/gold_occupancy_profile",    # 08_occupancy_prediction çıktısı
 }
 
 # Eğitim ve tahmin parametreleri
@@ -97,7 +98,7 @@ SEASONALITY_PRIOR  = 10.0   # Mevsimsellik gücü
 INTERVAL_WIDTH     = 0.80   # %80 güven aralığı (yhat_lower / yhat_upper)
 
 # Model versiyonu — parametreler değiştiğinde artır
-MODEL_VERSION      = "v1.0-prophet-hdd-cdd"
+MODEL_VERSION      = "v1.1-prophet-hdd-cdd-occ"   # +occupancy regressor eklendi
 
 print("✅ Konfigürasyon tamamlandı")
 print(f"   Eğitim penceresi : {TRAINING_DAYS} gün")
@@ -172,7 +173,46 @@ df_kpi = (
 
 log_step("gold_kpi_daily okundu", df_kpi.count(), "gold_kpi_daily")
 
-# Bina listesi ve tip bilgisi
+# ── Occupancy profili yükle ────────────────────────────────────────────────
+# gold_occupancy_profile: (building_id, day_of_week, hour_of_day, occupancy_probability)
+# Günlük doluluk sinyali: iş saatlerinin (09:00–18:00) ortalama doluluk oranı
+# day_of_week → 0=Pzt … 6=Paz  (gold_kpi_daily'deki date sütunundan türetilecek)
+OCCUPANCY_AVAILABLE = table_exists(PATHS["occupancy"])
+
+if OCCUPANCY_AVAILABLE:
+    df_occ_daily = (
+        spark.read.format("delta").load(PATHS["occupancy"])
+        .filter(col("hour_of_day").between(9, 18))           # iş saatleri
+        .groupBy("building_id", "day_of_week")
+        .agg(spark_avg("occupancy_probability").alias("avg_occ_biz_hours"))
+    )
+    log_step("gold_occupancy_profile okundu (iş saatleri ortalaması)", df_occ_daily.count())
+
+    # gold_kpi_daily tarihinden day_of_week türet (0=Pzt … 6=Paz)
+    # Spark dayofweek(): 1=Paz, 2=Pzt … → (dayofweek - 2) mod 7
+    df_kpi = (
+        df_kpi
+        .withColumn(
+            "day_of_week",
+            when(
+                (col("date").cast("string").isNotNull()),
+                ((F.dayofweek("date") + 5) % 7)   # 0=Pzt … 6=Paz
+            ).otherwise(0)
+        )
+        .join(broadcast(df_occ_daily), on=["building_id", "day_of_week"], how="left")
+        .withColumn("avg_occ_biz_hours", coalesce(col("avg_occ_biz_hours"), lit(0.5)))
+        .drop("day_of_week")    # model için ds'den türetilecek, bu temp kolon
+    )
+    log_step("Occupancy regressor kpi_daily'e eklendi")
+else:
+    # Occupancy notebook henüz çalışmadıysa → sabit 0.5 (nötr) ile devam et
+    df_kpi = df_kpi.withColumn("avg_occ_biz_hours", lit(0.5))
+    print("⚠️  gold_occupancy_profile bulunamadı → nötr occupancy (0.5) kullanılıyor.")
+    print("   Çözüm: 08_occupancy_prediction.py'ı önce çalıştır.")
+
+# ── Bina listesi ve tip bilgisi ───────────────────────────────────────────
+from pyspark.sql import functions as F
+
 df_building = broadcast(
     spark.read.format("delta").load(PATHS["building"])
     .select("building_id", "building_type", "country_code", "conditioned_area_m2")
@@ -183,6 +223,7 @@ df_train_full = (
     df_kpi
     .join(df_building, on="building_id", how="left")
     .fillna(0.0, subset=["hdd_day", "cdd_day", "avg_temperature_c"])
+    .fillna(0.5, subset=["avg_occ_biz_hours"])
 )
 
 log_step("Eğitim verisi hazırlandı", df_train_full.count())
@@ -270,10 +311,17 @@ def forecast_building(pdf: pd.DataFrame) -> pd.DataFrame:
     try:
         # ── Prophet veri formatı ──────────────────────────────
         # Prophet iki kolon bekliyor: "ds" (tarih) ve "y" (tahmin edilecek değer)
+        feature_cols = ["ds", "y", "hdd_day", "cdd_day", "avg_occ_biz_hours"]
         df_prophet = pdf.rename(columns={
             "date": "ds",
             "total_consumption_kwh": "y"
-        })[["ds", "y", "hdd_day", "cdd_day"]].copy()
+        })[[c for c in feature_cols if c in pdf.rename(
+            columns={"date":"ds","total_consumption_kwh":"y"}
+        ).columns]].copy()
+
+        # avg_occ_biz_hours yoksa (eski model çalıştıysa) nötr değer ekle
+        if "avg_occ_biz_hours" not in df_prophet.columns:
+            df_prophet["avg_occ_biz_hours"] = 0.5
 
         df_prophet["ds"] = pd.to_datetime(df_prophet["ds"])
         df_prophet = df_prophet.sort_values("ds").dropna(subset=["y"])
@@ -292,11 +340,13 @@ def forecast_building(pdf: pd.DataFrame) -> pd.DataFrame:
             yearly_seasonality=(len(df_prophet) >= 60),  # 60+ gün varsa açık
         )
 
-        # Hava durumu regressorları — tüketimi etkileyen dış faktörler
+        # Regressorlar — tüketimi etkileyen dış faktörler
         # HDD yüksekse ısıtma artar → tüketim artar
         # CDD yüksekse soğutma artar → tüketim artar
-        model.add_regressor("hdd_day", standardize=True)
-        model.add_regressor("cdd_day", standardize=True)
+        # avg_occ_biz_hours: 0.0 (boş bina) → 1.0 (tam dolu) → doluluk ↑ tüketim ↑
+        model.add_regressor("hdd_day",            standardize=True)
+        model.add_regressor("cdd_day",            standardize=True)
+        model.add_regressor("avg_occ_biz_hours",  standardize=False)  # zaten 0-1
 
         # ── Model eğitimi ─────────────────────────────────────
         model.fit(df_prophet)
@@ -306,7 +356,7 @@ def forecast_building(pdf: pd.DataFrame) -> pd.DataFrame:
         # "Modelin geçmişte ne kadar yanıldığını" gösterir
         # Küçük veri için basit in-sample hatası kullanıyoruz
         try:
-            df_pred_train = model.predict(df_prophet[["ds", "hdd_day", "cdd_day"]])
+            df_pred_train = model.predict(df_prophet[["ds", "hdd_day", "cdd_day", "avg_occ_biz_hours"]])
             actual = df_prophet["y"].values
             predicted = df_pred_train["yhat"].values
             # Sıfıra bölme koruması
@@ -327,21 +377,29 @@ def forecast_building(pdf: pd.DataFrame) -> pd.DataFrame:
             freq="D"
         )
 
-        # Gelecek günler için HDD/CDD tahmini
-        # Basit yaklaşım: son 30 günün aynı haftanın günü ortalaması
+        # Gelecek günler için regressor tahminleri
+        # Basit yaklaşım: eğitim verisindeki aynı haftanın günü ortalaması
         # Production'da gerçek hava tahmini API'si kullanılır
         df_future = pd.DataFrame({"ds": future_dates})
+        # pandas dt.dayofweek: 0=Pzt … 6=Paz (bizim occupancy tablosuyla aynı!)
         df_future["day_of_week"] = df_future["ds"].dt.dayofweek
         df_prophet["day_of_week"] = df_prophet["ds"].dt.dayofweek
 
+        # HDD / CDD: geçmişten aynı haftanın günü ortalaması
         hdd_by_dow = df_prophet.groupby("day_of_week")["hdd_day"].mean()
         cdd_by_dow = df_prophet.groupby("day_of_week")["cdd_day"].mean()
-
         df_future["hdd_day"] = df_future["day_of_week"].map(hdd_by_dow).fillna(df_prophet["hdd_day"].mean())
         df_future["cdd_day"] = df_future["day_of_week"].map(cdd_by_dow).fillna(df_prophet["cdd_day"].mean())
 
-        # Tahmin
-        forecast = model.predict(df_future[["ds", "hdd_day", "cdd_day"]])
+        # Occupancy: eğitim verisindeki gün bazlı doluluk oranı
+        # (gold_occupancy_profile zaten iş saati ortalaması olarak geldi)
+        occ_by_dow = df_prophet.groupby("day_of_week")["avg_occ_biz_hours"].mean()
+        df_future["avg_occ_biz_hours"] = df_future["day_of_week"].map(occ_by_dow).fillna(
+            df_prophet["avg_occ_biz_hours"].mean()
+        )
+
+        # Tahmin — tüm regressorlarla
+        forecast = model.predict(df_future[["ds", "hdd_day", "cdd_day", "avg_occ_biz_hours"]])
 
         # ── Sonuçları FORECAST_SCHEMA formatına çevir ─────────
         results = []
@@ -513,11 +571,13 @@ print("="*60)
 print(f"✅ Eğitilen bina sayısı : {len(buildings_ok)}")
 print(f"✅ Üretilen tahmin sayısı: {forecast_count:,}")
 print(f"✅ Tahmin ufku           : {FORECAST_HORIZON} gün")
-print(f"✅ Model                 : Prophet + HDD/CDD regressors")
+occ_status = "gold_occupancy_profile (calibrated)" if OCCUPANCY_AVAILABLE else "nötr 0.5 (occupancy yok)"
+print(f"✅ Model                 : Prophet + HDD/CDD + Occupancy regressors")
+print(f"✅ Occupancy kaynağı     : {occ_status}")
 print(f"✅ Model versiyonu       : {MODEL_VERSION}")
 print(f"✅ Çıktı tablosu         : Tables/gold_consumption_forecast")
-print(f"\n📌 Phase 2 sonrası iyileştirme:")
-print(f"   - Occupancy prediction tamamlanınca feature olarak ekle")
+print(f"\n📌 Sonraki iyileştirmeler:")
 print(f"   - Gerçek hava tahmini API'si ile HDD/CDD geleceğini doldur")
 print(f"   - Daha fazla tarihsel veri → MAPE düşer, doğruluk artar")
-print(f"\n➡️  Sonraki adım: 08_occupancy_prediction.py")
+print(f"   - Adaptive anomaly detection (Phase 2 ML)")
+print(f"\n➡️  Pipeline'da sıra: Gold Wave 2 — Forecast + Anomaly + Recommendation (parallel)")
