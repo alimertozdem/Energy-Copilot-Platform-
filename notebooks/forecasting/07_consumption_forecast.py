@@ -126,6 +126,22 @@ def table_exists(path):
         return False
 
 
+def notebook_exit(message):
+    """
+    Fabric uyumlu notebook çıkışı.
+    Fabric ortamına göre mssparkutils veya dbutils kullanır.
+    İkisi de yoksa SystemExit fırlatır — notebook durur.
+    """
+    print(f"\n⏹️  Notebook durduruluyor: {message}")
+    try:
+        mssparkutils.notebook.exit(message)
+    except NameError:
+        try:
+            dbutils.notebook.exit(message)
+        except NameError:
+            raise SystemExit(message)
+
+
 # =============================================================================
 # BÖLÜM 4 — VERİ OKUMA
 # =============================================================================
@@ -137,7 +153,7 @@ print("="*60)
 # Bağımlılık kontrolü
 if not table_exists(PATHS["kpi_daily"]):
     print("⚠️  gold_kpi_daily bulunamadı — önce 03_gold_kpi_engine çalıştır.")
-    dbutils.notebook.exit("SKIPPED: gold_kpi_daily not found")
+    notebook_exit("SKIPPED: gold_kpi_daily not found")
 
 # Son TRAINING_DAYS günlük KPI verisi
 df_kpi = (
@@ -378,7 +394,7 @@ log_step("Tahminler üretildi", forecast_count, "gold_consumption_forecast")
 
 if forecast_count == 0:
     print("⚠️  Hiçbir bina için tahmin üretilemedi — veri kontrolü yap.")
-    dbutils.notebook.exit("WARNING: no forecasts generated")
+    notebook_exit("WARNING: no forecasts generated")
 
 # Tahmin özeti
 print("\n📊 Bina bazında tahmin özeti:")

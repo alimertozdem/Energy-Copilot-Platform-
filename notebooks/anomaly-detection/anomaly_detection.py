@@ -162,6 +162,18 @@ def table_exists(path):
         return False
 
 
+def notebook_exit(message):
+    """Fabric uyumlu notebook çıkışı — mssparkutils veya dbutils dener."""
+    print(f"\n⏹️  Notebook durduruluyor: {message}")
+    try:
+        mssparkutils.notebook.exit(message)
+    except NameError:
+        try:
+            dbutils.notebook.exit(message)
+        except NameError:
+            raise SystemExit(message)
+
+
 def upsert_anomalies(df_new, target_path):
     """
     MERGE — anomaly_id üzerinden upsert.
@@ -291,7 +303,7 @@ if missing:
         print("   ✅ Boş gold_anomalies tablosu oluşturuldu.")
 
     # Notebook'u sessizce sonlandır
-    dbutils.notebook.exit("SKIPPED: upstream tables not ready")
+    notebook_exit("SKIPPED: upstream tables not ready")
 
 # ── Tablolar mevcut, veriyi oku ──────────────────────────────
 
