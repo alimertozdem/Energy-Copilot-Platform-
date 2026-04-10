@@ -95,7 +95,7 @@ PATHS = {
 }
 
 # Eğitim ve tahmin parametreleri
-TRAINING_DAYS    = 90   # Kaç günlük geçmiş veri kullanılacak
+TRAINING_DAYS    = 900  # Kaç günlük geçmiş veri kullanılacak (2.5 yıl — sample 2024-2025 verisini kapsar)
 MIN_TRAINING_DAYS = 14  # En az bu kadar veri yoksa bina için model kurma
 FORECAST_HORIZON = 7    # Kaç gün ilerisi tahmin edilecek
 
@@ -192,30 +192,48 @@ log_step("gold_kpi_daily okundu", df_kpi.count(), "gold_kpi_daily")
 OCCUPANCY_AVAILABLE = table_exists(PATHS["occupancy"])
 
 if OCCUPANCY_AVAILABLE:
-    df_occ_daily = (
-        spark.read.format("delta").load(PATHS["occupancy"])
-        .filter(col("hour_of_day").between(9, 18))           # iş saatleri
-        .groupBy("building_id", "day_of_week")
-        .agg(spark_avg("occupancy_probability").alias("avg_occ_biz_hours"))
-    )
-    log_step("gold_occupancy_profile okundu (iş saatleri ortalaması)", df_occ_daily.count())
+    try:
+        df_occ_raw = spark.read.format("delta").load(PATHS["occupancy"])
 
-    # gold_kpi_daily tarihinden day_of_week türet (0=Pzt … 6=Paz)
-    # Spark dayofweek(): 1=Paz, 2=Pzt … → (dayofweek - 2) mod 7
-    df_kpi = (
-        df_kpi
-        .withColumn(
-            "day_of_week",
-            when(
-                (col("date").cast("string").isNotNull()),
-                ((F.dayofweek("date") + 5) % 7)   # 0=Pzt … 6=Paz
-            ).otherwise(0)
+        # Boş schema kontrolü — DELTA_READ_TABLE_WITHOUT_COLUMNS durumu
+        if len(df_occ_raw.columns) == 0:
+            raise ValueError("gold_occupancy_profile schema boş (veri yazılmamış)")
+
+        df_occ_daily = (
+            df_occ_raw
+            .filter(col("hour_of_day").between(9, 18))           # iş saatleri
+            .groupBy("building_id", "day_of_week")
+            .agg(spark_avg("occupancy_probability").alias("avg_occ_biz_hours"))
         )
-        .join(broadcast(df_occ_daily), on=["building_id", "day_of_week"], how="left")
-        .withColumn("avg_occ_biz_hours", coalesce(col("avg_occ_biz_hours"), lit(0.5)))
-        .drop("day_of_week")    # model için ds'den türetilecek, bu temp kolon
-    )
-    log_step("Occupancy regressor kpi_daily'e eklendi")
+        occ_count = df_occ_daily.count()
+
+        if occ_count == 0:
+            raise ValueError("gold_occupancy_profile satır içermiyor")
+
+        log_step("gold_occupancy_profile okundu (iş saatleri ortalaması)", occ_count)
+
+        # gold_kpi_daily tarihinden day_of_week türet (0=Pzt … 6=Paz)
+        # Spark dayofweek(): 1=Paz, 2=Pzt … → (dayofweek - 2) mod 7
+        df_kpi = (
+            df_kpi
+            .withColumn(
+                "day_of_week",
+                when(
+                    (col("date").cast("string").isNotNull()),
+                    ((F.dayofweek("date") + 5) % 7)   # 0=Pzt … 6=Paz
+                ).otherwise(0)
+            )
+            .join(broadcast(df_occ_daily), on=["building_id", "day_of_week"], how="left")
+            .withColumn("avg_occ_biz_hours", coalesce(col("avg_occ_biz_hours"), lit(0.5)))
+            .drop("day_of_week")    # model için ds'den türetilecek, bu temp kolon
+        )
+        log_step("Occupancy regressor kpi_daily'e eklendi")
+
+    except Exception as occ_err:
+        # Tablo var ama boş/bozuk → nötr değer ile devam et
+        df_kpi = df_kpi.withColumn("avg_occ_biz_hours", lit(0.5))
+        print(f"⚠️  gold_occupancy_profile okunamadı ({occ_err})")
+        print("   → Nötr occupancy (0.5) ile devam ediliyor.")
 else:
     # Occupancy notebook henüz çalışmadıysa → sabit 0.5 (nötr) ile devam et
     df_kpi = df_kpi.withColumn("avg_occ_biz_hours", lit(0.5))
