@@ -510,7 +510,17 @@ print("="*60)
 # Aynı bina için aynı günün tahmini zaten varsa güncelle (model yeniden çalıştı)
 # Yoksa ekle
 
-if table_exists(PATHS["forecast"]):
+# Tablo var mı VE schema'sı dolu mu?
+def table_has_schema(path):
+    """Delta tablo var ama boş schema ile yaratılmışsa (DELTA_READ_TABLE_WITHOUT_COLUMNS) False döner."""
+    try:
+        df_check = spark.read.format("delta").load(path)
+        return len(df_check.columns) > 0
+    except Exception:
+        return False
+
+if table_exists(PATHS["forecast"]) and table_has_schema(PATHS["forecast"]):
+    # Tablo var ve schema dolu → MERGE ile güncelle
     dt_forecast = DeltaTable.forPath(spark, PATHS["forecast"])
 
     (dt_forecast.alias("target")
@@ -531,6 +541,7 @@ if table_exists(PATHS["forecast"]):
     )
     print("✅ MERGE tamamlandı (mevcut tablo güncellendi)")
 else:
+    # Tablo yok VEYA boş schema ile var → overwrite ile yaz (schema oluşturulur)
     (df_forecasts.write
         .format("delta")
         .mode("overwrite")
@@ -538,7 +549,7 @@ else:
         .partitionBy("building_id")
         .save(PATHS["forecast"])
     )
-    print("✅ Yeni tablo oluşturuldu")
+    print("✅ Tablo yazıldı (overwrite — boş schema üzerine ya da yeni tablo)")
 
 # OPTIMIZE — küçük dosyaları birleştir
 try:
