@@ -30,14 +30,28 @@
 # =============================================================================
 # BÖLÜM 1 — KÜTÜPHANELERİ YÜKLE
 # =============================================================================
-# Prophet standart Fabric ortamında yüklü değil — her session başında kurulur.
-# Kurulum ~2-3 dakika sürer, sonraki hücreler bu tamamlanmadan çalışmaz.
+# Prophet standart Fabric ortamında yüklü değil — pipeline çalışırken
+# %pip magic command devre dışı olduğu için subprocess ile kuruyoruz.
+# Kurulum ~2-3 dakika sürer.
 
-# Fabric notebook'unda bu satırı ayrı bir hücrede çalıştır:
-# %pip install prophet --quiet
+import subprocess, sys
 
-# Bu dosyada yorum olarak bırakıldı çünkü .py formatında
-# %pip magic command çalışmaz — Fabric UI'da hücre olarak ekle.
+def install_if_missing(package: str) -> None:
+    """Paket eksikse sessizce yükle, zaten varsa atla."""
+    try:
+        __import__(package.split("==")[0].replace("-", "_"))
+        print(f"   ✅ {package} zaten yüklü")
+    except ImportError:
+        print(f"   📦 {package} yükleniyor...")
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", package, "--quiet", "--no-warn-script-location"],
+            capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"{package} yüklenemedi:\n{result.stderr}")
+        print(f"   ✅ {package} yüklendi")
+
+install_if_missing("prophet")
 
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (
@@ -67,8 +81,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("consumption_forecast")
 
 print("✅ Kütüphaneler yüklendi")
-print("   ⚠️  Prophet'i yüklemek için Fabric'te ilk hücreye şunu ekle:")
-print("   %pip install prophet --quiet")
 
 
 # =============================================================================
