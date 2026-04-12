@@ -62,7 +62,7 @@ from pyspark.sql.functions import (
 from pyspark.sql.window import Window
 from delta.tables import DeltaTable
 import logging
-from datetime import datetime
+from datetime import datetime, date
 
 spark.conf.set("spark.sql.shuffle.partitions", "8")
 spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
@@ -231,7 +231,7 @@ def build_anomaly_row(
         building_id=building_id,
         anomaly_type=anomaly_type,
         severity=severity,
-        detected_date=str(detected_date),
+        detected_date=detected_date if isinstance(detected_date, date) else date.fromisoformat(str(detected_date)),
         metric_value=float(metric_value) if metric_value is not None else None,
         threshold_value=float(threshold_value) if threshold_value is not None else None,
         description_en=desc_en,
@@ -249,7 +249,7 @@ ANOMALY_SCHEMA = StructType([
     StructField("building_id",           StringType(),    False),
     StructField("anomaly_type",          StringType(),    True),
     StructField("severity",              StringType(),    True),
-    StructField("detected_date",         StringType(),    True),
+    StructField("detected_date",         DateType(),      True),
     StructField("metric_value",          DoubleType(),    True),
     StructField("threshold_value",       DoubleType(),    True),
     StructField("description_en",        StringType(),    True),
