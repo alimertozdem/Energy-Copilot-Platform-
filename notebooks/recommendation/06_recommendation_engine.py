@@ -65,6 +65,7 @@ from pyspark.sql.functions import (
     max as spark_max,
     round as spark_round, greatest, least,
     current_timestamp, concat_ws, row_number,
+    upper,
 )
 from pyspark.sql.window import Window
 from delta.tables import DeltaTable
@@ -118,15 +119,113 @@ LED_SAVING_PCT         = 0.30        # 30% lighting energy saving
 LIGHTING_SHARE_PCT     = 0.20        # 20% of total consumption is lighting
 LED_CO2_SAVING_KG_KWH  = 0.4        # kg CO2 per kWh avoided
 
+# ── NEW ACTION TYPE CONSTANTS ─────────────────────────────────────────────────
+# Electricity rate by country (EUR/kWh) — used in rule-of-thumb calculations
+# Sources: Eurostat 2024 non-household rates, EPDK Turkey 2024
+RATE_DE  = 0.28
+RATE_TR  = 0.10
+RATE_AT  = 0.25
+RATE_NL  = 0.26
+RATE_DEFAULT = 0.25
+
+# BMS Optimisation
+BMS_SAVING_PCT         = 0.08   # 8% total consumption saving — conservative (ISO 50001 studies: 5-15%)
+BMS_CAPEX_EUR_M2       = 22.0   # €22/m² conditioned area (hardware + software + commissioning)
+
+# HVAC Scheduling
+HVAC_SCHED_SAVING_PCT  = 0.12   # 12% of HVAC consumption (setback + scheduling, IEA benchmark)
+HVAC_SCHED_CAPEX_M2    = 10.0   # €10/m² (mostly software, sensors, commissioning)
+
+# CHP Cogeneration
+CHP_SAVING_PCT         = 0.22   # 22% of annual energy cost (combined efficiency vs separate generation)
+CHP_CAPEX_PER_KWE      = 800.0  # €800/kWe installed (VDI 2067 benchmark)
+CHP_PEAK_FRACTION      = 0.30   # CHP sized at 30% of estimated peak demand
+
+# Solar Thermal
+SOLAR_THERMAL_CAPEX_M2       = 450.0   # €450/m² collector (installed, Fraunhofer ISE 2024)
+SOLAR_THERMAL_M2_PER_M2_COND = 0.035  # Collector area = 3.5% of conditioned area
+SOLAR_THERMAL_FRACTION       = 0.50   # 50% solar fraction of hot water demand (annual avg)
+
+# Heat Recovery (Ventilation HRV/ERV)
+HEAT_RECOVERY_SAVING_PCT     = 0.15   # 15% of HVAC consumption (EN 13053 efficiency class H1)
+HEAT_RECOVERY_CAPEX_M2       = 22.0   # €22/m² conditioned area
+
+# Battery Expansion
+BAT_EXP_CAPEX_PER_KWH        = 550.0  # €550/kWh additional capacity (LFP commercial 2024)
+BAT_EXP_FRACTION             = 0.50   # Add 50% to existing battery capacity
+BAT_EXP_SAVING_PCT           = 0.06   # 6% of annual cost (self-consumption + peak shaving gain)
+
+# Peak Demand Management
+PEAK_MGMT_SAVING_PCT         = 0.06   # 6% of annual electricity cost (demand charge reduction)
+PEAK_MGMT_CAPEX_FIXED        = 18000.0 # Fixed software + monitoring hardware
+PEAK_MGMT_CAPEX_M2           = 3.0    # €3/m² additional sensors
+
+# Power Factor Correction
+PFC_SAVING_PCT               = 0.04   # 4% of annual electricity cost (reactive power penalties)
+PFC_CAPEX_FIXED              = 15000.0 # Fixed: capacitor bank + control panel
+
+# Submetering Upgrade
+SUBMETER_SAVING_PCT          = 0.05   # 5% of total consumption (waste identification)
+SUBMETER_CAPEX_M2            = 6.0    # €6/m² (smart meters per zone/floor)
+SUBMETER_CAPEX_FIXED         = 4000.0 # Fixed: communication gateway + software
+
 
 # ── 3. READ INPUT TABLES ───────────────────────────────────────────────────────
 
 log_step("READ", "Loading input tables …")
 
 df_building  = spark.read.format("delta").load(SILVER_PATHS["building_master"])
-df_sim       = spark.read.format("delta").load(GOLD_PATHS["simulation_results"])
-df_comp      = spark.read.format("delta").load(GOLD_PATHS["compliance_results"])
 df_kpi_m     = spark.read.format("delta").load(GOLD_PATHS["kpi_monthly"])
+
+# gold_simulation_results opsiyonel (04_simulation_engine çalışmamışsa yoktur)
+try:
+    df_sim = spark.read.format("delta").load(GOLD_PATHS["simulation_results"])
+    HAS_SIM = True
+    log_step("READ", f"gold_simulation_results loaded: {df_sim.count()} rows")
+except Exception as _e:
+    HAS_SIM = False
+    log_step("WARN", f"gold_simulation_results missing — financial scores defaulted to 0: {_e}")
+    # Boş schema ile devam et
+    from pyspark.sql.types import StructType, StructField, StringType, DoubleType
+    df_sim = spark.createDataFrame([], StructType([
+        StructField("building_id", StringType(), True),
+        StructField("scenario", StringType(), True),
+        StructField("npv_eur", DoubleType(), True),
+        StructField("capex_eur", DoubleType(), True),
+        StructField("payback_years", DoubleType(), True),
+        StructField("annual_co2_saving_kg", DoubleType(), True),
+    ]))
+
+# gold_compliance_results opsiyonel (05_compliance_checker çalışmamışsa yoktur)
+# PIPELINE HATA KAYNAGI: bu tablo yokken notebook tamamen çöküyordu
+try:
+    df_comp = spark.read.format("delta").load(GOLD_PATHS["compliance_results"])
+    HAS_COMP = True
+    log_step("READ", f"gold_compliance_results loaded: {df_comp.count()} rows")
+except Exception as _e:
+    HAS_COMP = False
+    log_step("WARN", f"gold_compliance_results missing — compliance urgency defaulted to 50: {_e}")
+    from pyspark.sql.types import StructType, StructField, StringType, DoubleType, BooleanType
+    # Fallback schema must include ALL columns referenced in df_comp_bc select below.
+    # Missing columns here cause UNRESOLVED_COLUMN crash even on empty DataFrame.
+    df_comp = spark.createDataFrame([], StructType([
+        StructField("building_id",            StringType(),  True),
+        StructField("overall_score",           DoubleType(),  True),
+        StructField("enefg_score",             DoubleType(),  True),  # DE EnEfG (Energieeffizienzgesetz)
+        StructField("enefg_audit_required",    BooleanType(), True),  # EnEfG audit flag (>250 FTE)
+        StructField("geg_score",               DoubleType(),  True),  # DE GEG (Gebäudeenergiegesetz)
+        StructField("geg_heating_compliant",   BooleanType(), True),
+        StructField("geg_wall_compliant",      BooleanType(), True),
+        StructField("geg_roof_compliant",      BooleanType(), True),
+        StructField("eeg_score",               DoubleType(),  True),  # DE EEG (Erneuerbare-Energien-Gesetz)
+        StructField("epbd_score",              DoubleType(),  True),  # EU EPBD 2024
+        StructField("epbd_nzeb_gap_kwh_m2",    DoubleType(),  True),  # gap to NZEB target
+        StructField("csrd_score",              DoubleType(),  True),  # EU CSRD reporting score
+        StructField("beptr_score",             DoubleType(),  True),  # TR BEPTR
+        StructField("kfw_programs_applicable", BooleanType(), True),  # DE KfW funding flag
+        StructField("bafa_programs_applicable",BooleanType(), True),  # DE BAFA funding flag
+        StructField("yeka_programs_applicable",BooleanType(), True),  # TR YEKA funding flag
+    ]))
 
 log_step("READ", "All tables loaded", rows=df_building.count())
 
@@ -180,6 +279,10 @@ df_base = (
         col("b.pv_capacity_kwp"),
         # Annual consumption
         col("k.annual_consumption_kwh"),
+        # Extra building flags needed by new action types
+        col("b.battery_capacity_kwh"),
+        col("b.has_ev_charging"),
+        col("b.iso50001_certified"),
         # Compliance scores
         col("c.overall_score"),
         col("c.enefg_score"),
@@ -237,6 +340,19 @@ df_base = (
 )
 
 log_step("JOIN", "Base join complete", rows=df_base.count())
+
+# Normalize building_type to uppercase for reliable comparisons
+# FIX: silver_building_master uses Title Case ("Office"), ref tables use UPPER ("OFFICE")
+df_base = df_base.withColumn("building_type_upper", upper(col("building_type")))
+
+# Electricity rate lookup column (EUR/kWh) — reused across all new action types
+_elec_rate = (
+    when(col("country_code") == "TR", lit(RATE_TR))
+    .when(col("country_code") == "DE", lit(RATE_DE))
+    .when(col("country_code") == "AT", lit(RATE_AT))
+    .when(col("country_code") == "NL", lit(RATE_NL))
+    .otherwise(lit(RATE_DEFAULT))
+)
 
 
 # ── 6. SCORING HELPER FUNCTIONS ────────────────────────────────────────────────
@@ -339,7 +455,11 @@ df_hp_rec = (
         + coalesce(col("hp_bafa_grant_eur"), lit(0.0))
         + coalesce(col("hp_yeka_grant_eur"), lit(0.0)))
     .withColumn("grant_programs",
-        coalesce(col("kfw_programs_applicable"), col("yeka_programs_applicable")))
+        coalesce(
+            when(col("kfw_programs_applicable")  == True, lit("KfW Bundesförderung")),
+            when(col("yeka_programs_applicable") == True, lit("YEKA / ETKB Teşviki")),
+            lit(None).cast("string")
+        ))
     .withColumn("title_en", lit("Install Heat Pump — Replace Fossil Heating"))
     .withColumn("title_de", lit("Wärmepumpe installieren — Fossile Heizung ersetzen"))
     .withColumn("title_tr", lit("Isı Pompası Kur — Fosil Isıtmayı Değiştir"))
@@ -411,7 +531,7 @@ df_ins_rec = (
     .withColumn("payback_years",     col("ins_payback_years"))
     .withColumn("npv_eur",           col("ins_npv_eur"))
     .withColumn("grant_eur",         coalesce(col("ins_kfw_grant_eur"), lit(0.0)))
-    .withColumn("grant_programs",    col("kfw_programs_applicable"))
+    .withColumn("grant_programs",    when(col("kfw_programs_applicable") == True, lit("KfW Bundesförderung")).otherwise(lit(None).cast("string")))
     .withColumn("title_en", lit("Improve Building Insulation — Wall & Roof"))
     .withColumn("title_de", lit("Gebäudedämmung verbessern — Wand & Dach"))
     .withColumn("title_tr", lit("Bina Yalıtımını İyileştir — Duvar ve Çatı"))
@@ -471,7 +591,7 @@ df_bat_rec = (
     .withColumn("payback_years", col("bat_payback_years"))
     .withColumn("npv_eur",       col("bat_npv_eur"))
     .withColumn("grant_eur",     coalesce(col("bat_kfw_grant_eur"), lit(0.0)))
-    .withColumn("grant_programs", col("kfw_programs_applicable"))
+    .withColumn("grant_programs", when(col("kfw_programs_applicable") == True, lit("KfW Bundesförderung")).otherwise(lit(None).cast("string")))
     .withColumn("title_en", lit("Expand Battery Storage — Optimise Self-Consumption"))
     .withColumn("title_de", lit("Batteriespeicher erweitern — Eigenverbrauch optimieren"))
     .withColumn("title_tr", lit("Batarya Kapasitesini Artır — Öz-Tüketimi Optimize Et"))
@@ -753,9 +873,10 @@ df_deep_rec = (
     .withColumn("grant_eur",         coalesce(col("deep_grant_eur"), lit(0.0)))
     .withColumn("grant_programs",
         concat_ws(" + ",
-            col("kfw_programs_applicable"),
-            col("bafa_programs_applicable"),
-            col("yeka_programs_applicable")))
+            when(col("kfw_programs_applicable")  == True, lit("KfW Bundesförderung")),
+            when(col("bafa_programs_applicable") == True, lit("BAFA BEG NWG")),
+            when(col("yeka_programs_applicable") == True, lit("YEKA / ETKB Teşviki"))
+        ))
     .withColumn("title_en", lit("Deep Retrofit — Heat Pump + Insulation Combined"))
     .withColumn("title_de", lit("Tiefgreifende Sanierung — Wärmepumpe + Dämmung"))
     .withColumn("title_tr", lit("Kapsamlı Yenileme — Isı Pompası + Yalıtım"))
@@ -793,6 +914,806 @@ df_deep_rec = (
 )
 
 
+# ── 7g. BMS_OPTIMISATION ──────────────────────────────────────────────────────
+# Applicable: ALL buildings — universal quick win, no major capex required
+# Savings: 8% of total consumption (ISO 50001 case studies: 5–15% range)
+# Source: IEA Building Efficiency Outlook 2023, BPIE Digital Buildings report
+
+df_bms_rec = (
+    df_base
+    .withColumn("_bms_saving_kwh",
+        spark_round(coalesce(col("annual_consumption_kwh"), lit(0.0)) * lit(BMS_SAVING_PCT), 0))
+    .withColumn("_rate",  _elec_rate)
+    .withColumn("_bms_saving_eur",
+        spark_round(col("_bms_saving_kwh") * col("_rate"), 0))
+    .withColumn("_bms_capex",
+        spark_round(col("conditioned_area_m2") * lit(BMS_CAPEX_EUR_M2), 0))
+    .withColumn("_bms_co2",
+        spark_round(col("_bms_saving_kwh") * lit(0.4), 0))
+    .withColumn("_bms_payback",
+        when(col("_bms_saving_eur") > 0,
+             spark_round(col("_bms_capex") / col("_bms_saving_eur"), 1))
+        .otherwise(lit(99.0)))
+    .withColumn("_bms_npv",
+        spark_round(col("_bms_saving_eur") * lit(8.0) - col("_bms_capex"), 0))
+    .withColumn("action_type",       lit("BMS_OPTIMISATION"))
+    .withColumn("compliance_driver", lit("EnEfG §3 / EPBD Art.14 — Smart Readiness"))
+    .withColumn("_comp_urg",
+        compliance_urgency(coalesce(col("enefg_score"), col("epbd_score"), lit(50.0))))
+    .withColumn("_fin",  financial_score(col("_bms_npv"),      col("_bms_capex")))
+    .withColumn("_co2",  co2_score(col("_bms_co2")))
+    .withColumn("_pay",  payback_score(col("_bms_payback")))
+    .withColumn("priority_score",    total_priority(col("_comp_urg"), col("_fin"), col("_co2"), col("_pay")))
+    .withColumn("annual_saving_eur", col("_bms_saving_eur"))
+    .withColumn("co2_saving_kg",     col("_bms_co2"))
+    .withColumn("capex_eur",         col("_bms_capex"))
+    .withColumn("net_capex_eur",
+        when(col("country_code") == "DE",
+             spark_round(col("_bms_capex") * lit(0.70), 0))
+        .otherwise(col("_bms_capex")))
+    .withColumn("payback_years",     col("_bms_payback"))
+    .withColumn("npv_eur",           col("_bms_npv"))
+    .withColumn("grant_eur",
+        when(col("country_code") == "DE",
+             spark_round(col("_bms_capex") * lit(0.30), 0))
+        .otherwise(lit(0.0)))
+    .withColumn("grant_programs",
+        when(col("country_code") == "DE", lit("BAFA BEG NWG — Sanierungsmaßnahmen"))
+        .otherwise(lit(None).cast("string")))
+    .withColumn("title_en", lit("Optimise Building Management System (BMS/GLT)"))
+    .withColumn("title_de", lit("Gebäudeleittechnik (GLT) optimieren — Quick Win"))
+    .withColumn("title_tr", lit("Bina Yönetim Sistemi (BYS) Optimizasyonu — Hızlı Kazanım"))
+    .withColumn("description_en",
+        concat_ws(" ",
+            lit("Recalibrate setpoints, scheduling and control sequences to save ~"),
+            col("_bms_saving_kwh").cast("string"),
+            lit("kWh/year. Annual saving: €"),
+            col("_bms_saving_eur").cast("string"),
+            lit("| Payback:"),
+            col("_bms_payback").cast("string"),
+            lit("years. No major construction. Eligible for BAFA BEG NWG (DE).")))
+    .withColumn("description_de",
+        concat_ws(" ",
+            lit("Sollwerte, Zeitpläne und Regelsequenzen anpassen — Einsparung ca."),
+            col("_bms_saving_kwh").cast("string"),
+            lit("kWh/Jahr. Jährliche Einsparung: €"),
+            col("_bms_saving_eur").cast("string"),
+            lit("| Amortisation:"),
+            col("_bms_payback").cast("string"),
+            lit("Jahre. Kein größerer Bauaufwand. BAFA BEG NWG förderfähig.")))
+    .withColumn("description_tr",
+        concat_ws(" ",
+            lit("Setpoint, zamanlama ve kontrol mantığı optimize edilerek tahminen"),
+            col("_bms_saving_kwh").cast("string"),
+            lit("kWh/yıl tasarruf sağlanır. Yıllık tasarruf: €"),
+            col("_bms_saving_eur").cast("string"),
+            lit("| Geri ödeme:"),
+            col("_bms_payback").cast("string"),
+            lit("yıl. Büyük inşaat gerektirmez.")))
+)
+
+
+# ── 7h. HVAC_SCHEDULING ────────────────────────────────────────────────────────
+# Applicable: All buildings EXCEPT HOSPITAL and DATA_CENTER (24/7 critical loads)
+# Savings: 12% of HVAC portion of consumption (IEA benchmark for scheduling retrofit)
+# Captures: night setback, weekend setback, pre-cooling/heating optimisation
+
+HVAC_SHARE_BY_TYPE = {
+    "OFFICE":     0.45, "RETAIL":   0.35, "LOGISTICS": 0.40,
+    "HOTEL":      0.35, "SCHOOL":   0.50, "HEALTHCARE": 0.40,
+    "EDUCATION":  0.50, "HOSPITAL": 0.40,
+}
+
+df_hvac_sched_rec = (
+    df_base
+    .filter(~col("building_type_upper").isin("HOSPITAL", "DATA_CENTER"))
+    .withColumn("_hvac_share",
+        when(col("building_type_upper") == "OFFICE",     lit(0.45))
+        .when(col("building_type_upper") == "RETAIL",    lit(0.35))
+        .when(col("building_type_upper") == "LOGISTICS", lit(0.40))
+        .when(col("building_type_upper") == "HOTEL",     lit(0.35))
+        .when(col("building_type_upper").isin("SCHOOL", "EDUCATION"), lit(0.50))
+        .when(col("building_type_upper").isin("HEALTHCARE", "HOSPITAL"), lit(0.40))
+        .otherwise(lit(0.40)))
+    .withColumn("_rate", _elec_rate)
+    .withColumn("_hvac_saving_kwh",
+        spark_round(
+            coalesce(col("annual_consumption_kwh"), lit(0.0))
+            * col("_hvac_share") * lit(HVAC_SCHED_SAVING_PCT), 0))
+    .withColumn("_hvac_saving_eur",
+        spark_round(col("_hvac_saving_kwh") * col("_rate"), 0))
+    .withColumn("_hvac_capex",
+        spark_round(col("conditioned_area_m2") * lit(HVAC_SCHED_CAPEX_M2), 0))
+    .withColumn("_hvac_co2",
+        spark_round(col("_hvac_saving_kwh") * lit(0.4), 0))
+    .withColumn("_hvac_payback",
+        when(col("_hvac_saving_eur") > 0,
+             spark_round(col("_hvac_capex") / col("_hvac_saving_eur"), 1))
+        .otherwise(lit(99.0)))
+    .withColumn("_hvac_npv",
+        spark_round(col("_hvac_saving_eur") * lit(10.0) - col("_hvac_capex"), 0))
+    .withColumn("action_type",       lit("HVAC_SCHEDULING"))
+    .withColumn("compliance_driver", lit("EnEfG / EPBD — Operational Efficiency"))
+    .withColumn("_comp_urg",
+        compliance_urgency(coalesce(col("enefg_score"), col("epbd_score"), lit(45.0))))
+    .withColumn("_fin",  financial_score(col("_hvac_npv"),       col("_hvac_capex")))
+    .withColumn("_co2",  co2_score(col("_hvac_co2")))
+    .withColumn("_pay",  payback_score(col("_hvac_payback")))
+    .withColumn("priority_score",    total_priority(col("_comp_urg"), col("_fin"), col("_co2"), col("_pay")))
+    .withColumn("annual_saving_eur", col("_hvac_saving_eur"))
+    .withColumn("co2_saving_kg",     col("_hvac_co2"))
+    .withColumn("capex_eur",         col("_hvac_capex"))
+    .withColumn("net_capex_eur",
+        when(col("country_code") == "DE",
+             spark_round(col("_hvac_capex") * lit(0.75), 0))
+        .otherwise(col("_hvac_capex")))
+    .withColumn("payback_years",     col("_hvac_payback"))
+    .withColumn("npv_eur",           col("_hvac_npv"))
+    .withColumn("grant_eur",
+        when(col("country_code") == "DE",
+             spark_round(col("_hvac_capex") * lit(0.25), 0))
+        .otherwise(lit(0.0)))
+    .withColumn("grant_programs",
+        when(col("country_code") == "DE", lit("BAFA BEG NWG"))
+        .otherwise(lit(None).cast("string")))
+    .withColumn("title_en", lit("Implement HVAC Scheduling & Setback"))
+    .withColumn("title_de", lit("HLK-Zeitschaltung & Absenkbetrieb einrichten"))
+    .withColumn("title_tr", lit("HVAC Zaman Programı ve Gece Modunu Devreye Al"))
+    .withColumn("description_en",
+        concat_ws(" ",
+            lit("Implement time-based HVAC scheduling with night/weekend setback to save ~"),
+            col("_hvac_saving_kwh").cast("string"),
+            lit("kWh/year from HVAC alone. Annual saving: €"),
+            col("_hvac_saving_eur").cast("string"),
+            lit("| Payback:"),
+            col("_hvac_payback").cast("string"),
+            lit("years. Low-disruption, software-first approach.")))
+    .withColumn("description_de",
+        concat_ws(" ",
+            lit("Zeitbasierte HLK-Steuerung mit Nacht- und Wochenendabsenkung — Einsparung ~"),
+            col("_hvac_saving_kwh").cast("string"),
+            lit("kWh/Jahr. Jährliche Einsparung: €"),
+            col("_hvac_saving_eur").cast("string"),
+            lit("| Amortisation:"),
+            col("_hvac_payback").cast("string"),
+            lit("Jahre. Softwarebasierter Ansatz, kein Bauaufwand.")))
+    .withColumn("description_tr",
+        concat_ws(" ",
+            lit("Gece/hafta sonu HVAC setback ve zaman programlama ile HVAC tüketiminden ~"),
+            col("_hvac_saving_kwh").cast("string"),
+            lit("kWh/yıl tasarruf. Yıllık tasarruf: €"),
+            col("_hvac_saving_eur").cast("string"),
+            lit("| Geri ödeme:"),
+            col("_hvac_payback").cast("string"),
+            lit("yıl. Yazılım ağırlıklı, düşük kesinti.")))
+)
+
+
+# ── 7i. PEAK_DEMAND_MANAGEMENT ─────────────────────────────────────────────────
+# Applicable: Buildings with battery storage OR EV charging OR LOGISTICS type
+# Savings: 6% of annual electricity cost via demand charge reduction and load shifting
+# Source: EPRI Demand Response potential study 2023
+
+df_peak_rec = (
+    df_base
+    .filter(
+        (col("has_battery") == True) |
+        (col("has_ev_charging") == True) |
+        (col("building_type_upper") == "LOGISTICS")
+    )
+    .withColumn("_rate", _elec_rate)
+    .withColumn("_annual_cost_eur",
+        spark_round(coalesce(col("annual_consumption_kwh"), lit(0.0)) * col("_rate"), 0))
+    .withColumn("_peak_saving_eur",
+        spark_round(col("_annual_cost_eur") * lit(PEAK_MGMT_SAVING_PCT), 0))
+    .withColumn("_peak_saving_kwh",
+        spark_round(coalesce(col("annual_consumption_kwh"), lit(0.0)) * lit(0.04), 0))
+    .withColumn("_peak_capex",
+        spark_round(
+            lit(PEAK_MGMT_CAPEX_FIXED) + col("conditioned_area_m2") * lit(PEAK_MGMT_CAPEX_M2), 0))
+    .withColumn("_peak_co2",
+        spark_round(col("_peak_saving_kwh") * lit(0.4), 0))
+    .withColumn("_peak_payback",
+        when(col("_peak_saving_eur") > 0,
+             spark_round(col("_peak_capex") / col("_peak_saving_eur"), 1))
+        .otherwise(lit(99.0)))
+    .withColumn("_peak_npv",
+        spark_round(col("_peak_saving_eur") * lit(8.0) - col("_peak_capex"), 0))
+    .withColumn("action_type",       lit("PEAK_DEMAND_MANAGEMENT"))
+    .withColumn("compliance_driver", lit("EnEfG / Grid Tariff Optimisation"))
+    .withColumn("_comp_urg",         lit(40.0))
+    .withColumn("_fin",  financial_score(col("_peak_npv"),       col("_peak_capex")))
+    .withColumn("_co2",  co2_score(col("_peak_co2")))
+    .withColumn("_pay",  payback_score(col("_peak_payback")))
+    .withColumn("priority_score",    total_priority(col("_comp_urg"), col("_fin"), col("_co2"), col("_pay")))
+    .withColumn("annual_saving_eur", col("_peak_saving_eur"))
+    .withColumn("co2_saving_kg",     col("_peak_co2"))
+    .withColumn("capex_eur",         col("_peak_capex"))
+    .withColumn("net_capex_eur",     col("_peak_capex"))
+    .withColumn("payback_years",     col("_peak_payback"))
+    .withColumn("npv_eur",           col("_peak_npv"))
+    .withColumn("grant_eur",         lit(0.0))
+    .withColumn("grant_programs",    lit(None).cast("string"))
+    .withColumn("title_en", lit("Implement Peak Demand Management & Load Shifting"))
+    .withColumn("title_de", lit("Lastspitzenmanagement & Lastverschiebung einführen"))
+    .withColumn("title_tr", lit("Tepe Talep Yönetimi ve Yük Kaydırma Uygula"))
+    .withColumn("description_en",
+        concat_ws(" ",
+            lit("Deploy demand response software to reduce peak demand charges. Annual saving: €"),
+            col("_peak_saving_eur").cast("string"),
+            lit("| Payback:"),
+            col("_peak_payback").cast("string"),
+            lit("years. Leverage existing battery / EV charging schedule for load shifting.")))
+    .withColumn("description_de",
+        concat_ws(" ",
+            lit("Lastmanagement-Software zur Reduzierung von Lastspitzenkosten. Einsparung: €"),
+            col("_peak_saving_eur").cast("string"),
+            lit("| Amortisation:"),
+            col("_peak_payback").cast("string"),
+            lit("Jahre. Vorhandene Batterie/EV-Ladung für Lastverschiebung nutzen.")))
+    .withColumn("description_tr",
+        concat_ws(" ",
+            lit("Tepe talep ücretlerini azaltmak için talep yönetimi yazılımı. Yıllık tasarruf: €"),
+            col("_peak_saving_eur").cast("string"),
+            lit("| Geri ödeme:"),
+            col("_peak_payback").cast("string"),
+            lit("yıl. Mevcut batarya/EV şarj altyapısını yük kaydırma için kullan.")))
+)
+
+
+# ── 7j. CHP_COGENERATION ──────────────────────────────────────────────────────
+# Applicable: HOSPITAL and HOTEL (24/7 operation, high thermal load, gas supply)
+# Logic: CHP generates electricity + recovers waste heat → replaces separate gas boiler + grid power
+# Savings: 22% of annual energy cost (combined efficiency 85–90% vs separate ~55%)
+# Capex: €800/kWe, CHP sized at 30% of estimated peak demand
+# Source: ASUE Blockheizkraftwerke 2023, VDI 2067
+# NOTE: has_gas_heating is not in silver_building_master — building type is sufficient proxy
+#       (HOSPITAL/HOTEL/HEALTHCARE buildings are assumed to have thermal heating infrastructure)
+
+df_chp_rec = (
+    df_base
+    .filter(
+        col("building_type_upper").isin("HOSPITAL", "HOTEL", "HEALTHCARE")
+    )
+    .withColumn("_rate", _elec_rate)
+    .withColumn("_annual_cost_eur",
+        spark_round(coalesce(col("annual_consumption_kwh"), lit(0.0)) * col("_rate"), 0))
+    .withColumn("_chp_saving_eur",
+        spark_round(col("_annual_cost_eur") * lit(CHP_SAVING_PCT), 0))
+    .withColumn("_chp_saving_kwh",
+        spark_round(coalesce(col("annual_consumption_kwh"), lit(0.0)) * lit(0.15), 0))
+    # CHP size: peak_kw estimate = annual_kwh / (8760 * load_factor 0.6) then take 30%
+    .withColumn("_chp_kwe",
+        spark_round(
+            coalesce(col("annual_consumption_kwh"), lit(0.0))
+            / lit(8760.0 * 0.60) * lit(CHP_PEAK_FRACTION), 1))
+    .withColumn("_chp_capex",
+        spark_round(col("_chp_kwe") * lit(CHP_CAPEX_PER_KWE), 0))
+    .withColumn("_chp_co2",
+        spark_round(col("_chp_saving_kwh") * lit(0.5), 0))
+    .withColumn("_chp_payback",
+        when(col("_chp_saving_eur") > 0,
+             spark_round(col("_chp_capex") / col("_chp_saving_eur"), 1))
+        .otherwise(lit(99.0)))
+    .withColumn("_chp_npv",
+        spark_round(col("_chp_saving_eur") * lit(12.0) - col("_chp_capex"), 0))
+    .withColumn("action_type",       lit("CHP_COGENERATION"))
+    .withColumn("compliance_driver", lit("EnEfG §12 / KWKG — CHP Promotion"))
+    .withColumn("_comp_urg",
+        compliance_urgency(coalesce(col("enefg_score"), lit(55.0))))
+    .withColumn("_fin",  financial_score(col("_chp_npv"),       col("_chp_capex")))
+    .withColumn("_co2",  co2_score(col("_chp_co2")))
+    .withColumn("_pay",  payback_score(col("_chp_payback")))
+    .withColumn("priority_score",    total_priority(col("_comp_urg"), col("_fin"), col("_co2"), col("_pay")))
+    .withColumn("annual_saving_eur", col("_chp_saving_eur"))
+    .withColumn("co2_saving_kg",     col("_chp_co2"))
+    .withColumn("capex_eur",         col("_chp_capex"))
+    .withColumn("net_capex_eur",
+        when(col("country_code") == "DE",
+             spark_round(col("_chp_capex") * lit(0.75), 0))
+        .otherwise(col("_chp_capex")))
+    .withColumn("payback_years",     col("_chp_payback"))
+    .withColumn("npv_eur",           col("_chp_npv"))
+    .withColumn("grant_eur",
+        when(col("country_code") == "DE",
+             spark_round(col("_chp_capex") * lit(0.25), 0))
+        .otherwise(lit(0.0)))
+    .withColumn("grant_programs",
+        when(col("country_code") == "DE", lit("KWKG Zuschlag + BAFA KWK-Förderung"))
+        .otherwise(lit(None).cast("string")))
+    .withColumn("title_en",
+        concat_ws(" ",
+            lit("Install CHP Cogeneration Unit (~"),
+            spark_round(col("_chp_kwe"), 0).cast("string"),
+            lit("kWe) — Combined Heat & Power")))
+    .withColumn("title_de",
+        concat_ws(" ",
+            lit("BHKW (Blockheizkraftwerk) installieren (~"),
+            spark_round(col("_chp_kwe"), 0).cast("string"),
+            lit("kWe) — Kraft-Wärme-Kopplung")))
+    .withColumn("title_tr",
+        concat_ws(" ",
+            lit("Kojenerasyon Ünitesi Kur (~"),
+            spark_round(col("_chp_kwe"), 0).cast("string"),
+            lit("kWe) — Isı ve Güç Birlikte Üretimi")))
+    .withColumn("description_en",
+        concat_ws(" ",
+            lit("A"),
+            spark_round(col("_chp_kwe"), 0).cast("string"),
+            lit("kWe CHP unit generates onsite electricity and recovers waste heat for heating/DHW."),
+            lit("Annual saving: €"),
+            col("_chp_saving_eur").cast("string"),
+            lit("| Payback:"),
+            col("_chp_payback").cast("string"),
+            lit("years | KWKG feed-in tariff applicable (DE).")))
+    .withColumn("description_de",
+        concat_ws(" ",
+            lit("Ein"),
+            spark_round(col("_chp_kwe"), 0).cast("string"),
+            lit("kWe BHKW erzeugt Strom vor Ort und nutzt Abwärme für Heizung/TWW."),
+            lit("Jährliche Einsparung: €"),
+            col("_chp_saving_eur").cast("string"),
+            lit("| Amortisation:"),
+            col("_chp_payback").cast("string"),
+            lit("Jahre | KWKG-Zuschlag anwendbar.")))
+    .withColumn("description_tr",
+        concat_ws(" ",
+            lit(""),
+            spark_round(col("_chp_kwe"), 0).cast("string"),
+            lit("kWe kojenerasyon ünitesi yerinde elektrik üretir ve atık ısıyı ısıtma/sıcak su için kullanır."),
+            lit("Yıllık tasarruf: €"),
+            col("_chp_saving_eur").cast("string"),
+            lit("| Geri ödeme:"),
+            col("_chp_payback").cast("string"),
+            lit("yıl.")))
+)
+
+
+# ── 7k. SOLAR_THERMAL ──────────────────────────────────────────────────────────
+# Applicable: HOTEL and HOSPITAL/HEALTHCARE — buildings with high domestic hot water (DHW) demand
+# Savings: 50% of DHW energy portion covered by solar (Fraunhofer ISE: 40–65% typical)
+# Hot water shares: HOTEL 25%, HOSPITAL/HEALTHCARE 10% of total consumption
+# Capex: €450/m² collector (installed, incl. storage tank + installation)
+
+df_solar_thermal_rec = (
+    df_base
+    .filter(col("building_type_upper").isin("HOTEL", "HOSPITAL", "HEALTHCARE"))
+    .withColumn("_dhw_share",
+        when(col("building_type_upper") == "HOTEL",                      lit(0.25))
+        .when(col("building_type_upper").isin("HOSPITAL", "HEALTHCARE"),  lit(0.10))
+        .otherwise(lit(0.10)))
+    .withColumn("_rate", _elec_rate)
+    .withColumn("_st_saving_kwh",
+        spark_round(
+            coalesce(col("annual_consumption_kwh"), lit(0.0))
+            * col("_dhw_share") * lit(SOLAR_THERMAL_FRACTION), 0))
+    .withColumn("_st_saving_eur",
+        spark_round(col("_st_saving_kwh") * col("_rate"), 0))
+    .withColumn("_st_area_m2",
+        spark_round(col("conditioned_area_m2") * lit(SOLAR_THERMAL_M2_PER_M2_COND), 1))
+    .withColumn("_st_capex",
+        spark_round(col("_st_area_m2") * lit(SOLAR_THERMAL_CAPEX_M2), 0))
+    .withColumn("_st_co2",
+        spark_round(col("_st_saving_kwh") * lit(0.4), 0))
+    .withColumn("_st_payback",
+        when(col("_st_saving_eur") > 0,
+             spark_round(col("_st_capex") / col("_st_saving_eur"), 1))
+        .otherwise(lit(99.0)))
+    .withColumn("_st_npv",
+        spark_round(col("_st_saving_eur") * lit(20.0) - col("_st_capex"), 0))
+    .withColumn("action_type",       lit("SOLAR_THERMAL"))
+    .withColumn("compliance_driver", lit("EPBD nZEB / RED III — Renewable Heat"))
+    .withColumn("_comp_urg",
+        compliance_urgency(coalesce(col("epbd_score"), col("enefg_score"), lit(50.0))))
+    .withColumn("_fin",  financial_score(col("_st_npv"),       col("_st_capex")))
+    .withColumn("_co2",  co2_score(col("_st_co2")))
+    .withColumn("_pay",  payback_score(col("_st_payback")))
+    .withColumn("priority_score",    total_priority(col("_comp_urg"), col("_fin"), col("_co2"), col("_pay")))
+    .withColumn("annual_saving_eur", col("_st_saving_eur"))
+    .withColumn("co2_saving_kg",     col("_st_co2"))
+    .withColumn("capex_eur",         col("_st_capex"))
+    .withColumn("net_capex_eur",
+        when(col("country_code") == "DE",
+             spark_round(col("_st_capex") * lit(0.75), 0))
+        .otherwise(col("_st_capex")))
+    .withColumn("payback_years",     col("_st_payback"))
+    .withColumn("npv_eur",           col("_st_npv"))
+    .withColumn("grant_eur",
+        when(col("country_code") == "DE",
+             spark_round(col("_st_capex") * lit(0.25), 0))
+        .otherwise(lit(0.0)))
+    .withColumn("grant_programs",
+        when(col("country_code") == "DE", lit("BAFA BEG NWG — Solarthermie"))
+        .otherwise(lit(None).cast("string")))
+    .withColumn("title_en",
+        concat_ws(" ",
+            lit("Install Solar Thermal System (~"),
+            spark_round(col("_st_area_m2"), 0).cast("string"),
+            lit("m²) — Domestic Hot Water")))
+    .withColumn("title_de",
+        concat_ws(" ",
+            lit("Solarthermieanlage installieren (~"),
+            spark_round(col("_st_area_m2"), 0).cast("string"),
+            lit("m²) — Warmwasserbereitung")))
+    .withColumn("title_tr",
+        concat_ws(" ",
+            lit("Güneş Termal Sistemi Kur (~"),
+            spark_round(col("_st_area_m2"), 0).cast("string"),
+            lit("m²) — Sıcak Su Üretimi")))
+    .withColumn("description_en",
+        concat_ws(" ",
+            lit("A"),
+            spark_round(col("_st_area_m2"), 0).cast("string"),
+            lit("m² solar thermal array covers ~50% of DHW demand, saving ~"),
+            col("_st_saving_kwh").cast("string"),
+            lit("kWh/year. Annual saving: €"),
+            col("_st_saving_eur").cast("string"),
+            lit("| Payback:"),
+            col("_st_payback").cast("string"),
+            lit("years. 20-year system lifetime (Fraunhofer ISE benchmark).")))
+    .withColumn("description_de",
+        concat_ws(" ",
+            lit("Eine"),
+            spark_round(col("_st_area_m2"), 0).cast("string"),
+            lit("m² Solarthermieanlage deckt ~50% des TWW-Bedarfs, Einsparung ~"),
+            col("_st_saving_kwh").cast("string"),
+            lit("kWh/Jahr. Jährliche Einsparung: €"),
+            col("_st_saving_eur").cast("string"),
+            lit("| Amortisation:"),
+            col("_st_payback").cast("string"),
+            lit("Jahre. Systemlebensdauer 20 Jahre.")))
+    .withColumn("description_tr",
+        concat_ws(" ",
+            lit(""),
+            spark_round(col("_st_area_m2"), 0).cast("string"),
+            lit("m² güneş termal sistem sıcak su ihtiyacının ~%50'sini karşılar, tasarruf ~"),
+            col("_st_saving_kwh").cast("string"),
+            lit("kWh/yıl. Yıllık tasarruf: €"),
+            col("_st_saving_eur").cast("string"),
+            lit("| Geri ödeme:"),
+            col("_st_payback").cast("string"),
+            lit("yıl.")))
+)
+
+
+# ── 7l. HEAT_RECOVERY ──────────────────────────────────────────────────────────
+# Applicable: LOGISTICS and HOSPITAL/HEALTHCARE
+# Logic: High ventilation rates in these building types → HRV/ERV captures 70–85% of exhaust heat
+# Savings: 15% of HVAC portion (EN 13053 Class H1 HRV efficiency)
+# Capex: €22/m² conditioned area (ductwork modification + HRV units)
+
+df_heat_recovery_rec = (
+    df_base
+    .filter(col("building_type_upper").isin("LOGISTICS", "HOSPITAL", "HEALTHCARE"))
+    .withColumn("_hr_hvac_share",
+        when(col("building_type_upper") == "LOGISTICS",              lit(0.40))
+        .when(col("building_type_upper").isin("HOSPITAL","HEALTHCARE"), lit(0.40))
+        .otherwise(lit(0.40)))
+    .withColumn("_rate", _elec_rate)
+    .withColumn("_hr_saving_kwh",
+        spark_round(
+            coalesce(col("annual_consumption_kwh"), lit(0.0))
+            * col("_hr_hvac_share") * lit(HEAT_RECOVERY_SAVING_PCT), 0))
+    .withColumn("_hr_saving_eur",
+        spark_round(col("_hr_saving_kwh") * col("_rate"), 0))
+    .withColumn("_hr_capex",
+        spark_round(col("conditioned_area_m2") * lit(HEAT_RECOVERY_CAPEX_M2), 0))
+    .withColumn("_hr_co2",
+        spark_round(col("_hr_saving_kwh") * lit(0.4), 0))
+    .withColumn("_hr_payback",
+        when(col("_hr_saving_eur") > 0,
+             spark_round(col("_hr_capex") / col("_hr_saving_eur"), 1))
+        .otherwise(lit(99.0)))
+    .withColumn("_hr_npv",
+        spark_round(col("_hr_saving_eur") * lit(15.0) - col("_hr_capex"), 0))
+    .withColumn("action_type",       lit("HEAT_RECOVERY"))
+    .withColumn("compliance_driver", lit("EnEfG / EPBD — Ventilation Heat Recovery"))
+    .withColumn("_comp_urg",
+        compliance_urgency(coalesce(col("enefg_score"), lit(50.0))))
+    .withColumn("_fin",  financial_score(col("_hr_npv"),       col("_hr_capex")))
+    .withColumn("_co2",  co2_score(col("_hr_co2")))
+    .withColumn("_pay",  payback_score(col("_hr_payback")))
+    .withColumn("priority_score",    total_priority(col("_comp_urg"), col("_fin"), col("_co2"), col("_pay")))
+    .withColumn("annual_saving_eur", col("_hr_saving_eur"))
+    .withColumn("co2_saving_kg",     col("_hr_co2"))
+    .withColumn("capex_eur",         col("_hr_capex"))
+    .withColumn("net_capex_eur",
+        when(col("country_code") == "DE",
+             spark_round(col("_hr_capex") * lit(0.80), 0))
+        .otherwise(col("_hr_capex")))
+    .withColumn("payback_years",     col("_hr_payback"))
+    .withColumn("npv_eur",           col("_hr_npv"))
+    .withColumn("grant_eur",
+        when(col("country_code") == "DE",
+             spark_round(col("_hr_capex") * lit(0.20), 0))
+        .otherwise(lit(0.0)))
+    .withColumn("grant_programs",
+        when(col("country_code") == "DE", lit("BAFA BEG NWG — Lüftungsanlage"))
+        .otherwise(lit(None).cast("string")))
+    .withColumn("title_en", lit("Install Ventilation Heat Recovery (HRV/ERV)"))
+    .withColumn("title_de", lit("Wärmerückgewinnung in der Lüftungsanlage nachrüsten (WRG)"))
+    .withColumn("title_tr", lit("Havalandırma Isı Geri Kazanımı Sistemi Kur (HRV/ERV)"))
+    .withColumn("description_en",
+        concat_ws(" ",
+            lit("Heat Recovery Ventilation (HRV) captures 70–85% of exhaust heat (EN 13053 Class H1)."),
+            lit("Annual saving: ~"),
+            col("_hr_saving_kwh").cast("string"),
+            lit("kWh | €"),
+            col("_hr_saving_eur").cast("string"),
+            lit("| Payback:"),
+            col("_hr_payback").cast("string"),
+            lit("years. Especially effective in high-ventilation buildings (logistics, healthcare).")))
+    .withColumn("description_de",
+        concat_ws(" ",
+            lit("Wärmerückgewinnung (WRG) erfasst 70–85% der Abluftenergie (EN 13053 Klasse H1)."),
+            lit("Jährliche Einsparung: ~"),
+            col("_hr_saving_kwh").cast("string"),
+            lit("kWh | €"),
+            col("_hr_saving_eur").cast("string"),
+            lit("| Amortisation:"),
+            col("_hr_payback").cast("string"),
+            lit("Jahre.")))
+    .withColumn("description_tr",
+        concat_ws(" ",
+            lit("HRV egzoz havasının %70–85'ini geri kazanır (EN 13053 Sınıf H1)."),
+            lit("Yıllık tasarruf: ~"),
+            col("_hr_saving_kwh").cast("string"),
+            lit("kWh | €"),
+            col("_hr_saving_eur").cast("string"),
+            lit("| Geri ödeme:"),
+            col("_hr_payback").cast("string"),
+            lit("yıl.")))
+)
+
+
+# ── 7m. BATTERY_EXPANSION ─────────────────────────────────────────────────────
+# Applicable: Buildings that already have a battery (has_battery=True)
+# Logic: Expand existing battery by 50% to increase self-consumption window and peak shaving capacity
+# Savings: 6% of annual electricity cost (marginal gain from expanded storage)
+# Capex: €550/kWh additional capacity (LFP commercial 2024, Fraunhofer ISE)
+
+df_bat_exp_rec = (
+    df_base
+    .filter(
+        (col("has_battery") == True) &
+        col("battery_capacity_kwh").isNotNull() &
+        (col("battery_capacity_kwh") > 0)
+    )
+    .withColumn("_rate", _elec_rate)
+    .withColumn("_annual_cost_eur",
+        spark_round(coalesce(col("annual_consumption_kwh"), lit(0.0)) * col("_rate"), 0))
+    .withColumn("_batexp_saving_eur",
+        spark_round(col("_annual_cost_eur") * lit(BAT_EXP_SAVING_PCT), 0))
+    .withColumn("_batexp_saving_kwh",
+        spark_round(coalesce(col("annual_consumption_kwh"), lit(0.0)) * lit(0.04), 0))
+    .withColumn("_batexp_kwh_add",
+        spark_round(col("battery_capacity_kwh") * lit(BAT_EXP_FRACTION), 0))
+    .withColumn("_batexp_capex",
+        spark_round(col("_batexp_kwh_add") * lit(BAT_EXP_CAPEX_PER_KWH), 0))
+    .withColumn("_batexp_co2",
+        spark_round(col("_batexp_saving_kwh") * lit(0.4), 0))
+    .withColumn("_batexp_payback",
+        when(col("_batexp_saving_eur") > 0,
+             spark_round(col("_batexp_capex") / col("_batexp_saving_eur"), 1))
+        .otherwise(lit(99.0)))
+    .withColumn("_batexp_npv",
+        spark_round(col("_batexp_saving_eur") * lit(12.0) - col("_batexp_capex"), 0))
+    .withColumn("action_type",       lit("BATTERY_EXPANSION"))
+    .withColumn("compliance_driver", lit("EPBD / EED — Storage Flexibility"))
+    .withColumn("_comp_urg",         lit(35.0))
+    .withColumn("_fin",  financial_score(col("_batexp_npv"),     col("_batexp_capex")))
+    .withColumn("_co2",  co2_score(col("_batexp_co2")))
+    .withColumn("_pay",  payback_score(col("_batexp_payback")))
+    .withColumn("priority_score",    total_priority(col("_comp_urg"), col("_fin"), col("_co2"), col("_pay")))
+    .withColumn("annual_saving_eur", col("_batexp_saving_eur"))
+    .withColumn("co2_saving_kg",     col("_batexp_co2"))
+    .withColumn("capex_eur",         col("_batexp_capex"))
+    .withColumn("net_capex_eur",
+        when(col("country_code") == "DE",
+             spark_round(col("_batexp_capex") * lit(0.80), 0))
+        .otherwise(col("_batexp_capex")))
+    .withColumn("payback_years",     col("_batexp_payback"))
+    .withColumn("npv_eur",           col("_batexp_npv"))
+    .withColumn("grant_eur",
+        when(col("country_code") == "DE",
+             spark_round(col("_batexp_capex") * lit(0.20), 0))
+        .otherwise(lit(0.0)))
+    .withColumn("grant_programs",
+        when(col("country_code") == "DE", lit("KfW 270 — Erneuerbare Energien Speicher"))
+        .otherwise(lit(None).cast("string")))
+    .withColumn("title_en",
+        concat_ws(" ",
+            lit("Expand Battery Storage Capacity (+"),
+            col("_batexp_kwh_add").cast("string"),
+            lit("kWh — 50% increase)")))
+    .withColumn("title_de",
+        concat_ws(" ",
+            lit("Batteriespeicher erweitern (+"),
+            col("_batexp_kwh_add").cast("string"),
+            lit("kWh — +50%)")))
+    .withColumn("title_tr",
+        concat_ws(" ",
+            lit("Batarya Kapasitesini Genişlet (+"),
+            col("_batexp_kwh_add").cast("string"),
+            lit("kWh — %50 artış)")))
+    .withColumn("description_en",
+        concat_ws(" ",
+            lit("Add"),
+            col("_batexp_kwh_add").cast("string"),
+            lit("kWh to existing battery system, increasing self-consumption window and peak shaving range."),
+            lit("Annual saving: €"),
+            col("_batexp_saving_eur").cast("string"),
+            lit("| Payback:"),
+            col("_batexp_payback").cast("string"),
+            lit("years.")))
+    .withColumn("description_de",
+        concat_ws(" ",
+            lit(""),
+            col("_batexp_kwh_add").cast("string"),
+            lit("kWh zum bestehenden Batteriesystem hinzufügen — mehr Eigenverbrauch und Lastspitzenkappung."),
+            lit("Jährliche Einsparung: €"),
+            col("_batexp_saving_eur").cast("string"),
+            lit("| Amortisation:"),
+            col("_batexp_payback").cast("string"),
+            lit("Jahre.")))
+    .withColumn("description_tr",
+        concat_ws(" ",
+            lit("Mevcut batarya sistemine"),
+            col("_batexp_kwh_add").cast("string"),
+            lit("kWh ekleyerek öz-tüketim penceresini ve tepe kesme kapasitesini artır."),
+            lit("Yıllık tasarruf: €"),
+            col("_batexp_saving_eur").cast("string"),
+            lit("| Geri ödeme:"),
+            col("_batexp_payback").cast("string"),
+            lit("yıl.")))
+)
+
+
+# ── 7n. POWER_FACTOR_CORRECTION ────────────────────────────────────────────────
+# Applicable: LOGISTICS, HOSPITAL, HOTEL — high inductive motor loads (compressors, fans, pumps)
+# Savings: 4% of annual electricity cost (reactive power tariff penalties eliminated)
+# Capex: Flat €15,000 for capacitor bank + controller (commercial scale)
+# Source: VDE / DENA Reaktivleistungsmanagement Leitfaden 2022
+
+df_pfc_rec = (
+    df_base
+    .filter(col("building_type_upper").isin("LOGISTICS", "HOSPITAL", "HEALTHCARE", "HOTEL"))
+    .withColumn("_rate", _elec_rate)
+    .withColumn("_annual_cost_eur",
+        spark_round(coalesce(col("annual_consumption_kwh"), lit(0.0)) * col("_rate"), 0))
+    .withColumn("_pfc_saving_eur",
+        spark_round(col("_annual_cost_eur") * lit(PFC_SAVING_PCT), 0))
+    .withColumn("_pfc_saving_kwh",  lit(0.0))  # PFC reduces bill cost, not kWh directly
+    .withColumn("_pfc_capex",       lit(PFC_CAPEX_FIXED))
+    .withColumn("_pfc_co2",         lit(0.0))   # Minimal direct CO2 impact
+    .withColumn("_pfc_payback",
+        when(col("_pfc_saving_eur") > 0,
+             spark_round(lit(PFC_CAPEX_FIXED) / col("_pfc_saving_eur"), 1))
+        .otherwise(lit(99.0)))
+    .withColumn("_pfc_npv",
+        spark_round(col("_pfc_saving_eur") * lit(10.0) - lit(PFC_CAPEX_FIXED), 0))
+    .withColumn("action_type",       lit("POWER_FACTOR_CORRECTION"))
+    .withColumn("compliance_driver", lit("Grid Tariff / VDE-AR-N 4100 — Power Quality"))
+    .withColumn("_comp_urg",         lit(30.0))
+    .withColumn("_fin",  financial_score(col("_pfc_npv"),       col("_pfc_capex")))
+    .withColumn("_co2",  co2_score(col("_pfc_co2")))
+    .withColumn("_pay",  payback_score(col("_pfc_payback")))
+    .withColumn("priority_score",    total_priority(col("_comp_urg"), col("_fin"), col("_co2"), col("_pay")))
+    .withColumn("annual_saving_eur", col("_pfc_saving_eur"))
+    .withColumn("co2_saving_kg",     col("_pfc_co2"))
+    .withColumn("capex_eur",         col("_pfc_capex"))
+    .withColumn("net_capex_eur",     col("_pfc_capex"))
+    .withColumn("payback_years",     col("_pfc_payback"))
+    .withColumn("npv_eur",           col("_pfc_npv"))
+    .withColumn("grant_eur",         lit(0.0))
+    .withColumn("grant_programs",    lit(None).cast("string"))
+    .withColumn("title_en", lit("Install Power Factor Correction (Capacitor Bank)"))
+    .withColumn("title_de", lit("Blindleistungskompensation installieren (Kondensatorbatterie)"))
+    .withColumn("title_tr", lit("Güç Faktörü Düzeltme Sistemi Kur (Kondansatör Bataryası)"))
+    .withColumn("description_en",
+        concat_ws(" ",
+            lit("Install a reactive power compensation unit to eliminate power factor penalties."),
+            lit("Annual saving: €"),
+            col("_pfc_saving_eur").cast("string"),
+            lit("| Payback:"),
+            col("_pfc_payback").cast("string"),
+            lit("years. Flat capex ~€15,000 for capacitor bank + controller. Fast ROI.")))
+    .withColumn("description_de",
+        concat_ws(" ",
+            lit("Blindleistungskompensationsanlage installieren, um Blindleistungskosten zu eliminieren."),
+            lit("Jährliche Einsparung: €"),
+            col("_pfc_saving_eur").cast("string"),
+            lit("| Amortisation:"),
+            col("_pfc_payback").cast("string"),
+            lit("Jahre. Pauschalkosten ~15.000 € für Kondensatorbatterie + Regler.")))
+    .withColumn("description_tr",
+        concat_ws(" ",
+            lit("Reaktif güç cezalarını ortadan kaldırmak için güç faktörü düzeltme ünitesi kur."),
+            lit("Yıllık tasarruf: €"),
+            col("_pfc_saving_eur").cast("string"),
+            lit("| Geri ödeme:"),
+            col("_pfc_payback").cast("string"),
+            lit("yıl. Sabit maliyet ~15.000 € kondansatör bataryası + kontrol.")))
+)
+
+
+# ── 7o. SUBMETERING_UPGRADE ────────────────────────────────────────────────────
+# Applicable: Buildings without ISO 50001 certification (no systematic energy monitoring)
+# Savings: 5% of total consumption (waste identification → corrective action)
+# Capex: €6/m² + €4,000 fixed (smart meters per zone + gateway + monitoring software)
+# Source: Carbon Trust Sub-metering guide, CIBSE TM39
+
+df_submeter_rec = (
+    df_base
+    .filter(col("iso50001_certified") == False)
+    .withColumn("_rate", _elec_rate)
+    .withColumn("_sm_saving_kwh",
+        spark_round(coalesce(col("annual_consumption_kwh"), lit(0.0)) * lit(SUBMETER_SAVING_PCT), 0))
+    .withColumn("_sm_saving_eur",
+        spark_round(col("_sm_saving_kwh") * col("_rate"), 0))
+    .withColumn("_sm_capex",
+        spark_round(
+            lit(SUBMETER_CAPEX_FIXED) + col("conditioned_area_m2") * lit(SUBMETER_CAPEX_M2), 0))
+    .withColumn("_sm_co2",
+        spark_round(col("_sm_saving_kwh") * lit(0.4), 0))
+    .withColumn("_sm_payback",
+        when(col("_sm_saving_eur") > 0,
+             spark_round(col("_sm_capex") / col("_sm_saving_eur"), 1))
+        .otherwise(lit(99.0)))
+    .withColumn("_sm_npv",
+        spark_round(col("_sm_saving_eur") * lit(8.0) - col("_sm_capex"), 0))
+    .withColumn("action_type",       lit("SUBMETERING_UPGRADE"))
+    .withColumn("compliance_driver", lit("EnEfG §3 / EPBD — Energy Monitoring"))
+    .withColumn("_comp_urg",
+        compliance_urgency(coalesce(col("enefg_score"), col("epbd_score"), lit(45.0))))
+    .withColumn("_fin",  financial_score(col("_sm_npv"),       col("_sm_capex")))
+    .withColumn("_co2",  co2_score(col("_sm_co2")))
+    .withColumn("_pay",  payback_score(col("_sm_payback")))
+    .withColumn("priority_score",    total_priority(col("_comp_urg"), col("_fin"), col("_co2"), col("_pay")))
+    .withColumn("annual_saving_eur", col("_sm_saving_eur"))
+    .withColumn("co2_saving_kg",     col("_sm_co2"))
+    .withColumn("capex_eur",         col("_sm_capex"))
+    .withColumn("net_capex_eur",     col("_sm_capex"))
+    .withColumn("payback_years",     col("_sm_payback"))
+    .withColumn("npv_eur",           col("_sm_npv"))
+    .withColumn("grant_eur",         lit(0.0))
+    .withColumn("grant_programs",    lit(None).cast("string"))
+    .withColumn("title_en", lit("Install Sub-metering for Zone-Level Energy Monitoring"))
+    .withColumn("title_de", lit("Unterzähler für zonenbasiertes Energiemonitoring installieren"))
+    .withColumn("title_tr", lit("Bölge Bazlı Enerji İzleme için Alt Sayaç Sistemi Kur"))
+    .withColumn("description_en",
+        concat_ws(" ",
+            lit("Deploy zone/floor-level smart meters to identify waste and enable targeted action."),
+            lit("Typical saving: 5% of total consumption ="),
+            col("_sm_saving_kwh").cast("string"),
+            lit("kWh | €"),
+            col("_sm_saving_eur").cast("string"),
+            lit("/year | Payback:"),
+            col("_sm_payback").cast("string"),
+            lit("years. Foundation for ISO 50001 compliance.")))
+    .withColumn("description_de",
+        concat_ws(" ",
+            lit("Zonen-/Etagen-Unterzähler identifizieren Verschwendung und ermöglichen gezielte Maßnahmen."),
+            lit("Typische Einsparung: 5% ="),
+            col("_sm_saving_kwh").cast("string"),
+            lit("kWh | €"),
+            col("_sm_saving_eur").cast("string"),
+            lit("/Jahr | Amortisation:"),
+            col("_sm_payback").cast("string"),
+            lit("Jahre. Grundlage für ISO 50001.")))
+    .withColumn("description_tr",
+        concat_ws(" ",
+            lit("Bölge/kat bazlı akıllı sayaçlar enerji israfını tespit eder."),
+            lit("Tipik tasarruf: %5 ="),
+            col("_sm_saving_kwh").cast("string"),
+            lit("kWh | €"),
+            col("_sm_saving_eur").cast("string"),
+            lit("/yıl | Geri ödeme:"),
+            col("_sm_payback").cast("string"),
+            lit("yıl. ISO 50001 uyumu için temel.")))
+)
+
+
 # ── 8. UNION ALL RECOMMENDATIONS ──────────────────────────────────────────────
 
 log_step("UNION", "Combining all recommendation types …")
@@ -809,8 +1730,17 @@ COMMON_COLS = [
     "description_en", "description_de", "description_tr",
 ]
 
-all_recs = [df_hp_rec, df_ins_rec, df_bat_rec,
-            df_solar_rec, df_audit_rec, df_led_rec, df_deep_rec]
+all_recs = [
+    # Layer 0 — Original capital investment actions
+    df_hp_rec, df_ins_rec, df_bat_rec, df_solar_rec,
+    df_audit_rec, df_led_rec, df_deep_rec,
+    # Layer 1 — Universal operational quick wins
+    df_bms_rec, df_hvac_sched_rec, df_submeter_rec,
+    # Layer 2 — Sector-specific technologies
+    df_chp_rec, df_solar_thermal_rec, df_heat_recovery_rec,
+    # Layer 3 — Advanced / asset-specific
+    df_bat_exp_rec, df_peak_rec, df_pfc_rec,
+]
 
 df_all = all_recs[0].select(COMMON_COLS)
 for part in all_recs[1:]:
@@ -830,8 +1760,8 @@ df_ranked = (
     .withColumn("rank", row_number().over(window_spec))
     .withColumn("priority_label", priority_label(col("priority_score")))
     .withColumn("assessed_at", current_timestamp())
-    # Keep top 8 recommendations per building (prevents overwhelming UI)
-    .filter(col("rank") <= 8)
+    # Keep top 10 recommendations per building (expanded action type set — v2)
+    .filter(col("rank") <= 10)
 )
 
 log_step("RANK", "Ranking complete", rows=df_ranked.count())
@@ -839,32 +1769,46 @@ log_step("RANK", "Ranking complete", rows=df_ranked.count())
 
 # ── 10. FINAL SELECT ───────────────────────────────────────────────────────────
 
-df_results = df_ranked.select(
-    col("building_id"),
-    col("building_name"),
-    col("country_code"),
-    col("building_type"),
-    col("subscription_tier"),
-    col("rank"),
-    col("action_type"),
-    col("priority_label"),
-    spark_round(col("priority_score"), 1).alias("priority_score"),
-    col("compliance_driver"),
-    spark_round(col("annual_saving_eur"), 0).alias("annual_saving_eur"),
-    spark_round(col("co2_saving_kg"), 0).alias("co2_saving_kg"),
-    spark_round(col("capex_eur"), 0).alias("capex_eur"),
-    spark_round(col("net_capex_eur"), 0).alias("net_capex_eur"),
-    spark_round(col("grant_eur"), 0).alias("grant_eur"),
-    spark_round(col("payback_years"), 1).alias("payback_years"),
-    spark_round(col("npv_eur"), 0).alias("npv_eur"),
-    col("grant_programs"),
-    col("title_en"),
-    col("title_de"),
-    col("title_tr"),
-    col("description_en"),
-    col("description_de"),
-    col("description_tr"),
-    col("assessed_at"),
+df_results = (
+    df_ranked
+    # priority_sort_order: numeric sort key for Power BI visuals
+    # Live Connection = no calculated columns in PBI → sort must come from the table
+    # Used by: V12 "Actions by Priority" Y-axis sort (set Sort by Column in PBI)
+    .withColumn("priority_sort_order",
+        when(col("priority_label") == "CRITICAL",      lit(1))
+        .when(col("priority_label") == "HIGH",          lit(2))
+        .when(col("priority_label") == "MEDIUM",        lit(3))
+        .when(col("priority_label") == "LOW",           lit(4))
+        .when(col("priority_label") == "INFORMATIONAL", lit(5))
+        .otherwise(lit(99)))
+    .select(
+        col("building_id"),
+        col("building_name"),
+        col("country_code"),
+        col("building_type"),
+        col("subscription_tier"),
+        col("rank"),
+        col("action_type"),
+        col("priority_label"),
+        col("priority_sort_order"),                          # ← NEW: PBI sort key
+        spark_round(col("priority_score"), 1).alias("priority_score"),
+        col("compliance_driver"),
+        spark_round(col("annual_saving_eur"), 0).alias("annual_saving_eur"),
+        spark_round(col("co2_saving_kg"), 0).alias("co2_saving_kg"),
+        spark_round(col("capex_eur"), 0).alias("capex_eur"),
+        spark_round(col("net_capex_eur"), 0).alias("net_capex_eur"),
+        spark_round(col("grant_eur"), 0).alias("grant_eur"),
+        spark_round(col("payback_years"), 1).alias("payback_years"),
+        spark_round(col("npv_eur"), 0).alias("npv_eur"),
+        col("grant_programs"),
+        col("title_en"),
+        col("title_de"),
+        col("title_tr"),
+        col("description_en"),
+        col("description_de"),
+        col("description_tr"),
+        col("assessed_at"),
+    )
 )
 
 
@@ -931,24 +1875,22 @@ df_val.filter(col("rank") == 1).select(
 ).orderBy("country_code", col("priority_score").desc()).show(truncate=False)
 
 print("── ALL CRITICAL / HIGH PRIORITY RECOMMENDATIONS ─────────────────────────")
-df_val.filter(col("priority_label").isin("CRITICAL", "HIGH")).select(
-    "building_id", "rank", "action_type",
-    "priority_label", "priority_score",
-    "annual_saving_eur", "grant_eur", "payback_years",
-).orderBy(col("priority_score").desc()).show(20, truncate=False)
+df_val.filter(col("priority_label").isin(["CRITICAL", "HIGH"])).select(
+    "building_id", "country_code", "rank",
+    "action_type", "priority_label", "priority_score",
+    "annual_saving_eur", "net_capex_eur", "payback_years",
+    "compliance_driver",
+).orderBy(col("priority_score").desc()).show(50, truncate=False)
 
-print("── SAMPLE RECOMMENDATION TEXTS ─────────────────────────────────────────")
-df_val.filter(col("rank") == 1).select(
-    "building_id", "title_en", "description_en"
-).show(truncate=60)
+print()
+print("── RECOMMENDATION COUNT BY BUILDING ─────────────────────────────────────")
+df_val.groupBy("building_id", "country_code").count().orderBy("building_id").show()
 
-print("── FINANCIAL SUMMARY ────────────────────────────────────────────────────")
-df_val.groupBy("country_code", "priority_label").agg(
-    spark_round(spark_sum("annual_saving_eur") / 1000.0, 0).alias("total_saving_k_eur"),
-    spark_round(spark_sum("grant_eur") / 1000.0, 0).alias("total_grants_k_eur"),
-    spark_round(spark_avg("payback_years"), 1).alias("avg_payback_years"),
-).orderBy("country_code", "priority_label").show(truncate=False)
+print()
+print("── PRIORITY DISTRIBUTION ────────────────────────────────────────────────")
+df_val.groupBy("priority_label").count().orderBy("priority_label").show()
 
+print()
 print("=" * 72)
-print("  06_recommendation_engine.py — COMPLETE")
+print("  RECOMMENDATION ENGINE COMPLETE")
 print("=" * 72)

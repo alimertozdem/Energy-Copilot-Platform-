@@ -1,0 +1,244 @@
+// ==========================================================================
+// Energy Copilot Platform — DAX v23: Page 3 Insight Cards
+// File: semantic-model/32_dax_v23_page3_insight_cards.dax
+// Last updated: 2026-04-25
+//
+// AMAÇ:
+//   Sayfa 3 alt alanında ("Severity Mix per Building" yerine) yer alacak
+//   4 operasyonel içgörü kartı. Bu metrikler facility manager ve energy
+//   consultant için doğrudan aksiyon alınabilir bilgi üretir.
+//
+// YERLEŞİM: Severity Mix grafiğini sil → bu 4 kartı yan yana koy
+//
+// KART DÜZENİ (soldan sağa):
+//   [Resolution Rate %] [Avg Days Open] [High Priority Open] [Top Risk Building]
+// ==========================================================================
+
+
+// ==========================================================================
+// KART A — Resolution Rate (%)
+//
+// Neden önemli: Operasyonel verimlilik göstergesi.
+//   "Tespit edilen anomalilerin yüzde kaçı çözüldü?"
+//   Yüksek oran → ekip aksiyon alıyor.
+//   Düşük oran → anomaliler birikip risk yaratıyor.
+//
+// Beklenen değer: %30–50 (notebook sonrası ~41% → 41.0 görünür)
+// Hedef: %80+ (world-class facility management)
+// Format: "0.0"  + "%" suffix
+// Renk: Yüksek → #00E5A0 | Düşük → #FF4560 (conditional formatting ile)
+// ==========================================================================
+
+P3 Resolution Rate Pct =
+VAR _resolved =
+    CALCULATE (
+        COUNTROWS ( gold_anomaly_log ),
+        gold_anomaly_log[is_resolved] = TRUE
+    )
+VAR _total = [P3 Total Anomaly Count]
+RETURN
+    ROUND ( DIVIDE ( _resolved, _total, 0 ) * 100, 1 )
+
+
+// ==========================================================================
+// KART B — Avg Days Open (Unresolved Anomalies)
+//
+// Neden önemli: Aciliyet ve response time göstergesi.
+//   "Çözülmemiş anomaliler ortalama kaç gündür bekliyor?"
+//   Yüksek değer → eskiyen, ihmal edilen riskler.
+//   Düşük değer → hızlı tepki kültürü.
+//
+// Hesap: Her açık anomalinin tespit tarihi → bugün arası gün farkı ortalaması.
+// Beklenen değer: 200–400 gün (sentetik veri, 2024'ten beri birikmiş)
+// Format: "#,##0" + " days" suffix (New Card subtitle'da "days" yaz)
+// Renk: >365 → #FF4560 | 90-365 → #FFC107 | <90 → #00E5A0
+// ==========================================================================
+
+P3 Avg Days Open =
+ROUND (
+    AVERAGEX (
+        FILTER (
+            gold_anomaly_log,
+            gold_anomaly_log[is_resolved] = FALSE
+        ),
+        DATEDIFF ( gold_anomaly_log[detected_date], TODAY (), DAY )
+    ),
+    0
+)
+
+
+// ==========================================================================
+// KART C — High Priority Open Count
+//
+// Neden önemli: Acil aksiyon gerektiren anomali sayısı.
+//   CRITICAL + HIGH severity ve is_resolved = FALSE olanlar.
+//   Bu sayı sıfıra yakın olmalı — yönetim için kırmızı çizgi.
+//
+// Farkı: C2 kartı sadece CRITICAL open gösterir.
+//        Bu kart CRITICAL + HIGH birlikte → daha kapsamlı "acil liste".
+//
+// Beklenen değer: 5–15 (HIGH anomalilerin ~%25'i resolved sonrası)
+// Format: "#,##0"
+// Renk: >10 → #FF4560 | 1-10 → #FFC107 | 0 → #00E5A0
+// ==========================================================================
+
+P3 High Priority Open Count =
+CALCULATE (
+    COUNTROWS ( gold_anomaly_log ),
+    gold_anomaly_log[is_resolved] = FALSE,
+    gold_anomaly_log[severity] IN { "CRITICAL", "HIGH" }
+)
+
+
+// ==========================================================================
+// KART D — Top Risk Building (text)
+//
+// Neden önemli: Portföy önceliklendirme.
+//   "Şu an en fazla açık anomalisi olan bina hangisi?"
+//   Facility manager bu binaya öncelik vermeli.
+//
+// Hesap: Unresolved Count en yüksek binanın adı.
+// Format: Text (New Card → "Text" field değil, Callout label olarak gösterilir)
+//
+// NOT: Bu ölçü bir metin döndürür — New Card "Callout value" formatı için
+//      "Text" kategorisinde bir ölçü kullanamazsın.
+//      ÇÖZÜM: "Reference label" alanına bağla, ana değer P3 Top Risk Score.
+//      Veya bu iki ölçüyü birlikte kullan (aşağıda açıklandı).
+// ==========================================================================
+
+// Ana değer → Callout'a bağla (format "#,##0")
+P3 Top Risk Building Score =
+CALCULATE (
+    [P3 Unresolved Count],
+    TOPN (
+        1,
+        VALUES ( silver_building_master[building_name] ),
+        [P3 Unresolved Count],
+        DESC
+    )
+)
+
+// Bina adı → Reference Label veya ayrı "Card" subtitle'a manuel yaz
+// (Power BI metin ölçüleri callout'ta görünmez — bu yardımcı ölçü tooltip için)
+P3 Top Risk Building Name =
+VAR _tbl =
+    ADDCOLUMNS (
+        VALUES ( silver_building_master[building_name] ),
+        "@cnt", [P3 Unresolved Count]
+    )
+RETURN
+    MAXX ( TOPN ( 1, _tbl, [@cnt], DESC ), silver_building_master[building_name] )
+
+
+// ==========================================================================
+// KART D ALTERNATİFİ — Eğer metin kartı zorsa
+//
+// Top Risk Building yerine şu alternatifi kullan:
+//   "After-Hours Waste Rate (%)" — AFTER_HOURS_WASTE'in toplam içindeki payı.
+//   Bu metrik enerji verimliliği açısından doğrudan anlamlı.
+// ==========================================================================
+
+P3 After Hours Waste Rate Pct =
+VAR _ahw =
+    CALCULATE (
+        COUNTROWS ( gold_anomaly_log ),
+        gold_anomaly_log[anomaly_type] = "AFTER_HOURS_WASTE"
+    )
+RETURN
+    ROUND ( DIVIDE ( _ahw, [P3 Total Anomaly Count], 0 ) * 100, 1 )
+
+
+// ==========================================================================
+// 4 KART BAĞLAMA REHBERİ
+// ==========================================================================
+//
+// KART A — Resolution Rate (%)
+//   Visual: New Card
+//   Callout Value: P3 Resolution Rate Pct
+//   Callout format: "0.0"
+//   Subtitle: "Resolution Rate (%)"
+//   Callout renk: Conditional format → >60: #00E5A0 | 30-60: #FFC107 | <30: #FF4560
+//
+// KART B — Avg Days Open
+//   Visual: New Card
+//   Callout Value: P3 Avg Days Open
+//   Callout format: "#,##0"
+//   Subtitle: "Avg Days Open (Unresolved)"
+//   Callout renk: Conditional format → >365: #FF4560 | 90-365: #FFC107 | <90: #00E5A0
+//
+// KART C — High Priority Open
+//   Visual: New Card
+//   Callout Value: P3 High Priority Open Count
+//   Callout format: "#,##0"
+//   Subtitle: "Critical + High Open"
+//   Callout renk: Conditional format → >10: #FF4560 | 1-10: #FFC107 | 0: #00E5A0
+//
+// KART D — After-Hours Waste Rate (önerilen alternatif)
+//   Visual: New Card
+//   Callout Value: P3 After Hours Waste Rate Pct
+//   Callout format: "0.0"
+//   Subtitle: "After-Hours Waste (%)"
+//   Renk: >70: #FF4560 | 40-70: #FFC107 | <40: #00E5A0
+//   Context: AFTER_HOURS_WASTE genellikle dominant anomali tipidir.
+//            %60+ ise hafta sonu/gece operasyonlarına dikkat gerekir.
+//
+// ==========================================================================
+//
+// KARTLARI DAHA AZ SADE GÖSTERMEK İÇİN FORMAT PANELİ AYARLARI:
+//
+//   General → Title ON → "Resolution Rate" başlığı
+//   Callout value → Font size: 28-32px | Bold
+//   Callout value → Color → Conditional format (yukarıdaki kurallara göre)
+//   Category label → ON → ölçü adı yerine anlamlı metin yaz
+//   Reference label → ON → bir önceki dönem değerini bağla (karşılaştırma)
+//   Background color → #0A1528 (koyu tema ile uyumlu)
+//   Border → ON → renk: ilgili KPI rengi (#FF4560, #FFC107, #00E5A0)
+//
+//   Reference label için:
+//   KART A → P3 Resolution Rate Pct PY (aşağıda)
+//   KART B → sabit hedef: mevcut değerin altında mı üstünde mi?
+//
+// ==========================================================================
+
+// Kart A için önceki yıl karşılaştırması (Reference Label)
+P3 Resolution Rate Pct PY =
+VAR _resolved_py =
+    CALCULATE (
+        COUNTROWS ( gold_anomaly_log ),
+        gold_anomaly_log[is_resolved] = TRUE,
+        DATEADD ( '''Date'''[Date], -1, YEAR )
+    )
+VAR _total_py =
+    CALCULATE (
+        [P3 Total Anomaly Count],
+        DATEADD ( '''Date'''[Date], -1, YEAR )
+    )
+RETURN
+    ROUND ( DIVIDE ( _resolved_py, _total_py, 0 ) * 100, 1 )
+
+
+// ==========================================================================
+// SAYFA 3 LAYOUT ÖNERİSİ (Severity Mix kaldırıldıktan sonra)
+//
+// ┌─────────────────────────────────────────────────────────────────────┐
+// │  C1 Total   │ C2 Critical │  C3 High   │ C4 Unresolved │ C5 Rate%  │
+// ├──────────────────────────────┬──────────────────────────────────────┤
+// │                              │  Monthly Anomalies by Severity (V8)  │
+// │  Anomaly Detail Table (V6)   ├──────────────────────────────────────┤
+// │  (Open anomalies, sorted by  │  Building Anomaly Share % (V9)       │
+// │   Severity → Detected ASC)   ├──────────────────────────────────────┤
+// │                              │  Anomaly Type Breakdown (V7)         │
+// ├──────────┬───────────────────┴───────────────────────────────────── ┤
+// │  A       │   B              │  C                │   D               │
+// │ Resol.   │   Avg Days Open  │  Hi Priority Open │   AH Waste Rate   │
+// │ Rate %   │                  │  (CRIT+HIGH)      │                   │
+// └──────────┴──────────────────┴───────────────────┴───────────────────┘
+//
+// Bu layout ile sayfa:
+//   • Üst 5 kart → anlık portföy durumu
+//   • Sol orta → aksiyon listesi (açık anomaliler)
+//   • Sağ orta → 3 grafik (trend + dağılım + tip)
+//   • Alt 4 kart → operasyonel içgörü ve verimlilik metrikleri
+// ==========================================================================
+
+// SON

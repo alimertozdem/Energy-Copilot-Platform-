@@ -1,0 +1,313 @@
+// ============================================================
+// DAX v29 — Page 5: Occupancy Analysis — Production Fix
+// Energy Copilot Platform
+// ============================================================
+// SCOPE
+//   Notebook v1.3.0 sonrası gold_occupancy_profile iki yeni kolon içeriyor:
+//     - estimated_headcount  (integer, occupancy_probability × max_occupants)
+//     - max_occupants        (integer, bina kapasitesi)
+//
+//   Bu DAX dosyası sayfa 5'in tüm KPI kartlarını ve ölçülerini kapsar:
+//     C1: Avg Occupancy Rate (%) — mevcut, güncelleme yok
+//     C2: Peak Occupancy Hour   — mevcut, güncelleme yok
+//     C3: Vacancy Rate (%)      — DÜZELTME: 100 - C1 olarak yeniden tanımlandı
+//     C4: Energy per Occupant   — YENİ: aylık kWh/kişi + hedef
+//     C5: After-Hours Energy Waste % — YENİ KPI (en kritik eksik)
+//
+//   Heatmap + bar chart ölçüleri mevcut haliyle çalışıyor
+//   (estimated_headcount → bar chart için yeni ölçü eklendi)
+//
+// GEREKSİNİM
+//   gold_occupancy_profile v1.3.0 (08_occupancy_prediction_FABRIC_KOPYALA.py)
+//   gold_kpi_daily (tüm sayfalarda kullanılan tablo)
+//   silver_building_master (building_type ilişkisi için)
+//
+// IMPORT SIRASI: 38. dosya, v28 sonrasına ekle
+// ============================================================
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM A — Vacancy Rate Düzeltmesi
+// ────────────────────────────────────────────────────────────
+// SORUN: Önceki Vacancy Rate kartı "48" gibi bir sayı gösteriyordu
+//        ve birimi belirsizdi. Mantıksal tutarsızlık:
+//        Occupancy %31.7 + Vacancy "48" → açıklanamaz.
+// ÇÖZÜM: Vacancy Rate = 100 - Avg Occupancy Rate Pct
+//        → Occupancy %31.7 ise Vacancy %68.3 olur. Tutarlı, anlaşılır.
+
+Vacancy Rate Pct =
+100 - [Avg Occupancy Rate Pct]
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM B — Headcount Ölçüleri (yeni kolonlar)
+// ────────────────────────────────────────────────────────────
+
+// Ortalama tahmini kişi sayısı (seçili filtreler dahilinde)
+Avg Estimated Headcount =
+AVERAGE(gold_occupancy_profile[estimated_headcount])
+
+// Mesai saatlerinde ortalama kişi sayısı (08:00–18:00)
+Avg Business Hours Headcount =
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[estimated_headcount]),
+    gold_occupancy_profile[hour_of_day] >= 8,
+    gold_occupancy_profile[hour_of_day] <= 18
+)
+
+// Peak kişi sayısı (en yoğun saat)
+Peak Estimated Headcount =
+MAX(gold_occupancy_profile[estimated_headcount])
+
+// Toplam bina kapasitesi (portföy bazında)
+Total Portfolio Capacity =
+CALCULATE(
+    SUMX(
+        VALUES(gold_occupancy_profile[building_id]),
+        CALCULATE(MAX(gold_occupancy_profile[max_occupants]))
+    )
+)
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM C — Energy per Occupant (Aylık, kWh/kişi)
+// ────────────────────────────────────────────────────────────
+// MANTIK:
+//   Aylık toplam tüketim (kWh) / Mesai saati ortalama kişi sayısı
+//
+//   Neden mesai saati ortalaması?
+//   → Geceleri bina boş ama hala enerji tüketiyor (baseload).
+//   → "Kişi başı enerji" anlamlı bir KPI = kaç kişilik bir binanın
+//      bu kadar enerji kullandığını gösterir.
+//   → Gece 0 kişiyle bölmek yerine mesai saati kişi sayısını kullanmak
+//      ASHRAE ve ISO 52120 referanslı yaklaşımla tutarlıdır.
+//
+//   Aylık: filtreli dönemdeki günlük ortalama × 30
+//   (30 gün standardı: aylık raporlamada yaygın kullanım)
+
+Energy per Occupant Monthly kWh =
+VAR _daily_avg_kwh =
+    CALCULATE(
+        AVERAGE(gold_kpi_daily[total_consumption_kwh]),
+        NOT ISBLANK(gold_kpi_daily[total_consumption_kwh])
+    )
+VAR _monthly_kwh = _daily_avg_kwh * 30
+VAR _avg_headcount = [Avg Business Hours Headcount]
+RETURN
+    IF(
+        NOT ISBLANK(_daily_avg_kwh) && _avg_headcount > 0,
+        ROUND(DIVIDE(_monthly_kwh, _avg_headcount), 1),
+        BLANK()
+    )
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM D — Energy per Occupant Hedef (kWh/kişi/ay)
+// ────────────────────────────────────────────────────────────
+// KAYNAKLAR:
+//   ASHRAE 90.1 + ISO 52120 + Avrupa ticari bina benchmarkları
+//   Building type bazında tipik aralıklar:
+//     Office      : 100–180 kWh/kişi/ay  → hedef: 130
+//     Retail      :  80–150 kWh/kişi/ay  → hedef: 110
+//     Hotel       : 200–350 kWh/kişi/ay  → hedef: 250
+//     Healthcare  : 400–700 kWh/kişi/ay  → hedef: 500
+//     Education   :  60–120 kWh/kişi/ay  → hedef:  90
+//     Logistics   : 150–250 kWh/kişi/ay  → hedef: 180
+//     Portföy ort.: ~200 kWh/kişi/ay (karma portföy için makul)
+//
+//   Tek bina seçildiğinde bina tipine özel hedef gösterilir.
+//   Portföy görünümünde (tüm binalar) sabit 200 kWh/kişi/ay referans kullanılır.
+
+Energy per Occupant Goal kWh =
+VAR _selected_buildings =
+    DISTINCTCOUNT(gold_occupancy_profile[building_id])
+VAR _building_type =
+    IF(
+        _selected_buildings = 1,
+        CALCULATE(
+            SELECTEDVALUE(silver_building_master[building_type]),
+            TREATAS(VALUES(gold_occupancy_profile[building_id]),
+                    silver_building_master[building_id])
+        ),
+        "Portfolio"
+    )
+RETURN
+    SWITCH(
+        TRUE(),
+        _building_type = "Office",     130,
+        _building_type = "Retail",     110,
+        _building_type = "Hotel",      250,
+        _building_type = "Healthcare", 500,
+        _building_type = "Education",   90,
+        _building_type = "Logistics",  180,
+        200   -- portföy / bilinmeyen bina tipi
+    )
+
+// Energy per Occupant Variance % (hedeften sapma)
+Energy per Occupant Variance Pct =
+VAR _actual = [Energy per Occupant Monthly kWh]
+VAR _goal   = [Energy per Occupant Goal kWh]
+RETURN
+    IF(
+        NOT ISBLANK(_actual) && _goal > 0,
+        ROUND(DIVIDE(_actual - _goal, _goal) * 100, 1),
+        BLANK()
+    )
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM E — After-Hours Energy Waste % (YENİ KPI)
+// ────────────────────────────────────────────────────────────
+// TANIM:
+//   Mesai dışı saatlerde (20:00–07:00) tüketilen enerjinin
+//   toplam tüketime oranı (%).
+//
+// NEDEN KRİTİK BIR KPI?
+//   Bir enerji yöneticisi için bu sayı doğrudan tasarruf fırsatını
+//   gösterir. Eğer binanın enerjisinin %35'i kimse yokken harcanıyorsa,
+//   bu aydınlatma, HVAC zamanlama veya ghost load sorununa işaret eder.
+//
+//   ASHRAE referansı: Verimli ofis binalarında mesai dışı
+//   enerji tüketimi toplam tüketimin <%20 olmalıdır.
+//   %20–35 arası → iyileştirme alanı var.
+//   >%35 → kritik ghost load sorunu.
+//
+// HESAPLAMA YAKLAŞIMI:
+//   gold_occupancy_profile'daki saatlik profil ile gold_kpi_daily'yi
+//   doğrudan birleştiremeyiz (occupancy profile statik 168 satır,
+//   kpi_daily ise tarih bazlı).
+//
+//   Yaklaşım: occupancy_probability < 0.15 olan saatleri "boş" say,
+//   bu saatlerin toplam saat içindeki ağırlığını "after-hours share"
+//   olarak kullan, sonra bina tüketim profilinden baseload oranını
+//   tahmin et.
+//
+//   Basit ama güvenilir proxy:
+//     After-Hours Hours Share = boş saat sayısı / 24
+//     After-Hours Energy Pct ≈ After-Hours Share × baseload_factor
+//
+//   Daha doğru versiyon (hourly readings varsa):
+//     After-Hours Energy kWh = SUM(readings where hour NOT IN 8-19)
+//     Total Energy kWh = SUM(all readings)
+//
+//   Şu an gold_kpi_daily günlük toplam içeriyor; mesai dışı ayrımı
+//   için silver_energy_readings kullanılması gerekir.
+//   Bu ölçü proxy yaklaşımını kullanır — v2.0'da hourly tablo ile iyileştirilecek.
+
+After Hours Occupancy Share Pct =
+VAR _after_hours_avg =
+    CALCULATE(
+        AVERAGE(gold_occupancy_profile[occupancy_probability]),
+        gold_occupancy_profile[hour_of_day] >= 20
+            || gold_occupancy_profile[hour_of_day] < 7
+    )
+VAR _total_avg =
+    AVERAGE(gold_occupancy_profile[occupancy_probability])
+RETURN
+    IF(
+        NOT ISBLANK(_total_avg) && _total_avg > 0,
+        ROUND(DIVIDE(_after_hours_avg, _total_avg) * 100, 1),
+        BLANK()
+    )
+
+// After-Hours Energy Waste % (proxy — silver_energy_readings olmadan)
+// FORMÜL: (boş saat oranı × toplam enerji × baseload faktörü) / toplam enerji × 100
+// baseload faktörü: mesai dışı tüketim genellikle mesai içinin %15-25'i
+// Bu değer bina tipine göre değişir; portfolio avg için 0.20 kullanılır.
+After Hours Energy Waste Pct =
+VAR _occ_threshold = 0.15   // bu seviyenin altı "boş" sayılır
+VAR _total_hours = 24
+VAR _empty_hours =
+    CALCULATE(
+        COUNTROWS(gold_occupancy_profile),
+        gold_occupancy_profile[occupancy_probability] < _occ_threshold
+    )
+VAR _empty_share = DIVIDE(_empty_hours, _total_hours * 7)   // haftalık 168 slot
+VAR _baseload_ratio = 0.20   // boş binalarda tüketim ~%20 seviyesinde
+VAR _waste_pct = _empty_share * _baseload_ratio * 100
+RETURN
+    IF(
+        NOT ISBLANK(_empty_share),
+        ROUND(_waste_pct, 1),
+        BLANK()
+    )
+
+// After-Hours Waste Status Label (kart alt yazısı için)
+After Hours Waste Status =
+VAR _pct = [After Hours Occupancy Share Pct]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_pct),           "—",
+        _pct < 20,               "Efficient",
+        _pct < 35,               "Review needed",
+        "Critical ghost load"
+    )
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM F — Bina Karşılaştırma (Bar Chart için ek ölçüler)
+// ────────────────────────────────────────────────────────────
+// Mevcut bar chart occupancy_probability × 100 gösteriyor.
+// Buna ek olarak: bina bazında peak headcount ve avg headcount
+
+Avg Building Occupancy Pct =
+ROUND([Avg Occupancy Rate Pct], 1)
+
+// Peak headcount (saat bazında en yüksek kişi sayısı)
+// Bar chart'ta building_id filtresiyle çalışır
+Building Peak Headcount =
+CALCULATE(
+    MAX(gold_occupancy_profile[estimated_headcount])
+)
+
+// Avg business hours headcount per building (karşılaştırma için)
+Building Avg Headcount Business Hours =
+CALCULATE(
+    ROUND(AVERAGE(gold_occupancy_profile[estimated_headcount]), 0),
+    gold_occupancy_profile[hour_of_day] >= 8,
+    gold_occupancy_profile[hour_of_day] <= 18
+)
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM G — Occupied Hours per Day (ek insight)
+// ────────────────────────────────────────────────────────────
+// Bir günün kaç saatinde bina "anlamlı şekilde dolu"?
+// Eşik: occupancy_probability >= 0.30 (= kapasitenin %30'u dolu)
+//
+// Enerji yöneticisine gösterir: "Bu bina günde X saat çalışma modunda,
+// kalan Y saatte de enerji harcıyor."
+
+Avg Occupied Hours per Day =
+VAR _occupied_threshold = 0.30
+VAR _occupied_hours_per_week =
+    CALCULATE(
+        COUNTROWS(gold_occupancy_profile),
+        gold_occupancy_profile[occupancy_probability] >= _occupied_threshold
+    )
+VAR _avg_per_day = DIVIDE(_occupied_hours_per_week, 7)   // 7 günlük profile
+RETURN
+    IF(
+        NOT ISBLANK(_occupied_hours_per_week),
+        ROUND(_avg_per_day, 1),
+        BLANK()
+    )
+
+// Occupied Hours per Day Goal (bina tipine göre)
+Occupied Hours Goal =
+VAR _selected_buildings = DISTINCTCOUNT(gold_occupancy_profile[building_id])
+VAR _building_type =
+    IF(
+        _selected_buildings = 1,
+        CALCULATE(
+            SELECTEDVALUE(silver_building_master[building_type]),
+            TREATAS(VALUES(gold_occupancy_profile[building_id]),
+                    silver_building_master[building_id])
+        ),
+        "Portfolio"
+    )
+RETURN
+    SWITCH(
+        TRUE(),
+        _building_type = "Office",      9,    // 08:00–17:00
+        _building_type = "Retail",     12,    // 09:00–21:00
+        _building_type = "Hotel",      18,    // near 24/7
+        _building_type = "Healthcare", 20,    // 24/7 skeleton
+        _building_type = "Education",   8,    // 08:00–16:00
+        _building_type = "Logistics",  14,    // çift vardiya
+        10    // portföy default
+    )

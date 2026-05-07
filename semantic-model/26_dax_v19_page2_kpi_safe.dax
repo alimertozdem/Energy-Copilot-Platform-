@@ -1,0 +1,221 @@
+// ==========================================================================
+// Energy Copilot Platform — DAX v19: Page 2 KPI Safe Measures + EUI Gauge Fix
+// File: semantic-model/26_dax_v19_page2_kpi_safe.dax
+// Created: 2026-04-24
+//
+// SORUNLAR (teşhis edildi):
+//   Page 2 KPI kartları (C1, C2, C4, C5, C6), date slicer veri bitişi ötesine
+//   uzadığında (Blank) döndürüyor.
+//   Örnek: Veri sonu = 2026-04-18, slicer = 12.04.2025 → 17.07.2026 → blank.
+//   Aynı slicer ile 2025 içinde test edilince kartlar değer gösteriyor ✅
+//   → Sorun: Future date taşması, AVERAGE/MAX/SUM için filter context'i bozuyor.
+//
+//   EUI Gauge Target field'ına EUI Status Label (text) bağlı.
+//   → Power BI gauge numarik bekliyor; text gelince ekranda "Poor/Fair" yazısı görünüyor.
+//   EUI Gauge max = 0.7 ama EUI = 0.72 → needle overflow.
+//
+// FIX YAKLAŞIMI — "Date Cap" Pattern:
+//   VAR _cap = MAX(gold_kpi_daily[date])
+//   → Slicer bağlamındaki son gerçek veri tarihi
+//   → Veri dışı range seçilirse: gold_kpi_daily'de satır yok → _cap = BLANK()
+//     → IF(ISBLANK(_cap), BLANK()) → kart temiz blank döner
+//   → Veri olan range seçilirse: _cap = son veri günü
+//     → CALCULATE(..., 'Date'[Date] <= _cap) future tarihleri keser
+//     → Bina slicerı korunur (sadece Date filtresi ekleniyor)
+//
+// Power BI'DA UYGULANACAK İŞLEMLER:
+//   ► GÜNCELLENECEKler (mevcut ölçünün üzerine yaz):
+//       1. Avg Daily Consumption kWh
+//       2. Peak Demand kW
+//       3. Total Solar Generated kWh
+//       4. Avg Battery SoC Pct
+//       5. Avg Carbon Intensity kg m2
+//   ► YENİ eklenecekler:
+//       6. EUI Target Numeric   → Gauge "Target value" field'ına bağla
+//       7. Avg EUI kWh max      → Gauge "Maximum value" field'ına bağla (var ise üzerine yaz)
+//   ► GAUGE UI DEĞİŞİKLİKLERİ:
+//       - Target value field: EUI Status Label → EUI Target Numeric ile değiştir
+//       - Maximum value: Avg EUI kWh max (= 1.0) → needle artık overflow etmez
+//       - EUI Status Label ölçüsünü silme! Ayrı bir metin kartı için kullanılabilir.
+//   ► TEXT BOX DÜZELTMESİ:
+//       - C6 kart başlığı: "gCO2/kWh" → "kgCO₂/m²" olarak düzelt
+// ==========================================================================
+
+
+// ==========================================================================
+// BÖLÜM 1 — KPI KART ÖLÇÜLERİ (Date Cap Fix)
+// Sayfa 2: C1, C2, C4, C5, C6
+// ==========================================================================
+
+// ── C1: Avg Daily Consumption kWh (UPDATE) ───────────────────────────────
+// Ortalama günlük tüketim — seçili bina, seçili dönem
+// Format: #,##0.0 "kWh" | Yön: Low is Good
+// Hedef: Avg Daily Consumption 30Day Rolling (v17)
+Avg Daily Consumption kWh =
+VAR _cap = MAX(gold_kpi_daily[date])
+RETURN
+IF(
+    ISBLANK(_cap),
+    BLANK(),
+    CALCULATE(
+        AVERAGE(gold_kpi_daily[total_consumption_kwh]),
+        'Date'[Date] <= _cap
+    )
+)
+// Davranış:
+//   Slicer = 2025-04 → 2025-12 (veri var)   : _cap = 2025-12-31, ortalama döner ✅
+//   Slicer = 2025-04 → 2026-07 (future taşar): _cap = 2026-04-18, 04-18'e kadar ortalama döner ✅
+//   Slicer = 2026-05 → 2026-07 (tamamen boş): _cap = BLANK(), temiz BLANK() döner ✅
+
+
+// ── C2: Peak Demand kW (UPDATE) ───────────────────────────────────────────
+// Dönemin en yüksek talep değeri — seçili bina
+// Format: #,##0.0 "kW" | Yön: Low is Good
+// Hedef: Avg Peak Demand 30Day kW (v17)
+Peak Demand kW =
+VAR _cap = MAX(gold_kpi_daily[date])
+RETURN
+IF(
+    ISBLANK(_cap),
+    BLANK(),
+    CALCULATE(
+        MAX(gold_kpi_daily[peak_demand_kw]),
+        'Date'[Date] <= _cap
+    )
+)
+
+
+// ── C4: Total Solar Generated kWh (UPDATE) ───────────────────────────────
+// Dönemin toplam solar üretimi
+// Format: #,##0 "kWh" | Yön: High is Good
+// NOT: has_pv=TRUE olmayan binalar için blank döner — bu doğru davranış.
+//      "All" seçiliyken sadece PV'li binaların üretimi toplanır.
+// Hedef: Solar Generation PY kWh
+Total Solar Generated kWh =
+VAR _cap = MAX(gold_kpi_daily[date])
+RETURN
+IF(
+    ISBLANK(_cap),
+    BLANK(),
+    CALCULATE(
+        SUM(gold_kpi_daily[solar_generated_kwh]),
+        'Date'[Date] <= _cap
+    )
+)
+
+
+// ── C5: Avg Battery SoC Pct (UPDATE) ─────────────────────────────────────
+// Ortalama batarya doluluk oranı (min+max ortalaması)
+// Format: 0.0   ← ÖNEMLİ: "0%" DEĞİL — spec gereği
+// Yön: High is Good | Hedef: Battery SoC Target (= 80)
+// NOT: has_battery=TRUE olmayan binalar için blank döner — doğru davranış.
+Avg Battery SoC Pct =
+VAR _cap = MAX(gold_kpi_daily[date])
+RETURN
+IF(
+    ISBLANK(_cap),
+    BLANK(),
+    CALCULATE(
+        AVERAGEX(
+            FILTER(
+                gold_kpi_daily,
+                gold_kpi_daily[battery_soc_min_pct] <> BLANK() &&
+                gold_kpi_daily[battery_soc_max_pct] <> BLANK()
+            ),
+            (gold_kpi_daily[battery_soc_min_pct] + gold_kpi_daily[battery_soc_max_pct]) / 2
+        ),
+        'Date'[Date] <= _cap
+    )
+)
+// Format notu: Power BI'da bu ölçünün format kodunu "0.0" olarak ayarla.
+// Kart gösteriminde "74.0" şeklinde görünmeli, "74%" değil.
+
+
+// ── C6: Avg Carbon Intensity kg m2 (UPDATE) ───────────────────────────────
+// Ortalama karbon yoğunluğu — kgCO₂/m²/gün
+// Format: 0.000 "kgCO₂/m²" | Yön: Low is Good
+// ⚠️ TEXT BOX DÜZELTMESİ GEREKLİ: Kart başlığındaki "gCO2/kWh" → "kgCO₂/m²" yap
+// Hedef: Carbon Intensity PY kg m2 Day
+Avg Carbon Intensity kg m2 =
+VAR _cap = MAX(gold_kpi_daily[date])
+RETURN
+IF(
+    ISBLANK(_cap),
+    BLANK(),
+    CALCULATE(
+        AVERAGEX(
+            FILTER(gold_kpi_daily, gold_kpi_daily[carbon_intensity_kg_m2] <> BLANK()),
+            gold_kpi_daily[carbon_intensity_kg_m2]
+        ),
+        'Date'[Date] <= _cap
+    )
+)
+
+
+// ==========================================================================
+// BÖLÜM 2 — EUI GAUGE FIX (V8)
+// Sayfa 2: EUI Gauge — Target field ve Maximum field düzeltmesi
+// ==========================================================================
+
+// ── EUI Target Numeric (YENİ) ─────────────────────────────────────────────
+// V8 EUI Gauge → "Target value" field'ına bağlanacak
+// Mevcut sorun: EUI Status Label (text ölçü) Target field'ında →
+//   Power BI gauge numarik target bekler; text gelince "Poor/Fair" ekrana yazılır
+// Bu ölçü gauge'a hedef çizgisi çizer (0.27 kWh/m²/day)
+// Format: 0.00
+EUI Target Numeric =
+0.27
+// ASHRAE "Excellent" eşiği: 0.27 kWh/m²/day ≈ 100 kWh/m²/year (iyi ofis binası)
+// Gauge'da sarı kesikli çizgi olarak render edilecek
+
+
+// ── Avg EUI kWh max (YENİ veya UPDATE) ────────────────────────────────────
+// V8 EUI Gauge → "Maximum value" field'ına bağlanacak
+// Mevcut sorun: max = 0.7 iken EUI = 0.72 → needle overflow
+// Bu ölçü gauge skalasını 1.0'a sabitler:
+//   0.00 → 0.27 : Excellent (koyu yeşil)
+//   0.27 → 0.41 : Good      (açık yeşil)
+//   0.41 → 0.55 : Fair      (turuncu)
+//   0.55 → 1.00 : Poor      (kırmızı)
+// Format: 0.00
+Avg EUI kWh max =
+1.0
+// Neden 1.0? Pratik olarak hiçbir ticari bina günlük 1.0 kWh/m²'yi geçmez.
+// Bu değer "Poor" aralığının üst sınırını temsil eder.
+// Gauge needle artık overflow etmez: EUI = 0.72 → %72 pozisyonunda durur.
+
+
+// ==========================================================================
+// ÖZET — Power BI'da yapılacak işlemler (sırayla)
+// ==========================================================================
+//
+// ADIM 1 — DAX ölçülerini güncelle (5 update + 2 yeni):
+//   Her ölçü için: Modeling → Measures → ölçüyü seç → formül üzerine yapıştır
+//   Güncellenenler : Avg Daily Consumption kWh, Peak Demand kW,
+//                    Total Solar Generated kWh, Avg Battery SoC Pct,
+//                    Avg Carbon Intensity kg m2
+//   Yeniler        : EUI Target Numeric, Avg EUI kWh max
+//
+// ADIM 2 — EUI Gauge (V8) field'larını güncelle:
+//   Gauge seç → Visualizations pane:
+//   [Target value] : EUI Status Label SİL → EUI Target Numeric EKLE
+//   [Maximum value]: Avg EUI kWh max (zaten var ise üzerine yaz, yoksa ekle)
+//   [Minimum value]: boş bırak (= 0 varsayılan)
+//   ✅ Sonuç: Gauge'da hedef çizgisi 0.27'de görünür, "Poor/Fair" text kaybolur
+//
+// ADIM 3 — C5 Battery SoC format düzelt:
+//   C5 kart seç → Format pane → Callout value → Format code: "0.0"
+//   (Şu an "0%" formatı var, "74%" gösteriyor; "0.0" ile "74.0" göstermeli)
+//
+// ADIM 4 — C6 metin kutusu düzelt:
+//   C6 kartın üstündeki text box'ı seç → "gCO2/kWh" → "kgCO₂/m²" olarak değiştir
+//
+// ADIM 5 — V9 Solar chart axis sıralaması (global Sort-by-Column fix):
+//   Data view → Date tablosu → YearMonth kolonu → Column Tools → Sort by Column → MonthIndex
+//   Bu işlem bir kez yapılınca tüm sayfalardaki YearMonth eksenleri düzelir
+//
+// ADIM 6 — Test:
+//   Date slicer'ı 12.04.2025 → 17.07.2026 olarak ayarla
+//   Tüm 6 kart değer göstermeli (blank yok)
+//   EUI Gauge: hedef çizgisi 0.27'de, needle 0.72 pozisyonunda
+// ==========================================================================

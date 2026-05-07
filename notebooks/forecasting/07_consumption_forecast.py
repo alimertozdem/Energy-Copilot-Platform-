@@ -16,7 +16,7 @@
 #   - Her bina için AYRI model eğitilir (Pandas UDF ile paralel)
 #
 # GİRDİ:  Tables/gold_kpi_daily   (son 90 gün)
-# ÇIKTI:  Tables/gold_consumption_forecast (7 günlük tahmin, bina bazında)
+# ÇIKTI:  Tables/gold_consumption_forecast (30 günlük tahmin, bina bazında)
 #
 # ÇALIŞMA SIKLIĞI: Günlük — her sabah yeni 7 günlük pencere üretir
 #
@@ -97,7 +97,7 @@ PATHS = {
 # Eğitim ve tahmin parametreleri
 TRAINING_DAYS    = 900  # Kaç günlük geçmiş veri kullanılacak (2.5 yıl — sample 2024-2025 verisini kapsar)
 MIN_TRAINING_DAYS = 14  # En az bu kadar veri yoksa bina için model kurma
-FORECAST_HORIZON = 7    # Kaç gün ilerisi tahmin edilecek
+FORECAST_HORIZON = 30   # Kaç gün ilerisi tahmin edilecek (30 gün — C2 "30-Day Forecast kWh" için)
 
 # Prophet model parametreleri
 # changepoint_prior_scale: ne kadar "esnek" olsun

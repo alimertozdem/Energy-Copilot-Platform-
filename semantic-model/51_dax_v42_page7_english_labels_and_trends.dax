@@ -1,0 +1,498 @@
+// ==========================================================================
+// DAX v42 — PAGE 7 HVAC & Building Envelope — ENGLISH LABELS + TREND MEASURES
+// Energy Copilot Platform — 2026-05-06
+//
+// v41'den fark:
+//   (1) Tüm Label ölçüleri İngilizce — embed öncesi son düzeltme
+//   (2) Label metinleri kısa tutuldu (≤40 karakter) — Reference label alanına sığar
+//   (3) YoY % change ölçüleri — zaman karşılaştırmalı analiz
+//   (4) MoM trend ölçüleri — aylık değişim
+//   (5) V2 tablo başlık ölçüleri İngilizce (v39 "Renovasyon" metni silinecek)
+//   (6) Card: EPC Compliance — "bina" → "buildings"
+//
+// UYGULAMA NOTU:
+//   Bu dosyadaki ölçüleri v40/v41 Label ölçüleriyle swap et.
+//   "Callout" ölçüleri (sayısal değerler) DEĞİŞMEZ — sadece Label ölçüleri değişir.
+//   YoY ölçüleri ek referans label olarak kartlara veya tooltip'e ekle.
+//
+// ==========================================================================
+
+
+// ==========================================================================
+// BÖLÜM A — İNGİLİZCE LABEL ÖLÇÜLERİ (Reference label alanına ekle)
+// ==========================================================================
+
+// --------------------------------------------------------------------------
+// A1) HVAC SHARE LABEL — C1 kartı
+// --------------------------------------------------------------------------
+
+Card: HVAC Share Label v42 =
+VAR _pct = AVERAGE ( gold_hvac_analytics[hvac_share_pct] )
+VAR _cat =
+    SWITCH ( TRUE (),
+        ISBLANK ( _pct ),  "No data",
+        _pct >= 55,        "⚠️ High — CSRD Energy Risk",
+        _pct >= 42,        "🟡 Above EU Average",
+        _pct >= 30,        "✅ Normal Range (30–42%)",
+                           "ℹ️ Low HVAC Share (<30%)"
+    )
+RETURN _cat
+// Reference label field → max ~35 chars — fits in New Card
+
+
+// --------------------------------------------------------------------------
+// A2) COP LABEL — C2 kartı (Avg COP)
+// --------------------------------------------------------------------------
+
+Card: COP Label v42 =
+VAR _val =
+    COALESCE (
+        CALCULATE ( AVERAGE ( gold_hvac_analytics[scop_rolling] ),
+            NOT ISBLANK ( gold_hvac_analytics[scop_rolling] ) ),
+        CALCULATE ( AVERAGE ( gold_hvac_analytics[cop_actual_avg] ),
+            NOT ISBLANK ( gold_hvac_analytics[cop_actual_avg] ) )
+    )
+VAR _sys = MAX ( gold_hvac_analytics[system_type] )
+VAR _label =
+    SWITCH ( TRUE (),
+        ISBLANK ( _val ) && _sys = "gas_boiler",  "Gas Boiler — COP N/A",
+        ISBLANK ( _val ) && _sys = "district",    "District Heating — N/A",
+        ISBLANK ( _val ),                          "No measurement data",
+        _val >= 4.5,   "🟢 Excellent (≥4.5)",
+        _val >= 3.5,   "🟢 Good (3.5–4.5)",
+        _val >= 2.5,   "🟡 Average (2.5–3.5)",
+        _val >= 1.5,   "🔴 Low (1.5–2.5)",
+                       "🔴 Critical (<1.5)"
+    )
+RETURN _label
+
+
+// --------------------------------------------------------------------------
+// A3) INSULATION LABEL — C3 kartı
+// --------------------------------------------------------------------------
+
+Card: Insulation Label v42 =
+VAR _score =
+    CALCULATE (
+        AVERAGE ( gold_hvac_analytics[insulation_score] ),
+        ALLSELECTED ( gold_hvac_analytics )
+    )
+VAR _label =
+    SWITCH ( TRUE (),
+        ISBLANK ( _score ),  "No data",
+        _score >= 80,        "🟢 EPC A/B — NZEB Ready",
+        _score >= 65,        "🟡 EPC C — Improvement Advised",
+        _score >= 50,        "🟠 EPC D — Below GEG Limit",
+        _score >= 35,        "🔴 EPC E/F — Retrofit Required",
+                             "🔴 EPC G — Urgent Action"
+    )
+RETURN _label
+
+
+// --------------------------------------------------------------------------
+// A4) HEAT LOSS LABEL — C4 kartı (×12 annualised — v41 fix)
+// --------------------------------------------------------------------------
+
+Card: Heat Loss Label v42 =
+VAR _hl_monthly = AVERAGE ( gold_hvac_analytics[heat_loss_kwh_m2] )
+VAR _hl         = _hl_monthly * 12
+VAR _label =
+    SWITCH ( TRUE (),
+        ISBLANK ( _hl ),  "No data",
+        _hl <= 30,        "🟢 Passive House Level",
+        _hl <= 55,        "🟢 EPC A — NZEB Compliant",
+        _hl <= 90,        "🟡 EPC B/C — EU Average",
+        _hl <= 150,       "🟠 EPC D/E — High Loss",
+                          "🔴 EPC F/G — Critical Loss"
+    )
+RETURN _label
+
+
+// --------------------------------------------------------------------------
+// A5) RETROFIT LABEL — C5 kartı
+// --------------------------------------------------------------------------
+
+Card: Retrofit Label v42 =
+VAR _now   = COALESCE (
+    CALCULATE ( DISTINCTCOUNT ( gold_hvac_analytics[building_id] ),
+        gold_hvac_analytics[renovation_priority] = 1 ), 0 )
+VAR _soon  = COALESCE (
+    CALCULATE ( DISTINCTCOUNT ( gold_hvac_analytics[building_id] ),
+        gold_hvac_analytics[renovation_priority] = 2 ), 0 )
+VAR _total = DISTINCTCOUNT ( silver_building_master[building_id] )
+RETURN
+    FORMAT ( _now,  "0" ) & " urgent  |  " &
+    FORMAT ( _soon, "0" ) & " planned  |  " &
+    FORMAT ( _total - _now - _soon, "0" ) & " OK"
+
+
+// --------------------------------------------------------------------------
+// A6) HVAC CO₂ LABEL — C6 kartı (Scope 1 vs 2 split)
+// --------------------------------------------------------------------------
+
+Card: CO2 Label v42 =
+VAR _gasF  = 0.2017
+VAR _s1_kg =
+    SUMX (
+        VALUES ( gold_hvac_analytics[building_id] ),
+        VAR _bid = gold_hvac_analytics[building_id]
+        VAR _sys =
+            CALCULATE ( MAX ( gold_hvac_analytics[system_type] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _isS1 = _sys = "gas_boiler" || _sys = "hybrid" || _sys = "biomass"
+        VAR _hkwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[heating_energy_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        RETURN IF ( _isS1, COALESCE ( _hkwh, 0 ) * _gasF, 0 )
+    )
+VAR _total_kg =
+    SUMX (
+        VALUES ( gold_hvac_analytics[building_id] ),
+        VAR _bid  = gold_hvac_analytics[building_id]
+        VAR _sys  =
+            CALCULATE ( MAX ( gold_hvac_analytics[system_type] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _is1  = _sys = "gas_boiler" || _sys = "hybrid" || _sys = "biomass"
+        VAR _hkwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[heating_energy_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _ckwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[cooling_energy_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _vkwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[ventilation_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        RETURN
+            IF ( _is1, COALESCE(_hkwh,0)*_gasF, COALESCE(_hkwh,0)*0.350 )
+            + COALESCE(_ckwh,0)*0.350
+            + COALESCE(_vkwh,0)*0.350
+    )
+VAR _s1_pct = ROUND ( DIVIDE ( _s1_kg, _total_kg ) * 100, 0 )
+RETURN
+    IF ( ISBLANK ( _total_kg ), "No data",
+         "Scope 1: " & FORMAT ( _s1_pct, "0" ) & "%  ·  " &
+         "Scope 2: " & FORMAT ( 100 - _s1_pct, "0" ) & "%" )
+// Beklenen (gaz ağırlıklı portföy): "Scope 1: 67%  ·  Scope 2: 33%"
+
+
+// --------------------------------------------------------------------------
+// A7) GAS EXPOSURE LABEL — Sol sidebar (C7)
+// --------------------------------------------------------------------------
+
+Card: Gas Exposure Label v42 =
+VAR _gas_cnt =
+    CALCULATE (
+        DISTINCTCOUNT ( gold_hvac_analytics[building_id] ),
+        gold_hvac_analytics[system_type] IN { "gas_boiler", "hybrid", "biomass" }
+    )
+VAR _total = DISTINCTCOUNT ( gold_hvac_analytics[building_id] )
+VAR _pct   = DIVIDE ( _gas_cnt, _total ) * 100
+VAR _label =
+    SWITCH ( TRUE (),
+        ISBLANK ( _pct ),  "No data",
+        _pct >= 80,        "🔴 Critical — Transition Risk",
+        _pct >= 50,        "🟠 High — CSRD Disclosure Req.",
+        _pct >= 25,        "🟡 Medium — Plan Transition",
+                           "🟢 Low Fossil Dependency"
+    )
+RETURN _label
+
+
+// --------------------------------------------------------------------------
+// A8) EPC COMPLIANCE LABEL — Sol sidebar (C8)
+// --------------------------------------------------------------------------
+
+Card: EPC Label v42 =
+VAR _compliant =
+    CALCULATE (
+        DISTINCTCOUNT ( gold_hvac_analytics[building_id] ),
+        gold_hvac_analytics[insulation_score]  >= 65,
+        gold_hvac_analytics[heat_loss_kwh_m2]  <= 7.5   -- 7.5 × 12 = 90 kWh/m²·yr
+    )
+VAR _total = DISTINCTCOUNT ( gold_hvac_analytics[building_id] )
+VAR _pct   = ROUND ( DIVIDE ( COALESCE ( _compliant, 0 ), _total ) * 100, 0 )
+VAR _label =
+    SWITCH ( TRUE (),
+        _pct >= 80, "🟢 EPC D+ Compliant",
+        _pct >= 50, "🟡 Partial — EPBD 2030 Risk",
+                    "🔴 Most EPC E/F/G — Urgent"
+    )
+RETURN
+    IF ( ISBLANK ( _total ), "No data", _label )
+
+
+// --------------------------------------------------------------------------
+// A8b) EPC COMPLIANCE CALLOUT — İngilizce "buildings"
+// --------------------------------------------------------------------------
+
+Card: EPC Compliance v42 =
+// v41'deki "bina" → "buildings" (EN)
+VAR _compliant =
+    CALCULATE (
+        DISTINCTCOUNT ( gold_hvac_analytics[building_id] ),
+        gold_hvac_analytics[insulation_score]  >= 65,
+        gold_hvac_analytics[heat_loss_kwh_m2]  <= 7.5
+    )
+VAR _total = DISTINCTCOUNT ( gold_hvac_analytics[building_id] )
+RETURN
+    IF ( ISBLANK ( _total ), "—",
+         FORMAT ( COALESCE ( _compliant, 0 ), "0" ) & " / " &
+         FORMAT ( _total, "0" ) & " buildings" )
+
+
+// ==========================================================================
+// BÖLÜM B — ZAMAN KARŞILAŞTIRMALI ÖLÇÜLERİ (YoY + MoM)
+// ==========================================================================
+//
+// NOT: Bu ölçüler Date ilişkisi aktif olduğunda çalışır.
+//   Gereksinim: 'Date'[Date] kolonu CALENDAR veya CALENDARAUTO ile oluşturulmuş olmalı
+//   ve gold_hvac_analytics tablosuna ilişki kurulmuş olmalı (reporting_month veya date kolonu).
+//
+// Alternatif: Eğer Date ilişkisi yoksa B_ALT bölümünü kullan (aşağıda)
+// ==========================================================================
+
+
+// --------------------------------------------------------------------------
+// B1) HVAC CO₂ — Year-over-Year % Change
+// --------------------------------------------------------------------------
+//
+// Kullanım: C6 kartı → Reference label  VEYA  tooltip
+// Gösterim örneği: "▼ 8.2% YoY ✅" (azalış = iyi)
+//                  "▲ 5.1% YoY ⚠️" (artış = kötü)
+
+Card: CO2 YoY v42 =
+VAR _gasF  = 0.2017
+VAR _elecF = 0.350
+
+// Şu an seçili dönem (date slicer context)
+VAR _curr_kg =
+    SUMX (
+        VALUES ( gold_hvac_analytics[building_id] ),
+        VAR _bid = gold_hvac_analytics[building_id]
+        VAR _sys =
+            CALCULATE ( MAX ( gold_hvac_analytics[system_type] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _is1 = _sys = "gas_boiler" || _sys = "hybrid" || _sys = "biomass"
+        VAR _hkwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[heating_energy_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _ckwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[cooling_energy_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _vkwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[ventilation_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        RETURN
+            IF ( _is1, COALESCE(_hkwh,0)*_gasF, COALESCE(_hkwh,0)*_elecF )
+            + COALESCE(_ckwh,0)*_elecF + COALESCE(_vkwh,0)*_elecF
+    )
+
+// Bir yıl öncesi aynı dönem
+VAR _prev_kg =
+    CALCULATE (
+        SUMX (
+            VALUES ( gold_hvac_analytics[building_id] ),
+            VAR _bid = gold_hvac_analytics[building_id]
+            VAR _sys =
+                CALCULATE ( MAX ( gold_hvac_analytics[system_type] ),
+                    FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+            VAR _is1 = _sys = "gas_boiler" || _sys = "hybrid" || _sys = "biomass"
+            VAR _hkwh =
+                CALCULATE ( SUM ( gold_hvac_analytics[heating_energy_kwh] ),
+                    FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+            VAR _ckwh =
+                CALCULATE ( SUM ( gold_hvac_analytics[cooling_energy_kwh] ),
+                    FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+            VAR _vkwh =
+                CALCULATE ( SUM ( gold_hvac_analytics[ventilation_kwh] ),
+                    FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+            RETURN
+                IF ( _is1, COALESCE(_hkwh,0)*_gasF, COALESCE(_hkwh,0)*_elecF )
+                + COALESCE(_ckwh,0)*_elecF + COALESCE(_vkwh,0)*_elecF
+        ),
+        DATEADD ( 'Date'[Date], -1, YEAR )
+    )
+
+VAR _pct_chg = DIVIDE ( _curr_kg - _prev_kg, _prev_kg ) * 100
+RETURN
+    IF (
+        ISBLANK ( _prev_kg ) || _prev_kg = 0,
+        "No prior year data",
+        IF ( _pct_chg <= 0,
+            "▼ " & FORMAT ( ABS ( _pct_chg ), "0.0" ) & "% YoY ✅",
+            "▲ " & FORMAT ( _pct_chg, "0.0" ) & "% YoY ⚠️"
+        )
+    )
+// CO₂ için azalış iyi → ▼ yeşil  |  artış kötü → ▲ kırmızı
+// Beklenen: Veri aralığı 2024-06 → 2026-02 → YoY karşılaştırması mümkün
+
+
+// --------------------------------------------------------------------------
+// B2) HVAC SHARE — Month-over-Month Trend
+// --------------------------------------------------------------------------
+//
+// Kullanım: C1 kartı → Reference label VEYA tooltip
+// Gösterim: "▲ 2.1% vs prev month" / "▼ 0.8% vs prev month"
+
+Card: HVAC Share MoM v42 =
+VAR _curr = AVERAGE ( gold_hvac_analytics[hvac_share_pct] )
+VAR _prev =
+    CALCULATE (
+        AVERAGE ( gold_hvac_analytics[hvac_share_pct] ),
+        DATEADD ( 'Date'[Date], -1, MONTH )
+    )
+VAR _diff = _curr - _prev
+RETURN
+    IF (
+        ISBLANK ( _prev ),
+        "—",
+        IF ( _diff >= 0,
+            "▲ " & FORMAT ( ABS ( _diff ), "0.1" ) & "% vs prev month",
+            "▼ " & FORMAT ( ABS ( _diff ), "0.1" ) & "% vs prev month"
+        )
+    )
+// HVAC Share için artış nötr (sezon etkisi — kış yüksek olmalı)
+
+
+// --------------------------------------------------------------------------
+// B3) HEAT LOSS — YoY Comparison (kWh/m²·yr)
+// --------------------------------------------------------------------------
+//
+// Kullanım: C4 kartı → Reference label (YoY heat loss değişimi)
+
+Card: Heat Loss YoY v42 =
+VAR _curr = AVERAGE ( gold_hvac_analytics[heat_loss_kwh_m2] ) * 12
+VAR _prev =
+    CALCULATE (
+        AVERAGE ( gold_hvac_analytics[heat_loss_kwh_m2] ) * 12,
+        DATEADD ( 'Date'[Date], -1, YEAR )
+    )
+VAR _diff     = _curr - _prev
+VAR _pct_chg  = DIVIDE ( _diff, _prev ) * 100
+RETURN
+    IF (
+        ISBLANK ( _prev ),
+        "No prior year data",
+        IF ( _pct_chg <= 0,
+            "▼ " & FORMAT ( ABS ( _pct_chg ), "0.0" ) & "% vs prev year ✅",
+            "▲ " & FORMAT ( _pct_chg, "0.0" ) & "% vs prev year ⚠️"
+        )
+    )
+// Heat loss için azalış iyidir (insulation improve)
+
+
+// --------------------------------------------------------------------------
+// B4) INSULATION SCORE — YoY Change (portfolio improvement tracking)
+// --------------------------------------------------------------------------
+
+Card: Insulation YoY v42 =
+VAR _curr = CALCULATE (
+    AVERAGE ( gold_hvac_analytics[insulation_score] ), ALLSELECTED ( gold_hvac_analytics ) )
+VAR _prev = CALCULATE (
+    AVERAGE ( gold_hvac_analytics[insulation_score] ),
+    ALLSELECTED ( gold_hvac_analytics ),
+    DATEADD ( 'Date'[Date], -1, YEAR )
+)
+VAR _diff = _curr - _prev
+RETURN
+    IF (
+        ISBLANK ( _prev ),
+        "—",
+        IF ( _diff >= 0,
+            "▲ " & FORMAT ( _diff, "0.0" ) & " pts YoY ✅",
+            "▼ " & FORMAT ( ABS ( _diff ), "0.0" ) & " pts YoY ⚠️"
+        )
+    )
+// Insulation score için artış iyidir
+
+
+// ==========================================================================
+// BÖLÜM C — V1 CHART DESTEK ÖLÇÜLERİ (Zaman bazlı görsel için)
+// ==========================================================================
+
+
+// --------------------------------------------------------------------------
+// C1) Monthly Heating Energy — V1 için yıllık karşılaştırma serisi
+// --------------------------------------------------------------------------
+//
+// V1 görselinde "Heating Energy kWh v34" mevcut dönem serisi.
+// Bu ölçü bir önceki yıl aynı ayın değerini döndürür → line chart olarak üst üste bindir.
+// Kullanım: V1 → Y-axis → ekstra seri "Heating Prior Year v42"
+
+Heating Prior Year v42 =
+CALCULATE (
+    SUM ( gold_hvac_analytics[heating_energy_kwh] ),
+    DATEADD ( 'Date'[Date], -1, YEAR )
+)
+// V1'e renk: #FF6B35 + noktalı line (dashed) → "Prior Year" legend label
+
+
+// --------------------------------------------------------------------------
+// C2) HVAC Total Monthly kWh — V1 tüm HVAC toplamı (referans çizgi alternatifi)
+// --------------------------------------------------------------------------
+
+HVAC Total kWh Monthly v42 =
+VAR _heat = SUM ( gold_hvac_analytics[heating_energy_kwh] )
+VAR _cool = SUM ( gold_hvac_analytics[cooling_energy_kwh] )
+VAR _vent = SUM ( gold_hvac_analytics[ventilation_kwh] )
+RETURN COALESCE ( _heat, 0 ) + COALESCE ( _cool, 0 ) + COALESCE ( _vent, 0 )
+// Tooltip'te toplam HVAC kWh göstermek için
+
+
+// ==========================================================================
+// BÖLÜM D — V2 TABLO — İNGİLİZCE SÜTUNADLARI + SCOPE BADGE (v40 override)
+// ==========================================================================
+//
+// V2 tablosunda aşağıdaki kolon sırasını kullan (rebind gerekebilir):
+//   Col 1: silver_building_master[building_name]       → "Building"
+//   Col 2: System Type Display v39                     → "System"
+//   Col 3: Renovation Priority Icon v39                → "Priority"
+//   Col 4: COP Display v39                             → "COP/SCOP"
+//   Col 5: Scope Badge v40                             → "Scope"
+//   Col 6: gold_hvac_analytics[insulation_score]       → "Insul."
+//   Col 7: V4: Heat Loss Annual kWh m2 v41             → "Heat Loss"
+//   Col 8: Action Recommendation v39                   → "Action"
+//
+// Tüm "Renovasyon" veya Türkçe içeren metinler v42 Label ölçüleriyle replace edildi.
+// ==========================================================================
+
+
+// ==========================================================================
+// HIZLI UYGULAMA REHBERİ — v42
+// ==========================================================================
+//
+// ── ADIM 1: Bu ölçüleri import et (New measure → gold_hvac_analytics) ──────
+//   Bölüm A: A1–A8b (Label ölçüleri)
+//   Bölüm B: B1–B4 (YoY/MoM trend ölçüleri)
+//   Bölüm C: C1–C2 (V1 destek ölçüleri)
+//
+// ── ADIM 2: Her kartta Reference label güncelle (v40→v42) ─────────────────
+//   C1 HVAC Share   → Reference label: Card: HVAC Share Label v42
+//   C2 Avg COP      → Reference label: Card: COP Label v42
+//   C3 Insulation   → Reference label: Card: Insulation Label v42
+//   C4 Heat Loss    → Reference label: Card: Heat Loss Label v42
+//   C5 Retrofit     → Reference label: Card: Retrofit Label v42
+//   C6 CO₂          → Reference label: Card: CO2 Label v42
+//   C7 Gas Exposure → Reference label: Card: Gas Exposure Label v42
+//   C8 EPC Comp.    → Callout:        Card: EPC Compliance v42
+//                     Reference label: Card: EPC Label v42
+//
+// ── ADIM 3: YoY ölçülerini kart tooltip veya secondary label olarak ekle ──
+//   C6 CO₂ kartı → Reference label slot iki alan destekliyorsa: CO2 YoY v42
+//     Alternatif: C6 tooltip'e CO2 YoY v42 ekle
+//   C4 Heat Loss → Reference label: Card: Heat Loss Label v42
+//                  Tooltip: Card: Heat Loss YoY v42
+//   C3 Insulation → Tooltip: Card: Insulation YoY v42
+//
+// ── ADIM 4 (İSTEĞE BAĞLI): V1'e prior year serisi ekle ───────────────────
+//   V1 → Y-axis → ek seri: Heating Prior Year v42
+//   Renk: #FF6B35 ile aynı ama noktalı (dashed format)
+//   Legend label: "Prior Year Heating"
+//   NOT: Bu görsel tıklık/karmaşıklık yaratabilir → önce test et
+//
+// ── ADIM 5: Reference label görünürlük doğrulaması ────────────────────────
+//   Kart seçili iken: Format bölmesi → "Reference label" → Toggle ON
+//   Font: Segoe UI · Size: 10pt · Color: #7DB4DC (mavi-gri)
+//   Eğer görünmüyorsa: Görsel "Card (new)" olduğunu kontrol et (klasik Card değil)
+//
+// ==========================================================================

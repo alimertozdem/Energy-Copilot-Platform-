@@ -188,6 +188,9 @@ schema_building = StructType([
     StructField("heat_pump_cop_rated",   DoubleType(),   True),
     StructField("heat_pump_capacity_kw", DoubleType(),   True),
     StructField("has_hvac_traditional",  StringType(),   True),
+    StructField("has_gas_heating",       StringType(),   True),   # CSV'de mevcut
+    StructField("has_diesel_generator",  StringType(),   True),   # CSV'de mevcut — CSV sırası: has_gas_heating → has_diesel_generator → primary_hvac_system
+    StructField("primary_hvac_system",    StringType(),   True),   # Yeni: heat_pump|gas_boiler|hybrid|district|vrf|biomass|electric — DIKKAT: CSV'de has_diesel_generator'dan SONRA gelir
     StructField("has_ev_charging",       StringType(),   True),
     StructField("has_led_lighting",      StringType(),   True),
     StructField("wall_u_value",          DoubleType(),   True),
@@ -217,15 +220,26 @@ print("✅ Schema tanımları hazır — 5 tablo + 1 watermark tablosu")
 
 
 # =============================================================================
-# BÖLÜM 4 — WATERMARK FONKSİYONLARI
+# BÖLÜM 4 — WATERMARK FONKSİYONLARI (Per-Building)
 # =============================================================================
+#
+# NEDEN PER-BUILDING WATERMARK?
+#   Eski sistem: tek watermark per tablo (table_name bazlı).
+#   Sorun: B001-B004 verisi ingest edilince watermark 2026-04-18'e çekiliyor.
+#          Sonradan eklenen B005-B006 verisi aynı tarih aralığında olduğundan
+#          watermark filtresi "zaten yüklenmiş" sanıp atlıyor → eksik bina.
+#   Çözüm: Her bina için ayrı watermark → "bronze_raw_energy_readings::B005"
+#          Yeni bina eklendiğinde watermark NULL → EPOCH_START'tan başlar.
+#   2026-05-06 fix: table_key format: "table_name::building_id"
+#
+# GERİYE UYUMLULUK:
+#   Eski "table_name" formatındaki kayıtlar otomatik ignore edilir.
+#   Tüm binalar için temiz watermark başlar.
 
 def get_watermark(table_key: str) -> str:
     """
-    Verilen tablo için son watermark değerini oku.
-
-    Önce bronze_watermarks kontrol tablosuna bakar.
-    Tablo yoksa veya kayıt yoksa EPOCH_START değerini döner.
+    Verilen (tablo, bina) çifti için son watermark değerini oku.
+    table_key formatı: "bronze_raw_energy_readings::B001"
 
     Returns: ISO 8601 string — örn. "2024-03-15T10:30:00"
     """
@@ -242,7 +256,7 @@ def get_watermark(table_key: str) -> str:
             return EPOCH_START
 
         wm = row["last_watermark_utc"]
-        print(f"   ⏱️  Watermark: {wm}")
+        print(f"   ⏱️  Watermark [{table_key}]: {wm}")
         return wm
 
     except Exception as e:
@@ -392,15 +406,16 @@ def optimize_table(table_path, table_name, z_order_cols=None):
 
 
 # =============================================================================
-# BÖLÜM 6 — ENERGY READINGS YÜKLEME (Incremental)
+# BÖLÜM 6 — ENERGY READINGS YÜKLEME (Per-Building Incremental)
 # =============================================================================
+#
+# Per-building watermark pattern (2026-05-06 fix):
+#   Her bina için ayrı watermark key: "bronze_raw_energy_readings::B001"
+#   Yeni bina eklendiğinde EPOCH_START'tan başlar, mevcut binalara dokunmaz.
 
 print("\n" + "="*60)
 print("ADIM 1/5 — Energy Readings (Tüketim Verisi)")
 print("="*60)
-
-# Watermark oku
-wm_energy = get_watermark("bronze_raw_energy_readings")
 
 # CSV oku — explicit schema ile
 df_energy_raw = (
@@ -416,39 +431,55 @@ df_energy_raw = (
 total_energy = df_energy_raw.count()
 log_step("CSV okundu (toplam)", total_energy, "raw_energy_readings")
 
-# Sadece watermark'tan sonraki kayıtları al
-df_energy_new = filter_new_records(df_energy_raw, wm_energy)
-new_energy_count = df_energy_new.count()
-print(f"   → Watermark sonrası yeni kayıt: {new_energy_count:,} / {total_energy:,}")
+# CSV'deki tüm binaları bul
+energy_buildings = [r.building_id for r in df_energy_raw.select("building_id").distinct().orderBy("building_id").collect()]
+print(f"   → CSV'de {len(energy_buildings)} bina: {energy_buildings}")
 
-# Partition kolonları ekle
-df_energy = (
-    df_energy_new
-    .withColumn("year",  year(to_timestamp(col("timestamp_utc"))))
-    .withColumn("month", month(to_timestamp(col("timestamp_utc"))))
-    .withColumn("load_timestamp", current_timestamp())
-)
+# Her bina için ayrı watermark ile yeni kayıtları topla
+energy_new_parts = []
+energy_wm_updates = {}
 
-# Temel kalite kontrolü — Bronze'da sadece loglarız
-null_building = df_energy.filter(col("building_id").isNull()).count()
-null_value    = df_energy.filter(col("raw_value").isNull()).count()
-if null_building > 0:
-    print(f"   ⚠️  NULL building_id: {null_building} satır — yükleniyor (Bronze kuralı)")
-if null_value > 0:
-    print(f"   ⚠️  NULL raw_value: {null_value} satır — yükleniyor (Bronze kuralı)")
+for bid in energy_buildings:
+    wm_key = f"bronze_raw_energy_readings::{bid}"
+    wm     = get_watermark(wm_key)
+    df_bid = df_energy_raw.filter(col("building_id") == bid)
+    df_new = filter_new_records(df_bid, wm)
+    cnt    = df_new.count()
+    print(f"   [{bid}] watermark={wm} → yeni kayıt: {cnt:,}")
+    if cnt > 0:
+        energy_new_parts.append(df_new)
+        energy_wm_updates[wm_key] = (df_new, cnt)
 
-# Bronze'a yaz
-energy_count = write_bronze_table(
-    df_energy,
-    BRONZE_PATHS["energy_readings"],
-    partition_cols=["building_id", "year", "month"],
-    table_name="bronze_raw_energy_readings"
-)
+# Yeni kayıt var mı?
+if energy_new_parts:
+    from functools import reduce
+    df_energy_new = reduce(lambda a, b: a.union(b), energy_new_parts)
+    df_energy = (
+        df_energy_new
+        .withColumn("year",  year(to_timestamp(col("timestamp_utc"))))
+        .withColumn("month", month(to_timestamp(col("timestamp_utc"))))
+        .withColumn("load_timestamp", current_timestamp())
+    )
 
-# Watermark güncelle
-if energy_count > 0:
-    new_wm_energy = compute_new_watermark(df_energy)
-    update_watermark("bronze_raw_energy_readings", new_wm_energy, energy_count)
+    # Temel kalite kontrolü
+    null_building = df_energy.filter(col("building_id").isNull()).count()
+    if null_building > 0:
+        print(f"   ⚠️  NULL building_id: {null_building} satır — yükleniyor (Bronze kuralı)")
+
+    energy_count = write_bronze_table(
+        df_energy,
+        BRONZE_PATHS["energy_readings"],
+        partition_cols=["building_id", "year", "month"],
+        table_name="bronze_raw_energy_readings"
+    )
+
+    # Per-building watermark güncelle
+    for wm_key, (df_bid, cnt) in energy_wm_updates.items():
+        new_wm = compute_new_watermark(df_bid)
+        update_watermark(wm_key, new_wm, cnt)
+else:
+    print("   ℹ️  Tüm binalar için yeni kayıt yok — yazma atlandı")
+    energy_count = 0
 
 optimize_table(BRONZE_PATHS["energy_readings"], "bronze_raw_energy_readings")
 
@@ -461,8 +492,6 @@ print("\n" + "="*60)
 print("ADIM 2/5 — Solar Generation (PV Üretim Verisi)")
 print("="*60)
 
-wm_solar = get_watermark("bronze_raw_solar_generation")
-
 df_solar_raw = (
     spark.read
     .format("csv")
@@ -473,27 +502,44 @@ df_solar_raw = (
 )
 
 total_solar = df_solar_raw.count()
-df_solar_new = filter_new_records(df_solar_raw, wm_solar)
-new_solar_count = df_solar_new.count()
-print(f"   → Watermark sonrası yeni kayıt: {new_solar_count:,} / {total_solar:,}")
+log_step("CSV okundu (toplam)", total_solar, "raw_solar_generation")
 
-df_solar = (
-    df_solar_new
-    .withColumn("year",           year(to_timestamp(col("timestamp_utc"))))
-    .withColumn("month",          month(to_timestamp(col("timestamp_utc"))))
-    .withColumn("load_timestamp", current_timestamp())
-)
+solar_buildings = [r.building_id for r in df_solar_raw.select("building_id").distinct().orderBy("building_id").collect()]
+print(f"   → PV binalar: {solar_buildings}")
 
-solar_count = write_bronze_table(
-    df_solar,
-    BRONZE_PATHS["solar_generation"],
-    partition_cols=["building_id", "year", "month"],
-    table_name="bronze_raw_solar_generation"
-)
+solar_new_parts = []
+solar_wm_updates = {}
+for bid in solar_buildings:
+    wm_key = f"bronze_raw_solar_generation::{bid}"
+    wm     = get_watermark(wm_key)
+    df_bid = df_solar_raw.filter(col("building_id") == bid)
+    df_new = filter_new_records(df_bid, wm)
+    cnt    = df_new.count()
+    print(f"   [{bid}] watermark={wm} → yeni kayıt: {cnt:,}")
+    if cnt > 0:
+        solar_new_parts.append(df_new)
+        solar_wm_updates[wm_key] = (df_new, cnt)
 
-if solar_count > 0:
-    new_wm_solar = compute_new_watermark(df_solar)
-    update_watermark("bronze_raw_solar_generation", new_wm_solar, solar_count)
+if solar_new_parts:
+    from functools import reduce as _reduce
+    df_solar_new = _reduce(lambda a, b: a.union(b), solar_new_parts)
+    df_solar = (
+        df_solar_new
+        .withColumn("year",           year(to_timestamp(col("timestamp_utc"))))
+        .withColumn("month",          month(to_timestamp(col("timestamp_utc"))))
+        .withColumn("load_timestamp", current_timestamp())
+    )
+    solar_count = write_bronze_table(
+        df_solar,
+        BRONZE_PATHS["solar_generation"],
+        partition_cols=["building_id", "year", "month"],
+        table_name="bronze_raw_solar_generation"
+    )
+    for wm_key, (df_bid, cnt) in solar_wm_updates.items():
+        update_watermark(wm_key, compute_new_watermark(df_bid), cnt)
+else:
+    print("   ℹ️  Yeni solar kayıt yok")
+    solar_count = 0
 
 optimize_table(BRONZE_PATHS["solar_generation"], "bronze_raw_solar_generation")
 
@@ -506,8 +552,6 @@ print("\n" + "="*60)
 print("ADIM 3/5 — Battery Status (Batarya Durum Verisi)")
 print("="*60)
 
-wm_battery = get_watermark("bronze_raw_battery_status")
-
 df_battery_raw = (
     spark.read
     .format("csv")
@@ -518,27 +562,44 @@ df_battery_raw = (
 )
 
 total_battery = df_battery_raw.count()
-df_battery_new = filter_new_records(df_battery_raw, wm_battery)
-new_battery_count = df_battery_new.count()
-print(f"   → Watermark sonrası yeni kayıt: {new_battery_count:,} / {total_battery:,}")
+log_step("CSV okundu (toplam)", total_battery, "raw_battery_status")
 
-df_battery = (
-    df_battery_new
-    .withColumn("year",           year(to_timestamp(col("timestamp_utc"))))
-    .withColumn("month",          month(to_timestamp(col("timestamp_utc"))))
-    .withColumn("load_timestamp", current_timestamp())
-)
+battery_buildings = [r.building_id for r in df_battery_raw.select("building_id").distinct().orderBy("building_id").collect()]
+print(f"   → Batarya binaları: {battery_buildings}")
 
-battery_count = write_bronze_table(
-    df_battery,
-    BRONZE_PATHS["battery_status"],
-    partition_cols=["building_id", "year", "month"],
-    table_name="bronze_raw_battery_status"
-)
+battery_new_parts = []
+battery_wm_updates = {}
+for bid in battery_buildings:
+    wm_key = f"bronze_raw_battery_status::{bid}"
+    wm     = get_watermark(wm_key)
+    df_bid = df_battery_raw.filter(col("building_id") == bid)
+    df_new = filter_new_records(df_bid, wm)
+    cnt    = df_new.count()
+    print(f"   [{bid}] watermark={wm} → yeni kayıt: {cnt:,}")
+    if cnt > 0:
+        battery_new_parts.append(df_new)
+        battery_wm_updates[wm_key] = (df_new, cnt)
 
-if battery_count > 0:
-    new_wm_battery = compute_new_watermark(df_battery)
-    update_watermark("bronze_raw_battery_status", new_wm_battery, battery_count)
+if battery_new_parts:
+    from functools import reduce as _reduce2
+    df_battery_new = _reduce2(lambda a, b: a.union(b), battery_new_parts)
+    df_battery = (
+        df_battery_new
+        .withColumn("year",           year(to_timestamp(col("timestamp_utc"))))
+        .withColumn("month",          month(to_timestamp(col("timestamp_utc"))))
+        .withColumn("load_timestamp", current_timestamp())
+    )
+    battery_count = write_bronze_table(
+        df_battery,
+        BRONZE_PATHS["battery_status"],
+        partition_cols=["building_id", "year", "month"],
+        table_name="bronze_raw_battery_status"
+    )
+    for wm_key, (df_bid, cnt) in battery_wm_updates.items():
+        update_watermark(wm_key, compute_new_watermark(df_bid), cnt)
+else:
+    print("   ℹ️  Yeni battery kayıt yok")
+    battery_count = 0
 
 optimize_table(BRONZE_PATHS["battery_status"], "bronze_raw_battery_status")
 
@@ -551,8 +612,6 @@ print("\n" + "="*60)
 print("ADIM 4/5 — Weather Data (Hava Durumu Verisi)")
 print("="*60)
 
-wm_weather = get_watermark("bronze_raw_weather_data")
-
 df_weather_raw = (
     spark.read
     .format("csv")
@@ -563,27 +622,44 @@ df_weather_raw = (
 )
 
 total_weather = df_weather_raw.count()
-df_weather_new = filter_new_records(df_weather_raw, wm_weather)
-new_weather_count = df_weather_new.count()
-print(f"   → Watermark sonrası yeni kayıt: {new_weather_count:,} / {total_weather:,}")
+log_step("CSV okundu (toplam)", total_weather, "raw_weather_data")
 
-df_weather = (
-    df_weather_new
-    .withColumn("year",           year(to_timestamp(col("timestamp_utc"))))
-    .withColumn("month",          month(to_timestamp(col("timestamp_utc"))))
-    .withColumn("load_timestamp", current_timestamp())
-)
+weather_buildings = [r.building_id for r in df_weather_raw.select("building_id").distinct().orderBy("building_id").collect()]
+print(f"   → Hava durumu binaları: {weather_buildings}")
 
-weather_count = write_bronze_table(
-    df_weather,
-    BRONZE_PATHS["weather_data"],
-    partition_cols=["building_id", "year", "month"],
-    table_name="bronze_raw_weather_data"
-)
+weather_new_parts = []
+weather_wm_updates = {}
+for bid in weather_buildings:
+    wm_key = f"bronze_raw_weather_data::{bid}"
+    wm     = get_watermark(wm_key)
+    df_bid = df_weather_raw.filter(col("building_id") == bid)
+    df_new = filter_new_records(df_bid, wm)
+    cnt    = df_new.count()
+    print(f"   [{bid}] watermark={wm} → yeni kayıt: {cnt:,}")
+    if cnt > 0:
+        weather_new_parts.append(df_new)
+        weather_wm_updates[wm_key] = (df_new, cnt)
 
-if weather_count > 0:
-    new_wm_weather = compute_new_watermark(df_weather)
-    update_watermark("bronze_raw_weather_data", new_wm_weather, weather_count)
+if weather_new_parts:
+    from functools import reduce as _reduce3
+    df_weather_new = _reduce3(lambda a, b: a.union(b), weather_new_parts)
+    df_weather = (
+        df_weather_new
+        .withColumn("year",           year(to_timestamp(col("timestamp_utc"))))
+        .withColumn("month",          month(to_timestamp(col("timestamp_utc"))))
+        .withColumn("load_timestamp", current_timestamp())
+    )
+    weather_count = write_bronze_table(
+        df_weather,
+        BRONZE_PATHS["weather_data"],
+        partition_cols=["building_id", "year", "month"],
+        table_name="bronze_raw_weather_data"
+    )
+    for wm_key, (df_bid, cnt) in weather_wm_updates.items():
+        update_watermark(wm_key, compute_new_watermark(df_bid), cnt)
+else:
+    print("   ℹ️  Yeni weather kayıt yok")
+    weather_count = 0
 
 optimize_table(BRONZE_PATHS["weather_data"], "bronze_raw_weather_data")
 

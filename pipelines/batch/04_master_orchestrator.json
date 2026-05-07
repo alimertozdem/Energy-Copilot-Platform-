@@ -1,6 +1,6 @@
 {
   "name": "04_master_orchestrator",
-  "description": "Master daily batch pipeline. Execution order: Bronze → Silver → Occupancy → Gold KPI + Anomaly + Recommendation → Consumption Forecast. Occupancy failure is non-blocking (Gold uses neutral 0.5 fallback). Schedule: daily at 02:00 UTC (04:00 Berlin / 05:00 Istanbul).",
+  "description": "Master daily batch pipeline. Execution order: Bronze → Silver → Occupancy → Gold KPI + Anomaly + GHG Scope + CRREM Pathway + Recommendation → Consumption Forecast. Occupancy failure is non-blocking (Gold uses neutral 0.5 fallback). Schedule: daily at 02:00 UTC (04:00 Berlin / 05:00 Istanbul).",
   "_architecture_notes": {
     "trial_vs_production": "Trial: sequential stages to avoid TooManyRequestsForCapacity (430). Production: Occupancy + KPI run in parallel (Gold Wave 1), then Forecast + Anomaly + Recommendation run in parallel (Gold Wave 2).",
     "occupancy_dependency": "Occupancy (08) depends on Silver. Gold KPI (03) depends on Silver. Forecast (07) depends on Gold KPI + Occupancy. Anomaly (anomaly_detection) depends on Gold KPI.",
@@ -90,7 +90,7 @@
       {
         "name": "Stage_4_Gold_KPI_Anomaly",
         "type": "ExecutePipeline",
-        "description": "Run gold analytics: 03_gold_kpi_engine (daily KPIs per building) + anomaly_detection + recommendation_engine. Runs regardless of occupancy outcome (Succeeded OR Failed dependency on Stage_3_Occupancy).",
+        "description": "Run gold analytics (03_gold_analytics_pipeline v2.1): 03_gold_kpi_engine + anomaly_detection + 09_ghg_scope_engine + 10_crrem_pathway_loader + recommendation_engine. GHG engine runs after KPI; CRREM loader runs in parallel. Runs regardless of occupancy outcome (Succeeded OR Failed dependency on Stage_3_Occupancy).",
         "dependsOn": [
           {
             "activity": "Stage_3_Occupancy",
@@ -202,7 +202,7 @@
       "orchestrator:master",
       "schedule:daily-02:00-UTC",
       "tier:insight",
-      "version:2.0-with-occupancy-forecast"
+      "version:2.1-with-ghg-crrem-occupancy-forecast"
     ]
   }
 }

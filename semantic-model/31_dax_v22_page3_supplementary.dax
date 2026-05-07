@@ -1,0 +1,87 @@
+// ==========================================================================
+// Energy Copilot Platform — DAX v22: Page 3 Supplementary Fix
+// File: semantic-model/31_dax_v22_page3_supplementary.dax
+// Last updated: 2026-04-25
+//
+// AMAÇ: v21 sonrası görülen sorunların ek DAX düzeltmeleri.
+//   1. P3 Building Anomaly Share Pct → ROUND fix (ham float gözükmesin)
+//   2. P3 Anomaly Status → True/False yerine "Open" / "Resolved" metni
+//
+// Bu 2 ölçü v21'deki P3_ ölçüleriyle birlikte çalışır.
+// ==========================================================================
+
+
+// ==========================================================================
+// DÜZELTME 1 — Building Anomaly Share (V9 chart)
+//
+// SORUN: 17.91044776119403 gibi ham float gösteriyor.
+// NEDEN: DIVIDE sonucu ROUND'lanmamış.
+// FİX: ROUND(..., 1) → 17.9 görünür
+//
+// V9 horizontal bar chart → X axis alanı
+// Format string: "0.0"  (data label olarak da "0.0" seç)
+// ==========================================================================
+
+P3 Building Anomaly Share Pct =
+VAR _building =
+    [P3 Total Anomaly Count]
+VAR _portfolio =
+    CALCULATE (
+        [P3 Total Anomaly Count],
+        ALL ( silver_building_master )
+    )
+RETURN
+    ROUND ( DIVIDE ( _building, _portfolio ) * 100, 1 )
+
+
+// ==========================================================================
+// DÜZELTME 2 — Anomaly Status (V6 tablo)
+//
+// SORUN: is_resolved kolonu True / False gösteriyor.
+// FİX: MAX(is_resolved) bağlamı → "Resolved" veya "Open" döndür.
+//      Renk conditional formatting:
+//        "Open"     → #FF4560  (kırmızı)
+//        "Resolved" → #00E5A0  (yeşil)
+//
+// V6 tablo → "Status" sütunu → bu ölçüyü bağla
+//            is_resolved kolonunu tablodan kaldır
+// ==========================================================================
+
+P3 Anomaly Status =
+IF (
+    MAX ( gold_anomaly_log[is_resolved] ),
+    "Resolved",
+    "Open"
+)
+
+
+// ==========================================================================
+// TABLO V6 — SÜTUN SIRASI VE CONDITIONAL FORMAT AYARLARI
+//
+// Sütun sırası (soldan sağa):
+//   1. silver_building_master[building_name]   → Başlık: "Building"
+//   2. gold_anomaly_log[severity]              → Başlık: "Severity"
+//   3. gold_anomaly_log[anomaly_type]          → Başlık: "Type"
+//   4. gold_anomaly_log[detected_date]         → Başlık: "Detected"
+//                                                 Format: DD.MM.YYYY
+//   5. P3 Anomaly Status                      → Başlık: "Status"
+//   6. P3 Anomaly Deviation Pct               → Başlık: "Deviation %"
+//                                                 Format: +0.0;-0.0;—
+//
+// Sıralama: detected_date DESC (en yeni en üstte)
+//
+// Conditional Formatting (Format pane → Cell elements):
+//
+//   Severity sütunu → Background color → Rules:
+//     severity = "CRITICAL" → #FF4560
+//     severity = "HIGH"     → #FF6B35
+//     severity = "MEDIUM"   → #FFC107
+//     severity = "LOW"      → #00E5A0
+//
+//   Status sütunu → Font color → Rules (P3 Anomaly Status üzerinden):
+//     "Open"     → #FF4560
+//     "Resolved" → #00E5A0
+//
+// ==========================================================================
+
+// SON

@@ -26,6 +26,42 @@
 
 
 # =============================================================================
+# HÜCRE 0 — PATH KONFİGÜRASYONU (PARAMETERS)
+# -----------------------------------------------------------------------------
+# BU BÖLÜM NOTEBOOK'UN EN BAŞINA — IMPORT'LARDAN ÖNCE — EKLENMELİDİR.
+#
+# Fabric'te bu hücreyi "Parameter" olarak işaretle:
+#   Hücre sağ üstündeki "..." → "Toggle parameter cell"
+#
+# Neden burada: GOLD_PATHS import hücresinden bağımsız olmalı.
+# NameError: 'GOLD_PATHS' is not defined → import fail ettiğinde
+# Python session restart eder, sonraki bölümler path'i göremez.
+# Paths'i en üstte tanımlamak bu riski ortadan kaldırır.
+# =============================================================================
+
+# Silver kaynak yolları (Lakehouse'a göreli — Tables/ altında)
+SILVER_PATHS = {
+    "energy_readings": "Tables/silver_energy_readings_clean",
+    "solar_generation": "Tables/silver_solar_generation_clean",
+    "battery_status":   "Tables/silver_battery_status_clean",
+    "weather_data":     "Tables/silver_weather_clean",
+    "building_master":  "Tables/silver_building_master",
+}
+
+# Gold hedef yolları (Lakehouse'a göreli — Tables/ altında)
+GOLD_PATHS = {
+    "kpi_hourly":  "Tables/gold_kpi_hourly",
+    "kpi_daily":   "Tables/gold_kpi_daily",
+    "kpi_monthly": "Tables/gold_kpi_monthly",
+    "anomaly_log": "Tables/gold_anomaly_log",
+}
+
+print("✅ PATH KONFİGÜRASYONU yüklendi")
+print(f"   SILVER_PATHS: {list(SILVER_PATHS.keys())}")
+print(f"   GOLD_PATHS:   {list(GOLD_PATHS.keys())}")
+
+
+# =============================================================================
 # BÖLÜM 1 — SPARK KONFİGÜRASYONU VE IMPORT'LAR
 # =============================================================================
 
@@ -66,23 +102,8 @@ print(f"   broadcastJoinThreshold = 10 MB")
 # =============================================================================
 # BÖLÜM 2 — KONFİGÜRASYON
 # =============================================================================
-
-# Silver kaynak yolları
-SILVER_PATHS = {
-    "energy_readings": "Tables/silver_energy_readings_clean",
-    "solar_generation": "Tables/silver_solar_generation_clean",
-    "battery_status":   "Tables/silver_battery_status_clean",
-    "weather_data":     "Tables/silver_weather_clean",
-    "building_master":  "Tables/silver_building_master",
-}
-
-# Gold hedef yolları
-GOLD_PATHS = {
-    "kpi_hourly":  "Tables/gold_kpi_hourly",
-    "kpi_daily":   "Tables/gold_kpi_daily",
-    "kpi_monthly": "Tables/gold_kpi_monthly",
-    "anomaly_log": "Tables/gold_anomaly_log",
-}
+# NOT: SILVER_PATHS ve GOLD_PATHS HÜCRE 0'da tanımlandı.
+# Bu bölümde sadece iş mantığı parametreleri yer alır.
 
 # Anomali eşikleri (production'da veritabanından/config'den gelir)
 MIN_IRRADIANCE_WM2  = 50.0   # Bu değerin altında PR hesaplanmaz (gece/gölge)
@@ -317,6 +338,11 @@ df_gold_hourly = (
     .withColumn("solar_exported_kwh",      coalesce(col("solar_exported_kwh"),      lit(0.0)))
     .withColumn("battery_charged_kwh",     coalesce(col("battery_charged_kwh"),     lit(0.0)))
     .withColumn("battery_discharged_kwh",  coalesce(col("battery_discharged_kwh"),  lit(0.0)))
+    # 2026-05-04 FIX: hdd_hour / cdd_hour NULL → 0 (weather left join miss durumunda)
+    # Bu eksikti — weather join başarısız olduğunda hdd_day NULL kalıyor,
+    # Notebook 11'de hdd_fraction = 0 → heating/cooling energy = 0 → HVAC share ≈ %15 (ventilasyon only).
+    .withColumn("hdd_hour",  coalesce(col("hdd_hour"),  lit(0.0)))
+    .withColumn("cdd_hour",  coalesce(col("cdd_hour"),  lit(0.0)))
 
     # Net şebeke tüketimi = toplam - solar self-consumption - batarya deşarj
     # NOT: Bu basitleştirilmiş formüldür. Batarya şarjının kaynağı (solar vs şebeke)
@@ -709,16 +735,17 @@ df_spike = (
     .select(
         col("building_id"),
         col("hour_utc").alias("detected_at"),
+        col("hour_utc").cast("date").alias("detected_date"),
         lit("CONSUMPTION_SPIKE").alias("anomaly_type"),
-        lit("HIGH").alias("severity"),
+        lit("high").alias("severity"),
         concat(
-            lit("Tüketim "),
+            lit("Consumption "),
             spark_round(col("total_consumption_kwh"), 2).cast("string"),
-            lit(" kWh — 30 günlük ort. "),
+            lit(f" kWh — exceeds {SPIKE_MULTIPLIER}x of 30-day avg ("),
             spark_round(col("rolling_avg_kwh"), 2).cast("string"),
-            lit(f" kWh'ın {SPIKE_MULTIPLIER}x üstünde")
-        ).alias("description"),
-        col("total_consumption_kwh").alias("affected_value"),
+            lit(" kWh)")
+        ).alias("description_en"),
+        col("total_consumption_kwh").alias("metric_value"),
         (col("rolling_avg_kwh") * lit(SPIKE_MULTIPLIER)).alias("threshold_value"),
         lit(False).alias("is_resolved"),
     )
@@ -752,16 +779,17 @@ df_night_anomaly = (
     .select(
         col("building_id"),
         col("hour_utc").alias("detected_at"),
+        col("hour_utc").cast("date").alias("detected_date"),
         lit("NIGHT_OVERCONSUMPTION").alias("anomaly_type"),
-        lit("MEDIUM").alias("severity"),
+        lit("medium").alias("severity"),
         concat(
-            lit("Gece tüketimi "),
+            lit("Night consumption "),
             spark_round(col("total_consumption_kwh"), 2).cast("string"),
-            lit(" kWh — gündüz zirvesinin %40+ üstünde ("),
+            lit(" kWh — exceeds 40% of daytime peak ("),
             spark_round(col("daytime_peak_kwh"), 2).cast("string"),
-            lit(" kWh)")
-        ).alias("description"),
-        col("total_consumption_kwh").alias("affected_value"),
+            lit(" kWh). HVAC may be running at full power overnight.")
+        ).alias("description_en"),
+        col("total_consumption_kwh").alias("metric_value"),
         (col("daytime_peak_kwh") * 0.40).alias("threshold_value"),
         lit(False).alias("is_resolved"),
     )
@@ -788,16 +816,17 @@ df_pr_drop = (
     .select(
         col("building_id"),
         col("hour_utc").alias("detected_at"),
+        col("hour_utc").cast("date").alias("detected_date"),
         lit("SOLAR_PR_DROP").alias("anomaly_type"),
-        when(col("solar_performance_ratio") < 0.50, lit("CRITICAL"))
-        .when(col("solar_performance_ratio") < 0.60, lit("HIGH"))
-        .otherwise(lit("MEDIUM")).alias("severity"),
+        when(col("solar_performance_ratio") < 0.50, lit("critical"))
+        .when(col("solar_performance_ratio") < 0.60, lit("high"))
+        .otherwise(lit("medium")).alias("severity"),
         concat(
             lit("Solar PR = "),
             spark_round(col("solar_performance_ratio"), 3).cast("string"),
-            lit(f" (eşik: {MIN_PR_THRESHOLD}) — panel kirliliği veya arıza şüphesi")
-        ).alias("description"),
-        col("solar_performance_ratio").alias("affected_value"),
+            lit(f" (threshold: {MIN_PR_THRESHOLD}) — suspected panel soiling or fault")
+        ).alias("description_en"),
+        col("solar_performance_ratio").alias("metric_value"),
         lit(MIN_PR_THRESHOLD).alias("threshold_value"),
         lit(False).alias("is_resolved"),
     )
@@ -822,15 +851,16 @@ df_overdischarge = (
     .select(
         col("building_id"),
         col("hour_utc").alias("detected_at"),
+        col("hour_utc").cast("date").alias("detected_date"),
         lit("BATTERY_OVERDISCHARGE").alias("anomaly_type"),
-        when(col("battery_soc_min_pct") < 5.0, lit("CRITICAL"))
-        .otherwise(lit("HIGH")).alias("severity"),
+        when(col("battery_soc_min_pct") < 5.0, lit("critical"))
+        .otherwise(lit("high")).alias("severity"),
         concat(
-            lit("Batarya SOC = %"),
+            lit("Battery SoC = "),
             spark_round(col("battery_soc_min_pct"), 1).cast("string"),
-            lit(f" — aşırı deşarj (min eşik: %{SOC_MIN_THRESHOLD})")
-        ).alias("description"),
-        col("battery_soc_min_pct").alias("affected_value"),
+            lit(f"% — over-discharge detected (min threshold: {SOC_MIN_THRESHOLD}%)")
+        ).alias("description_en"),
+        col("battery_soc_min_pct").alias("metric_value"),
         lit(SOC_MIN_THRESHOLD).alias("threshold_value"),
         lit(False).alias("is_resolved"),
     )
@@ -854,14 +884,15 @@ df_overcharge = (
     .select(
         col("building_id"),
         col("hour_utc").alias("detected_at"),
+        col("hour_utc").cast("date").alias("detected_date"),
         lit("BATTERY_OVERCHARGE").alias("anomaly_type"),
-        lit("MEDIUM").alias("severity"),
+        lit("medium").alias("severity"),
         concat(
-            lit("Batarya SOC = %"),
+            lit("Battery SoC = "),
             spark_round(col("battery_soc_max_pct"), 1).cast("string"),
-            lit(f" — BMS üst sınır kontrolü gerekli (max eşik: %{SOC_MAX_THRESHOLD})")
-        ).alias("description"),
-        col("battery_soc_max_pct").alias("affected_value"),
+            lit(f"% — BMS upper limit check required (max threshold: {SOC_MAX_THRESHOLD}%)")
+        ).alias("description_en"),
+        col("battery_soc_max_pct").alias("metric_value"),
         lit(SOC_MAX_THRESHOLD).alias("threshold_value"),
         lit(False).alias("is_resolved"),
     )
@@ -886,13 +917,14 @@ df_gap = (
     .select(
         col("building_id"),
         col("hour_utc").alias("detected_at"),
+        col("hour_utc").cast("date").alias("detected_date"),
         lit("DATA_QUALITY_GAP").alias("anomaly_type"),
-        lit("LOW").alias("severity"),
+        lit("low").alias("severity"),
         concat(
             col("bad_reading_count").cast("string"),
-            lit(" adet MISSING/ANOMALY okuma — 1 saatlik veri güvenilir değil")
-        ).alias("description"),
-        col("bad_reading_count").cast("double").alias("affected_value"),
+            lit(" MISSING/ANOMALY readings — hourly data unreliable")
+        ).alias("description_en"),
+        col("bad_reading_count").cast("double").alias("metric_value"),
         lit(4.0).alias("threshold_value"),
         lit(False).alias("is_resolved"),
     )
@@ -903,9 +935,18 @@ anomaly_frames.append(df_gap)
 
 # ── Tüm anomalileri birleştir ve yaz ──────────────────────────
 
-df_all_anomalies = reduce(DataFrame.unionAll, anomaly_frames)
+from pyspark.sql.functions import sha2, concat_ws
+
+df_all_anomalies = (
+    reduce(DataFrame.unionAll, anomaly_frames)
+    # Stable surrogate key: sha2 hash of natural key fields
+    .withColumn(
+        "anomaly_id",
+        sha2(concat_ws("|", col("building_id"), col("detected_at").cast("string"), col("anomaly_type")), 256)
+    )
+)
 total_anomalies = df_all_anomalies.count()
-log_step("Toplam anomali tespit edildi", total_anomalies, "gold_anomaly_log")
+log_step("Total anomalies detected", total_anomalies, "gold_anomaly_log")
 
 print(f"\n📊 Anomali Dağılımı (tip + ciddiyet):")
 df_all_anomalies.groupBy("anomaly_type", "severity") \
@@ -913,13 +954,15 @@ df_all_anomalies.groupBy("anomaly_type", "severity") \
     .orderBy("anomaly_type", "severity") \
     .show(truncate=False)
 
-merge_to_gold(
-    df_all_anomalies,
-    GOLD_PATHS["anomaly_log"],
-    merge_keys=["building_id", "anomaly_type", "detected_at"],
-    table_name="gold_anomaly_log",
-    partition_cols=["building_id"]
-)
+# Schema changed — force overwrite to apply new columns
+# (description_en, metric_value, detected_date, anomaly_id)
+df_all_anomalies.write \
+    .format("delta") \
+    .mode("overwrite") \
+    .option("overwriteSchema", "true") \
+    .partitionBy("building_id") \
+    .save(GOLD_PATHS["anomaly_log"])
+print(f"✅ gold_anomaly_log yazıldı: {df_all_anomalies.count()} satır")
 
 
 # =============================================================================
@@ -974,39 +1017,39 @@ df_kpi_m.groupBy("building_id") \
     .orderBy("building_id") \
     .show(truncate=False)
 
-print(f"\n📊 Anomali Özeti (Bina × Tip):")
-df_anom.groupBy("building_id", "anomaly_type", "severity") \
+print(f"\n📊 Anomaly Summary (Building × Type):")
+df_all_anomalies.groupBy("building_id", "anomaly_type", "severity") \
     .count() \
     .orderBy("building_id", "anomaly_type") \
     .show(truncate=False)
 
-print(f"\n📊 Enjekte Edilmiş Anomali Kontrolü:")
-print("  B001 Ağustos SOLAR_PR_DROP tespit edildi mi?")
-df_anom.filter(
+print(f"\n📊 Injected Anomaly Verification:")
+print("  B001 Aug SOLAR_PR_DROP detected?")
+df_all_anomalies.filter(
     (col("building_id") == "B001") &
     (col("anomaly_type") == "SOLAR_PR_DROP")
-).select("detected_at", "affected_value", "severity") \
+).select("detected_at", "detected_date", "metric_value", "severity") \
     .orderBy("detected_at") \
     .show(5, truncate=False)
 
-print("  B001 Kasım BATTERY_OVERDISCHARGE tespit edildi mi?")
-df_anom.filter(
+print("  B001 Nov BATTERY_OVERDISCHARGE detected?")
+df_all_anomalies.filter(
     (col("building_id") == "B001") &
     (col("anomaly_type") == "BATTERY_OVERDISCHARGE")
-).select("detected_at", "affected_value", "severity") \
+).select("detected_at", "detected_date", "metric_value", "severity") \
     .orderBy("detected_at") \
     .show(5, truncate=False)
 
-print("  B002 Mart CONSUMPTION_SPIKE tespit edildi mi?")
-df_anom.filter(
+print("  B002 Mar CONSUMPTION_SPIKE detected?")
+df_all_anomalies.filter(
     (col("building_id") == "B002") &
     (col("anomaly_type") == "CONSUMPTION_SPIKE")
-).select("detected_at", "affected_value", "threshold_value") \
+).select("detected_at", "detected_date", "metric_value", "threshold_value") \
     .orderBy("detected_at") \
     .show(5, truncate=False)
 
 print(f"\n{'='*60}")
-print("✅ Gold KPI Engine tamamlandı!")
-print("   Power BI artık Gold tablolarına bağlanabilir.")
-print("   Sonraki adım: Power BI Semantic Model kurulumu")
+print("✅ Gold KPI Engine completed!")
+print("   Power BI can now connect to Gold tables.")
+print("   Next step: Power BI Semantic Model setup")
 print(f"{'='*60}")

@@ -46,12 +46,14 @@ import numpy as np
 from datetime import datetime, timezone
 
 # ── Paths ────────────────────────────────────────────────────
-LAKEHOUSE_ROOT = "abfss://energy-copilot@onelake.dfs.fabric.microsoft.com/EnergyLakehouse.Lakehouse/Tables"
+# Fabric'te notebook'a bağlı Lakehouse'un relative Table path'i kullanılır.
+# Bu yaklaşım abfss:// URL'sinden çok daha güvenilirdir (workspace adı sorunları olmaz).
+# Diğer notebook'larla (03_gold_kpi_engine vb.) tutarlıdır.
 
 PATHS = {
-    "energy_readings" : f"{LAKEHOUSE_ROOT}/silver_energy_readings",
-    "building"        : f"{LAKEHOUSE_ROOT}/silver_building_master",
-    "occupancy"       : f"{LAKEHOUSE_ROOT}/gold_occupancy_profile",
+    "energy_readings" : "Tables/silver_energy_readings_clean",
+    "building"        : "Tables/silver_building_master",
+    "occupancy"       : "Tables/gold_occupancy_profile",
 }
 
 # ── Tuning ───────────────────────────────────────────────────
@@ -210,16 +212,60 @@ def build_base_profiles() -> pd.DataFrame:
             h[hh] = 0.70
         return h
 
+    def _education_weekday():
+        # Schools / universities: 07:30–16:30 peak, empty evenings & weekends
+        h = np.zeros(24)
+        h[7]  = 0.30   # early arrivals (staff, cleaning)
+        h[8]  = 0.85
+        h[9]  = 0.92
+        h[10] = 0.92
+        h[11] = 0.88
+        h[12] = 0.70   # lunch / break
+        h[13] = 0.88
+        h[14] = 0.88
+        h[15] = 0.70   # students leaving
+        h[16] = 0.35   # after-school activities
+        h[17] = 0.10
+        return h
+
+    def _healthcare_weekday():
+        # Hospitals / clinics: 24/7 operation, day shift higher
+        h = np.full(24, 0.55)   # minimum: night shift always present
+        for hh in range(7, 20):
+            h[hh] = 0.90        # day shift: outpatient + procedures
+        h[12] = 0.80            # slightly lower noon
+        h[13] = 0.80
+        return h
+
+    def _healthcare_weekend():
+        # Weekend: no outpatient, skeleton staff + emergency
+        h = np.full(24, 0.50)
+        for hh in range(8, 18):
+            h[hh] = 0.70        # reduced day-ops (no outpatient clinics)
+        return h
+
+    def _logistics_weekday():
+        # Warehouses / logistics centres: long day + partial evening shift
+        h = np.zeros(24)
+        for hh in range(6, 18):    # main shift 06:00–18:00
+            h[hh] = 0.85
+        for hh in range(18, 22):   # evening shift (partial)
+            h[hh] = 0.45
+        return h
+
     # ── Assemble per-type schedule (7 days × 24 hours) ────────
     archetypes = {
-        "office"      : [_office_weekday()   if d < 5 else np.zeros(24) for d in range(7)],
-        "retail"      : [_retail_weekday()   if d < 5 else _retail_weekend() for d in range(7)],
-        "hotel"       : [_hotel_weekday()    for _ in range(7)],        # hotels don't close
+        "office"      : [_office_weekday()      if d < 5 else np.zeros(24)           for d in range(7)],
+        "retail"      : [_retail_weekday()      if d < 5 else _retail_weekend()      for d in range(7)],
+        "hotel"       : [_hotel_weekday()       for _ in range(7)],   # hotels don't close
         "residential" : [_residential_weekday() if d < 5 else _residential_weekend() for d in range(7)],
-        "industrial"  : [_industrial_weekday() if d < 5 else np.zeros(24) for d in range(7)],
+        "industrial"  : [_industrial_weekday()  if d < 5 else np.zeros(24)           for d in range(7)],
+        "education"   : [_education_weekday()   if d < 5 else np.zeros(24)           for d in range(7)],
+        "healthcare"  : [_healthcare_weekday()  if d < 5 else _healthcare_weekend()  for d in range(7)],
+        "logistics"   : [_logistics_weekday()   if d < 5 else np.zeros(24)           for d in range(7)],
         "mixed_use"   : None,  # will be handled as 0.5×office + 0.5×retail
-        "warehouse"   : [_industrial_weekday() if d < 5 else np.zeros(24) for d in range(7)],
-        "other"       : [_generic_weekday()  if d < 5 else np.zeros(24) for d in range(7)],
+        "warehouse"   : [_industrial_weekday()  if d < 5 else np.zeros(24)           for d in range(7)],
+        "other"       : [_generic_weekday()     if d < 5 else np.zeros(24)           for d in range(7)],
     }
 
     # mixed_use = blend of office + retail
@@ -251,7 +297,7 @@ log("Base archetypes definition loaded.")
 
 # Guard: silver_energy_readings must exist
 if not table_exists(PATHS["energy_readings"]):
-    notebook_exit("silver_energy_readings tablosu bulunamadı. Silver transformation önce çalışmalı.")
+    notebook_exit("silver_energy_readings_clean tablosu bulunamadı. Silver transformation (02) önce çalışmalı.")
 
 if not table_exists(PATHS["building"]):
     notebook_exit("silver_building_master tablosu bulunamadı. Silver transformation önce çalışmalı.")
@@ -262,7 +308,7 @@ df_building = (
     .select(
         "building_id",
         "building_type",
-        F.coalesce(F.col("timezone_offset_hours"), F.lit(0)).alias("tz_offset"),
+        F.coalesce(F.col("utc_offset_hours"), F.lit(0)).alias("tz_offset"),  # FIX: correct column name
     )
 )
 building_count = df_building.count()
@@ -271,12 +317,12 @@ log(f"  → {building_count} buildings loaded.")
 if building_count == 0:
     notebook_exit("silver_building_master boş — önce reference data ve silver transformation çalışmalı.")
 
-log(f"Reading silver_energy_readings (last {LOOKBACK_DAYS} days) …")
+log(f"Reading silver_energy_readings_clean (last {LOOKBACK_DAYS} days) …")
 cutoff_ts = F.date_sub(F.current_date(), LOOKBACK_DAYS)
 
 df_readings = (
     spark.read.format("delta").load(PATHS["energy_readings"])
-    .filter(F.col("date") >= cutoff_ts)
+    .filter(F.to_date(F.col("timestamp_utc")) >= cutoff_ts)  # FIX: no 'date' col, derive from timestamp_utc
     .select(
         "building_id",
         "timestamp_utc",
@@ -377,6 +423,8 @@ base_profiles_pd = build_base_profiles()
 base_profiles_spark = spark.createDataFrame(base_profiles_pd)
 
 log(f"  → {base_profiles_pd['building_type'].nunique()} archetypes × 168 slots = {len(base_profiles_pd)} rows.")
+# Expected: 11 archetypes (office, retail, hotel, residential, industrial,
+#   education, healthcare, logistics, mixed_use, warehouse, other) × 168 = 1848 rows
 
 # Join building_type onto each reading-derived row
 df_with_base = (
@@ -391,7 +439,8 @@ df_with_base = (
         "building_type_norm",
         F.when(F.col("building_type_norm").isin(
             "office", "retail", "hotel", "residential",
-            "industrial", "mixed_use", "warehouse"
+            "industrial", "mixed_use", "warehouse",
+            "education", "healthcare", "logistics"   # N6: new CRREM building types
         ), F.col("building_type_norm")).otherwise(F.lit("other"))
     )
     .join(
@@ -421,6 +470,29 @@ log("Base profiles joined.")
 
 log("Blending data signal with base profiles …")
 
+# N6 FIX — Profile-modulated blend
+# ─────────────────────────────────────────────────────────────────────────────
+# PROBLEM (old formula):
+#   occupancy = consumption_signal * 0.60 + base_probability * 0.40
+#   → When synthetic data has NO weekday/weekend variance, consumption_signal
+#     is flat (~0.5) for all days.  The old formula then gives office-weekend 9 am:
+#     0.5 × 0.60 + 0.0 × 0.40 = 0.30  ← incorrectly shows 30 % occupancy on weekend
+#   → Power BI heatmap shows all rows identical.
+#
+# FIX (new formula):
+#   occupancy = base_probability × (consumption_signal × BLEND_WEIGHT_DATA + BLEND_WEIGHT_BASE)
+#   → base_probability acts as a GATE.  If base=0 (office on weekend) the result
+#     is always 0, regardless of consumption_signal.
+#   → consumption_signal still modulates the INTENSITY of occupancy within
+#     the archetype pattern (e.g. a busy week vs a quiet week shifts the level).
+#   → Maximum possible value = base × (1.0 × w_data + w_base) = base × 1.0 = base ≤ 1.0
+#     → no additional clipping needed above base, but we keep the clip for safety.
+#
+# Example (office, flat synthetic signal=0.5):
+#   Weekday 9 am  : base=0.90 → 0.90 × (0.5×0.60 + 0.40) = 0.90 × 0.70 = 0.63 ✅
+#   Weekend 9 am  : base=0.00 → 0.00 × 0.70               = 0.00          ✅
+#   Hotel 3 am    : base=0.80 → 0.80 × 0.70               = 0.56          ✅
+
 df_blended = (
     df_with_base
     .withColumn(
@@ -431,8 +503,11 @@ df_blended = (
         "occupancy_probability",
         F.when(
             F.col("has_enough_data"),
-            F.col("consumption_signal") * BLEND_WEIGHT_DATA +
-            F.col("base_probability")   * BLEND_WEIGHT_BASE
+            # Profile-modulated: base_prob gates the consumption signal
+            F.col("base_probability") * (
+                F.col("consumption_signal") * F.lit(BLEND_WEIGHT_DATA) +
+                F.lit(BLEND_WEIGHT_BASE)
+            )
         ).otherwise(F.col("base_probability"))
     )
     .withColumn(
@@ -504,7 +579,8 @@ if no_data_count > 0:
             "building_type_norm",
             F.when(F.col("building_type_norm").isin(
                 "office", "retail", "hotel", "residential",
-                "industrial", "mixed_use", "warehouse"
+                "industrial", "mixed_use", "warehouse",
+                "education", "healthcare", "logistics"   # N6: new CRREM building types
             ), F.col("building_type_norm")).otherwise(F.lit("other"))
         )
         .join(
@@ -541,76 +617,56 @@ else:
 log(f"Final profile count: {df_final.count():,} rows (expect {building_count * 168} = {building_count} buildings × 168 slots).")
 
 
-# Cell 9 — Write to gold_occupancy_profile (Delta MERGE)
+# Cell 9 — Write to gold_occupancy_profile (Delta OVERWRITE)
 # ============================================================
-# Merge key: (building_id, day_of_week, hour_of_day)
-# On match: update all analytics columns
-# On not matched: insert new row
-# Each pipeline run refreshes the full 168-row profile per building.
+# NEDEN MERGE YOK?
+#   Occupancy profili her çalıştırmada TÜM binaları hesaplar
+#   (building_count × 168 satır = tam refresh).
+#   MERGE'nin sağladığı "sadece değişenleri güncelle" avantajı
+#   burada yoktur — her run zaten hepsini yeniden üretir.
+#
+#   Ek olarak: önceki başarısız çalıştırmalar tabloyu bozuk schema
+#   ile bırakabilir → DELTA_MERGE_UNRESOLVED_EXPRESSION hatasına
+#   neden olur. OVERWRITE + overwriteSchema bunu önler.
+#
+# STRATEJI: Her zaman overwrite — tam refresh, sade, güvenilir.
+# ============================================================
 
 log("Writing to gold_occupancy_profile …")
 
 OUTPUT_SCHEMA = StructType([
-    StructField("building_id",          StringType(),  False),
-    StructField("day_of_week",          IntegerType(), False),
-    StructField("hour_of_day",          IntegerType(), False),
-    StructField("occupancy_probability", DoubleType(), True),
-    StructField("profile_source",       StringType(),  True),
-    StructField("calibration_weeks",    IntegerType(), True),
-    StructField("confidence_score",     DoubleType(),  True),
-    StructField("model_version",        StringType(),  True),
-    StructField("computed_at",          TimestampType(), True),
+    StructField("building_id",           StringType(),    False),
+    StructField("day_of_week",           IntegerType(),   False),
+    StructField("hour_of_day",           IntegerType(),   False),
+    StructField("occupancy_probability", DoubleType(),    True),
+    StructField("profile_source",        StringType(),    True),
+    StructField("calibration_weeks",     IntegerType(),   True),
+    StructField("confidence_score",      DoubleType(),    True),
+    StructField("model_version",         StringType(),    True),
+    StructField("computed_at",           TimestampType(), True),
 ])
 
 df_final_typed = spark.createDataFrame(df_final.rdd, schema=OUTPUT_SCHEMA)
 
-if table_exists(PATHS["occupancy"]):
-    log("  Table exists — performing MERGE …")
-    delta_table = DeltaTable.forPath(spark, PATHS["occupancy"])
+(
+    df_final_typed
+    .write
+    .format("delta")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")   # schema değişse bile güvenli overwrite
+    .partitionBy("day_of_week")
+    .save(PATHS["occupancy"])
+)
 
-    (
-        delta_table.alias("target")
-        .merge(
-            df_final_typed.alias("source"),
-            "target.building_id = source.building_id AND "
-            "target.day_of_week  = source.day_of_week  AND "
-            "target.hour_of_day  = source.hour_of_day"
-        )
-        .whenMatchedUpdate(set={
-            "occupancy_probability" : "source.occupancy_probability",
-            "profile_source"        : "source.profile_source",
-            "calibration_weeks"     : "source.calibration_weeks",
-            "confidence_score"      : "source.confidence_score",
-            "model_version"         : "source.model_version",
-            "computed_at"           : "source.computed_at",
-        })
-        .whenNotMatchedInsertAll()
-        .execute()
-    )
-    log("  MERGE complete.")
-
-else:
-    log("  Table does not exist — creating with initial write …")
-    (
-        df_final_typed
-        .write
-        .format("delta")
-        .mode("overwrite")
-        .option("overwriteSchema", "true")
-        .partitionBy("day_of_week")
-        .save(PATHS["occupancy"])
-    )
-    log("  Initial write complete (partitioned by day_of_week).")
+log(f"  Write complete — {df_final_typed.count():,} rows written (overwrite mode, full refresh).")
 
 
 # Cell 10 — Optimize & Z-Order
 # ============================================================
 log("Running OPTIMIZE + ZORDER on gold_occupancy_profile …")
 
-spark.sql(f"""
-    OPTIMIZE delta.`{PATHS["occupancy"]}`
-    ZORDER BY (building_id, hour_of_day)
-""")
+# Fabric'te relative path ile OPTIMIZE: tablo adını doğrudan kullan
+spark.sql("OPTIMIZE gold_occupancy_profile ZORDER BY (building_id, hour_of_day)")
 
 log("OPTIMIZE complete.")
 

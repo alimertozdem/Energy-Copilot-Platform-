@@ -501,6 +501,151 @@ cat_data = [
      "Sınırlı dış cephe derinliği olduğunda. nZEB veya KfW 40 hedefi için. "
      "Çatı yalıtımı (ince profil kritik olduğunda).",
      "Bütçe kısıtlamalı projeler. A1 yangın sınıfı zorunlu binalar."),
+
+    # ── BMS / GLT KONTROL SİSTEMLERİ ─────────────────────────────────────────
+    # Kaynak: BPIE Digital Buildings 2023, IEA Building Efficiency Outlook 2023
+
+    ("BMS-SAUTER", "BMS_CONTROLLER", "Bina Yönetim Sistemi (GLT)",
+     "Sauter", "EY-modulo 5 / CASE Suite",
+     "DE", 0.0, None, "m²",
+     None, None, None,
+     None, 10, None,
+     18.0, 28.0, "EUR/m²", 0.25, 0.020, 15,
+     True, True, False,
+     "OFFICE,HOSPITAL,HOTEL,SCHOOL,RETAIL,LOGISTICS",
+     "RESIDENTIAL_MF",
+     "Almanya'nın önde gelen BMS sağlayıcısı. DALI/BACnet/Modbus entegrasyonu. "
+     "EnEfG §3 Smart Readiness uyumlu. BAFA BEG NWG förderfähig. "
+     "Web tabanlı dashboard + enerji raporlama dahil.",
+     "Kurulum ve komisyoning uzmanlık gerektiriyor. Eski sistemlerle entegrasyon ek maliyet.",
+     "Büyük ticari binalar (>2.000 m²). Almanya'da EnEfG uyumu için. "
+     "Çok sayıda HVAC/aydınlatma/erişim sistemi olan binalarda.",
+     "Küçük binalar için fazla karmaşık. Sadece tek sistem kontrolü gereken durumlarda."),
+
+    ("BMS-SIEMENS", "BMS_CONTROLLER", "Bina Yönetim Sistemi (GLT)",
+     "Siemens", "Desigo CC / Climatix IC",
+     "BOTH", 0.0, None, "m²",
+     None, None, None,
+     None, 10, None,
+     20.0, 35.0, "EUR/m²", 0.20, 0.018, 15,
+     True, True, False,
+     "OFFICE,HOSPITAL,HOTEL,SCHOOL,RETAIL,LOGISTICS",
+     "RESIDENTIAL_MF",
+     "Küresel lider. OPC UA / BACnet / KNX / Modbus — tüm protokoller desteklenir. "
+     "AI tabanlı optimizasyon (Desigo Total Room Automation). "
+     "EPBD Art.14 Smart Readiness Indicator (SRI) uyumlu.",
+     "Yüksek lisans maliyeti. Küçük projeler için aşırı.",
+     "Hastane, otel, uluslararası portföy yönetimi. Mevcut Siemens altyapısı varken.",
+     "Bütçe kısıtlı veya küçük projeler."),
+
+    # ── KOJENERASYON (CHP) ─────────────────────────────────────────────────────
+    # Kaynak: ASUE BHKW-Kenndaten 2023, VDI 2067, KWKG 2020
+
+    ("CHP-VIESSMAN-VITOBLOC", "CHP_UNIT", "BHKW / Kojenerasyon Ünitesi",
+     "Viessmann", "Vitobloc 200 EM",
+     "DE", 6.0, 238.0, "kWe",
+     None, None, None,
+     None, 10, None,
+     600.0, 900.0, "EUR/kWe", 0.15, 0.030, 20,
+     True, False, False,
+     "HOSPITAL,HOTEL,HEALTHCARE",
+     "OFFICE,RETAIL,SCHOOL,LOGISTICS",
+     "Almanya'da en yaygın küçük/orta BHKW serisi. 6–238 kWe. "
+     "Elektrik verimi %33, ısıl verim %56 → toplam %89. "
+     "KWKG Zuschlag (0.08 EUR/kWh elektrik) + BAFA KWK-Förderung uyumlu. "
+     "7.000+ çalışma saati/yıl garantisi.",
+     "Gaz bağlantısı ve yeterli termal yük zorunlu. "
+     "Bakım 8.000 saatte bir (yıllık servis sözleşmesi önerilir).",
+     "Frankfurt Klinikum gibi 7/24 yüksek termal yük. "
+     "Wien Hotel gibi yüksek sıcak su tüketimi. "
+     "KWKG teşviki aktif olan DE projelerinde.",
+     "Düşük yük faktörü olan binalar. Gaz altyapısı olmayan projeler."),
+
+    # ── GÜNEŞ TERMAL ──────────────────────────────────────────────────────────
+    # Kaynak: Fraunhofer ISE Solarthermie 2024, BAFA Solarthermie Förderung
+
+    ("ST-VIESSMANN-VITOSOL", "SOLAR_THERMAL", "Güneş Termal Toplayıcı (Sıcak Su)",
+     "Viessmann", "Vitosol 200-FM / 300-TM",
+     "DE", 0.0, None, "m²",
+     None, None, None,
+     None, 25, None,
+     400.0, 550.0, "EUR/m²", 0.30, 0.008, 25,
+     True, True, False,
+     "HOTEL,HOSPITAL,HEALTHCARE,RESIDENTIAL_MF",
+     "OFFICE,RETAIL,DATA_CENTER,LOGISTICS",
+     "Almanya'nın en çok kurulu güneş termal markası. "
+     "Düz plaka (Vitosol 200-FM) veya vakumlu tüp (300-TM). "
+     "Solar fraction %40–65 (Fraunhofer ISE benchmark). "
+     "BAFA BEG NWG Solarthermie: %25 hibe. 25 yıl sistem ömrü.",
+     "Yeterli çatı alanı ve güneş ışınımı gerekiyor. "
+     "Bakı/eğim kritik — ideal güney, 30–45°.",
+     "Yüksek sıcak su talebi olan oteller, hastaneler, konutlar. "
+     "Mevcut kazan sistemini desteklemek için hibrit.",
+     "Kuzey cepheli çatılar. Soğuk iklimde tek başına (yedek kazan gerekir)."),
+
+    # ── ISI GERİ KAZANIMI (HRV/ERV) ──────────────────────────────────────────
+    # Kaynak: EN 13053 (Heat Recovery Ventilation), EPBD Ventilation requirements
+
+    ("HRV-SWEGON-GOLD", "HEAT_RECOVERY_VENTILATION", "Isı Geri Kazanımlı Havalandırma (HRV)",
+     "Swegon", "GOLD RX / CX Series",
+     "DE", 0.0, None, "m²",
+     None, None, None,
+     None, 20, None,
+     18.0, 28.0, "EUR/m²", 0.35, 0.012, 20,
+     True, False, False,
+     "OFFICE,HOSPITAL,SCHOOL,LOGISTICS,HOTEL",
+     "DATA_CENTER",
+     "EN 13053 Sınıf H1 — egzoz havasının %83 termal verimi. "
+     "EC motorlar ile düşük SFP (Specific Fan Power). "
+     "Hastanelerde hijienik havalandırma sertifikası mevcut. "
+     "BAFA BEG NWG Lüftungsanlage: %20 hibe.",
+     "Mevcut kanallaştırma yetersizse ek tesisat maliyeti. "
+     "Yüksek filtrasyon gerektiren tesislerde yüksek bakım.",
+     "Yüksek havalandırma ihtiyacı olan binalar (hastane, lojistik, okul). "
+     "Enerji performans sertifikası almak isteyen binalar.",
+     "Düşük taze hava ihtiyacı olan binalar."),
+
+    # ── GÜÇ FAKTÖRÜ DÜZELTME ─────────────────────────────────────────────────
+    # Kaynak: VDE-AR-N 4100, DENA Reaktivleistungsmanagement 2022
+
+    ("PFC-EPCOS", "POWER_FACTOR_CORRECTION", "Güç Faktörü Düzeltme (Reaktif Güç Kompanzasyonu)",
+     "EPCOS (TDK)", "FRAKO LKT / STARDELTA",
+     "BOTH", 50.0, 2000.0, "kVAr",
+     None, None, None,
+     None, 15, None,
+     8.0, 15.0, "EUR/kVAr", 0.15, 0.010, 15,
+     False, False, False,
+     "LOGISTICS,HOSPITAL,HOTEL,RETAIL",
+     "OFFICE,SCHOOL,RESIDENTIAL_MF",
+     "Reaktif güç cezalarını ortadan kaldırır (cos φ ≥ 0.95 hedefi). "
+     "Otomatik kapasitör bankı — yük takibine göre adım adım devreye girer. "
+     "Kurulum 1–2 gün, kesinti minimumu. VDE-AR-N 4100 uyumlu.",
+     "Yüksek harmonik distorsiyon ortamlarında filtreleme ek maliyet. "
+     "Reaktif güç problemi yoksa ROI düşük.",
+     "Motor yükü ağırlıklı binalar: kompresör, soğutma, asansör, forklift şarj. "
+     "Yüksek enerji tüketimli lojistik ve hastanelerde yüksek ROI.",
+     "Ofis ve okul gibi rezistif yük ağırlıklı binalar."),
+
+    # ── AKILLI ALT SAYAÇ SİSTEMLERİ ──────────────────────────────────────────
+    # Kaynak: Carbon Trust Sub-metering guide 2023, CIBSE TM39
+
+    ("SUBMETER-SIEMENS-7KT", "SMART_SUBMETERING", "Akıllı Alt Sayaç / Enerji İzleme Sistemi",
+     "Siemens", "SENTRON 7KT PAC / 7KM PAC",
+     "BOTH", 0.0, None, "m²",
+     None, None, None,
+     None, 10, None,
+     4.0, 8.0, "EUR/m²", 0.30, 0.008, 10,
+     False, False, False,
+     "OFFICE,HOSPITAL,HOTEL,SCHOOL,RETAIL,LOGISTICS",
+     "DATA_CENTER",
+     "IEC 62053 Sınıf B ölçüm doğruluğu. Modbus/Profibus/Ethernet. "
+     "EnEfG §3 enerji izleme uyumu. SCADA/BMS entegrasyonu kolay. "
+     "Bölge/kat/sistem bazlı izleme → ISO 50001 temel altyapısı.",
+     "Eski tablolarda faz kaybı veya yer sorunu olabilir. "
+     "Sadece sayaç yetmez — enerji yönetim yazılımı ek maliyet.",
+     "Büyük ticari binalar. EnEfG uyum raporlaması. "
+     "ISO 50001 sertifikasyon hazırlığı.",
+     "Zaten kapsamlı BMS'i olan binalar (çakışma riski)."),
 ]
 
 df_cat = write_ref_table(cat_data, cat_schema, REF_PATHS["technology_catalog"], "ref_technology_catalog")

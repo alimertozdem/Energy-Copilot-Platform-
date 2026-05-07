@@ -57,7 +57,7 @@ from pyspark.sql.functions import (
     sum as spark_sum, max as spark_max, min as spark_min,
     count, when, coalesce, concat_ws, md5,
     broadcast, date_sub, round as spark_round,
-    expr, lag
+    expr, lag, upper
 )
 from pyspark.sql.window import Window
 from delta.tables import DeltaTable
@@ -81,10 +81,24 @@ print("✅ Spark konfigürasyonu tamamlandı")
 PATHS = {
     "kpi_daily":      "Tables/gold_kpi_daily",
     "building":       "Tables/silver_building_master",
-    "anomalies":      "Tables/gold_anomalies",
+    # Power BI semantic modeli gold_anomaly_log tablosuna bağlı —
+    # yeni veriyi mevcut tabloya yazıyoruz (overwriteSchema ile şema güncellenir)
+    "anomalies":      "Tables/gold_anomaly_log",
 }
 
-# Kaç günlük KPI verisi analiz edilsin
+# ─────────────────────────────────────────────────────────────────────────────
+# BACKFILL MODE
+# ─────────────────────────────────────────────────────────────────────────────
+# True  → Tüm tarih aralığı analiz edilir (DATA_START_DATE → bugün).
+#          gold_anomalies tablosu overwrite ile yeniden oluşturulur.
+#          İlk kurulum veya veri sıfırlama için kullan.
+# False → Sadece son LOOKBACK_DAYS gün analiz edilir (incremental, prod modu).
+#          Mevcut tabloya MERGE ile eklenir.
+# ─────────────────────────────────────────────────────────────────────────────
+BACKFILL_MODE        = True    # İlk kurulumda True, sonra False yap
+DATA_START_DATE      = "2023-01-01"   # Backfill başlangıç tarihi
+
+# Kaç günlük KPI verisi analiz edilsin (BACKFILL_MODE=False iken geçerli)
 LOOKBACK_DAYS        = 30   # Rolling pencere için kaynak veri
 ROLLING_WINDOW_DAYS  = 7    # Tüketim ortalaması penceresi
 
@@ -93,12 +107,13 @@ ROLLING_WINDOW_DAYS  = 7    # Tüketim ortalaması penceresi
 # ────────────────────────────────────────────────────────────
 
 # CONSUMPTION_SPIKE
-SPIKE_STDDEV_FACTOR   = 2.5   # Rolling ortalama + 2.5 × stddev → spike
-SPIKE_MIN_PCT_ABOVE   = 0.30  # En az %30 artış olmalı (küçük gürültüyü filtrele)
+# 2.5 → 2.0: Geniş tarih aralığında gerçekçi spike tespiti için biraz hassaslaştırıldı
+SPIKE_STDDEV_FACTOR   = 2.0   # Rolling ortalama + 2.0 × stddev → spike
+SPIKE_MIN_PCT_ABOVE   = 0.25  # En az %25 artış olmalı
 
 # COP_DEGRADATION
-COP_DROP_THRESHOLD    = 0.25  # Rated COP'un %25'in altına düşerse anomaly
-                               # Örn: rated 3.5 → fiili < 2.625
+# 0.25 → 0.20: Isı pompası performans kaybı daha erken tespit edilsin
+COP_DROP_THRESHOLD    = 0.20  # Rated COP'un %20'sinin altına düşerse anomaly
 COP_MIN_RATED         = 2.5   # Daha düşük rated COP'lu binaları atla
 
 # SOLAR_UNDERPERFORM
@@ -108,7 +123,8 @@ SOLAR_IRRADIANCE_MIN  = 2.0   # Bu irradiance'ın altında analiz yapma (bulutlu
 
 # AFTER_HOURS_WASTE
 # Mesai saatleri: 08:00-18:00 hafta içi
-AFTER_HOURS_WASTE_PCT = 0.35  # Gece/hafta sonu tüketim toplam tüketimin %35'inden fazlaysa
+# 0.35 → 0.38: Gürültüyü azaltmak için hafif yükseltildi
+AFTER_HOURS_WASTE_PCT = 0.38  # Gece/hafta sonu tüketim toplam tüketimin %38'inden fazlaysa
 
 # BATTERY_IDLE
 BATTERY_IDLE_DAYS     = 7     # X gün şarj/deşarj yoksa idle say
@@ -118,16 +134,28 @@ DATA_GAP_HOURS        = 6     # Beklenen okuma sayısının altında kalınca ga
                                # 15 dakikada bir = 4 okuma/saat → 6 saat = 24 eksik okuma
 
 # HIGH_CARBON_INTENSITY
-# Sektör referans değerleri (kg CO₂/m²/yıl → günlük: /365)
+# Referans değerler: CRREM v2.0 2024 yılı pathway (kgCO₂/m²/yıl → günlük /365)
+# Kaynak: gold_crrem_pathway tablosu — bina tipi × ülke bazlı
+#
+# NEDEN CRREM 2024 PATHWAY?
+#   CRREM 2020 baseline (90-450 kgCO₂/m²/yıl) gerçek bina değerlerinin
+#   çok üzerinde — hiçbir bina bu eşiği aşamaz. Bunun yerine CRREM'in 2024
+#   hedef değerlerini kullanıyoruz: bir bina bu seviyenin %30 üzerindeyse
+#   "stranding risk" bölgesinde demektir — gerçek bir operasyonel alarm.
+#
+# Değerler (kgCO₂/m²/yıl, CRREM v2.0 2024):
+#   Office DE: 47 | Office TR: ~55 | Hotel: 50 | Healthcare: 80 | Logistics: 65
 CARBON_REF_DAILY = {
-    "OFFICE":     365 / 365,   # ~1.0 kg/m²/gün
-    "RETAIL":     280 / 365,
-    "INDUSTRIAL": 420 / 365,
-    "HOTEL":      320 / 365,
-    "HEALTHCARE": 450 / 365,
-    "DEFAULT":    350 / 365,
+    "OFFICE":      47 / 365,   # CRREM 2024 DE/EU Office pathway
+    "RETAIL":      55 / 365,   # CRREM 2024 Retail estimate
+    "INDUSTRIAL":  65 / 365,   # Logistics/Industrial reference (Logistics → INDUSTRIAL)
+    "HOTEL":       50 / 365,   # CRREM 2024 Hotel estimate
+    "HEALTHCARE":  80 / 365,   # Healthcare — higher operasyonel yük
+    "EDUCATION":   45 / 365,   # Üniversite/eğitim binası — düşük yoğunluk
+    "DEFAULT":     55 / 365,
 }
-CARBON_EXCEED_FACTOR  = 1.5   # Referansın 1.5 katını aşarsa anomaly
+# Referansın %30 üzeri → CRREM "stranding zone" — gerçekçi anomaly eşiği
+CARBON_EXCEED_FACTOR  = 1.3
 
 # Önem seviyeleri
 SEV_LOW      = "LOW"
@@ -136,7 +164,8 @@ SEV_HIGH     = "HIGH"
 SEV_CRITICAL = "CRITICAL"
 
 print("✅ Konfigürasyon tamamlandı")
-print(f"   Lookback: {LOOKBACK_DAYS} gün | Rolling: {ROLLING_WINDOW_DAYS} gün")
+print(f"   Mod: {'BACKFILL (tüm tarih aralığı, ' + DATA_START_DATE + ' → bugün)' if BACKFILL_MODE else f'INCREMENTAL (son {LOOKBACK_DAYS} gün)'}")
+print(f"   Rolling pencere: {ROLLING_WINDOW_DAYS} gün")
 
 
 # =============================================================================
@@ -307,11 +336,19 @@ if missing:
 
 # ── Tablolar mevcut, veriyi oku ──────────────────────────────
 
-# gold_kpi_daily — son 30 gün
-df_kpi = (
-    spark.read.format("delta").load(PATHS["kpi_daily"])
-    .filter(col("date") >= date_sub(current_date(), LOOKBACK_DAYS))
-)
+# gold_kpi_daily — tarih filtresi BACKFILL_MODE'a göre değişir
+_kpi_raw = spark.read.format("delta").load(PATHS["kpi_daily"])
+
+if BACKFILL_MODE:
+    # Tüm tarih aralığı: DATA_START_DATE'den bugüne
+    from pyspark.sql.functions import lit as _lit
+    df_kpi = _kpi_raw.filter(col("date") >= _lit(DATA_START_DATE).cast("date"))
+    print(f"ℹ️  BACKFILL: {DATA_START_DATE} tarihinden itibaren tüm veri okunuyor...")
+else:
+    # Sadece son LOOKBACK_DAYS gün
+    df_kpi = _kpi_raw.filter(col("date") >= date_sub(current_date(), LOOKBACK_DAYS))
+    print(f"ℹ️  INCREMENTAL: son {LOOKBACK_DAYS} gün okunuyor...")
+
 log_step("gold_kpi_daily okundu", df_kpi.count(), "gold_kpi_daily")
 
 # silver_building_master — broadcast (küçük referans tablosu)
@@ -376,9 +413,15 @@ df_daily = (
         "building_type",         # building_master'dan
         "conditioned_area_m2",   # building_master'dan
         "hdd_day"
-        # NOT: avg_irradiance_wm2 gold_kpi_daily'de yok — saatlik hesaplamada
-        # kullanılıyor ama günlük tabloya yazılmıyor. Proxy olarak
-        # solar_generated_kwh > 0 kullanıyoruz (üretim varsa güneşli gün).
+    )
+    # ── Building type normalizasyonu ────────────────────────────────────────────
+    # silver_building_master'da building_type title case gelir: "Office", "Retail"…
+    # Anomaly kuralları UPPERCASE ve standart kategori adları bekler.
+    # "Logistics" → "INDUSTRIAL" (lojistik = sanayi operasyonu, aynı eşikler)
+    # "Education"  → "EDUCATION"  (CARBON_REF_DAILY'de kendi referansı var)
+    .withColumn("building_type",
+        when(upper(col("building_type")) == lit("LOGISTICS"), lit("INDUSTRIAL"))
+        .otherwise(upper(col("building_type")))
     )
     .orderBy("building_id", "date")
 )
@@ -612,31 +655,53 @@ print(f"   → {len(batt_rows)} battery idle tespit edildi")
 
 
 # ─────────────────────────────────────────────────────────────
-# ANOMALİ 5: HIGH_CARBON_INTENSITY
-# Günlük karbon yoğunluğu bina tipi referansının 1.5 katını aşıyor
+# ANOMALİ 5: HIGH_CARBON_INTENSITY (Aylık Deduplikasyon)
+#
+# NEDEN AYLIK?
+#   Bir bina yapısal olarak yüksek karbon yoğunluğuna sahipse her gün
+#   anomaly üretir → 1200+ satır, tüm tabloyu domine eder.
+#   Gerçek operasyonelde bu durum "stranding risk" bildirimi olarak
+#   ayda bir raporlanır — günlük tekrar edilmez.
+#
+# UYGULAMA:
+#   1. Günlük eşik aşımlarını tespit et
+#   2. Ay bazında en yüksek karbon yoğunluğu günü seç (1 satır/bina/ay)
+#   3. O ayın ilk gününü detected_date olarak kullan (anomaly_id unique kalır)
 # ─────────────────────────────────────────────────────────────
 
-print("\n── 5/7 High Carbon Intensity Tespiti ──")
+print("\n── 5/7 High Carbon Intensity Tespiti (aylık) ──")
 
-# Bina tipi → referans karbon yoğunluğu (kg CO₂/m²/gün)
-# Spark'ta map için when/otherwise zinciri kullanılır
-df_carbon = (
+from pyspark.sql.functions import date_trunc as _dt, max as _max, first as _first
+
+df_carbon_daily = (
     df_daily
     .filter(col("conditioned_area_m2") > lit(0))
     .withColumn("carbon_ref",
-        when(col("building_type") == "OFFICE",     lit(CARBON_REF_DAILY.get("OFFICE", 0.96)))
-        .when(col("building_type") == "RETAIL",    lit(CARBON_REF_DAILY.get("RETAIL", 0.77)))
-        .when(col("building_type") == "INDUSTRIAL",lit(CARBON_REF_DAILY.get("INDUSTRIAL", 1.15)))
-        .when(col("building_type") == "HOTEL",     lit(CARBON_REF_DAILY.get("HOTEL", 0.88)))
-        .when(col("building_type") == "HEALTHCARE",lit(CARBON_REF_DAILY.get("HEALTHCARE", 1.23)))
-        .otherwise(lit(CARBON_REF_DAILY.get("DEFAULT", 0.96)))
+        when(col("building_type") == "OFFICE",     lit(CARBON_REF_DAILY.get("OFFICE")))
+        .when(col("building_type") == "RETAIL",    lit(CARBON_REF_DAILY.get("RETAIL")))
+        .when(col("building_type") == "INDUSTRIAL",lit(CARBON_REF_DAILY.get("INDUSTRIAL")))
+        .when(col("building_type") == "HOTEL",     lit(CARBON_REF_DAILY.get("HOTEL")))
+        .when(col("building_type") == "HEALTHCARE",lit(CARBON_REF_DAILY.get("HEALTHCARE")))
+        .when(col("building_type") == "EDUCATION", lit(CARBON_REF_DAILY.get("EDUCATION")))
+        .otherwise(lit(CARBON_REF_DAILY.get("DEFAULT")))
     )
     .withColumn("carbon_threshold", col("carbon_ref") * lit(CARBON_EXCEED_FACTOR))
-    .filter(
-        coalesce(col("carbon_intensity_kg_m2"), lit(0.0)) > col("carbon_threshold")
-    )
+    .filter(coalesce(col("carbon_intensity_kg_m2"), lit(0.0)) > col("carbon_threshold"))
     .select("building_id", "date", "carbon_intensity_kg_m2",
             "carbon_threshold", "building_type")
+)
+
+# Aylık deduplikasyon: bina × ay başına sadece 1 anomaly (peak günü seç)
+df_carbon = (
+    df_carbon_daily
+    .withColumn("year_month_start", _dt("month", col("date")).cast("date"))
+    .groupBy("building_id", "year_month_start", "building_type")
+    .agg(
+        _max("carbon_intensity_kg_m2").alias("carbon_intensity_kg_m2"),
+        _first("carbon_threshold").alias("carbon_threshold"),
+    )
+    # detected_date olarak ayın 1'ini kullan → anomaly_id benzersizliği korunur
+    .withColumnRenamed("year_month_start", "date")
 )
 
 carbon_rows = df_carbon.collect()
@@ -655,10 +720,10 @@ for row in carbon_rows:
         detected_date  = dt,
         metric_value   = val,
         threshold_value= thr,
-        desc_en = f"Carbon intensity {val:.4f} kg CO₂/m² exceeds {CARBON_EXCEED_FACTOR}× sector reference for {btyp} buildings ({thr:.4f} kg/m²/day).",
-        desc_de = f"Kohlenstoffintensität {val:.4f} kg CO₂/m² überschreitet das {CARBON_EXCEED_FACTOR}-fache des Sektorreferenzwerts für {btyp}-Gebäude ({thr:.4f} kg/m²/Tag).",
-        desc_tr = f"Karbon yoğunluğu {val:.4f} kg CO₂/m², {btyp} tipi binalar için sektör referansının {CARBON_EXCEED_FACTOR} katını ({thr:.4f} kg/m²/gün) aşıyor.",
-        action_en = f"Review grid emission factor trends, shift flexible loads to low-carbon hours (renewable generation peaks), and consider on-site generation expansion.",
+        desc_en = f"Monthly peak carbon intensity {val:.4f} kg CO₂/m²/day exceeds {CARBON_EXCEED_FACTOR}× CRREM 2024 reference for {btyp} ({thr:.4f} kg/m²/day). Building at stranding risk.",
+        desc_de = f"Monatlicher Peak der Kohlenstoffintensität {val:.4f} kg CO₂/m²/Tag überschreitet das {CARBON_EXCEED_FACTOR}-fache des CRREM-2024-Referenzwerts für {btyp} ({thr:.4f}). Strandungsrisiko.",
+        desc_tr = f"Aylık zirve karbon yoğunluğu {val:.4f} kg CO₂/m²/gün, {btyp} tipi için CRREM 2024 referansının {CARBON_EXCEED_FACTOR} katını ({thr:.4f}) aşıyor. Bina 'stranding' riski taşıyor.",
+        action_en = f"Review monthly energy mix, shift flexible loads to low-carbon hours, and consider on-site renewable expansion to meet CRREM 2024 pathway.",
     ))
 
 print(f"   → {len(carbon_rows)} high carbon intensity tespit edildi")
@@ -723,11 +788,31 @@ print("\n── 7/7 After-Hours Waste Tespiti (Proxy) ──")
 
 from pyspark.sql.functions import dayofweek
 
+# 24/7 operasyon yapan bina tipleri AFTER_HOURS_WASTE tespitinden muaf tutulur.
+# Bu binalarda hafta sonu tüketimi beklenen operasyonel davranıştır — anomaly değil.
+#   HOTEL     : Sürekli misafir kabulü
+#   HEALTHCARE: Hastane 24/7 klinik operasyonu
+#   INDUSTRIAL: Lojistik/üretim 24/7 sevkiyat
+# 24/7 operasyon tipleri — AFTER_HOURS_WASTE tespitinden muaf
+# INDUSTRIAL: Logistics Hub (B003 "Logistics" → normalize edildi)
+# HOTEL: Wien Grand Hotel (B004)
+# HEALTHCARE: Frankfurt Klinikum (B005)
+ALWAYS_ON_TYPES = {"HOTEL", "HEALTHCARE", "INDUSTRIAL"}
+
+df_eligible = df_daily.filter(
+    ~col("building_type").isin(list(ALWAYS_ON_TYPES))
+)
+_excluded = df_daily.filter(col("building_type").isin(list(ALWAYS_ON_TYPES))) \
+                    .select("building_id").distinct().collect()
+if _excluded:
+    _excl_ids = [r["building_id"] for r in _excluded]
+    print(f"   ℹ️  24/7 binalar muaf tutuldu: {_excl_ids}")
+
 # Hafta içi (2=Mon … 6=Fri) vs hafta sonu (1=Sun, 7=Sat)
 win_weekday = Window.partitionBy("building_id")
 
 df_weekend = (
-    df_daily
+    df_eligible
     .withColumn("is_weekend",
         when(dayofweek(col("date")).isin(1, 7), lit(True)).otherwise(lit(False))
     )
@@ -799,11 +884,24 @@ if total_detected > 0:
     df_anomalies.groupBy("severity", "anomaly_type").count().orderBy("severity", "anomaly_type").show(truncate=False)
 
     # Gold'a yaz
-    written = upsert_anomalies(df_anomalies, PATHS["anomalies"])
+    if BACKFILL_MODE:
+        # Backfill: tabloyu tamamen yeniden yaz (temiz başlangıç)
+        _tbl_name_bf = PATHS["anomalies"].replace("Tables/", "")
+        (df_anomalies.write
+            .format("delta")
+            .mode("overwrite")
+            .option("overwriteSchema", "true")
+            .saveAsTable(_tbl_name_bf)
+        )
+        written = df_anomalies.count()
+        print(f"✅ BACKFILL yazıldı: {written:,} anomaly → {_tbl_name_bf}")
+    else:
+        written = upsert_anomalies(df_anomalies, PATHS["anomalies"])
 
-    # OPTIMIZE
+    # OPTIMIZE — catalog adı kullan (delta. path Fabric'te güvenilmez)
+    _opt_tbl = PATHS["anomalies"].replace("Tables/", "")
     try:
-        spark.sql(f"OPTIMIZE delta.`{PATHS['anomalies']}` ZORDER BY (building_id, detected_date)")
+        spark.sql(f"OPTIMIZE {_opt_tbl} ZORDER BY (building_id, detected_date)")
         print("⚡ OPTIMIZE + ZORDER tamamlandı")
     except Exception as e:
         print(f"⚠️  OPTIMIZE atlandı: {str(e)[:60]}")
@@ -821,6 +919,75 @@ else:
             .save(PATHS["anomalies"])
         )
         print("   → Boş gold_anomalies tablosu oluşturuldu")
+
+
+# =============================================================================
+# BÖLÜM 7b — RESOLVED STATUS UPDATE (Gerçekçi Demo Verisi)
+# =============================================================================
+#
+# AMAÇ:
+#   Gerçek bir operasyonel sistemde anomaly'lerin bir kısmı zaman içinde
+#   tespit + aksiyon + çözüm döngüsünden geçer. Sentetik verimizde
+#   is_resolved her zaman False → "hiçbir şey çözülmemiyor" izlenimi.
+#   Bu adım, 45 günden eski anomaly'lerin %30'unu resolved olarak işaretler.
+#
+# MANTIK:
+#   • Sadece 45 günden eski anomaly'ler hedef alınır
+#     (yeni anomaly'ler hâlâ aktif/open kalır — doğal davranış)
+#   • Hangi %30'un resolved olacağını ABS(HASH(anomaly_id)) % 10 < 3
+#     ile deterministik seçiyoruz:
+#       - Random değil → notebook her çalışmada aynı sonucu verir
+#       - anomaly_id benzersiz string → hash iyi dağılım sağlar
+#       - Yaklaşık %30 oranı (0,1,2 → 3/10 → %30)
+#   • Severity bazlı kural: "critical" anomaly'ler daha zor çözülür (%15),
+#     "high" %25, "medium" ve altı %40 oranında resolved yapılır.
+#
+# ETKİ: Power BI Page 3'te Unresolved ≠ Total → gerçekçi operasyonel görünüm
+# =============================================================================
+
+if table_exists(PATHS["anomalies"]):
+    print("\n🔄 Resolved status güncelleniyor...")
+
+    RESOLVED_CUTOFF_DAYS = 45   # Bu kadar günden eski anomaly'ler resolve adayı
+    # Catalog tablo adı (Tables/ prefix'i olmadan) — spark.sql UPDATE için
+    _anomaly_cat_name = PATHS["anomalies"].replace("Tables/", "")
+
+    try:
+        # Severity bazlı resolved oranları (hash modulo ile deterministik seçim)
+        # critical: hash % 20 < 3  → ~%15
+        # high:     hash % 20 < 5  → ~%25
+        # medium:   hash % 10 < 4  → ~%40
+        # low/info: hash % 10 < 4  → ~%40
+        # NOT: delta.`Tables/...` path Fabric'te spark.sql UPDATE'inde tanınmıyor.
+        #      Catalog adını (gold_anomaly_log) doğrudan kullanıyoruz.
+        spark.sql(f"""
+            UPDATE {_anomaly_cat_name}
+            SET is_resolved = true
+            WHERE is_resolved = false
+              AND detected_date < date_sub(current_date(), {RESOLVED_CUTOFF_DAYS})
+              AND (
+                    (severity = 'CRITICAL' AND abs(hash(anomaly_id)) % 20 < 3)
+                 OR (severity = 'HIGH'     AND abs(hash(anomaly_id)) % 20 < 5)
+                 OR (severity IN ('MEDIUM','LOW','INFORMATIONAL')
+                                           AND abs(hash(anomaly_id)) % 10 < 4)
+              )
+        """)
+
+        # Sonucu raporla — catalog adıyla oku (relative path Fabric'te güvenilmez)
+        df_res_check = spark.read.table(_anomaly_cat_name)
+        total_all      = df_res_check.count()
+        total_resolved = df_res_check.filter(col("is_resolved") == lit(True)).count()
+        total_open     = total_all - total_resolved
+
+        print(f"   Toplam anomaly  : {total_all:,}")
+        print(f"   Resolved (kapalı): {total_resolved:,}  ({100*total_resolved/max(total_all,1):.0f}%)")
+        print(f"   Open (aktif)     : {total_open:,}  ({100*total_open/max(total_all,1):.0f}%)")
+        print("✅ Resolved status güncellendi")
+
+    except Exception as _re:
+        print(f"⚠️  Resolved update atlandı: {str(_re)[:120]}")
+else:
+    print("ℹ️  gold_anomalies tablosu yok — resolved update atlandı")
 
 
 # =============================================================================

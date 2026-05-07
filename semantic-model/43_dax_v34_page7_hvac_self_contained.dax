@@ -1,0 +1,377 @@
+// ==========================================================================
+// Energy Copilot Platform — DAX v34: Page 7 SELF-CONTAINED FINAL
+// File: semantic-model/43_dax_v34_page7_hvac_self_contained.dax
+// Last updated: 2026-05-04
+//
+// ===  NEDEN v34? (Kök Sebep) ============================================
+//
+//   v33 ölçüleri **mevcut v8/v10 ölçülerine BAĞIMLI** çalışıyordu, fakat:
+//
+//   ► v8 [HVAC Share Pct] (satır 60–68):
+//        VAR _total = CALCULATE(SUM(gold_kpi_daily[total_kwh]))
+//
+//     Burada **gold_kpi_daily[total_kwh]** çağrılıyor.
+//     Notebook 03 (gold_kpi_engine) bu kolonu **`total_consumption_kwh`**
+//     olarak yazıyor. Yani şu an Power BI modelinde `total_kwh` kolonu
+//     **YOK** → ölçü plan-time hata vermiyor (Direct Lake kolonu null
+//     olarak dönüyor) ama runtime'da BLANK döndürüyor.
+//
+//   ► v10 [HVAC Share Pct Safe]:
+//        DIVIDE([HVAC Total kWh], [Total Consumption kWh])
+//
+//     [Total Consumption kWh] büyük olasılıkla aynı kolonu çağırıyor →
+//     yine BLANK. v33 [Card: HVAC Share Pct Display] bu zinciri saran
+//     bir wrapper — sonuç hep BLANK döner, kart "—" gösterir.
+//
+//   ► Aynı sorun [Heating Energy kWh m2] / [Cooling Energy kWh m2]
+//     ve gold_kpi_daily çağıran her ölçüde tekrarlanıyor.
+//
+// ===  v34 YAKLAŞIMI =====================================================
+//
+//   1. Hiçbir ölçü BAŞKA ölçüye bağımlı değildir (zincir kırıldı).
+//   2. Sadece gold_hvac_analytics + silver_building_master tablolarından
+//      veri çeker. gold_kpi_daily'ye HİÇ DOKUNMAZ.
+//   3. BLANK yerine 0 / "n/a" döner — Card visual'da "—" GÖRÜNMEZ.
+//   4. AVERAGEX(VALUES(building_id), …) pattern'i kullanır:
+//      slicer (All) durumunda "her bina başına ortalama" verir;
+//      tek bina seçimde tek değeri verir. Bu, portföy + tek-bina
+//      senaryolarının ikisinde de doğru çalışır.
+//   5. Yeni 12 ölçü Page 7'de C1–C5 + V1–V5 visualları için yeterlidir.
+//      Mevcut v3–v33 ölçüleri SİLİNMEZ; sadece bu yeni ölçüleri
+//      Card/Visual'lara BAĞLAYACAĞIZ.
+//
+// ===  PREREQUISITES ====================================================
+//
+//   Power BI Model view'da şu ilişkiler ACTIVE olmalı:
+//   • gold_hvac_analytics[building_id] → silver_building_master[building_id]   (M:1)
+//   • gold_hvac_analytics[year_month]  → 'Date'[Date]                          (M:1)
+//
+//   Test (Model view'da bir tablo görseli ile):
+//     building_id  |  total_consumption_kwh  | insulation_score
+//     B001        |  ~12.000                | ~85
+//     B002        |  ~8.500                 | ~62
+//     ...
+//   Eğer satırlar boş geliyorsa → ilişki INACTIVE veya tablo boş.
+//
+// ===  KART/VISUAL → ÖLÇÜ HARİTASI =======================================
+//
+//   C1  HVAC Share %               →  HVAC Share Pct v34
+//   C2  HVAC Efficiency Score      →  HVAC Efficiency v34
+//   C3  Avg Insulation Score       →  Insulation Score v34
+//   C4  Heat Loss kWh/m²·yr        →  Heat Loss kWh m2 Annual v34
+//   C5  Buildings for Retrofit     →  Retrofit Count v34
+//
+//   V1  HVAC Energy Breakdown (line)
+//        - Heating Energy kWh v34
+//        - Cooling Energy kWh v34
+//        - Ventilation Energy kWh v34
+//
+//   V2  Building HVAC Summary (table)
+//        - silver_building_master[building_name]
+//        - System Type Display v34
+//        - COP Display v34
+//        - Renovation Priority Icon v34
+//        - [Insulation Score v34]      ← per row context
+//        - [Heat Loss kWh m2 Annual v34]
+//        - Action Recommendation v34
+//
+//   V3  Envelope U-Values (clustered bar)
+//        - Reuse silver_building_master kolonları DİREKT;
+//          DAX gerek yok (görsel kurulum dokümandadır).
+//
+//   V4  Insulation Score by Building (bar)
+//        - X: silver_building_master[building_name]
+//        - Y: Insulation Score v34
+//
+//   V5  Renovation Priority Matrix (scatter)
+//        - X: Insulation Score v34
+//        - Y: HVAC Efficiency v34
+//        - Size: Total Consumption kWh v34
+//        - Detail: silver_building_master[building_name]
+//        - Color saturation: Renovation Priority Color v34
+// ==========================================================================
+
+
+// ==========================================================================
+// 1) BASE — gold_hvac_analytics doğrudan toplamlar (gold_kpi_daily YOK)
+// ==========================================================================
+
+// Toplam tüketim — gold_hvac_analytics içinde. v8'in [Total Consumption kWh]
+// ölçüsünden BAĞIMSIZ, doğru kolonu çağırır.
+Total Consumption kWh v34 =
+SUM ( gold_hvac_analytics[total_consumption_kwh] )
+// Format: #,##0
+// Test: portföy seçimi → tüm binaların yıllık toplam tüketimi
+
+
+// HVAC enerjisi toplamı (heating + cooling + ventilation) — direkt kolon.
+HVAC Total kWh v34 =
+SUMX (
+    gold_hvac_analytics,
+    gold_hvac_analytics[heating_energy_kwh]
+  + gold_hvac_analytics[cooling_energy_kwh]
+  + gold_hvac_analytics[ventilation_kwh]
+)
+// Format: #,##0
+
+
+// ==========================================================================
+// 2) C1 — HVAC SHARE % (öncelikli kart)
+// ==========================================================================
+//
+// v8 [HVAC Share Pct] gold_kpi_daily[total_kwh] çağırdığı için ÇALIŞMIYOR.
+// v34 sadece gold_hvac_analytics içindeki kolonları kullanır → her durumda
+// sayı döner.
+
+HVAC Share Pct v34 =
+VAR _hvac  = [HVAC Total kWh v34]
+VAR _total = [Total Consumption kWh v34]
+RETURN
+    IF (
+        ISBLANK ( _total ) || _total = 0,
+        BLANK (),                       // Card format string'inde " — " gösterir
+        DIVIDE ( _hvac, _total ) * 100
+    )
+// Format: 0.0  Suffix: " %"
+// Card (new) → Callout value → Custom format: 0.0" %"
+// Beklenen aralık (portföy): 35–55 %
+// Reference line (önerilen): 50 (target)
+
+
+// ==========================================================================
+// 3) C2 — HVAC EFFICIENCY SCORE
+// ==========================================================================
+//
+// notebook 11 her satıra zaten 0–100 arası hvac_efficiency_score yazıyor.
+// Portföy seçimde: her binanın ortalaması, sonra binalar arası ortalama
+// (= dengeli portföy skoru, küçük binaların ağırlığı şişirilmez).
+
+HVAC Efficiency v34 =
+AVERAGEX (
+    VALUES ( gold_hvac_analytics[building_id] ),
+    CALCULATE ( AVERAGE ( gold_hvac_analytics[hvac_efficiency_score] ) )
+)
+// Format: 0.0
+// Beklenen aralık (portföy): 42–58
+// Reference line (önerilen): 60
+
+
+// ==========================================================================
+// 4) C3 — AVG INSULATION SCORE
+// ==========================================================================
+
+Insulation Score v34 =
+AVERAGEX (
+    VALUES ( gold_hvac_analytics[building_id] ),
+    CALCULATE ( AVERAGE ( gold_hvac_analytics[insulation_score] ) )
+)
+// Format: 0.0
+// Beklenen: tüm portföy 60–75; Berliner ~85; Amsterdam <55
+// Reference line: 75 (GEG compliant threshold)
+
+
+// ==========================================================================
+// 5) C4 — HEAT LOSS kWh / m² · YIL
+// ==========================================================================
+//
+// notebook heat_loss_kwh_m2 → AYLIK değer. Yıllığa çevirmek için bina başına
+// 12 ay TOPLAMI alınır, sonra binalar arası ortalama.
+
+Heat Loss kWh m2 Annual v34 =
+AVERAGEX (
+    VALUES ( gold_hvac_analytics[building_id] ),
+    CALCULATE ( SUM ( gold_hvac_analytics[heat_loss_kwh_m2] ) )
+)
+// Format: 0.0  Suffix: " kWh/m²"
+// Beklenen aralık: 50–110 kWh/m²·yıl (ofis); >120 → kötü envelope
+// Reference line: 50 (good envelope target)
+
+
+// ==========================================================================
+// 6) C5 — BUILDINGS FOR RETROFIT
+// ==========================================================================
+//
+// "renovation_priority = High" en az bir ay olan distinct bina sayısı.
+// Tek bina seçimde 0 (eğer high değilse) ya da 1 döner.
+
+Retrofit Count v34 =
+VAR _high_buildings =
+    COUNTROWS (
+        FILTER (
+            VALUES ( gold_hvac_analytics[building_id] ),
+            CALCULATE ( MAX ( gold_hvac_analytics[renovation_priority] ) ) = "High"
+        )
+    )
+RETURN
+    COALESCE ( _high_buildings, 0 )       // BLANK yerine 0 döner
+// Format: 0
+// Conditional formatting: > 0 → font color #E24B4A
+
+
+// ==========================================================================
+// 7) V1 — HVAC ENERGY BREAKDOWN ÖLÇÜLERİ
+// ==========================================================================
+
+Heating Energy kWh v34 =
+SUM ( gold_hvac_analytics[heating_energy_kwh] )
+
+Cooling Energy kWh v34 =
+SUM ( gold_hvac_analytics[cooling_energy_kwh] )
+
+Ventilation Energy kWh v34 =
+SUM ( gold_hvac_analytics[ventilation_kwh] )
+// V1 visual: Line and stacked column chart
+// X-axis: Date[year_month] (sort by Date[MonthIndex])
+// Y-axis (stack): bu üç ölçü
+// Renkler: Heating #E24B4A · Cooling #00D4FF · Ventilation #FFC107
+
+
+// ==========================================================================
+// 8) V2 — BUILDING SUMMARY TABLE ÖLÇÜLERİ (row-context dostu)
+// ==========================================================================
+
+System Type Display v34 =
+VAR _sys =
+    CALCULATE (
+        MAX ( gold_hvac_analytics[system_type] ),
+        ALLEXCEPT (
+            silver_building_master,
+            silver_building_master[building_id]
+        )
+    )
+RETURN
+    SWITCH (
+        _sys,
+        "heat_pump",  "🔵  Heat Pump (ASHP/GSHP)",
+        "hybrid",     "🟣  Hybrid HP + Gas Backup",
+        "gas_boiler", "🟠  Gas Boiler (CSRD risk)",
+        "other",      "⚪  Other / Not specified",
+        "n/a"
+    )
+// Tabloda her satırda DOĞRU sistem tipini göstermek için
+// silver_building_master[building_id] üzerine ALLEXCEPT — gold_hvac_analytics
+// üzerinden filtreyi koruyoruz, satır context'i kaybolmuyor.
+
+
+COP Display v34 =
+VAR _scop =
+    CALCULATE (
+        AVERAGE ( gold_hvac_analytics[scop_rolling] ),
+        gold_hvac_analytics[scop_rolling] > 0
+    )
+VAR _rated =
+    AVERAGE ( silver_building_master[heat_pump_cop_rated] )
+VAR _has_hp =
+    CALCULATE ( MAX ( silver_building_master[has_heat_pump] ) )
+RETURN
+    SWITCH (
+        TRUE (),
+        NOT _has_hp,
+            "n/a (gas)",
+        NOT ISBLANK ( _scop ) && _scop > 0,
+            FORMAT ( _scop, "0.00" ) & "  (actual)",
+        NOT ISBLANK ( _rated ) && _rated > 0,
+            FORMAT ( _rated, "0.00" ) & "  (rated)",
+            "n/a"
+    )
+
+
+Renovation Priority Icon v34 =
+VAR _label =
+    CALCULATE (
+        MAX ( gold_hvac_analytics[renovation_priority] ),
+        ALLEXCEPT (
+            silver_building_master,
+            silver_building_master[building_id]
+        )
+    )
+RETURN
+    SWITCH (
+        _label,
+        "High",   "🔴  High — Act now",
+        "Medium", "🟡  Medium — Plan in 2 yr",
+        "Low",    "🟢  Low — Monitor",
+        "—"
+    )
+
+
+Action Recommendation v34 =
+VAR _sys =
+    CALCULATE (
+        MAX ( gold_hvac_analytics[system_type] ),
+        ALLEXCEPT (
+            silver_building_master,
+            silver_building_master[building_id]
+        )
+    )
+VAR _ins =
+    CALCULATE (
+        AVERAGE ( gold_hvac_analytics[insulation_score] ),
+        ALLEXCEPT (
+            silver_building_master,
+            silver_building_master[building_id]
+        )
+    )
+RETURN
+    SWITCH (
+        TRUE (),
+        ISBLANK ( _sys ),                     "Audit recommended",
+        _sys = "gas_boiler" && _ins < 55,     "Switch to ASHP + insulate envelope",
+        _sys = "gas_boiler" && _ins < 75,     "Plan ASHP retrofit by 2030",
+        _sys = "gas_boiler",                  "Envelope ok — plan ASHP transition",
+        _sys = "hybrid",                      "Reduce gas backup share",
+        _sys = "heat_pump" && _ins < 55,      "Insulate envelope — boost SCOP",
+        _sys = "heat_pump",                   "Monitor SCOP & service interval",
+        "Audit recommended"
+    )
+
+
+// ==========================================================================
+// 9) V5 — RENOVATION MATRIX YARDIMCILARI
+// ==========================================================================
+
+Renovation Priority Color v34 =
+VAR _label =
+    CALCULATE (
+        MAX ( gold_hvac_analytics[renovation_priority] ),
+        ALLEXCEPT (
+            silver_building_master,
+            silver_building_master[building_id]
+        )
+    )
+RETURN
+    SWITCH (
+        _label,
+        "Low",    1,
+        "Medium", 2,
+        "High",   3,
+        BLANK ()
+    )
+// Scatter visual → Format → Bubbles → Color → fx → Rules:
+//   1 → #1D9E75    2 → #FFC107    3 → #E24B4A
+
+
+// ==========================================================================
+// SON — v34 toplam ölçü sayısı: 12
+// ==========================================================================
+//
+// VALIDATION CHECKLIST (uygulayınca bunlar görünmeli):
+//
+//   Slicer (All) iken:
+//     C1 HVAC Share Pct v34       :  35.0 – 55.0 %
+//     C2 HVAC Efficiency v34       :  42.0 – 58.0
+//     C3 Insulation Score v34       :  60.0 – 75.0
+//     C4 Heat Loss kWh m2 Annual v34:  60 – 110 kWh/m²
+//     C5 Retrofit Count v34         :  1 – 4
+//
+//   V2 Tablosunda 6 satır:
+//     B001 Berliner   Heat Pump  3.80 (rated)  Low     45 kWh/m²  Monitor SCOP
+//     B002 Istanbul   Gas Boiler n/a (gas)     High   105 kWh/m²  Switch to ASHP + insulate
+//     B003 Hamburg    Gas Boiler n/a (gas)     Medium  85 kWh/m²  Plan ASHP retrofit by 2030
+//     B004 Wien       Gas Boiler n/a (gas)     Medium  90 kWh/m²  Plan ASHP retrofit by 2030
+//     B005 Frankfurt  Gas Boiler n/a (gas)     High    95 kWh/m²  Switch to ASHP + insulate
+//     B006 Amsterdam  Gas Boiler n/a (gas)     High   115 kWh/m²  Switch to ASHP + insulate
+//
+//   Eğer hâlâ tüm hücreler boşsa → ilişki sorunu (silver_building_master ↔
+//   gold_hvac_analytics). Model view'da çift yönlü ok aktif olmalı.
+// ==========================================================================

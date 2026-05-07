@@ -167,6 +167,50 @@ TR_WEIGHTS = {
     "csrd":  0.25,
 }
 
+# ── OIB-RL 6 (Austria) ────────────────────────────────────────────────────────
+# Österreichisches Institut für Bautechnik, Richtlinie 6 (2023 edition)
+# Thermal renovation U-value limits (W/m²K):
+OIB_WALL_U_MAX   = 0.25   # exterior wall (slightly relaxed vs GEG — AT climate zones)
+OIB_ROOF_U_MAX   = 0.15   # roof / top ceiling (stricter than GEG — AT cold winters)
+OIB_WINDOW_U_MAX = 1.40   # windows (similar to GEG)
+# EAG 2021 (Erneuerbaren-Ausbau-Gesetz): 100% renewable electricity for Austria by 2030
+EAG_RENEWABLE_EXCELLENT_PCT = 0.70  # 70% solar self-consumption → excellent
+EAG_RENEWABLE_GOOD_PCT      = 0.40  # 40% → good
+
+# ── NL Energielabel (Netherlands) ─────────────────────────────────────────────
+# Energielabel verplichting: commercial buildings ≥100m² must have ≥ label C by 2030
+# (Wet milieubeheer / Activiteitenbesluit / RVO obligation)
+# EUI thresholds are indicative (actual NL label uses primary energy index, not EUI directly)
+NL_LABEL_A_EUI   =  70.0   # kWh/m²/year → label A (approximately)
+NL_LABEL_B_EUI   =  95.0   # kWh/m²/year → label B
+NL_LABEL_C_EUI   = 120.0   # kWh/m²/year → label C — MANDATORY by 2030
+NL_LABEL_D_EUI   = 150.0   # kWh/m²/year → label D (below target)
+# Wet milieubeheer: all organisations > 50,000 kWh/year must implement
+# all energy efficiency measures with payback < 5 years (RVO reporting mandatory)
+NL_WETMB_THRESHOLD_KWH = 50_000.0
+
+# ── CO₂-Preis (Germany — BEHG Brennstoffemissionshandelsgesetz) ───────────────
+# Applies to fossil fuel combustion in DE buildings (gas, oil, diesel)
+# Austria: analogous national CO₂ levy from 2024; NL: EU ETS 2 from 2027
+CO2_PREIS_DE_2024     = 45.0    # €/tCO₂ (legislated)
+CO2_PREIS_DE_2025     = 55.0    # €/tCO₂ (legislated)
+CO2_PREIS_DE_2026     = 65.0    # €/tCO₂ (legislated — current reference year)
+CO2_PREIS_ETS2_2027   = 80.0   # €/tCO₂ (EU ETS 2 buildings sector — market estimate €50–130)
+# Natural gas carbon intensity (IPCC, HHV basis): kgCO₂ per kWh of gas energy consumed
+GAS_CO2_KG_PER_KWH   = 0.202   # kgCO₂/kWh_HHV
+
+# ── Overall score weights by country ──────────────────────────────────────────
+AT_WEIGHTS = {
+    "oib":  0.35,   # OIB-RL6 (Austrian national building standard — thermal + EAG)
+    "epbd": 0.40,   # EPBD (EU directive, high weight: AT EAG goals align with EPBD 2030)
+    "csrd": 0.25,   # CSRD (EU directive)
+}
+NL_WEIGHTS = {
+    "nl_label": 0.40,   # Dutch Energielabel C — legally mandatory by 2030
+    "epbd":     0.35,   # EPBD (EU directive)
+    "csrd":     0.25,   # CSRD (EU directive)
+}
+
 # Status label thresholds
 STATUS_EXCELLENT     = 85.0
 STATUS_GOOD          = 70.0
@@ -507,6 +551,132 @@ df_base = df_base.withColumn("eeg_score",
     .otherwise(lit(None)))
 
 
+# ── 9b. OIB-RL6 SCORE (Austria only) ──────────────────────────────────────────
+# Österreichisches Institut für Bautechnik, Richtlinie 6 (2023):
+#   - U-value compliance (similar logic to GEG, different limits)
+#   - EAG renewable alignment (Austrian Erneuerbaren-Ausbau-Gesetz 2021)
+#   - OIB-RL6 formally uses HWB (Heizwärmebedarf kWh/m²/year) by climate zone;
+#     U-values are used here as a structural proxy aligned with the same intent.
+#
+# Score components:
+#   68 pts: U-value compliance (wall 24 + roof 24 + window 20)
+#   30 pts: heating source (EAG renewable heat requirement)
+#   20 pts: EAG solar self-consumption alignment (building PV behaviour)
+#   Capped at 100.
+
+log_step("SCORE", "Computing OIB-RL6 score (AT) …")
+
+oib_wall_pts   = (when(col("wall_u_value").isNull(),   lit(12.0))
+                  .when(col("wall_u_value")   <= OIB_WALL_U_MAX,   lit(24.0))
+                  .otherwise(lit(0.0)))
+oib_roof_pts   = (when(col("roof_u_value").isNull(),   lit(12.0))
+                  .when(col("roof_u_value")   <= OIB_ROOF_U_MAX,   lit(24.0))
+                  .otherwise(lit(0.0)))
+oib_window_pts = (when(col("window_u_value").isNull(), lit(10.0))
+                  .when(col("window_u_value") <= OIB_WINDOW_U_MAX, lit(20.0))
+                  .otherwise(lit(0.0)))
+oib_uvalue_score = oib_wall_pts + oib_roof_pts + oib_window_pts
+
+# Heating source (EAG §11: renewable heat requirement from 2023)
+oib_heating_score = (
+    when(col("has_heat_pump"),                              lit(30.0))
+    .when(col("heating_fuel_type").isin("DISTRICT_HEAT", "BIOMASS"), lit(25.0))
+    .when(col("heating_fuel_type") == "ELECTRIC",          lit(18.0))
+    .when(col("heating_fuel_type") == "GAS",               lit(5.0))
+    .otherwise(lit(12.0))
+)
+
+# EAG solar self-consumption (building already on green if AT grid ≈70% renewable)
+oib_eag_score = (
+    when(~col("has_pv"),                                                  lit(10.0))
+    .when(col("solar_self_consumption_rate") >= EAG_RENEWABLE_EXCELLENT_PCT, lit(20.0))
+    .when(col("solar_self_consumption_rate") >= EAG_RENEWABLE_GOOD_PCT,      lit(14.0))
+    .otherwise(lit(6.0))
+)
+
+oib_raw = oib_uvalue_score + oib_heating_score + oib_eag_score
+
+df_base = (
+    df_base
+    .withColumn("oib_wall_compliant",   col("wall_u_value")   <= OIB_WALL_U_MAX)
+    .withColumn("oib_roof_compliant",   col("roof_u_value")   <= OIB_ROOF_U_MAX)
+    .withColumn("oib_window_compliant", col("window_u_value") <= OIB_WINDOW_U_MAX)
+    .withColumn("oib_score",
+        when(col("country_code") == "AT",
+             spark_round(least(oib_raw, lit(100.0)), 1))
+        .otherwise(lit(None)))
+)
+
+
+# ── 9c. NL ENERGIELABEL SCORE (Netherlands only) ──────────────────────────────
+# Dutch Energielabel verplichting (2023 mandate):
+#   Commercial buildings ≥ 100m² must achieve at least label C by 2023 (offices)
+#   or by 2030 (all commercial buildings under Wet milieubeheer update).
+#
+#   The formal NL label uses a primary energy index (EP index) per NTA 8800.
+#   We approximate using annual EUI kWh/m²/year (linear correlation).
+#
+#   Wet milieubeheer (Activiteitenbesluit §2.15):
+#     Organisations > 50,000 kWh/year must implement all efficiency measures
+#     with a simple payback < 5 years. RVO reporting required (annual).
+#
+# Score:
+#   80 pts: Energielabel score (EUI vs A/B/C thresholds)
+#   20 pts: Wet milieubeheer compliance proxy (LED + consumption reporting)
+
+log_step("SCORE", "Computing NL Energielabel score (NL) …")
+
+nl_label_score_expr = (
+    when(col("annual_eui_kwh_m2").isNull(), lit(40.0))
+    .when(col("annual_eui_kwh_m2") <= NL_LABEL_A_EUI, lit(80.0))
+    .when(col("annual_eui_kwh_m2") <= NL_LABEL_B_EUI,
+          spark_round(
+              60.0 + 19.0 * (NL_LABEL_B_EUI - col("annual_eui_kwh_m2"))
+              / (NL_LABEL_B_EUI - NL_LABEL_A_EUI), 1))
+    .when(col("annual_eui_kwh_m2") <= NL_LABEL_C_EUI,
+          spark_round(
+              40.0 + 19.0 * (NL_LABEL_C_EUI - col("annual_eui_kwh_m2"))
+              / (NL_LABEL_C_EUI - NL_LABEL_B_EUI), 1))
+    .when(col("annual_eui_kwh_m2") <= NL_LABEL_D_EUI,
+          spark_round(
+              20.0 + 19.0 * (NL_LABEL_D_EUI - col("annual_eui_kwh_m2"))
+              / (NL_LABEL_D_EUI - NL_LABEL_C_EUI), 1))
+    .otherwise(
+        spark_round(greatest(lit(0.0),
+            20.0 * (1.0 - (col("annual_eui_kwh_m2") - NL_LABEL_D_EUI) / 80.0)), 1))
+)
+
+# Wet milieubeheer proxy: 20 pts if LED installed AND annual consumption exceeds threshold
+nl_wetmb_score_expr = (
+    when((col("annual_consumption_kwh") / 1000.0) < (NL_WETMB_THRESHOLD_KWH / 1000.0),
+         lit(20.0))    # below threshold → exempt from Wm obligation
+    .when(col("has_led_lighting") == True, lit(20.0))    # LED = key Wm measure implemented
+    .otherwise(lit(0.0))
+)
+
+nl_raw = nl_label_score_expr + nl_wetmb_score_expr
+
+nl_class_expr = (
+    when(col("annual_eui_kwh_m2").isNull(),                 lit("UNKNOWN"))
+    .when(col("annual_eui_kwh_m2") <= NL_LABEL_A_EUI,      lit("A"))
+    .when(col("annual_eui_kwh_m2") <= NL_LABEL_B_EUI,      lit("B"))
+    .when(col("annual_eui_kwh_m2") <= NL_LABEL_C_EUI,      lit("C"))
+    .when(col("annual_eui_kwh_m2") <= NL_LABEL_D_EUI,      lit("D"))
+    .otherwise(lit("E+"))
+)
+
+df_base = (
+    df_base
+    .withColumn("nl_label_score",
+        when(col("country_code") == "NL",
+             spark_round(least(nl_raw, lit(100.0)), 1))
+        .otherwise(lit(None)))
+    .withColumn("nl_energielabel_class",
+        when(col("country_code") == "NL", nl_class_expr)
+        .otherwise(lit(None)))
+)
+
+
 # ── 10. EPBD SCORE (all buildings) ─────────────────────────────────────────────
 # Energy Performance of Buildings Directive:
 #   2030 target: all buildings at least EPC class E (EUI ≤ 200 kWh/m²/yr)
@@ -596,6 +766,54 @@ csrd_score_expr = (
 df_base = df_base.withColumn("csrd_score", spark_round(csrd_score_expr, 1))
 
 
+# ── 11b. CO₂-PREIS COST ESTIMATE ──────────────────────────────────────────────
+# Estimated annual CO₂ levy cost from fossil fuel combustion in buildings.
+#
+# SCOPE:
+#   DE buildings: BEHG (Brennstoffemissionshandelsgesetz) — gas/oil/diesel heating
+#   AT buildings: Austrian national CO₂ levy (analogous, from 2024)
+#   NL buildings: currently no direct CO₂ price on buildings (EU ETS 2 from 2027)
+#   TR buildings: no carbon pricing mechanism currently
+#
+# METHOD (order-of-magnitude estimate, not accounting):
+#   1. Estimate gas heating share of annual consumption by heating_fuel_type
+#   2. Gas CO₂ load = gas_kwh × 0.202 kgCO₂/kWh → tCO₂
+#   3. 2026 CO₂ cost = tCO₂ × 65 €/tCO₂ (legislated DE rate)
+#   4. 2027 EU ETS2 cost = tCO₂ × 80 €/tCO₂ (all countries, estimate)
+#
+# WHY THIS MATTERS FOR ENERGY MANAGERS:
+#   A hospital burning 2M kWh of gas/year → ~404 tCO₂ → €26,260/year in 2026
+#   The same building in 2027 under EU ETS2 → €32,320/year (and rising)
+#   Switching to heat pump → CO₂ levy cost drops to near zero → strong ROI argument
+
+log_step("CO2", "Computing CO₂-Preis cost estimates …")
+
+# Gas energy fraction by heating type (empirical estimate per building type)
+gas_share_by_fuel = (
+    when(col("heating_fuel_type") == "HEAT_PUMP",     lit(0.05))  # minimal gas backup
+    .when(col("heating_fuel_type") == "GAS",           lit(0.45))  # gas-dominant building
+    .when(col("heating_fuel_type") == "DISTRICT_HEAT", lit(0.08))  # some residual
+    .when(col("heating_fuel_type") == "ELECTRIC",      lit(0.00))
+    .when(col("heating_fuel_type") == "BIOMASS",       lit(0.00))  # biomass: CO₂-neutral
+    .otherwise(lit(0.25))    # unknown → moderate assumption
+)
+
+df_base = (
+    df_base
+    .withColumn("_gas_energy_kwh",
+        col("annual_consumption_kwh") * gas_share_by_fuel)
+    .withColumn("est_gas_co2_tonnes",
+        spark_round(col("_gas_energy_kwh") * GAS_CO2_KG_PER_KWH / 1000.0, 2))
+    .withColumn("co2_levy_cost_2026_eur",
+        when(col("country_code").isin("DE", "AT"),
+             spark_round(col("est_gas_co2_tonnes") * CO2_PREIS_DE_2026, 0))
+        .otherwise(lit(None)))    # TR: no mechanism; NL: ETS2 from 2027
+    .withColumn("co2_levy_cost_2027_ets2_eur",
+        spark_round(col("est_gas_co2_tonnes") * CO2_PREIS_ETS2_2027, 0))
+    .drop("_gas_energy_kwh")
+)
+
+
 # ── 12. BEP-TR SCORE (Turkey only) ─────────────────────────────────────────────
 # Binalarda Enerji Performansı Yönetmeliği (BEP-TR):
 #   Energy performance certificate classes A–G based on annual EUI
@@ -660,12 +878,26 @@ overall_score_tr = (
     + col("csrd_score") * TR_WEIGHTS["csrd"]
 )
 
+overall_score_at = (
+    col("oib_score")    * AT_WEIGHTS["oib"]
+    + col("epbd_score") * AT_WEIGHTS["epbd"]
+    + col("csrd_score") * AT_WEIGHTS["csrd"]
+)
+
+overall_score_nl = (
+    col("nl_label_score") * NL_WEIGHTS["nl_label"]
+    + col("epbd_score")   * NL_WEIGHTS["epbd"]
+    + col("csrd_score")   * NL_WEIGHTS["csrd"]
+)
+
 df_base = df_base.withColumn(
     "overall_score",
     spark_round(
         when(col("country_code") == "DE", overall_score_de)
         .when(col("country_code") == "TR", overall_score_tr)
-        .otherwise(col("epbd_score")),    # fallback: EPBD only for other countries
+        .when(col("country_code") == "AT", overall_score_at)
+        .when(col("country_code") == "NL", overall_score_nl)
+        .otherwise(col("epbd_score")),    # EPBD fallback for any other EU country
         1)
 )
 
@@ -681,6 +913,8 @@ df_base = (
     .withColumn("epbd_status",     score_to_status(col("epbd_score")))
     .withColumn("csrd_status",     score_to_status(col("csrd_score")))
     .withColumn("beptr_status",    score_to_status(col("beptr_score")))
+    .withColumn("oib_status",      score_to_status(col("oib_score")))
+    .withColumn("nl_label_status", score_to_status(col("nl_label_score")))
 )
 
 
@@ -712,6 +946,28 @@ df_base = df_base.withColumn(
              lit("MAJOR_RETROFIT_BEPTR_CLASS_C"))
         .when(col("beptr_score") < 65,
              lit("ENVELOPE_UPGRADE_BEPTR"))
+        .when(col("epbd_score") < 50,
+             lit("REDUCE_EUI_EPBD_2030"))
+        .when(col("csrd_score") < 60,
+             lit("REDUCE_CARBON_CSRD"))
+        .otherwise(lit("MAINTAIN_AND_MONITOR"))
+    )
+    .when(col("country_code") == "AT",
+        when(col("oib_score") < 40,
+             lit("UPGRADE_HEATING_SYSTEM_EAG_OIB"))   # GEG §71 analog: renewable heat
+        .when(col("oib_score") < 60,
+             lit("IMPROVE_ENVELOPE_OIB_RL6"))
+        .when(col("epbd_score") < 60,
+             lit("REDUCE_EUI_EPBD_CLASS_D"))
+        .when(col("csrd_score") < 60,
+             lit("REDUCE_CARBON_CSRD"))
+        .otherwise(lit("MAINTAIN_AND_MONITOR"))
+    )
+    .when(col("country_code") == "NL",
+        when(col("nl_label_score") < 40,
+             lit("MAJOR_RETROFIT_NL_LABEL_C_2030"))   # label C is legally mandatory
+        .when(col("nl_label_score") < 60,
+             lit("HVAC_UPGRADE_NL_WET_MILIEUBEHEER"))
         .when(col("epbd_score") < 50,
              lit("REDUCE_EUI_EPBD_2030"))
         .when(col("csrd_score") < 60,
@@ -756,6 +1012,36 @@ df_base = (
                      lit("YEKA GES (Solar Teşviki)")),
                 when(col("beptr_score") < 65,
                      lit("YEKA Bina Verimliliği"))
+            ))
+        .otherwise(lit(None))
+    )
+    .withColumn("at_incentives_applicable",
+        # Austria: AWS Umweltförderung, OeMAG Einspeisung, EAG investment grants
+        when(col("country_code") == "AT",
+            concat_ws(", ",
+                when(col("has_heat_pump") == False,
+                     lit("EAG Förderprogramm (Wärmepumpe)")),
+                when(col("has_pv") == False,
+                     lit("EAG Investitionszuschuss (PV-Anlage)")),
+                when(col("oib_score") < 60,
+                     lit("AWS Umweltförderung (Gebäudesanierung)")),
+                when(col("geg_wall_compliant") == False,
+                     lit("AWS ERP Umweltkreditprogramm (Dämmung)"))
+            ))
+        .otherwise(lit(None))
+    )
+    .withColumn("nl_incentives_applicable",
+        # Netherlands: SDE++, ISDE, EIA (Energy Investment Allowance), RVO grants
+        when(col("country_code") == "NL",
+            concat_ws(", ",
+                when(col("has_pv") == False,
+                     lit("SDE++ (Hernieuwbare energie – zonne-energie)")),
+                when(col("nl_label_score") < 70,
+                     lit("RVO ISDE (Isolatie: muren/dak/ramen)")),
+                when(col("has_heat_pump") == False,
+                     lit("ISDE subsidie (Warmtepomp installatie)")),
+                when(col("has_led_lighting") == False,
+                     lit("EIA aftrek (LED verlichting – Wet milieubeheer)"))
             ))
         .otherwise(lit(None))
     )
@@ -815,10 +1101,26 @@ df_results = df_base.select(
     col("beptr_score"),
     col("beptr_status"),
     col("beptr_energy_class"),
+    # OIB-RL6 (AT)
+    col("oib_score"),
+    col("oib_status"),
+    col("oib_wall_compliant"),
+    col("oib_roof_compliant"),
+    col("oib_window_compliant"),
+    # NL Energielabel (NL)
+    col("nl_label_score"),
+    col("nl_label_status"),
+    col("nl_energielabel_class"),
+    # CO₂-Preis cost estimate (all buildings)
+    col("est_gas_co2_tonnes"),
+    col("co2_levy_cost_2026_eur"),
+    col("co2_levy_cost_2027_ets2_eur"),
     # Incentives
     col("kfw_programs_applicable"),
     col("bafa_programs_applicable"),
     col("yeka_programs_applicable"),
+    col("at_incentives_applicable"),
+    col("nl_incentives_applicable"),
 )
 
 log_step("ASSEMBLE", "gold_compliance_results ready", rows=df_results.count())
@@ -932,9 +1234,16 @@ log_step("WRITE", "Writing gold_compliance_results …")
 
 target_results = GOLD_PATHS["compliance_results"]
 
-if DeltaTable.isDeltaTable(spark, target_results):
-    spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
-    delta_tbl = DeltaTable.forPath(spark, target_results)
+# ── Fabric Lakehouse: saveAsTable() ensures table is registered in the
+# ── SQL Analytics Endpoint so Direct Lake can read it.
+# ── Using forPath() / .save() with relative paths can resolve to Files/
+# ── instead of Tables/, making the table "Unidentified" in Lakehouse Explorer.
+spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
+
+_table_exists_results = spark.catalog.tableExists("gold_compliance_results")
+
+if _table_exists_results:
+    delta_tbl = DeltaTable.forName(spark, "gold_compliance_results")
     (
         delta_tbl.alias("tgt")
         .merge(df_results.alias("src"), "tgt.building_id = src.building_id")
@@ -949,9 +1258,9 @@ else:
         .mode("overwrite")
         .option("overwriteSchema", "true")
         .partitionBy("country_code")
-        .save(target_results)
+        .saveAsTable("gold_compliance_results")   # ← registers in SQL endpoint
     )
-    log_step("WRITE", "gold_compliance_results — initial write complete")
+    log_step("WRITE", "gold_compliance_results — initial write complete (saveAsTable)")
 
 
 # ── 20. WRITE gold_compliance_issues (MERGE upsert) ───────────────────────────
@@ -960,9 +1269,10 @@ log_step("WRITE", "Writing gold_compliance_issues …")
 
 target_issues = GOLD_PATHS["compliance_issues"]
 
-if DeltaTable.isDeltaTable(spark, target_issues):
-    spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
-    delta_tbl_i = DeltaTable.forPath(spark, target_issues)
+_table_exists_issues = spark.catalog.tableExists("gold_compliance_issues")
+
+if _table_exists_issues:
+    delta_tbl_i = DeltaTable.forName(spark, "gold_compliance_issues")
     (
         delta_tbl_i.alias("tgt")
         .merge(
@@ -980,17 +1290,17 @@ else:
         .mode("overwrite")
         .option("overwriteSchema", "true")
         .partitionBy("country_code")
-        .save(target_issues)
+        .saveAsTable("gold_compliance_issues")   # ← registers in SQL endpoint
     )
-    log_step("WRITE", "gold_compliance_issues — initial write complete")
+    log_step("WRITE", "gold_compliance_issues — initial write complete (saveAsTable)")
 
 
 # ── 21. OPTIMIZE ───────────────────────────────────────────────────────────────
 
 log_step("OPTIMIZE", "Running OPTIMIZE on compliance tables …")
 
-spark.sql(f"OPTIMIZE delta.`{target_results}` ZORDER BY (overall_score, building_type)")
-spark.sql(f"OPTIMIZE delta.`{target_issues}` ZORDER BY (regulation, severity)")
+spark.sql("OPTIMIZE gold_compliance_results ZORDER BY (overall_score, building_type)")
+spark.sql("OPTIMIZE gold_compliance_issues ZORDER BY (regulation, severity)")
 
 log_step("OPTIMIZE", "OPTIMIZE complete")
 
@@ -999,20 +1309,24 @@ log_step("OPTIMIZE", "OPTIMIZE complete")
 
 log_step("VALIDATE", "Running validation …")
 
-df_val   = spark.read.format("delta").load(target_results)
-df_val_i = spark.read.format("delta").load(target_issues)
+df_val   = spark.read.table("gold_compliance_results")
+df_val_i = spark.read.table("gold_compliance_issues")
 
-total = df_val.count()
+total  = df_val.count()
 de_cnt = df_val.filter(col("country_code") == "DE").count()
 tr_cnt = df_val.filter(col("country_code") == "TR").count()
+at_cnt = df_val.filter(col("country_code") == "AT").count()
+nl_cnt = df_val.filter(col("country_code") == "NL").count()
 
 print()
 print("=" * 72)
 print("  COMPLIANCE CHECKER — VALIDATION REPORT")
 print("=" * 72)
 print(f"  Buildings assessed : {total}")
-print(f"    Germany (DE)     : {de_cnt}")
-print(f"    Turkey  (TR)     : {tr_cnt}")
+print(f"    Germany (DE)     : {de_cnt}  [EnEfG + GEG + EEG + EPBD + CSRD]")
+print(f"    Turkey  (TR)     : {tr_cnt}  [BEP-TR + EPBD + CSRD]")
+print(f"    Austria (AT)     : {at_cnt}  [OIB-RL6 + EAG + EPBD + CSRD]")
+print(f"    Netherlands (NL) : {nl_cnt}  [NL Energielabel + Wet Mb + EPBD + CSRD]")
 print(f"  Total issues logged: {df_val_i.count()}")
 print()
 
@@ -1055,16 +1369,47 @@ df_val_i.filter(col("severity").isin("CRITICAL", "WARNING")).select(
     "severity", "score", "current_value", "threshold_value", "unit"
 ).orderBy("severity", "score").show(truncate=False)
 
+print("── AUSTRIA: OIB-RL6 + EAG SCORES ──────────────────────────────────────────")
+df_val.filter(col("country_code") == "AT").select(
+    "building_id",
+    "annual_eui_kwh_m2",
+    "oib_score", "oib_status",
+    "oib_wall_compliant", "oib_roof_compliant", "oib_window_compliant",
+    "epbd_score", "csrd_score",
+    "overall_score", "overall_status",
+).show(truncate=False)
+
+print("── NETHERLANDS: NL ENERGIELABEL SCORES ─────────────────────────────────")
+df_val.filter(col("country_code") == "NL").select(
+    "building_id",
+    "annual_eui_kwh_m2",
+    "nl_label_score", "nl_label_status", "nl_energielabel_class",
+    "epbd_score", "csrd_score",
+    "overall_score", "overall_status",
+).show(truncate=False)
+
+print("── CO₂ LEVY COST ESTIMATES ─────────────────────────────────────────────")
+df_val.select(
+    "building_id", "country_code", "building_type",
+    "est_gas_co2_tonnes",
+    "co2_levy_cost_2026_eur",
+    "co2_levy_cost_2027_ets2_eur",
+).orderBy("co2_levy_cost_2026_eur", ascending=False).show(truncate=False)
+
 print("── INCENTIVE PROGRAMMES MATCHED ────────────────────────────────────────")
 df_val.filter(
     col("kfw_programs_applicable").isNotNull()
     | col("bafa_programs_applicable").isNotNull()
     | col("yeka_programs_applicable").isNotNull()
+    | col("at_incentives_applicable").isNotNull()
+    | col("nl_incentives_applicable").isNotNull()
 ).select(
     "building_id", "country_code",
     "kfw_programs_applicable",
     "bafa_programs_applicable",
     "yeka_programs_applicable",
+    "at_incentives_applicable",
+    "nl_incentives_applicable",
 ).show(truncate=False)
 
 print("=" * 72)

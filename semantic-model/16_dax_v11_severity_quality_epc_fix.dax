@@ -1,0 +1,283 @@
+// ==========================================================================
+// Energy Copilot Platform — DAX v11: Severity + Quality + EPC Fixes
+// File: semantic-model/16_dax_v11_severity_quality_epc_fix.dax
+// Last updated: 2026-04-23
+//
+// AMAÇ:
+//   1. Anomali severity büyük/küçük harf uyumsuzluğu
+//      → gold_anomaly_log'da severity BÜYÜK HARF ("CRITICAL", "HIGH" vb.)
+//      → Eski ölçüler küçük harf kullanıyordu → hep 0 dönüyordu
+//   2. Data Quality Score → silver_data_quality tablosu artık mevcut
+//      → Eski hesaplama formülünü bırak, doğrudan tablodan oku
+//   3. EU Taxonomy Eligible Count → yanlış kolon adı (annual_eui_kwh_m2)
+//      → Gerçek kolon: epc_score_kwh_m2
+//
+// KURULUM:
+//   Power BI Desktop / Fabric Semantic Model → New Measure
+//   Her ölçü için adı ve formülü yapıştır → Enter
+//   Aynı isimli eski ölçüler varsa ONLARIN YERİNE YAPISTIR (overwrite).
+//
+// ETKILENEN SAYFALAR:
+//   Sayfa 3  → Data Quality Score, Critical/High anomali sayıları
+//   Sayfa 6  → EPC dağılımı, EU Taxonomy kartları
+// ==========================================================================
+
+
+// ==========================================================================
+// BÖLÜM 1 — ANOMALİ SEVERITY BÜYÜK HARF FİXİ
+// Eski: "critical" / "high" / "medium" / "low"
+// Yeni: "CRITICAL" / "HIGH" / "MEDIUM" / "LOW"
+//
+// Neden: gold_anomaly_log tablosu PySpark'ta BÜYÜK HARF ile yazılıyor.
+//        Küçük harf karşılaştırmaları her zaman 0 döndürüyordu.
+// ==========================================================================
+
+// ── Critical-severity anomaliler
+// Sayfa 3 Kart 2 → Value alanına bağla
+// Format: "#,##0"
+Critical Anomaly Count =
+CALCULATE(
+    COUNTROWS(gold_anomaly_log),
+    gold_anomaly_log[severity] = "CRITICAL"
+)
+
+// ── High-severity anomaliler
+// Sayfa 3 → High Anomaly Count kartında kullan
+// Format: "#,##0"
+High Anomaly Count =
+CALCULATE(
+    COUNTROWS(gold_anomaly_log),
+    gold_anomaly_log[severity] = "HIGH"
+)
+
+// ── Medium-severity anomaliler
+// Format: "#,##0"
+Medium Anomaly Count =
+CALCULATE(
+    COUNTROWS(gold_anomaly_log),
+    gold_anomaly_log[severity] = "MEDIUM"
+)
+
+// ── Low-severity anomaliler
+// Format: "#,##0"
+Low Anomaly Count =
+CALCULATE(
+    COUNTROWS(gold_anomaly_log),
+    gold_anomaly_log[severity] = "LOW"
+)
+
+// ── Critical + High birleşik (badge / alert)
+// Sayfa 1 & 3 uyarı göstergelerinde kullan
+// Format: "#,##0"
+High Priority Anomaly Count =
+[Critical Anomaly Count] + [High Anomaly Count]
+
+// ── Açık (çözümlenmemiş) Critical anomaliler
+// Sayfa 3 Kart 2 → öncelikle bu ölçüyü kullan
+// Format: "#,##0"
+Critical Anomaly Open Count =
+CALCULATE(
+    COUNTROWS(gold_anomaly_log),
+    gold_anomaly_log[severity] = "CRITICAL",
+    gold_anomaly_log[is_resolved] = FALSE
+)
+
+// ── Açık High anomaliler (opsiyonel kart)
+// Format: "#,##0"
+High Anomaly Open Count =
+CALCULATE(
+    COUNTROWS(gold_anomaly_log),
+    gold_anomaly_log[severity] = "HIGH",
+    gold_anomaly_log[is_resolved] = FALSE
+)
+
+// ── Geçen haftaki High anomali (kart target goals için)
+// Format: "#,##0"
+High Anomaly Count Previous Week =
+CALCULATE(
+    [High Anomaly Count],
+    DATESINPERIOD(
+        gold_kpi_daily[date],
+        MAX(gold_kpi_daily[date]) - 7,
+        -7, DAY
+    )
+)
+
+
+// ==========================================================================
+// BÖLÜM 2 — DATA QUALITY SCORE — silver_data_quality TABLOSUNDAN OKU
+//
+// Neden değişiyor:
+//   Eski formül: 100 - [Invalid Rows Pct] - [Data Gaps Pct]
+//   Bu hesaplama gold_kpi_daily'den türetiliyordu, dolaylı ve kırılgan.
+//   Artık silver_data_quality tablosu mevcut:
+//     → quality_score_pct  = OK_readings / total_readings * 100
+//     → completeness_pct   = (total - MISSING) / total * 100
+//     → Her bina × her ay için önceden hesaplanmış, doğru değer.
+//
+// Sayfa 3 Kart 5 → Value alanı → Bu ölçüyü bağla
+// Format: "0.0"  (örnek: 94.7 → "94.7" olarak görünür, "%" suffix ekle karttan)
+// ==========================================================================
+
+// ── Ortalama kalite skoru (filtre bağlamı: bina & tarih seçimini kullanır)
+// Tüm ayların ortalamasını döndürür (AVERAGE).
+// Format: "0.0"
+Data Quality Score Pct =
+AVERAGE(silver_data_quality[quality_score_pct])
+
+// ── Completeness skoru (eksik veri oranının tersi)
+// Format: "0.0"
+Data Completeness Pct =
+AVERAGE(silver_data_quality[completeness_pct])
+
+// ── Interpolasyon oranı (ne kadar veri tahminle dolduruldu)
+// Format: "0.0"
+Data Interpolation Pct =
+AVERAGE(silver_data_quality[interpolation_pct])
+
+// ── Kalite notu (A-F) — Sayfa 3 metin kartı için
+// Seçili bina + ay için ağırlıklı not döndürür.
+// Birden fazla ay/bina seçiliyse baskın (mode) notu döndürür.
+// Format: text
+Data Quality Grade =
+VAR _tbl =
+    ADDCOLUMNS(
+        SUMMARIZE(
+            silver_data_quality,
+            silver_data_quality[quality_grade]
+        ),
+        "@count", CALCULATE(COUNTROWS(silver_data_quality))
+    )
+VAR _best =
+    TOPN(1, _tbl, [@count], DESC)
+RETURN
+    MAXX(_best, silver_data_quality[quality_grade])
+
+// ── Seçili dönemde kalite notu dağılımı (Grade A binalar kaçı)
+// Format: "#,##0"
+Grade A Building Count =
+CALCULATE(
+    DISTINCTCOUNT(silver_data_quality[building_id]),
+    silver_data_quality[quality_grade] = "A"
+)
+
+
+// ==========================================================================
+// BÖLÜM 3 — EPC ÖLÇÜ DÜZELTMELERİ
+//
+// Sorun 1: EU Taxonomy Eligible Count'ta "annual_eui_kwh_m2" kolonu yok.
+//          silver_epc_ratings tablosunda bu kolon "epc_score_kwh_m2" adını taşıyor.
+//          (EPC skoru birincil enerji kWh/m²/yıl — EUI ile eşdeğer bu tabloda)
+//
+// Sorun 2: Tablo semantic modele eklendikten sonra building_id üzerinden
+//          silver_building_master ile ilişki kurulmuş olmalı.
+//          İlişki yoksa EPC ölçüleri bina filtrelerine yanıt vermez.
+// ==========================================================================
+
+// ── EPC sınıf nümerik skoru (A=1 en iyi, G=7 en kötü)
+// AVERAGEX: her bina için ayrı sınıf okur, portföy ortalaması döner
+// Format: "0.0"
+Avg EPC Class Numeric =
+AVERAGEX(
+    silver_epc_ratings,
+    SWITCH(
+        silver_epc_ratings[epc_class],
+        "A", 1,
+        "B", 2,
+        "C", 3,
+        "D", 4,
+        "E", 5,
+        "F", 6,
+        "G", 7,
+        BLANK()
+    )
+)
+
+// ── EPC portföy notu (nümerik → harf)
+// Sayfa 6 → metin kart
+// Format: text
+Avg EPC Class Text =
+VAR _num = [Avg EPC Class Numeric]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_num),  "—",
+        _num < 1.5,     "A",
+        _num < 2.5,     "B",
+        _num < 3.5,     "C",
+        _num < 4.5,     "D",
+        _num < 5.5,     "E",
+        _num < 6.5,     "F",
+                        "G"
+    )
+
+// ── EU Taxonomy uyumlu bina sayısı (DÜZELTİLDİ)
+// Eski: silver_epc_ratings[annual_eui_kwh_m2] → kolon yok → hata
+// Yeni: silver_epc_ratings[epc_score_kwh_m2] kullan
+// Kriter: EPC sınıfı A veya B VE birincil enerji ≤ 100 kWh/m²/yıl (NZEB proxy)
+// Format: "#,##0"
+EU Taxonomy Eligible Count =
+CALCULATE(
+    COUNTROWS(silver_epc_ratings),
+    silver_epc_ratings[epc_class] IN {"A", "B"},
+    silver_epc_ratings[epc_score_kwh_m2] <= 100
+)
+
+// ── EU Taxonomy uyumlu bina oranı
+// Sayfa 6 → portföy uyumluluk göstergesi
+// Format: "0.0"
+EU Taxonomy Eligible Pct =
+VAR _total = COUNTROWS(silver_epc_ratings)
+RETURN
+    DIVIDE([EU Taxonomy Eligible Count], _total, 0) * 100
+
+// ── EPC sınıfı B veya üstü bina sayısı (Page 6 Portfolio Health)
+// Format: "#,##0"
+EPC B or Better Count =
+CALCULATE(
+    COUNTROWS(silver_epc_ratings),
+    silver_epc_ratings[epc_class] IN {"A", "B"}
+)
+
+// ── Portföy genelinde kötü EPC (D ve altı) bina sayısı
+// Sayfa 6 → Risk kartı
+// Format: "#,##0"
+EPC Poor Rating Count =
+CALCULATE(
+    COUNTROWS(silver_epc_ratings),
+    silver_epc_ratings[epc_class] IN {"D", "E", "F", "G"}
+)
+
+// ── Ortalama birincil enerji yoğunluğu (kWh/m²/yıl)
+// CRREM benchmark karşılaştırması için kullan
+// Format: "0.0"
+Avg EPC Score kWh m2 =
+AVERAGE(silver_epc_ratings[epc_score_kwh_m2])
+
+// ── Ortalama EPC CO2 emisyonu (kgCO2/m²/yıl)
+// Sayfa 6 → Sertifika bazlı teorik emisyon (gerçek ≠ teorik)
+// Format: "0.0"
+Avg EPC CO2 kg m2 yr =
+AVERAGE(silver_epc_ratings[co2_kg_m2_year])
+
+
+// ==========================================================================
+// KULLANIM TABLOSU — YENİ ÖLÇÜLERİ NEREYE BAĞLAYACAKSIN
+//
+// Sayfa 3 Kart 2   : Critical Anomaly Open Count   (format "#,##0")
+// Sayfa 3 Kart 3   : High Priority Anomaly Count   (format "#,##0")
+// Sayfa 3 Kart 5   : Data Quality Score Pct        (format "0.0")
+//                    → Hedef: 95 (grade A eşiği)
+//                    → Yön: High is Good
+// Sayfa 3 V4 bar   : Building Anomaly Share Pct    (önceki v10'da tanımlandı)
+//
+// Sayfa 6 EPC Kart : Avg EPC Class Text            (metin)
+// Sayfa 6 EPC Kart : Avg EPC Score kWh m2          (format "0.0")
+// Sayfa 6 Taxonomy : EU Taxonomy Eligible Count     (format "#,##0")
+//                    EU Taxonomy Eligible Pct        (format "0.0")
+//
+// ÖNEMLİ — ilişki kontrol:
+//   silver_epc_ratings[building_id] → silver_building_master[building_id]
+//   (Many-to-One, aktif ilişki — kurulmamışsa EPC ölçüleri bina filtrelerine
+//    yanıt vermez, tüm portföyü döndürür)
+// ==========================================================================

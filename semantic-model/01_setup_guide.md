@@ -3,115 +3,113 @@
 
 ---
 
-## 1. Semantic Model Nasıl Oluşturulur (Fabric UI)
+## 1. How to Create the Semantic Model (Fabric UI)
 
-1. Fabric workspace'te sol menüden **New item** → **Semantic model** seç
-2. İsim: `EnergycopilotModel`
-3. **Lakehouse** seç: `EnergyCopilotLakehouse`
-4. Aşağıdaki tablolar otomatik listelenecek — sadece gerekli olanları seç (bkz. Bölüm 2)
-5. **Confirm** → model Direct Lake modunda açılır
+1. In Fabric workspace, go to left menu → **New item** → **Semantic model**
+2. Name: `EnergycopilotModel`
+3. Select **Lakehouse**: `EnergyCopilotLakehouse`
+4. Tables will be listed automatically — select only the required ones (see Section 2)
+5. **Confirm** → model opens in Direct Lake mode
 
 ---
 
-## 2. Eklenecek Tablolar ve Kolonlar
+## 2. Tables and Columns to Add
 
-### FACT TABLES (ölçüm verileri)
+### FACT TABLES (measurement data)
 
 #### `gold_kpi_daily`
-| Kolon | Tip | Açıklama |
-|-------|-----|----------|
+| Column | Type | Description |
+|--------|------|------------|
 | building_id | Text | FK → silver_building_master |
-| date | Date | Tarih (ilişki anahtarı) |
+| date | Date | Date (relationship key) |
 | year | Integer | |
 | month | Integer | |
-| total_consumption_kwh | Decimal | Günlük toplam tüketim |
-| peak_demand_kw | Decimal | Günlük pik güç |
-| avg_load_factor | Decimal | Ortalama yük faktörü |
-| solar_generated_kwh | Decimal | Solar üretim |
-| solar_self_consumed_kwh | Decimal | Solar self-consumption |
-| solar_exported_kwh | Decimal | Şebekeye verilen solar |
-| avg_solar_pr | Decimal | Solar performans oranı |
-| avg_self_sufficiency_rate | Decimal | Enerji öz-yeterliliği |
-| battery_charged_kwh | Decimal | Batarya şarj |
-| battery_discharged_kwh | Decimal | Batarya deşarj |
-| battery_cycles_day | Decimal | Günlük döngü sayısı |
-| battery_soc_min_pct | Decimal | Min şarj seviyesi |
-| battery_soc_max_pct | Decimal | Max şarj seviyesi |
-| avg_temperature_c | Decimal | Ortalama dış sıcaklık |
-| hdd_day | Decimal | Isıtma derece-gün |
-| cdd_day | Decimal | Soğutma derece-gün |
-| net_grid_consumption_kwh | Decimal | Net şebeke tüketimi |
-| co2_emissions_kg | Decimal | CO₂ emisyonu |
-| co2_savings_from_solar_kg | Decimal | Solar'dan CO₂ tasarrufu |
-| eui_kwh_m2 | Decimal | Enerji kullanım yoğunluğu |
-| hdd_normalized_eui | Decimal | İklim normalize EUI |
-| carbon_intensity_kg_m2 | Decimal | Karbon yoğunluğu |
-| estimated_cost_eur | Decimal | Tahmini enerji maliyeti |
-| estimated_savings_eur | Decimal | Solar'dan tahmini tasarruf |
-| floor_area_m2 | Decimal | Alan (m²) |
+| total_consumption_kwh | Decimal | Daily total consumption |
+| peak_demand_kw | Decimal | Daily peak demand |
+| avg_load_factor | Decimal | Average load factor |
+| solar_generated_kwh | Decimal | Solar generation |
+| solar_self_consumed_kwh | Decimal | Solar self-consumption (on-site) |
+| solar_exported_kwh | Decimal | Solar exported to grid |
+| avg_solar_pr | Decimal | Solar performance ratio |
+| avg_self_sufficiency_rate | Decimal | Energy self-sufficiency rate |
+| battery_charged_kwh | Decimal | Battery charged |
+| battery_discharged_kwh | Decimal | Battery discharged |
+| battery_cycles_day | Decimal | Daily cycle count |
+| battery_soc_min_pct | Decimal | Min state of charge |
+| battery_soc_max_pct | Decimal | Max state of charge |
+| avg_temperature_c | Decimal | Average outdoor temperature |
+| hdd_day | Decimal | Heating degree-day |
+| cdd_day | Decimal | Cooling degree-day |
+| net_grid_consumption_kwh | Decimal | Net grid consumption |
+| co2_emissions_kg | Decimal | CO₂ emissions |
+| co2_savings_from_solar_kg | Decimal | CO₂ savings from solar |
+| eui_kwh_m2 | Decimal | Energy use intensity |
+| hdd_normalized_eui | Decimal | Climate-normalized EUI |
+| carbon_intensity_kg_m2 | Decimal | Carbon intensity |
+| estimated_cost_eur | Decimal | Estimated energy cost |
+| estimated_savings_eur | Decimal | Estimated savings from solar |
+| floor_area_m2 | Decimal | Floor area (m²) |
 | has_pv | Boolean | |
 | has_battery | Boolean | |
 | has_heat_pump | Boolean | |
 | subscription_tier | Text | |
 
-#### `gold_anomalies`
-| Kolon | Tip | Açıklama |
-|-------|-----|----------|
-| anomaly_id | Text | PK |
-| building_id | Text | FK |
-| anomaly_type | Text | SPIKE, AFTER_HOURS, SOLAR_UNDERPERFORM... |
-| severity | Text | critical / high / medium / low |
-| detected_date | Text | YYYY-MM-DD formatında ⚠️ |
-| metric_value | Decimal | Ölçülen değer |
-| threshold_value | Decimal | Eşik değer |
-| description_en | Text | İngilizce açıklama |
-| description_tr | Text | Türkçe açıklama |
-| recommended_action_en | Text | |
-| is_resolved | Boolean | Çözüldü mü |
-| detected_at | DateTime | |
+#### `gold_anomaly_log`
+| Column | Type | Description |
+|--------|------|-------------|
+| anomaly_id | Text | PK — SHA-256 hash of building_id\|detected_at\|anomaly_type |
+| building_id | Text | FK → silver_building_master |
+| anomaly_type | Text | CONSUMPTION_SPIKE, NIGHT_OVERCONSUMPTION, SOLAR_PR_DROP, BATTERY_OVERDISCHARGE, BATTERY_OVERCHARGE, DATA_QUALITY_GAP |
+| severity | Text | critical / high / medium / low (lowercase) |
+| detected_at | DateTime | Full detection timestamp |
+| detected_date | Date | Detection date — cast of detected_at for Date table relationship |
+| metric_value | Decimal | Measured value at time of anomaly |
+| threshold_value | Decimal | Threshold value that was breached |
+| description_en | Text | English description of the anomaly |
+| is_resolved | Boolean | Whether the anomaly has been resolved |
 
-> ⚠️ **Önemli:** `detected_date` kolon tipi Text'tir. Model editöründe bu kolonu seç → **Data type: Date** olarak değiştir. Fabric ISO format (YYYY-MM-DD) olduğu için otomatik dönüştürür.
+> ✅ **Note:** `detected_date` is written as a proper **Date** type by the notebook (cast from `detected_at`). No manual type conversion needed in the Model editor.
 
 #### `gold_consumption_forecast`
-| Kolon | Tip | Açıklama |
-|-------|-----|----------|
+| Column | Type | Description |
+|--------|------|------------|
 | building_id | Text | FK |
-| forecast_date | Date | Tahmin tarihi |
-| predicted_kwh | Decimal | Prophet tahmini |
-| lower_bound_kwh | Decimal | %80 alt sınır |
-| upper_bound_kwh | Decimal | %80 üst sınır |
-| confidence_pct | Decimal | Güven aralığı |
-| model_mape_pct | Decimal | Model hata oranı |
-| trained_on_days | Integer | Eğitim gün sayısı |
+| forecast_date | Date | Forecast date |
+| predicted_kwh | Decimal | Prophet model forecast |
+| lower_bound_kwh | Decimal | 80% lower bound |
+| upper_bound_kwh | Decimal | 80% upper bound |
+| confidence_pct | Decimal | Confidence interval |
+| model_mape_pct | Decimal | Model error rate (MAPE) |
+| trained_on_days | Integer | Training day count |
 | model_version | Text | |
 | forecasted_at | DateTime | |
 
 #### `gold_recommendations`
-| Kolon | Tip | Açıklama |
-|-------|-----|----------|
+| Column | Type | Description |
+|--------|------|------------|
 | building_id | Text | FK |
 | building_name | Text | |
-| rank | Integer | Öncelik sırası (1=en önemli) |
+| rank | Integer | Priority rank (1=most important) |
 | action_type | Text | INSTALL_HEAT_PUMP, ADD_SOLAR... |
 | priority_label | Text | Critical / High / Medium / Low |
 | priority_score | Decimal | 0-100 |
 | compliance_driver | Text | |
-| annual_saving_eur | Decimal | Yıllık tasarruf (€) |
-| co2_saving_kg | Decimal | Yıllık CO₂ azalması |
-| capex_eur | Decimal | Yatırım maliyeti |
-| net_capex_eur | Decimal | Sübvansiyon sonrası maliyet |
-| grant_eur | Decimal | Hibe/teşvik tutarı |
-| payback_years | Decimal | Geri ödeme süresi |
-| npv_eur | Decimal | Net bugünkü değer |
+| annual_saving_eur | Decimal | Annual savings (€) |
+| co2_saving_kg | Decimal | Annual CO₂ reduction (kg) |
+| capex_eur | Decimal | Investment cost |
+| net_capex_eur | Decimal | Cost after subsidies |
+| grant_eur | Decimal | Grant/incentive amount |
+| payback_years | Decimal | Payback period (years) |
+| npv_eur | Decimal | Net present value |
 | title_en | Text | |
 | description_en | Text | |
 | assessed_at | DateTime | |
 
 #### `gold_occupancy_profile`
-| Kolon | Tip | Açıklama |
-|-------|-----|----------|
+| Column | Type | Description |
+|--------|------|------------|
 | building_id | Text | FK |
-| day_of_week | Integer | 0=Pzt … 6=Paz |
+| day_of_week | Integer | 0=Mon … 6=Sun |
 | hour_of_day | Integer | 0-23 |
 | occupancy_probability | Decimal | 0.0–1.0 |
 | profile_source | Text | calibrated / base_only |
@@ -121,10 +119,10 @@
 ### DIMENSION TABLE
 
 #### `silver_building_master`
-| Kolon | Tip | Açıklama |
-|-------|-----|----------|
+| Column | Type | Description |
+|--------|------|------------|
 | building_id | Text | PK |
-| building_name | Text | Görünen bina adı |
+| building_name | Text | Display building name |
 | building_type | Text | office / retail / hotel... |
 | country_code | Text | DE / TR / AT... |
 | conditioned_area_m2 | Decimal | |
@@ -136,10 +134,10 @@
 | battery_capacity_kwh | Decimal | |
 | heat_pump_cop_rated | Decimal | |
 
-### CALCULATED TABLE (DAX ile oluştur)
+### CALCULATED TABLE (create with DAX)
 
-#### `Date` — Zaman Boyutu
-Model editöründe **New table** → aşağıdaki DAX'ı yapıştır:
+#### `Date` — Time Dimension
+In Model editor → **New table** → paste the DAX below:
 
 ```dax
 Date =
@@ -150,12 +148,12 @@ ADDCOLUMNS(
     CALENDAR(_start, _end),
     "Year",        YEAR([Date]),
     "Month",       MONTH([Date]),
-    "MonthName",   FORMAT([Date], "MMMM"),
-    "MonthShort",  FORMAT([Date], "MMM"),
+    "MonthName",   FORMAT([Date], "MMMM", "en-US"),
+    "MonthShort",  FORMAT([Date], "MMM",  "en-US"),
     "Quarter",     "Q" & QUARTER([Date]),
     "WeekNumber",  WEEKNUM([Date], 2),
     "DayOfWeek",   WEEKDAY([Date], 2),
-    "DayName",     FORMAT([Date], "dddd"),
+    "DayName",     FORMAT([Date], "dddd", "en-US"),
     "IsWeekend",   IF(WEEKDAY([Date], 2) >= 6, TRUE, FALSE),
     "YearMonth",   FORMAT([Date], "YYYY-MM"),
     "YearQuarter", YEAR([Date]) & " Q" & QUARTER([Date])
@@ -164,40 +162,40 @@ ADDCOLUMNS(
 
 ---
 
-## 3. İlişkiler (Relationships)
+## 3. Relationships
 
-Model editöründe **Manage relationships** → şu ilişkileri kur:
+In Model editor → **Manage relationships** → create the following relationships:
 
-| From (Many) | To (One) | Kolon | Tür | Yön |
+| From (Many) | To (One) | Column | Type | Direction |
 |-------------|----------|-------|-----|-----|
 | gold_kpi_daily[building_id] | silver_building_master[building_id] | building_id | Many→One | Single |
 | gold_kpi_daily[date] | Date[Date] | date | Many→One | Single |
-| gold_anomalies[building_id] | silver_building_master[building_id] | building_id | Many→One | Single |
-| gold_anomalies[detected_date] | Date[Date] | date | Many→One | Single |
+| gold_anomaly_log[building_id] | silver_building_master[building_id] | building_id | Many→One | Single |
+| gold_anomaly_log[detected_date] | Date[Date] | Date | Many→One | Single |
 | gold_consumption_forecast[building_id] | silver_building_master[building_id] | building_id | Many→One | Single |
 | gold_consumption_forecast[forecast_date] | Date[Date] | date | Many→One | Single |
 | gold_recommendations[building_id] | silver_building_master[building_id] | building_id | Many→One | Single |
 | gold_occupancy_profile[building_id] | silver_building_master[building_id] | building_id | Many→One | Single |
 
-> **Not:** Date tablosu ile gold_anomalies arasında ilişki kurarken detected_date kolonunun tipini önce Date'e çevirdiğinden emin ol (Bölüm 2'deki uyarı).
+> **Note:** `detected_date` is already written as a Date type by the notebook — no manual type conversion required before creating this relationship.
 
 ---
 
-## 4. Kolon Gizleme (İsteğe Bağlı ama Önerilir)
+## 4. Column Hiding (Optional but Recommended)
 
-Raporda görünmesine gerek olmayan teknik kolonları gizle:
-- Tüm tablolardaki `_id` kolonları (building_id hariç — filtre için gerekli)
+Hide technical columns that don't need to appear in reports:
+- All `_id` columns across all tables (except building_id — needed for filtering)
 - `processed_at`, `detected_at`, `forecasted_at`, `assessed_at`, `computed_at`
 - `model_version`, `profile_source`, `calibration_weeks`
-- `floor_area_m2` (gold_kpi_daily'deki — silver_building_master'dakini kullan)
+- `floor_area_m2` in gold_kpi_daily (use the one from silver_building_master instead)
 
-Gizlemek için: kolona sağ tıkla → **Hide in report view**
+To hide: right-click a column → **Hide in report view**
 
 ---
 
-## 5. Sonraki Adım
+## 5. Next Steps
 
-Model kaydedildikten sonra:
-1. `02_dax_measures.dax` dosyasındaki measure'ları ekle
-2. `03_rls_definition.md` ile RLS rollerini tanımla
-3. Power BI Desktop'ta bu modele **Live Connection** kur → rapor tasarımına geç
+After saving the model:
+1. Add the measures from `02_dax_measures.dax`
+2. Define RLS roles using `03_rls_definition.md`
+3. Connect to this model via **Live Connection** in Power BI Desktop → proceed to report design

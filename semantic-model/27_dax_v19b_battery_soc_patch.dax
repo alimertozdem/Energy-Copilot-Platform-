@@ -1,0 +1,96 @@
+// ==========================================================================
+// Energy Copilot Platform — DAX v19b: Battery SoC Patch
+// File: semantic-model/27_dax_v19b_battery_soc_patch.dax
+// Created: 2026-04-24
+//
+// SORUN:
+//   v19'da uygulanan Date Cap Pattern, V10 Battery SoC Trend grafiğini bozdu.
+//   V10 "Trend axis: Date" kullanıyor → her veri noktası = tek bir tarih.
+//   Bu bağlamda VAR _cap = MAX(gold_kpi_daily[date]) = o günün tarihi oluyor.
+//   CALCULATE(..., 'Date'[Date] <= _cap) → tüm geçmişi o güne kadar topluyor
+//   → her noktada kümülatif ortalama hesaplanıyor → düz düşen trend görünüyor.
+//
+//   NOT: Diğer 4 v19 ölçüsü (Avg Daily Consumption, Peak Demand, Solar, Carbon)
+//   sadece kart görsellerinde kullanılıyor, grafik yok → cap pattern onlar için sorunsuz.
+//   SADECE Avg Battery SoC Pct farklı yaklaşım gerektiriyor.
+//
+// ÇÖZÜM — "Conditional Cap" Pattern:
+//   _globalCap = veri tablosunun gerçek son tarihi (Date filtresi kaldırılarak)
+//   _contextMax = geçerli filtre bağlamındaki maksimum tarih (slicer'dan geliyor)
+//
+//   IF _contextMax <= _globalCap  →  veri aralığı içinde → normal hesap
+//   IF _contextMax >  _globalCap  →  gelecek taşması var → cap uygula
+//
+//   V10 trend grafiği (her nokta = tek tarih D):
+//     _contextMax = D (örn. 2025-06-15)
+//     _globalCap  = 2026-04-18
+//     D <= 2026-04-18 → TRUE → normal AVERAGEX → o günün SoC ortalaması ✅
+//
+//   C5 kart (slicer 2025-02 → 2026-07):
+//     _contextMax = MAX(Date[Date]) = 2026-07-17 (slicer sonu)
+//     _globalCap  = 2026-04-18
+//     2026-07-17 > 2026-04-18 → cap calc → 2026-04-18'e kadar hesap ✅
+//
+//   C5 kart (slicer 2025-02 → 2025-12 — normal kullanım):
+//     _contextMax = 2025-12-31
+//     _globalCap  = 2026-04-18
+//     2025-12-31 <= 2026-04-18 → normal calc → Feb-Dec 2025 ortalaması ✅
+//
+// Power BI'DA UYGULANACAK İŞLEM:
+//   Modeling → Avg Battery SoC Pct → formülü aşağıdaki ile değiştir
+// ==========================================================================
+
+
+// ── Avg Battery SoC Pct (UPDATE — v19b ile değiştir) ─────────────────────
+// P2 C5 Value + V10 Battery SoC Trend ekseni
+// Format: 0.0  (NOT "0%" — spec gereği)
+// Yön: High is Good | Hedef: Battery SoC Target (sabit 80)
+Avg Battery SoC Pct =
+VAR _globalCap =
+    CALCULATE(
+        MAX(gold_kpi_daily[date]),
+        REMOVEFILTERS('Date')           // Date filtresi kaldırılır → gerçek son veri tarihi
+    )
+VAR _contextMax = MAX('Date'[Date])    // Slicer veya chart ekseninden gelen max tarih
+
+// Normal hesap (Date cap olmadan)
+VAR _calc =
+    AVERAGEX(
+        FILTER(
+            gold_kpi_daily,
+            gold_kpi_daily[battery_soc_min_pct] <> BLANK() &&
+            gold_kpi_daily[battery_soc_max_pct] <> BLANK()
+        ),
+        (gold_kpi_daily[battery_soc_min_pct] + gold_kpi_daily[battery_soc_max_pct]) / 2
+    )
+
+// Cap'li hesap (future date overflow durumu)
+VAR _calcCapped =
+    CALCULATE(
+        AVERAGEX(
+            FILTER(
+                gold_kpi_daily,
+                gold_kpi_daily[battery_soc_min_pct] <> BLANK() &&
+                gold_kpi_daily[battery_soc_max_pct] <> BLANK()
+            ),
+            (gold_kpi_daily[battery_soc_min_pct] + gold_kpi_daily[battery_soc_max_pct]) / 2
+        ),
+        'Date'[Date] <= _globalCap
+    )
+
+RETURN
+IF(
+    ISBLANK(_globalCap),
+    BLANK(),
+    IF(
+        _contextMax <= _globalCap,
+        _calc,          // Veri aralığı içinde: grafik ve normal kart
+        _calcCapped     // Future taşması: slicer veri bitişini aşıyor
+    )
+)
+// ==========================================================================
+// Beklenen davranış sonrası:
+//   V10 Battery SoC Trend → her ay için gerçek SoC ortalaması (73-74% dalgalı) ✅
+//   C5 Kart (2025 içinde) → seçili dönem ortalaması ✅
+//   C5 Kart (2026-07 sonu) → 2026-04-18'e kadar ortalama, blank yok ✅
+// ==========================================================================

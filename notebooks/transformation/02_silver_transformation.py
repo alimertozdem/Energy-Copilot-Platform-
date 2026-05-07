@@ -101,12 +101,29 @@ MAX_SOC_PCT = 100.0
 UTC_OFFSETS = {
     "DE": 1,   # CET (kış saati)
     "TR": 3,   # TRT
+    "AT": 1,   # CET — Almanya ile aynı zaman dilimi
+    "NL": 1,   # CET — Orta Avrupa
+    "GB": 0,   # GMT (kış saati)
+    "FR": 1,   # CET
+    "ES": 1,   # CET
+    "IT": 1,   # CET
+    "PL": 1,   # CET
+    "SE": 1,   # CET
 }
 
 # Ülke bazlı grid emission faktörleri (kg CO₂/kWh)
+# Kaynak: EEA/Eurostat 2024 — EU ortalama electricity grid intensity
 EMISSION_FACTORS = {
-    "DE": 0.380,
-    "TR": 0.442,
+    "DE": 0.380,   # Almanya — yenilenebilir geçişte, kömür hâlâ %25
+    "TR": 0.442,   # Türkiye — TEIAŞ 2023 faktörü
+    "AT": 0.158,   # Avusturya — %75 hidroelektrik, AB'nin en düşükleri
+    "NL": 0.389,   # Hollanda — doğalgaz ağırlıklı, rüzgar artıyor
+    "GB": 0.233,   # İngiltere — offshore rüzgar + nükleer katkısı
+    "FR": 0.052,   # Fransa — nükleer ağırlıklı, AB'nin en düşüğü
+    "ES": 0.195,   # İspanya — güneş + rüzgar hızlı büyüyor
+    "IT": 0.372,   # İtalya — doğalgaz ağırlıklı
+    "PL": 0.773,   # Polonya — kömür ağırlıklı, AB'nin en yükseklerinden
+    "SE": 0.013,   # İsveç — hidroelektrik + nükleer, neredeyse karbon nötr
 }
 
 print(f"\n📋 Bronze → Silver dönüşümü başlıyor")
@@ -223,6 +240,8 @@ log_step("Bronze okundu", df_bld_bronze.count(), "bronze_building_master")
 # CSV'den "True"/"False" string olarak geldi
 bool_cols = [
     "has_pv", "has_battery", "has_heat_pump", "has_hvac_traditional",
+    "has_gas_heating", "has_diesel_generator",
+    # primary_hvac_system STRING olarak kalır — boolean değil
     "has_ev_charging", "has_led_lighting", "has_thermal_bridge",
     "iso50001_certified"
 ]
@@ -238,17 +257,18 @@ for c in bool_cols:
         )
 
 # Emission faktörü ve UTC offset ekle (ülke bazlı)
+# Tüm desteklenen ülkeler için dinamik mapping — yeni ülke eklemek için
+# sadece EMISSION_FACTORS ve UTC_OFFSETS dict'lerine satır eklemek yeterli.
+_ef_expr = lit(None).cast("double")
+_tz_expr = lit(0).cast("integer")
+for _cc, _ef in EMISSION_FACTORS.items():
+    _ef_expr = when(col("country_code") == _cc, lit(_ef)).otherwise(_ef_expr)
+for _cc, _tz in UTC_OFFSETS.items():
+    _tz_expr = when(col("country_code") == _cc, lit(_tz)).otherwise(_tz_expr)
+
 df_bld_silver = (df_bld_silver
-    .withColumn("emission_factor_kg_kwh",
-        when(col("country_code") == "DE", lit(EMISSION_FACTORS["DE"]))
-        .when(col("country_code") == "TR", lit(EMISSION_FACTORS["TR"]))
-        .otherwise(lit(None))
-    )
-    .withColumn("utc_offset_hours",
-        when(col("country_code") == "DE", lit(UTC_OFFSETS["DE"]))
-        .when(col("country_code") == "TR", lit(UTC_OFFSETS["TR"]))
-        .otherwise(lit(0))
-    )
+    .withColumn("emission_factor_kg_kwh", _ef_expr)
+    .withColumn("utc_offset_hours", _tz_expr)
     .withColumn("updated_at", current_timestamp())
 )
 

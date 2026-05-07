@@ -1,0 +1,353 @@
+// ==========================================================================
+// DAX v44 — PAGE 8: IoT Real-Time Monitoring & Anomaly Detection
+// Energy Copilot Platform — 2026-05-07
+//
+// DATA SOURCES:
+//   KPI Cards (C1-C4): DirectQuery → KQL Eventhouse (iot_hot_readings, iot_anomaly_alerts)
+//   Trend Visuals (V1-V4): DirectLake → gold_iot_realtime, gold_iot_daily_summary
+//
+// NOTE ON DUAL DATA SOURCES:
+//   Page 8 is the only page with two data sources on one canvas.
+//   KQL tables give real-time latency (seconds).
+//   Gold Delta tables give 15-min aggregated history.
+//   DAX measures are separate for each — never mix table references.
+//
+// HOW TO APPLY:
+//   Step 1 — Import measures in Power BI Desktop: Modeling → New measure
+//             Assign to table: gold_iot_realtime (for Gold measures)
+//                              iot_hot_readings (for KQL measures)
+//   Step 2 — Follow page8-iot-binding-guide.md for visual placement
+//   Step 3 — Validate against checklist at bottom of this file
+// ==========================================================================
+
+
+// ==========================================================================
+// SECTION 1 — KPI CARD MEASURES (DirectQuery → KQL Eventhouse)
+// These measures query iot_hot_readings and iot_anomaly_alerts.
+// They update in near-real-time as new sensor data arrives.
+// ==========================================================================
+
+// --------------------------------------------------------------------------
+// C1: Current HVAC Status
+// Shows the current average temperature across all buildings.
+// Format: "Normal (22.1°C)" or "High (26.3°C)" or "Low (18.1°C)"
+// --------------------------------------------------------------------------
+[C1_HVAC_Status_Text] =
+VAR AvgTemp =
+    CALCULATE(
+        AVERAGEX(iot_hot_readings, iot_hot_readings[reading_value]),
+        iot_hot_readings[sensor_type] = "HVAC_temp"
+    )
+VAR StatusLabel =
+    SWITCH(
+        TRUE(),
+        ISBLANK(AvgTemp),        "No Data",
+        AvgTemp < 18,            "Low",
+        AvgTemp > 26,            "High",
+                                 "Normal"
+    )
+RETURN
+    IF(
+        ISBLANK(AvgTemp),
+        "—",
+        StatusLabel & " (" & FORMAT(AvgTemp, "0.0") & "°C)"
+    )
+
+
+// --------------------------------------------------------------------------
+// C2: Temperature Deviation from Setpoint (Gauge)
+// Shows how far current avg temp is from the 22°C setpoint.
+// Positive = too hot, negative = too cold. Target: 0.
+// --------------------------------------------------------------------------
+[C2_Temp_Deviation_C] =
+VAR AvgTemp =
+    CALCULATE(
+        AVERAGEX(iot_hot_readings, iot_hot_readings[reading_value]),
+        iot_hot_readings[sensor_type] = "HVAC_temp"
+    )
+VAR Setpoint = 22
+RETURN
+    IF(
+        ISBLANK(AvgTemp),
+        BLANK(),
+        ROUND(AvgTemp - Setpoint, 1)
+    )
+
+// Label for C2 gauge (shows sign)
+[C2_Temp_Deviation_Label] =
+VAR Deviation = [C2_Temp_Deviation_C]
+RETURN
+    IF(
+        ISBLANK(Deviation),
+        "—",
+        IF(Deviation > 0,
+            "+" & FORMAT(Deviation, "0.0") & "°C above setpoint",
+            FORMAT(Deviation, "0.0") & "°C below setpoint"
+        )
+    )
+
+
+// --------------------------------------------------------------------------
+// C3: CO₂ Level & Air Quality Status
+// Shows worst (highest) CO2 reading across selected buildings.
+// Threshold: <1000 = Good, 1000-1500 = Fair, >1500 = Poor (EN 13779)
+// --------------------------------------------------------------------------
+[C3_CO2_Max_PPM] =
+CALCULATE(
+    MAXX(iot_hot_readings, iot_hot_readings[reading_value]),
+    iot_hot_readings[sensor_type] = "CO2"
+)
+
+[C3_CO2_Quality_Label] =
+VAR CO2 = [C3_CO2_Max_PPM]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(CO2),     "—",
+        CO2 < 1000,       "Good",
+        CO2 < 1500,       "Fair",
+                          "Poor — Ventilate"
+    )
+
+[C3_CO2_Display] =
+VAR CO2 = [C3_CO2_Max_PPM]
+VAR Label = [C3_CO2_Quality_Label]
+RETURN
+    IF(
+        ISBLANK(CO2),
+        "—",
+        Label & " (" & FORMAT(CO2, "#,##0") & " ppm)"
+    )
+
+
+// --------------------------------------------------------------------------
+// C4: Active High-Severity Alerts
+// Count of unresolved High alerts from iot_anomaly_alerts.
+// This is the "fire alarm" card — should drive immediate action.
+// --------------------------------------------------------------------------
+[C4_Active_High_Alerts] =
+CALCULATE(
+    COUNTROWS(iot_anomaly_alerts),
+    iot_anomaly_alerts[anomaly_severity] = "High",
+    iot_anomaly_alerts[is_resolved] = FALSE()
+)
+
+[C4_Alert_Count_Label] =
+VAR Count = [C4_Active_High_Alerts]
+RETURN
+    IF(
+        ISBLANK(Count) || Count = 0,
+        "All Clear",
+        FORMAT(Count, "0") & " Active Alert" & IF(Count > 1, "s", "")
+    )
+
+// Alert color indicator (for conditional formatting)
+// Returns 1 = red (high alerts), 2 = orange (medium), 3 = green (clear)
+[C4_Alert_Color_Index] =
+VAR HighCount =
+    CALCULATE(
+        COUNTROWS(iot_anomaly_alerts),
+        iot_anomaly_alerts[anomaly_severity] = "High",
+        iot_anomaly_alerts[is_resolved] = FALSE()
+    )
+VAR MedCount =
+    CALCULATE(
+        COUNTROWS(iot_anomaly_alerts),
+        iot_anomaly_alerts[anomaly_severity] = "Medium",
+        iot_anomaly_alerts[is_resolved] = FALSE()
+    )
+RETURN
+    IF(HighCount > 0, 1, IF(MedCount > 0, 2, 3))
+
+
+// ==========================================================================
+// SECTION 2 — TREND VISUAL MEASURES (DirectLake → gold_iot_realtime)
+// These measures query gold Delta tables (15-min granularity).
+// Used for time-series visuals V1-V4.
+// ==========================================================================
+
+// --------------------------------------------------------------------------
+// V1: 24h Temperature Trend
+// Average temperature per 15-min bucket. Used in Line chart.
+// X-axis: gold_iot_realtime[timestamp], Y-axis: this measure
+// --------------------------------------------------------------------------
+[V1_Avg_HVAC_Temp] =
+CALCULATE(
+    AVERAGEX(gold_iot_realtime, gold_iot_realtime[reading_value_avg]),
+    gold_iot_realtime[sensor_type] = "HVAC_temp"
+)
+
+// Setpoint reference line (constant, for band visualization)
+[V1_HVAC_Setpoint_Low]  = 20
+[V1_HVAC_Setpoint_High] = 24
+
+
+// --------------------------------------------------------------------------
+// V2: Sensor Network Uptime % (Matrix / Heatmap)
+// Rows: sensor_location, Columns: sensor_type, Values: uptime %
+// Uptime = avg reading_quality_avg (proxy for data completeness)
+// --------------------------------------------------------------------------
+[V2_Sensor_Uptime_Pct] =
+ROUND(
+    AVERAGEX(
+        gold_iot_realtime,
+        gold_iot_realtime[reading_quality_avg]
+    ),
+    1
+)
+
+// Color rule for uptime matrix:
+// Returns 1 = green (>90%), 2 = yellow (70-90%), 3 = red (<70%)
+[V2_Uptime_Color_Index] =
+VAR Uptime = [V2_Sensor_Uptime_Pct]
+RETURN
+    IF(ISBLANK(Uptime), 3,
+    IF(Uptime >= 90, 1,
+    IF(Uptime >= 70, 2,
+    3)))
+
+
+// --------------------------------------------------------------------------
+// V3: Anomaly Count Trend (Column chart by day)
+// Shows daily anomaly counts per severity — highlights degrading buildings.
+// --------------------------------------------------------------------------
+[V3_Anomaly_Count_High] =
+CALCULATE(
+    SUM(gold_iot_daily_summary[high_severity_count])
+)
+
+[V3_Anomaly_Count_Medium] =
+CALCULATE(
+    SUM(gold_iot_daily_summary[anomaly_count])
+) - [V3_Anomaly_Count_High]
+
+[V3_Anomaly_Rate_Pct] =
+ROUND(
+    AVERAGEX(gold_iot_daily_summary, gold_iot_daily_summary[anomaly_rate_pct]),
+    1
+)
+
+
+// --------------------------------------------------------------------------
+// V4: Sensor Readings Detail Table
+// Shows last known reading per sensor per building.
+// Used in a Table visual: building | sensor_type | value | severity | action
+// --------------------------------------------------------------------------
+[V4_Latest_Reading_Value] =
+CALCULATE(
+    MAXX(gold_iot_realtime, gold_iot_realtime[timestamp]),
+    // MAXX on timestamp to get most recent row's value
+    // In Power BI table: use gold_iot_realtime[reading_value_avg] directly
+    // This measure is a helper for card display
+    gold_iot_realtime[reading_value_avg]
+)
+
+// Summary count for V4 table footer
+[V4_Total_Active_Sensors] =
+CALCULATE(
+    SUM(gold_iot_daily_summary[active_sensors])
+)
+
+[V4_Active_Anomaly_Sensors] =
+CALCULATE(
+    COUNTROWS(gold_iot_realtime),
+    gold_iot_realtime[is_anomaly_window] = TRUE()
+)
+
+
+// ==========================================================================
+// SECTION 3 — SUMMARY / INSIGHT MEASURES
+// Composite measures for tooltip text and AI narrative cards
+// ==========================================================================
+
+[Summary_Portfolio_Health] =
+VAR TotalSensors  = [V4_Total_Active_Sensors]
+VAR AnomalySensors = [V4_Active_Anomaly_Sensors]
+VAR HealthyPct    = ROUND((TotalSensors - AnomalySensors) / TotalSensors * 100, 0)
+RETURN
+    IF(
+        ISBLANK(TotalSensors) || TotalSensors = 0,
+        "—",
+        FORMAT(HealthyPct, "0") & "% sensors healthy"
+    )
+
+[Summary_Worst_Building] =
+VAR MaxAnomBldg =
+    TOPN(
+        1,
+        SUMMARIZE(
+            gold_iot_daily_summary,
+            gold_iot_daily_summary[building_id],
+            "TotalAnom", SUM(gold_iot_daily_summary[anomaly_count])
+        ),
+        [TotalAnom],
+        DESC
+    )
+RETURN
+    MAXX(MaxAnomBldg, gold_iot_daily_summary[building_id])
+
+[Summary_CO2_Status_Portfolio] =
+VAR AvgCO2 =
+    CALCULATE(
+        AVERAGEX(gold_iot_realtime, gold_iot_realtime[reading_value_avg]),
+        gold_iot_realtime[sensor_type] = "CO2"
+    )
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(AvgCO2),  "No CO₂ data",
+        AvgCO2 < 800,     "Portfolio CO₂: Good (" & FORMAT(AvgCO2, "#,##0") & " ppm avg)",
+        AvgCO2 < 1200,    "Portfolio CO₂: Fair (" & FORMAT(AvgCO2, "#,##0") & " ppm avg)",
+                          "⚠️ Portfolio CO₂: Poor — Action Required"
+    )
+
+
+// ==========================================================================
+// SECTION 4 — SLICER / FILTER SUPPORT
+// These measures drive the building selector and time range slicers
+// ==========================================================================
+
+[Filter_Building_Count] =
+DISTINCTCOUNT(gold_iot_realtime[building_id])
+
+[Filter_Date_Range_Label] =
+VAR MinDate = MIN(gold_iot_realtime[timestamp])
+VAR MaxDate = MAX(gold_iot_realtime[timestamp])
+RETURN
+    IF(
+        ISBLANK(MinDate),
+        "No data",
+        FORMAT(MinDate, "dd MMM") & " – " & FORMAT(MaxDate, "dd MMM yyyy")
+    )
+
+
+// ==========================================================================
+// VALIDATION CHECKLIST (apply after binding to Power BI visuals)
+// ==========================================================================
+//
+//  C1: Text shows "Normal", "High", or "Low" with temperature in brackets
+//  C1: Never shows "No Data" when simulator is running
+//
+//  C2: Gauge range -5 to +5, target = 0, needle moves in live mode
+//  C2: Label shows + for above setpoint, - for below
+//
+//  C3: CO2 value 400-1500 range during simulation
+//  C3: Quality label changes to "Poor" if you inject high CO2 values
+//
+//  C4: Shows integer count of unresolved High alerts
+//  C4: Goes to "All Clear" when no High alerts
+//  C4: Color index drives conditional formatting (1=red, 2=orange, 3=green)
+//
+//  V1: Line chart shows 24h of readings with two reference band lines at 20/24
+//  V1: Temperature oscillates with time-of-day pattern (cooler at night)
+//
+//  V2: Matrix shows uptime 85-100% for most sensors
+//  V2: Red cells appear for anomaly-affected sensors
+//
+//  V3: Daily column chart shows High (red) + Medium (orange) stacks
+//  V3: Anomaly rate roughly 8-12% (10% injection + rule detections)
+//
+//  V4: Table rows per building × sensor_type
+//  V4: action_recommended column shows non-null text for anomalous rows
+//  V4: Sortable by severity (High first)
+// ==========================================================================
