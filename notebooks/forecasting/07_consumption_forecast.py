@@ -71,6 +71,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import logging
+import re
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -86,12 +87,68 @@ print("✅ Kütüphaneler yüklendi")
 # =============================================================================
 # BÖLÜM 2 — KONFİGÜRASYON
 # =============================================================================
+#
+# PATH RESOLUTION STRATEJİSİ:
+#   Fabric notebook'larında relative path ("Tables/gold_kpi_daily") sadece
+#   default lakehouse pin edilmişse çalışır. UI pin'i her zaman güvenilir değil.
+#
+#   Daha sağlam yöntem: catalog'dan örnek bir tablonun gerçek ABFS path'ini
+#   çekip TABLES_PREFIX'i dinamik tespit etmek. Bu sayede:
+#     - Default lakehouse pin gerekmez
+#     - Schema-enabled lakehouse (Tables/dbo/) ve flat lakehouse (Tables/)
+#       otomatik desteklenir
+#     - Workspace/lakehouse GUID'leri hard-coded olmaz (taşınabilir kod)
+#
+#   Mantık: spark.table("gold_kpi_daily").inputFiles()[0] → gerçek fiziksel
+#   parquet path → regex ile ABFS base + schema klasörü çıkar.
+# =============================================================================
 
+def _resolve_tables_prefix() -> tuple[str, str]:
+    """
+    Lakehouse'un Tables/ veya Tables/dbo/ prefix'ini catalog üzerinden tespit eder.
+    Returns: (tables_prefix, lakehouse_format_label)
+    """
+    # Catalog'dan referans alabilmek için adı bilinen birkaç tablo dene
+    candidate_tables = ["gold_kpi_daily", "silver_building_master", "gold_recommendations"]
+    sample_path = None
+    for t in candidate_tables:
+        try:
+            sample_path = spark.table(t).inputFiles()[0]
+            break
+        except Exception:
+            continue
+    if not sample_path:
+        raise Exception(
+            "Hiçbir referans tablo (gold_kpi_daily, silver_building_master, "
+            "gold_recommendations) catalog'da bulunamadı. Lakehouse attached mı? "
+            "Önce 03_gold_kpi_engine veya bronze→silver pipeline'ı çalıştır."
+        )
+
+    # ABFS base: abfss://workspace@onelake.../lakehouse_id (Tables öncesi)
+    abfss_match = re.match(r"(abfss://[^/]+@[^/]+/[^/]+)", sample_path)
+    if not abfss_match:
+        raise Exception(f"ABFS base extract edilemedi: {sample_path}")
+    abfss_base = abfss_match.group(1)
+
+    # Schema-enabled (Fabric'in yeni standardı) vs flat (eski) lakehouse
+    if "/Tables/dbo/" in sample_path:
+        return (f"{abfss_base}/Tables/dbo", "schema-enabled (dbo)")
+    elif "/Tables/" in sample_path:
+        return (f"{abfss_base}/Tables", "flat")
+    else:
+        raise Exception(f"Tables prefix tanınamadı: {sample_path}")
+
+
+TABLES_PREFIX, _lakehouse_format = _resolve_tables_prefix()
+print(f"✅ Lakehouse formatı tespit edildi: {_lakehouse_format}")
+print(f"   Tables prefix: {TABLES_PREFIX[:90]}{'...' if len(TABLES_PREFIX) > 90 else ''}")
+
+# Tüm path'ler dinamik prefix üzerinden inşa edilir
 PATHS = {
-    "kpi_daily":  "Tables/gold_kpi_daily",
-    "building":   "Tables/silver_building_master",
-    "forecast":   "Tables/gold_consumption_forecast",
-    "occupancy":  "Tables/gold_occupancy_profile",    # 08_occupancy_prediction çıktısı
+    "kpi_daily":  f"{TABLES_PREFIX}/gold_kpi_daily",
+    "building":   f"{TABLES_PREFIX}/silver_building_master",
+    "forecast":   f"{TABLES_PREFIX}/gold_consumption_forecast",
+    "occupancy":  f"{TABLES_PREFIX}/gold_occupancy_profile",    # 08_occupancy_prediction çıktısı
 }
 
 # Eğitim ve tahmin parametreleri

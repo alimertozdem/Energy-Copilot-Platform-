@@ -180,3 +180,90 @@ gold_battery_technologies (battery specs + EU compliance)
 - **Total monthly minimum:** €25-80/month (excluding capacity)
 
 ---
+
+## APP ARCHITECTURE: ACCESS CONTROL & MODULE VISIBILITY (2026-05-07)
+
+### Three-Layer Access Model (CONFIRMED DECISION)
+
+```
+Layer 1 — Power BI RLS (DATA layer)
+  → Controls: which buildings/data a user sees
+  → "Customer A sees only their 3 buildings, not others"
+  → Already designed in 03_rls_definition.md
+  → CANNOT control page visibility — Power BI technical limitation
+
+Layer 2 — Web App Navigation (MODULE layer)  [Next.js]
+  → Controls: which pages/modules are accessible
+  → Reads: user subscription + connected sensor inventory from DB
+  → "Customer has no IoT sensors → Page 8 greyed out / hidden"
+  → "Customer has no battery → Page 9 locked"
+  → This is how enterprise BMS products work (Siemens Desigo, Schneider EcoStruxure)
+
+Layer 3 — Subscription/Tier (COMMERCIAL layer)  [PostgreSQL + FastAPI]
+  → Controls: feature gates based on plan
+  → Future: could restrict historical depth, export, AI features
+```
+
+### Practical Module Access Examples
+```
+Customer A: 3 buildings, energy meters only, no IoT, no battery
+→ Pages 1-7 active | Page 8 LOCKED | Page 9 LOCKED
+
+Customer B: 1 building, energy + IoT sensors, no battery
+→ Pages 1-8 active | Page 9 LOCKED
+
+Customer C: 6 buildings, full package (energy + IoT + battery)
+→ All 9 pages active
+```
+RLS always active regardless of tier — data never crosses customer boundaries.
+
+### Data Isolation Between Pages
+- Pages 1-7: `gold_kpi_daily`, `gold_hvac_analytics` (Delta/DirectLake)
+- Page 8: `gold_iot_realtime`, `iot_hot_readings` (KQL + Delta) — ISOLATED by design
+- Page 9: `gold_battery_dispatch`, `gold_battery_simulation` (Delta)
+- All share `building_id` as FK — no cross-joins during trial period
+- Post-trial roadmap: IoT data will enrich Pages 2 (real-time power) and 7 (live HVAC vs historical)
+
+---
+
+## PAGE 8: IoT MONITORING — CONFIRMED DESIGN DECISIONS (2026-05-07)
+
+### Users
+Both **Facility Manager** (daily ops) AND **Energy Manager** (strategic) use this page.
+
+### Sensor Type Architecture
+`sensor_type` is a **DIMENSION — NOT hardcoded**.
+Each building exposes only its connected sensor types. Visuals adapt dynamically.
+
+**Minimum sensor set (all buildings):**
+- `HVAC_temp` (°C), `humidity` (%), `CO2` (ppm)
+- `building_kwh` (kW) — total building power demand
+- `hvac_kwh` (kW) — HVAC-only power (split from building total)
+
+**Extended sensor set (full BMS buildings):**
+- `HVAC_supply_temp`, `HVAC_return_temp` (delta-T efficiency)
+- `lighting_kwh`, `plug_load_kwh` (sub-metering)
+- `chiller_cop`, `boiler_eff`, `pump_pressure`, `fan_rpm`
+
+### Confirmed KPI Cards
+- C1: Real-time building power (kW) — green/amber/red vs baseline
+- C2: Zone comfort compliance % — % zones within setpoint
+- C3: CO₂ level — Good / Fair / Poor
+- C4: Active high alerts + estimated daily cost ("3 Alerts — Est. €47 today")
+
+### Confirmed Visuals
+- V1: 24h power trend — `building_kwh` + `hvac_kwh` separate series + baseline reference line
+- V2: Sensor uptime matrix — rows: zones, cols: sensor types
+- V3: Zone setpoint compliance — which zones out of range and for how long
+- V4: Alert table — location, sensor, reading, severity, action, est. €cost
+
+### Anomaly Cost Estimation Logic (ASSUMPTION — always shown as "Est.")
+```
+cost_eur = duration_hours × power_waste_kw × grid_price_eur_per_kwh
+HVAC_temp violation: 2-5 kW extra per °C deviation
+CO2 spike >1500ppm: 1-3 kW extra ventilation
+Power spike >120% baseline: actual excess kW
+Grid price: DE €0.20/kWh, TR €0.14/kWh (building country from silver_building_master)
+```
+
+---

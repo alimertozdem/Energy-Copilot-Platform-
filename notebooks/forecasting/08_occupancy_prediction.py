@@ -253,6 +253,41 @@ def build_base_profiles() -> pd.DataFrame:
             h[hh] = 0.45
         return h
 
+    # 2026-05-21: Yeni vertical'lar (B009 DC, B010 Lab)
+    def _data_center_24_7():
+        # Datacenter: 7/24 minimal personel (skeleton crew + remote ops)
+        # NOC personnel + occasional on-site engineers (~5-10 people typical Tier III)
+        # Slight uptick during business hours (planned maintenance, deliveries)
+        h = np.full(24, 0.15)  # baseline NOC + remote monitoring
+        for hh in range(9, 17):  # business hours: planned maintenance + deliveries
+            h[hh] = 0.30
+        return h
+
+    def _lab_weekday():
+        # Research lab: Mon-Fri 7-19 high (researchers + tech staff), evening cooldown
+        # Equipment standby (autoclave, freezer) continues nights/weekends — but
+        # occupancy is people, not equipment. So nights/weekend ~0.05 (security only).
+        h = np.zeros(24)
+        h[7]  = 0.20   # early arrivals (lab techs prep)
+        h[8]  = 0.55
+        h[9]  = 0.85
+        h[10] = 0.95
+        h[11] = 0.95
+        h[12] = 0.70   # lunch
+        h[13] = 0.85
+        h[14] = 0.95
+        h[15] = 0.95
+        h[16] = 0.90
+        h[17] = 0.70
+        h[18] = 0.45
+        h[19] = 0.20   # late researchers
+        return h
+
+    def _lab_weekend():
+        # Weekend: minimal — emergency only (animal facility, urgent experiments)
+        h = np.full(24, 0.05)
+        return h
+
     # ── Assemble per-type schedule (7 days × 24 hours) ────────
     archetypes = {
         "office"      : [_office_weekday()      if d < 5 else np.zeros(24)           for d in range(7)],
@@ -266,6 +301,9 @@ def build_base_profiles() -> pd.DataFrame:
         "mixed_use"   : None,  # will be handled as 0.5×office + 0.5×retail
         "warehouse"   : [_industrial_weekday()  if d < 5 else np.zeros(24)           for d in range(7)],
         "other"       : [_generic_weekday()     if d < 5 else np.zeros(24)           for d in range(7)],
+        # 2026-05-21: Yeni vertical'lar (B009, B010)
+        "data_center" : [_data_center_24_7()                                          for _ in range(7)],
+        "lab"         : [_lab_weekday()         if d < 5 else _lab_weekend()         for d in range(7)],
     }
 
     # mixed_use = blend of office + retail
@@ -440,7 +478,8 @@ df_with_base = (
         F.when(F.col("building_type_norm").isin(
             "office", "retail", "hotel", "residential",
             "industrial", "mixed_use", "warehouse",
-            "education", "healthcare", "logistics"   # N6: new CRREM building types
+            "education", "healthcare", "logistics",  # N6: new CRREM building types
+            "data_center", "lab"                      # 2026-05-21: new verticals (B009, B010)
         ), F.col("building_type_norm")).otherwise(F.lit("other"))
     )
     .join(
@@ -655,7 +694,7 @@ df_final_typed = spark.createDataFrame(df_final.rdd, schema=OUTPUT_SCHEMA)
     .mode("overwrite")
     .option("overwriteSchema", "true")   # schema değişse bile güvenli overwrite
     .partitionBy("day_of_week")
-    .save(PATHS["occupancy"])
+    .saveAsTable("gold_occupancy_profile")   # FIX (2026-05-18): saveAsTable → Fabric metastore'a kayıt et
 )
 
 log(f"  Write complete — {df_final_typed.count():,} rows written (overwrite mode, full refresh).")
@@ -665,10 +704,16 @@ log(f"  Write complete — {df_final_typed.count():,} rows written (overwrite mo
 # ============================================================
 log("Running OPTIMIZE + ZORDER on gold_occupancy_profile …")
 
-# Fabric'te relative path ile OPTIMIZE: tablo adını doğrudan kullan
-spark.sql("OPTIMIZE gold_occupancy_profile ZORDER BY (building_id, hour_of_day)")
-
-log("OPTIMIZE complete.")
+# FIX (2026-05-17): Path syntax + try/except
+# Eski hata: .save() ile yazılan tablo metastore'da anında görünmüyor,
+# OPTIMIZE tablo adıyla çağrılınca TABLE_OR_VIEW_NOT_FOUND fail oluyordu.
+# Çözüm: delta.`path` syntax — metastore lookup bypass.
+# Ayrıca OPTIMIZE non-critical, fail olursa pipeline durmasın.
+try:
+    spark.sql(f"OPTIMIZE delta.`{PATHS['occupancy']}` ZORDER BY (building_id, hour_of_day)")
+    log("OPTIMIZE complete.")
+except Exception as e:
+    log(f"OPTIMIZE skipped (non-critical): {str(e)[:200]}")
 
 
 # Cell 11 — Validation & Summary Report

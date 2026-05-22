@@ -87,6 +87,7 @@ from pyspark.sql.types import (
     DateType, TimestampType
 )
 from delta.tables import DeltaTable
+import re
 
 # DP-600: GHG tablo çıktısı küçük (bina × ay) → 8 partition yeterli
 spark.conf.set("spark.sql.shuffle.partitions", "8")
@@ -101,10 +102,52 @@ print("✅ Spark konfigürasyonu tamamlandı")
 # BÖLÜM 2 — KONFİGÜRASYON VE SABİTLER
 # =============================================================================
 
-# Tablo yolları
-GOLD_KPI_DAILY        = "Tables/gold_kpi_daily"
-SILVER_BUILDING       = "Tables/silver_building_master"
-OUTPUT_TABLE          = "Tables/gold_ghg_scope"
+# -----------------------------------------------------------------------------
+# Lakehouse Tables/ prefix'ini dinamik tespit et.
+# Schema-enabled lakehouse (Tables/dbo/) ve flat lakehouse (Tables/) ikisini de destekler.
+# Pattern referansı: 07_consumption_forecast.py — feedback_fabric_schema_lakehouse.md
+# -----------------------------------------------------------------------------
+def _resolve_tables_prefix() -> tuple[str, str]:
+    """
+    Lakehouse'un Tables/ veya Tables/dbo/ prefix'ini catalog üzerinden tespit eder.
+    Returns: (tables_prefix, lakehouse_format_label)
+    """
+    candidate_tables = ["gold_kpi_daily", "silver_building_master", "gold_recommendations"]
+    sample_path = None
+    for t in candidate_tables:
+        try:
+            sample_path = spark.table(t).inputFiles()[0]
+            break
+        except Exception:
+            continue
+    if not sample_path:
+        raise Exception(
+            "Hiçbir referans tablo (gold_kpi_daily, silver_building_master, "
+            "gold_recommendations) catalog'da bulunamadı. Lakehouse attached mı? "
+            "Önce 03_gold_kpi_engine veya bronze→silver pipeline'ı çalıştır."
+        )
+
+    abfss_match = re.match(r"(abfss://[^/]+@[^/]+/[^/]+)", sample_path)
+    if not abfss_match:
+        raise Exception(f"ABFS base extract edilemedi: {sample_path}")
+    abfss_base = abfss_match.group(1)
+
+    if "/Tables/dbo/" in sample_path:
+        return (f"{abfss_base}/Tables/dbo", "schema-enabled (dbo)")
+    elif "/Tables/" in sample_path:
+        return (f"{abfss_base}/Tables", "flat")
+    else:
+        raise Exception(f"Tables prefix tanınamadı: {sample_path}")
+
+
+TABLES_PREFIX, _lakehouse_format = _resolve_tables_prefix()
+print(f"✅ Lakehouse formatı tespit edildi: {_lakehouse_format}")
+print(f"   Tables prefix: {TABLES_PREFIX[:90]}{'...' if len(TABLES_PREFIX) > 90 else ''}")
+
+# Tablo yolları (dinamik prefix üzerinden — schema-enabled & flat lakehouse uyumlu)
+GOLD_KPI_DAILY        = f"{TABLES_PREFIX}/gold_kpi_daily"
+SILVER_BUILDING       = f"{TABLES_PREFIX}/silver_building_master"
+OUTPUT_TABLE          = f"{TABLES_PREFIX}/gold_ghg_scope"
 
 # =============================================================================
 # GHG Emisyon Faktörleri (Assumption A1–A3)
@@ -395,10 +438,20 @@ try:
 
     print(f"✅ Delta MERGE tamamlandı: {OUTPUT_TABLE}")
 
-except Exception:
-    # Tablo yoksa ilk kez oluştur
-    # saveAsTable: hem Tables/ klasörüne yazar hem Lakehouse kataloğuna kaydeder
-    _tbl_name_init = OUTPUT_TABLE.replace("Tables/", "")
+except Exception as _merge_ex:
+    # Beklenen durum: tablo henüz yok (AnalysisException / DeltaTableNotFoundException).
+    # Beklenmeyen durum: schema mismatch, permission, vb. → log'da görünür kalsın.
+    # (feedback_fabric_notebooks.md: silent except yasak)
+    _ex_type = type(_merge_ex).__name__
+    _ex_msg  = str(_merge_ex)[:200]
+    print(f"ℹ️  MERGE atlandı ({_ex_type}): {_ex_msg}")
+    print("   Tablo ilk kez oluşturuluyor (saveAsTable fallback)...")
+
+    # saveAsTable: hem Tables/ klasörüne yazar hem Lakehouse kataloğuna kaydeder.
+    # Path'in son segmentini al — abfss://.../Tables/[dbo/]gold_ghg_scope → "gold_ghg_scope"
+    # Schema-enabled lakehouse'ta default schema "dbo" olduğu için saveAsTable("gold_ghg_scope")
+    # otomatik dbo.gold_ghg_scope olarak yazılır.
+    _tbl_name_init = OUTPUT_TABLE.rstrip("/").split("/")[-1]
     df_final.write \
         .format("delta") \
         .partitionBy("reporting_year") \
@@ -413,12 +466,18 @@ except Exception:
 # BÖLÜM 9 — Z-ORDER OPTIMIZE (DP-600)
 # =============================================================================
 
-spark.sql(f"""
-    OPTIMIZE delta.`{OUTPUT_TABLE}`
-    ZORDER BY (building_id, year_month)
-""")
-
-print("✅ Z-ORDER OPTIMIZE tamamlandı")
+# OPTIMIZE — tablo yeni oluştuysa veya ABFS commit henüz finalize olmadıysa
+# fail edebilir. Aynı koruma occupancy notebook'unda da gerekti.
+# (memory: occupancy_notebook_bug.md)
+try:
+    spark.sql(f"""
+        OPTIMIZE delta.`{OUTPUT_TABLE}`
+        ZORDER BY (building_id, year_month)
+    """)
+    print("✅ Z-ORDER OPTIMIZE tamamlandı")
+except Exception as _opt_ex:
+    print(f"⚠️  OPTIMIZE atlandı (tablo yeni oluştuysa normal): {type(_opt_ex).__name__}: {str(_opt_ex)[:120]}")
+    print("   Bir sonraki çalıştırmada otomatik OPTIMIZE olur.")
 
 
 # =============================================================================
@@ -427,7 +486,8 @@ print("✅ Z-ORDER OPTIMIZE tamamlandı")
 # Fabric'te CREATE TABLE ... LOCATION relative path KABUL ETMEZ (absolute ABFS lazım).
 # Bunun yerine: tablo katalogda varsa cache'i temizle, yoksa Fabric otomatik keşfeder.
 
-_tbl_name = OUTPUT_TABLE.replace("Tables/", "")
+# Path'in son segmentini al — dinamik prefix (abfss://.../Tables/[dbo/]gold_ghg_scope) ile uyumlu
+_tbl_name = OUTPUT_TABLE.rstrip("/").split("/")[-1]
 
 try:
     spark.catalog.refreshTable(_tbl_name)

@@ -138,11 +138,13 @@ def log_step(step, count=None, table=None):
     print(msg)
 
 
-def table_exists(path):
-    """Delta tablosunun var olup olmadığını kontrol et."""
+def table_exists(table_name):
+    """
+    FIX (2026-05-18): Path-based değil, metastore-based kontrol.
+    Fabric saveAsTable managed location kullanır, path her zaman uyuşmaz.
+    """
     try:
-        spark.read.format("delta").load(path).limit(1)
-        return True
+        return spark.catalog.tableExists(table_name)
     except:
         return False
 
@@ -152,15 +154,20 @@ def merge_to_gold(df_new, target_path, merge_keys, table_name, partition_cols=No
     DP-600: Gold tablolarına idempotent MERGE (upsert).
     Notebook'u ikinci kez çalıştırırsan duplicate oluşmaz.
     İlk çalıştırmada overwrite (tablo yoksa), sonrasında MERGE.
+
+    FIX (2026-05-18):
+    - .save(path) → .saveAsTable(name): Fabric metastore'a kayıt zorunlu
+    - DeltaTable.forPath → forName: managed table için doğru API
+    - table_exists artık name-based
     """
-    if not table_exists(target_path):
-        writer = df_new.write.format("delta").mode("overwrite")
+    if not table_exists(table_name):
+        writer = df_new.write.format("delta").mode("overwrite").option("overwriteSchema", "true")
         if partition_cols:
             writer = writer.partitionBy(*partition_cols)
-        writer.save(target_path)
-        log_step("✅ İlk yazma (overwrite)", df_new.count(), table_name)
+        writer.saveAsTable(table_name)
+        log_step("✅ İlk yazma (saveAsTable, metastore kayıtlı)", df_new.count(), table_name)
     else:
-        delta_tbl = DeltaTable.forPath(spark, target_path)
+        delta_tbl = DeltaTable.forName(spark, table_name)
         cond = " AND ".join([f"target.{k} = source.{k}" for k in merge_keys])
         (delta_tbl.alias("target")
             .merge(df_new.alias("source"), cond)
@@ -175,10 +182,13 @@ def optimize_gold(path, table_name, zorder_cols):
     DP-600: Z-ORDER OPTIMIZE — data skipping.
     Sık filtrelenen kolonlara göre dosyaları fiziksel olarak düzenle.
     Power BI'dan gelen building_id + tarih filtrelerini hızlandırır.
+
+    FIX (2026-05-18): OPTIMIZE'ı tablo adıyla çağır (path yerine).
+    Managed table'ı path syntax'i ile bulamaz Spark.
     """
     try:
         zorder_str = ", ".join(zorder_cols)
-        spark.sql(f"OPTIMIZE delta.`{path}` ZORDER BY ({zorder_str})")
+        spark.sql(f"OPTIMIZE {table_name} ZORDER BY ({zorder_str})")
         log_step("⚡ Z-ORDER OPTIMIZE", table=f"{table_name} [{zorder_str}]")
     except Exception as e:
         log_step(f"⚠️  OPTIMIZE atlandı: {str(e)[:80]}", table=table_name)
@@ -194,11 +204,12 @@ print("="*60)
 
 # DP-600: Lazy loading — DataFrame oluşturmak Spark action değil.
 # count() veya write'a kadar gerçek okuma olmaz (execution plan hazırlanır).
-df_energy  = spark.read.format("delta").load(SILVER_PATHS["energy_readings"])
-df_solar   = spark.read.format("delta").load(SILVER_PATHS["solar_generation"])
-df_battery = spark.read.format("delta").load(SILVER_PATHS["battery_status"])
-df_weather = spark.read.format("delta").load(SILVER_PATHS["weather_data"])
-df_building = spark.read.format("delta").load(SILVER_PATHS["building_master"])
+# FIX (2026-05-18): path → spark.table() (managed table için, silver saveAsTable ile yazıldı)
+df_energy  = spark.table("silver_energy_readings_clean")
+df_solar   = spark.table("silver_solar_generation_clean")
+df_battery = spark.table("silver_battery_status_clean")
+df_weather = spark.table("silver_weather_clean")
+df_building = spark.table("silver_building_master")
 
 log_step("Silver energy okundu (lazy)", table="silver_energy_readings_clean")
 log_step("Silver solar okundu (lazy)",  table="silver_solar_generation_clean")
@@ -474,8 +485,9 @@ print("\n" + "="*60)
 print("BÖLÜM 6 — Günlük KPI Hesaplama")
 print("="*60)
 
-# Gold hourly'yi Delta'dan oku (yazılan verinin üstünde çalış)
-df_h = spark.read.format("delta").load(GOLD_PATHS["kpi_hourly"])
+# Gold hourly'yi metastore'dan oku (saveAsTable ile kayıtlı tablo)
+# FIX (2026-05-18): path-based load yerine spark.table() — managed table için doğru yol
+df_h = spark.table("gold_kpi_hourly")
 
 df_gold_daily = (
     df_h
@@ -591,7 +603,8 @@ print("\n" + "="*60)
 print("BÖLÜM 7 — Aylık ESG KPI Hesaplama")
 print("="*60)
 
-df_d = spark.read.format("delta").load(GOLD_PATHS["kpi_daily"])
+# FIX (2026-05-18): path → spark.table() (managed table için)
+df_d = spark.table("gold_kpi_daily")
 
 df_gold_monthly = (
     df_d
@@ -703,7 +716,8 @@ print("BÖLÜM 8 — Anomali Tespiti (6 Kural)")
 print("="*60)
 
 # Gold hourly'yi yeniden oku (Delta'dan — garanti edilmiş veri)
-df_gh = spark.read.format("delta").load(GOLD_PATHS["kpi_hourly"])
+# FIX (2026-05-18): path → spark.table() (managed table için)
+df_gh = spark.table("gold_kpi_hourly")
 
 anomaly_frames = []
 
@@ -944,6 +958,24 @@ df_all_anomalies = (
         "anomaly_id",
         sha2(concat_ws("|", col("building_id"), col("detected_at").cast("string"), col("anomaly_type")), 256)
     )
+    # FIX (2026-05-18): recommended_action_en kolonu eklendi (Power BI modeli bekliyor)
+    # Her anomali tipi için anlamlı bir aksiyon önerisi
+    .withColumn(
+        "recommended_action_en",
+        when(col("anomaly_type") == "CONSUMPTION_SPIKE",
+             lit("Investigate equipment for malfunction or load change"))
+        .when(col("anomaly_type") == "NIGHT_OVERCONSUMPTION",
+              lit("Check HVAC scheduling and after-hours equipment usage"))
+        .when(col("anomaly_type") == "SOLAR_PR_DROP",
+              lit("Inspect panels for soiling, fault, or shading"))
+        .when(col("anomaly_type") == "BATTERY_OVERDISCHARGE",
+              lit("Adjust battery discharge limits and review BMS settings"))
+        .when(col("anomaly_type") == "BATTERY_OVERCHARGE",
+              lit("Review BMS upper limit configuration"))
+        .when(col("anomaly_type") == "DATA_QUALITY_GAP",
+              lit("Investigate sensor communication and data pipeline"))
+        .otherwise(lit("Investigate manually"))
+    )
 )
 total_anomalies = df_all_anomalies.count()
 log_step("Total anomalies detected", total_anomalies, "gold_anomaly_log")
@@ -956,12 +988,13 @@ df_all_anomalies.groupBy("anomaly_type", "severity") \
 
 # Schema changed — force overwrite to apply new columns
 # (description_en, metric_value, detected_date, anomaly_id)
+# FIX (2026-05-18): .save(path) → .saveAsTable(name) — Fabric metastore kaydı zorunlu
 df_all_anomalies.write \
     .format("delta") \
     .mode("overwrite") \
     .option("overwriteSchema", "true") \
     .partitionBy("building_id") \
-    .save(GOLD_PATHS["anomaly_log"])
+    .saveAsTable("gold_anomaly_log")
 print(f"✅ gold_anomaly_log yazıldı: {df_all_anomalies.count()} satır")
 
 
@@ -991,10 +1024,11 @@ print("\n" + "="*60)
 print("BÖLÜM 10 — Validation Raporu")
 print("="*60)
 
-df_kpi_h = spark.read.format("delta").load(GOLD_PATHS["kpi_hourly"])
-df_kpi_d = spark.read.format("delta").load(GOLD_PATHS["kpi_daily"])
-df_kpi_m = spark.read.format("delta").load(GOLD_PATHS["kpi_monthly"])
-df_anom  = spark.read.format("delta").load(GOLD_PATHS["anomaly_log"])
+# FIX (2026-05-18): path → spark.table() (managed table için)
+df_kpi_h = spark.table("gold_kpi_hourly")
+df_kpi_d = spark.table("gold_kpi_daily")
+df_kpi_m = spark.table("gold_kpi_monthly")
+df_anom  = spark.table("gold_anomaly_log")
 
 print(f"\n{'='*60}")
 print("=== GOLD LAYER VALİDASYON RAPORU ===")

@@ -174,6 +174,9 @@ schema_building = StructType([
     StructField("conditioned_area_m2",   DoubleType(),   True),
     StructField("year_built",            IntegerType(),  True),
     StructField("building_type",         StringType(),   True),
+    # 2026-05-21 KRİTİK BUG FIX: max_occupants eksikti, tüm sonraki kolonlar +1 kayıyordu
+    # → primary_hvac_system aslında has_diesel_generator değerini okuyordu (True/False bug)
+    StructField("max_occupants",         IntegerType(),  True),
     StructField("subscription_tier",     StringType(),   True),
     StructField("has_pv",                StringType(),   True),
     StructField("pv_capacity_kwp",       DoubleType(),   True),

@@ -1,0 +1,145 @@
+// =============================================================================
+// DAX PATCH — v49 — Page 9: Info Card Fixes (boolean-safe rewrite)
+// File    : 60_dax_v49_card_fixes.dax
+// Date    : 2026-05-09
+// Problem : v48 measures used is_active_strategy = TRUE() — fails when the
+//           column is stored as text "True"/"False" in Delta/Direct Lake.
+// Fix     : Removed all boolean column comparisons. Uses filter context + MAX.
+//           These 3 measures replace their v48 versions.
+// =============================================================================
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEASURE 1: Active Strategy Short Label
+// Bound to: Left or right panel info card (replaces the long "Building — strategy" card)
+// Output examples:
+//   "● Peak-Shaving"          (when Strategy slicer = peak_shaving)
+//   "● Self-Consumption"      (when Strategy slicer = self_consumption)
+//   "Tüm stratejiler"         (when Strategy slicer = All)
+// ─────────────────────────────────────────────────────────────────────────────
+
+[Active Strategy Short Label] =
+VAR SelStrat =
+    SELECTEDVALUE(gold_battery_dispatch[strategy])
+
+VAR StratDisplay =
+    SWITCH(
+        SelStrat,
+        "peak_shaving",     "Peak-Shaving",
+        "self_consumption", "Self-Consumption",
+        "tou",              "Time-of-Use (ToU)",
+        "backup",           "Backup + Opportunistic",
+        BLANK()
+    )
+RETURN
+    IF(
+        ISBLANK(StratDisplay),
+        "— Strateji seç (S2 filtresi) —",
+        "● " & StratDisplay
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEASURE 2: Active Battery Label
+// Bound to: Right panel info card (battery type + capacity)
+// Output examples (when a building is selected):
+//   "LFP · 800 kWh"
+//   "NMC · 400 kWh"
+//   "LFP · 200 kWh"
+// Output (when All buildings):
+//   "Portfolio: 3 batteries active"
+// ─────────────────────────────────────────────────────────────────────────────
+
+[Active Battery Label] =
+VAR SelBldg = SELECTEDVALUE(silver_building_master[building_id])
+
+// Single building path — filter propagates via relationship
+VAR BattType = CALCULATE(
+    SELECTEDVALUE(gold_battery_simulation[battery_type], "Mixed"),
+    gold_battery_simulation[building_id] = SelBldg || ISBLANK(SelBldg)
+)
+VAR MaxCap = CALCULATE(
+    MAX(gold_battery_simulation[battery_capacity_kwh]),
+    gold_battery_simulation[building_id] = SelBldg || ISBLANK(SelBldg)
+)
+
+// Portfolio path (no building selected)
+VAR BattCount = CALCULATE(
+    DISTINCTCOUNT(gold_battery_simulation[building_id]),
+    gold_battery_simulation[battery_capacity_kwh] > 0
+)
+
+RETURN
+    IF(
+        NOT ISBLANK(SelBldg),
+        // Single building
+        IF(
+            ISBLANK(MaxCap),
+            "Battery not installed",
+            BattType & " · " & FORMAT(MaxCap, "#,##0") & " kWh"
+        ),
+        // All buildings
+        "Portfolio · " & FORMAT(BattCount, "#,##0") & " buildings with battery"
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEASURE 3: EU Compliance Portfolio Label (v49 — replaces v47 broken version)
+// Bound to: subtitle of Active Battery Label card (or standalone EU card)
+// Output examples:
+//   "1 NON-COMPLIANT · EU 2023/1670"
+//   "All batteries EU-compliant"
+// Note: compares eu_compliant to both TRUE() and "True" to handle both column types
+// ─────────────────────────────────────────────────────────────────────────────
+
+[EU Compliance Portfolio Label] =
+VAR NonCompliant =
+    CALCULATE(
+        DISTINCTCOUNT(gold_battery_simulation[building_id]),
+        gold_battery_simulation[eu_compliant] = FALSE()
+            || gold_battery_simulation[eu_compliant] = "False"
+    )
+RETURN
+    IF(
+        NonCompliant > 0,
+        FORMAT(NonCompliant, "0") & " NON-COMPLIANT · EU 2023/1670",
+        "All batteries EU-compliant ✓"
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C4 CARD — NO DAX REWRITE NEEDED
+// The C4 measure is working but showing raw decimal (0.9405...) instead of 94.1%
+// FIX: In Power BI → click C4 card → Format Visual → Callout value → Format: "0.0%"
+// OR: Modeling → select [C4 Round Trip Efficiency Pct] measure → Format = Percentage, 1 decimal
+// DO NOT rewrite the measure — just change the format string in the model.
+// ─────────────────────────────────────────────────────────────────────────────
+
+
+// =============================================================================
+// HOW TO APPLY
+//
+// 1. Modeling → New Measure → paste [Active Strategy Short Label]
+//    (if old v48 version exists with same name → DELETE it first)
+//
+// 2. Modeling → New Measure → paste [Active Battery Label]
+//    (if old v48 version exists → DELETE it first)
+//
+// 3. Modeling → New Measure → paste [EU Compliance Portfolio Label]
+//    (replaces v47 version → DELETE old one first)
+//
+// 4. C4 card format: Modeling → click [C4 Round Trip Efficiency Pct] measure
+//    → Format = Percentage → Decimal places = 1
+//    (this shows 0.9405 as 94.1% — no DAX change needed)
+//
+// 5. Left panel: DELETE the 2 broken "See details" error cards
+//
+// 6. Add two new cards (right panel or wherever you want):
+//    Card 1: Value = [Active Strategy Short Label]
+//            Subtitle = [Page9 Data As Of]
+//    Card 2: Value = [Active Battery Label]
+//            Subtitle = [EU Compliance Portfolio Label]
+//
+// 7. V3 table: Building column → remove silver_building_master[building_name]
+//              → add gold_battery_simulation[building_name]
+// =============================================================================

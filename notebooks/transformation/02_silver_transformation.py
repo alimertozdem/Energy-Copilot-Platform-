@@ -143,10 +143,12 @@ def log_step(step, count=None, table=None):
     print(msg)
 
 
-def table_exists(path):
+def table_exists(table_name):
+    """
+    FIX (2026-05-18): Path-based değil, metastore-based kontrol.
+    """
     try:
-        DeltaTable.forPath(spark, path)
-        return True
+        return spark.catalog.tableExists(table_name)
     except:
         return False
 
@@ -155,29 +157,26 @@ def merge_to_silver(df_new, target_path, merge_keys, table_name):
     """
     DP-600: Delta MERGE (upsert) operasyonu.
 
-    merge_keys listesindeki kolonların kombinasyonu
-    tekil kayıtı tanımlar (primary key gibi).
-
-    MATCHED → güncelle (veri değişmiş olabilir)
-    NOT MATCHED → ekle (yeni kayıt)
-
-    Bu sayede notebook kaç kez çalışırsa çalışsın
-    duplicate oluşmaz.
+    FIX (2026-05-18):
+    - .save(path) → .saveAsTable(name): Fabric metastore'a kayıt zorunlu
+    - DeltaTable.forPath → forName: managed table için doğru API
+    - table_exists artık name-based
     """
     record_count = df_new.count()
 
-    if not table_exists(target_path):
+    if not table_exists(table_name):
         # İlk kez yazılıyor — direkt overwrite
         (df_new.write
             .format("delta")
             .mode("overwrite")
+            .option("overwriteSchema", "true")
             .partitionBy("building_id", "year", "month")
-            .save(target_path)
+            .saveAsTable(table_name)
         )
-        log_step(f"✅ İlk yazma (overwrite)", record_count, table_name)
+        log_step(f"✅ İlk yazma (saveAsTable, metastore kayıtlı)", record_count, table_name)
     else:
         # Tablo var — MERGE ile upsert
-        delta_table = DeltaTable.forPath(spark, target_path)
+        delta_table = DeltaTable.forName(spark, table_name)
 
         # Merge koşulu oluştur (örn: "target.building_id = source.building_id AND ...")
         merge_condition = " AND ".join(
@@ -273,18 +272,20 @@ df_bld_silver = (df_bld_silver
 )
 
 # Silver'a yaz (referans tablosu — tam overwrite)
+# FIX (2026-05-18): .save(path) → .saveAsTable(name) — Fabric metastore kaydı zorunlu
 (df_bld_silver.write
     .format("delta")
     .mode("overwrite")
     .option("overwriteSchema", "true")
-    .save(SILVER_PATHS["building_master"])
+    .saveAsTable("silver_building_master")
 )
 
 log_step("✅ Silver building_master yazıldı", df_bld_silver.count())
 
 # Broadcast için cache'le — tüm join'lerde kullanacağız
 # DP-600: Küçük tabloyu cache + broadcast → shuffle yok
-df_building_lookup = spark.read.format("delta").load(SILVER_PATHS["building_master"])
+# FIX (2026-05-18): path → spark.table() (saveAsTable yazılan managed table için)
+df_building_lookup = spark.table("silver_building_master")
 df_building_lookup.cache()
 log_step("📌 Building lookup cache'lendi (broadcast join için)")
 
@@ -728,7 +729,8 @@ tables_to_check = [
 total = 0
 for name, path in tables_to_check:
     try:
-        df_check = spark.read.format("delta").load(path)
+        # FIX (2026-05-18): path → spark.table() (managed table için)
+        df_check = spark.table(name)
         cnt = df_check.count()
         total += cnt
         print(f"\n📊 {name}: {cnt:,} satır")
@@ -741,7 +743,8 @@ for name, path in tables_to_check:
 
 # HDD/CDD yıllık özet — iklim düzeltmesi için referans
 print("\n🌡️  HDD / CDD Yıllık Özet (iklim düzeltmesi referansı):")
-df_hdd = spark.read.format("delta").load(SILVER_PATHS["weather_data"])
+# FIX (2026-05-18): path → spark.table() (managed table için)
+df_hdd = spark.table("silver_weather_clean")
 (df_hdd
     .groupBy("building_id")
     .agg(

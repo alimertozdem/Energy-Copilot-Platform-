@@ -1,0 +1,386 @@
+// =============================================================================
+// DAX PATCH — v50 — Page 9: Comprehensive Fix
+// File    : 61_dax_v50_comprehensive_fix.dax
+// Date    : 2026-05-09
+//
+// ROOT CAUSE (identified from screenshots):
+//   ALL v47 measures used SELECTEDVALUE(silver_building_master[building_id])
+//   but the Building slicer (S1) filters gold_battery_dispatch — NOT silver_building_master.
+//   Result: SELECTEDVALUE always returned BLANK() → ISBLANK() = TRUE →
+//           measures computed across ALL buildings → same value everywhere.
+//
+//   Additionally: C1 used explicit FILTER() which OVERRIDES filter context,
+//   preventing the slicer from filtering the measure at all.
+//
+// FIX STRATEGY:
+//   C1, C3 → Remove explicit FILTER. Rely on slicer's natural filter context
+//             (same pattern as V2 which already works correctly).
+//   C2     → Get building_id via SELECTEDVALUE(gold_battery_dispatch[building_id])
+//             then cross-filter gold_battery_simulation manually.
+//   V4     → Same fix as C2.
+//   Cards  → Use SELECTEDVALUE from gold_battery_dispatch (not silver_building_master).
+//   EU     → Fix boolean comparisons ("True"/"False" text vs TRUE()/FALSE()).
+//
+// MEASURES IN THIS FILE (12 total — all replace prior versions):
+//   C1 Annual Savings EUR          (replaces v47)
+//   C1 Label Savings               (replaces v47)
+//   C2 Payback Years               (replaces v47)
+//   C2 Label Payback               (replaces v47 — adds traffic light ✓⚠✗)
+//   C3 CO2 Avoided tCO2 Annual     (replaces v47)
+//   C4 Label Efficiency            (replaces v47 — fixes boolean eu_compliant)
+//   V4 ROI Gauge Pct               (replaces v47)
+//   V4 Savings Target EUR          (replaces v47)
+//   V4 ROI Status Label            (replaces v47)
+//   Active Strategy Short Label    (replaces v49 — English fallback + best strategy)
+//   Active Battery Label           (replaces v49 — fixed SELECTEDVALUE source)
+//   EU Compliance Portfolio Label  (replaces v49 — same logic, confirmed correct)
+// =============================================================================
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C1: Annual Net Savings (€/year) — v50 REWRITE
+//
+// WHY IT WAS BROKEN: v47 used FILTER(gold_battery_dispatch, building_id = VAR)
+//   where VAR came from silver_building_master. Since slicer doesn't filter
+//   silver_building_master, VAR = BLANK() → ISBLANK = TRUE → all rows included.
+//
+// FIX: Remove explicit FILTER entirely. SUM/DISTINCTCOUNT naturally pick up
+//   whatever filter context the slicers apply to gold_battery_dispatch.
+//   This is identical to how [V2 Charge kWh Daily] = SUM(...) works correctly.
+//
+// Expected output: Frankfurt ≈ €37k/yr, Hamburg ≈ €110k/yr, Berlin ≈ €65k/yr
+// ─────────────────────────────────────────────────────────────────────────────
+
+[C1 Annual Savings EUR] =
+VAR TotalDays = DISTINCTCOUNT(gold_battery_dispatch[date])
+VAR TotalSavings = SUM(gold_battery_dispatch[net_savings_eur])
+VAR AnnualRate = DIVIDE(TotalSavings, TotalDays) * 365
+RETURN
+    IF(TotalDays >= 30, IFERROR(AnnualRate, BLANK()), BLANK())
+
+
+[C1 Label Savings] =
+VAR Val = [C1 Annual Savings EUR]
+RETURN
+    IF(
+        ISBLANK(Val), "No data",
+        IF(Val >= 10000,
+            FORMAT(Val / 1000, "#,##0.0") & "k €/yr",
+            FORMAT(Val, "#,##0") & " €/yr"
+        )
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C2: Simple Payback Period (years) — v50 REWRITE
+//
+// WHY IT WAS BROKEN: SELECTEDVALUE(silver_building_master[building_id]) = BLANK()
+//   → ISBLANK = TRUE → CALCULATE returned MIN across all 13 scenarios → BLANK
+//   or unexpected value depending on filter order.
+//
+// FIX: Get building_id from gold_battery_dispatch[building_id] — the table
+//   that the S1 slicer actually filters. Then use it to cross-filter simulation.
+//
+// Expected: Frankfurt/Backup ≈ 1.5 yr, Hamburg ≈ 7-15 yr depending on scenario
+// ─────────────────────────────────────────────────────────────────────────────
+
+[C2 Payback Years] =
+VAR SelBldg = SELECTEDVALUE(gold_battery_dispatch[building_id])
+VAR SelStrat = SELECTEDVALUE(gold_battery_dispatch[strategy])
+RETURN
+    CALCULATE(
+        MIN(gold_battery_simulation[payback_years]),
+        gold_battery_simulation[building_id] = SelBldg
+            || ISBLANK(SelBldg),
+        gold_battery_simulation[strategy] = SelStrat
+            || ISBLANK(SelStrat)
+    )
+
+
+[C2 Label Payback] =
+VAR Val = [C2 Payback Years]
+RETURN
+    IF(
+        ISBLANK(Val), "—",
+        IF(Val <= 7,
+            FORMAT(Val, "#,##0.1") & " yr ✓",
+            IF(Val <= 12,
+                FORMAT(Val, "#,##0.1") & " yr ⚠",
+                FORMAT(Val, "#,##0.1") & " yr ✗"
+            )
+        )
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C3: Annual CO₂ Avoided (tCO₂/yr) — v50 REWRITE
+//
+// Same fix as C1: remove explicit FILTER, rely on natural filter context.
+// Expected: Frankfurt ≈ 8–12 tCO₂/yr, Hamburg ≈ 25–35 tCO₂/yr
+// ─────────────────────────────────────────────────────────────────────────────
+
+[C3 CO2 Avoided tCO2 Annual] =
+VAR TotalDays = DISTINCTCOUNT(gold_battery_dispatch[date])
+VAR TotalCO2kg = SUM(gold_battery_dispatch[co2_avoided_kg])
+VAR AnnualTonnes = DIVIDE(TotalCO2kg, TotalDays) * 365 / 1000
+RETURN
+    IF(TotalDays >= 30, IFERROR(AnnualTonnes, BLANK()), BLANK())
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C4 Label Efficiency — v50 FIX
+//
+// WHY IT WAS BROKEN: MAX(gold_battery_dispatch[eu_compliant]) returned text
+//   "True"/"False" but IF(IsCompliant, ...) expects boolean. Fix: compare to both.
+//
+// NOTE: Do NOT rewrite [C4 Round Trip Efficiency Pct] — v48 version is correct.
+//       Just change its FORMAT in Modeling tab:
+//       → Select measure → Format = Percentage → Decimal places = 1
+//       (0.9405 will display as 94.1%)
+// ─────────────────────────────────────────────────────────────────────────────
+
+[C4 Label Efficiency] =
+VAR Val = [C4 Round Trip Efficiency Pct]
+VAR EUStatus = CALCULATE(MAX(gold_battery_dispatch[eu_compliant]))
+VAR EUFlag =
+    IF(
+        EUStatus = TRUE() || EUStatus = "True",
+        " ✓",
+        " ✗ NON-EU"
+    )
+RETURN
+    IF(
+        ISBLANK(Val), "No data",
+        FORMAT(Val * 100, "#,##0.0") & "% RTE" & EUFlag
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// V4: ROI GAUGE MEASURES — v50 REWRITE
+//
+// WHY GAUGE SHOWED "No active battery":
+//   [V4 ROI Gauge Pct] depended on [C1 Annual Savings EUR] which was broken
+//   AND on SELECTEDVALUE(silver_building_master[building_id]) for target —
+//   both returned BLANK → gauge showed 0 / empty state text.
+//
+// FIX: C1 is now fixed (see above). V4 target now uses
+//   SELECTEDVALUE(gold_battery_dispatch[building_id]).
+//
+// Expected: Frankfurt ≈ 60–90% of target, Hamburg ≈ varies by strategy
+// ─────────────────────────────────────────────────────────────────────────────
+
+[V4 ROI Gauge Pct] =
+VAR ActualSavings = [C1 Annual Savings EUR]
+VAR SelBldg = SELECTEDVALUE(gold_battery_dispatch[building_id])
+VAR TargetSavings =
+    CALCULATE(
+        MAX(gold_battery_simulation[annual_savings_eur]),
+        gold_battery_simulation[building_id] = SelBldg
+            || ISBLANK(SelBldg)
+    )
+RETURN
+    IFERROR(DIVIDE(ActualSavings, TargetSavings) * 100, BLANK())
+
+
+[V4 Savings Target EUR] =
+VAR SelBldg = SELECTEDVALUE(gold_battery_dispatch[building_id])
+RETURN
+    CALCULATE(
+        MAX(gold_battery_simulation[annual_savings_eur]),
+        gold_battery_simulation[building_id] = SelBldg
+            || ISBLANK(SelBldg)
+    )
+
+
+[V4 ROI Status Label] =
+VAR Pct = [V4 ROI Gauge Pct]
+RETURN
+    IF(ISBLANK(Pct), "No data",
+    IF(Pct >= 90, "On target ✓",
+    IF(Pct >= 70, "Below target",
+    "Strategy review needed")))
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTIVE STRATEGY SHORT LABEL — v50 (replaces v49)
+//
+// CHANGES vs v49:
+//   - Gets building_id from gold_battery_dispatch (not silver_building_master)
+//   - When S2 = All: shows the building's best-scoring strategy from simulation
+//   - Fallback text now English (not Turkish)
+//
+// Output examples:
+//   S2 = peak_shaving          → "● Peak-Shaving"
+//   S2 = All, building selected → "★ Best: Peak-Shaving · Score 94"
+//   S2 = All, no building       → "— Select strategy (S2 filter) —"
+// ─────────────────────────────────────────────────────────────────────────────
+
+[Active Strategy Short Label] =
+VAR SelStrat = SELECTEDVALUE(gold_battery_dispatch[strategy])
+VAR SelBldg  = SELECTEDVALUE(gold_battery_dispatch[building_id])
+
+VAR StratDisplay =
+    SWITCH(
+        SelStrat,
+        "peak_shaving",     "Peak-Shaving",
+        "self_consumption", "Self-Consumption",
+        "tou",              "Time-of-Use (ToU)",
+        "backup",           "Backup + Opportunistic",
+        BLANK()
+    )
+
+VAR BestStratLabel =
+    CALCULATE(
+        MAXX(
+            TOPN(1, gold_battery_simulation, gold_battery_simulation[comparison_score], DESC),
+            gold_battery_simulation[strategy_label]
+        ),
+        gold_battery_simulation[building_id] = SelBldg
+            || ISBLANK(SelBldg)
+    )
+
+RETURN
+    IF(
+        NOT ISBLANK(StratDisplay),
+        "● " & StratDisplay,
+        IF(
+            NOT ISBLANK(BestStratLabel),
+            "★ Best: " & BestStratLabel,
+            "— Select strategy (S2 filter) —"
+        )
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTIVE BATTERY LABEL — v50 (replaces v49)
+//
+// WHY IT WAS BROKEN: SELECTEDVALUE(silver_building_master[building_id]) = BLANK()
+//   → NOT ISBLANK(SelBldg) = FALSE → always showed "Portfolio" text.
+//
+// FIX: Use SELECTEDVALUE(gold_battery_dispatch[building_id]) — the table
+//   that the S1 slicer actually filters.
+//
+// Output examples (single building selected):
+//   "LFP · 800 kWh"   (Berlin)
+//   "NMC · 400 kWh"   (Frankfurt)
+// Output (All buildings):
+//   "Portfolio · 5 buildings with battery"
+// ─────────────────────────────────────────────────────────────────────────────
+
+[Active Battery Label] =
+VAR SelBldg = SELECTEDVALUE(gold_battery_dispatch[building_id])
+
+VAR BattType =
+    CALCULATE(
+        SELECTEDVALUE(gold_battery_simulation[battery_type], "Mixed"),
+        gold_battery_simulation[building_id] = SelBldg
+            || ISBLANK(SelBldg)
+    )
+
+VAR MaxCap =
+    CALCULATE(
+        MAX(gold_battery_simulation[battery_capacity_kwh]),
+        gold_battery_simulation[building_id] = SelBldg
+            || ISBLANK(SelBldg)
+    )
+
+VAR BattCount =
+    CALCULATE(
+        DISTINCTCOUNT(gold_battery_simulation[building_id]),
+        gold_battery_simulation[battery_capacity_kwh] > 0
+    )
+
+RETURN
+    IF(
+        NOT ISBLANK(SelBldg),
+        IF(
+            ISBLANK(MaxCap),
+            "Battery not installed",
+            BattType & " · " & FORMAT(MaxCap, "#,##0") & " kWh"
+        ),
+        "Portfolio · " & FORMAT(BattCount, "#,##0") & " buildings with battery"
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EU COMPLIANCE PORTFOLIO LABEL — v50
+// Same as v49 — boolean handling confirmed correct.
+// Included here for easy all-in-one import.
+// ─────────────────────────────────────────────────────────────────────────────
+
+[EU Compliance Portfolio Label] =
+VAR NonCompliant =
+    CALCULATE(
+        DISTINCTCOUNT(gold_battery_simulation[building_id]),
+        gold_battery_simulation[eu_compliant] = FALSE()
+            || gold_battery_simulation[eu_compliant] = "False"
+    )
+RETURN
+    IF(
+        NonCompliant > 0,
+        FORMAT(NonCompliant, "0") & " NON-COMPLIANT · EU 2023/1670",
+        "All batteries EU-compliant ✓"
+    )
+
+
+// =============================================================================
+// HOW TO APPLY v50 — STEP BY STEP
+//
+// ── STEP 1: DELETE OLD MEASURES ──────────────────────────────────────────────
+// In Power BI → Modeling → Data panel → _Page9_Battery folder
+// Right-click → Delete each of these:
+//
+//   FROM v47:                          FROM v49:
+//   [C1 Annual Savings EUR]            [Active Strategy Short Label]
+//   [C1 Label Savings]                 [Active Battery Label]
+//   [C2 Payback Years]                 [EU Compliance Portfolio Label]
+//   [C2 Label Payback]
+//   [C3 CO2 Avoided tCO2 Annual]
+//   [C4 Label Efficiency]
+//   [V4 ROI Gauge Pct]
+//   [V4 Savings Target EUR]
+//   [V4 ROI Status Label]
+//
+// ── STEP 2: IMPORT v50 MEASURES ──────────────────────────────────────────────
+// Modeling → New Measure → paste each measure block above (12 total)
+// Display folder for all: _Page9_Battery
+//
+// ── STEP 3: C4 FORMAT (no DAX change) ────────────────────────────────────────
+// Modeling → click [C4 Round Trip Efficiency Pct]
+// → Format dropdown = "Percentage"
+// → Decimal places = 1
+// Result: 0.9405 → 94.1%
+//
+// ── STEP 4: V3 TABLE CHECK ───────────────────────────────────────────────────
+// Click V3 Scenario Comparison table → Filters pane (right side)
+// Check "Filters on this visual" section
+// If you see any filter on [is_active_strategy] → click X to REMOVE it
+// This allows all scenarios to show, not just the "active" one
+//
+// Also verify: Building column in V3 uses gold_battery_simulation[building_name]
+// (NOT silver_building_master[building_name])
+//
+// ── STEP 5: V4 GAUGE EMPTY STATE ─────────────────────────────────────────────
+// Click V4 gauge → Format Visual → General → scroll down to "No data message"
+// Change "No active battery" → "No data" or clear the field entirely
+// Bind Callout value label to [V4 ROI Status Label]
+//
+// ── EXPECTED RESULTS AFTER FIX ───────────────────────────────────────────────
+// Frankfurt selected:
+//   C1 ≈ €37k/yr   C2 ≈ 1.5 yr ✓   C3 ≈ 15 tCO₂/yr   C4 = 90.5% ✗ NON-EU
+//   Active Strategy: "★ Best: Backup + Opportunistic" (or "● Peak-Shaving" if S2 set)
+//   Battery Label: "NMC · 400 kWh"
+//   V4 Gauge: shows actual % vs simulation target
+//
+// Hamburg selected:
+//   C1 ≈ €110k/yr  C2 ≈ 7–15 yr ⚠  C3 ≈ 30 tCO₂/yr   C4 = 94.1% ✓
+//   Battery Label: "LFP · 5,600 kWh"
+//
+// NOTE ON C1 vs V3 VALUES:
+//   C1 = annualized daily dispatch average (from gold_battery_dispatch)
+//   V3 Savings/yr = pre-computed projection (from gold_battery_simulation)
+//   These WILL differ — they measure different things:
+//   C1 = "what actually happened in simulation dispatch"
+//   V3 = "what the optimizer projected as annual savings"
+//   Both are correct. C1 is the ground truth for actual performance.
+// =============================================================================

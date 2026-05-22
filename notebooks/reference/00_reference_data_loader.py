@@ -283,6 +283,23 @@ btp_data = [
      "Isıtma ve sıcak su baskın. Birden fazla kiracı → ortak alan sayacı ayrımı önemli. "
      "Isı pompası en yüksek ROI potansiyeli (gaz → elektrik geçişi). "
      "BAFA/KfW teşvikleri bu tip için en avantajlı."),
+
+    # ── LABORATUVAR / ARAŞTIRMA ───────────────────────────────────────────────
+    # 2026-05-21: Eklendi (B010 Stockholm Karolinska BioLab için)
+    # Kaynak: ASHRAE Lab Design Guide 2.0, EN 14175 fume hood standard
+    # EUI: Lab binalar normal ofisin 2-4× yoğunluğunda — HEPA, fume hood, 8-12 ACH
+    ("LAB", "Forschungslabor", "Araştırma Laboratuvarı",
+     200.0, 280.0, 380.0, 520.0, 140.0,
+     "07:00-19:00", "MON-FRI",
+     0.30, 0.30, 1.10, 0.95,             # gece equipment idle, hafta sonu min, yaz biraz yüksek (klima)
+     0.55, 0.15, 0.25, 0.05,             # HVAC dominant (HEPA), ekipman (centrifuge/autoclave)
+     0.25, 0.35, 0.20, 0.20,             # konfor (precise control) + güvenilirlik kritik
+     "HIGH", "MEDIUM", "LOW", "HIGH",    # battery risk: equipment continuity
+     0.70, 4.0,                           # gece equipment standby tüketim, spike 4x (autoclave)
+     "EnEfG + GEG 2024 + DIN 1946-7 (lab ventilation)", "BTYK Lab Yönetmelikleri",
+     "Yüksek havalandırma (8-12 ACH) en büyük enerji kalemi. HEPA filtre + heat recovery zorunlu. "
+     "Fume hood face velocity 0.5 m/s — VAV kontrol ile %50 tasarruf potansiyeli. "
+     "Setpoint ±0.5°C precision — düşük COP'lu HP yetersiz, GSHP ideal."),
 ]
 
 df_btp = write_ref_table(btp_data, btp_schema, REF_PATHS["building_type_profiles"], "ref_building_type_profiles")

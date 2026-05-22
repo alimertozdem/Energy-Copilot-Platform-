@@ -1,0 +1,216 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <!--
+    Energy Copilot Platform — Page 8 IoT & Real-Time Monitoring
+    Background v2 — REVISED LAYOUT (2026-05-08)
+    Canvas: 1280 × 720
+    Layout: Left panel 0–205 | Content 215–1270
+    Rows:
+      Header:      y 0–65
+      KPI cards:   y 72–180   (C1–C4, four equal slots)
+      Middle row:  y 188–418  (V1 wide 660px | V2 matrix 375px)
+      Bottom row:  y 428–710  (V3 bar 375px | V4 table WIDE 660px)
+  -->
+
+  <defs>
+    <radialGradient id="bgBase" cx="42%" cy="48%" r="75%">
+      <stop offset="0%"   stop-color="#091820"/>
+      <stop offset="55%"  stop-color="#06101A"/>
+      <stop offset="100%" stop-color="#030A12"/>
+    </radialGradient>
+
+    <!-- IoT teal aurora — top right -->
+    <radialGradient id="auroraTeal" cx="95%" cy="8%" r="52%">
+      <stop offset="0%"   stop-color="#00E5CC" stop-opacity="0.13"/>
+      <stop offset="50%"  stop-color="#00E5CC" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#00E5CC" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Alert red glow — bottom right (anomaly energy) -->
+    <radialGradient id="auroraAlert" cx="88%" cy="92%" r="45%">
+      <stop offset="0%"   stop-color="#FF4136" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#FF4136" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Power blue glow — center left (power trend) -->
+    <radialGradient id="auroraPower" cx="28%" cy="58%" r="38%">
+      <stop offset="0%"   stop-color="#00AAFF" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#00AAFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Panel fill -->
+    <linearGradient id="panelFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#0D2233" stop-opacity="0.90"/>
+      <stop offset="100%" stop-color="#071520" stop-opacity="0.86"/>
+    </linearGradient>
+
+    <!-- Left panel fill -->
+    <linearGradient id="leftFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#040D18"/>
+      <stop offset="100%" stop-color="#071422"/>
+    </linearGradient>
+
+    <!-- Slicer box -->
+    <linearGradient id="slicerFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#0E2035" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#091828" stop-opacity="0.95"/>
+    </linearGradient>
+
+    <!-- Glow filters -->
+    <filter id="dotGlow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="3.2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="titleGlow" x="-5%" y="-30%" width="110%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Connector dot symbols -->
+    <symbol id="dotTeal" overflow="visible">
+      <ellipse rx="18" ry="4" fill="#00E5CC" opacity="0.55" filter="url(#dotGlow)"/>
+      <ellipse rx="7"  ry="1.8" fill="#A0FFF5" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotBlue" overflow="visible">
+      <ellipse rx="18" ry="4" fill="#00AAFF" opacity="0.5" filter="url(#dotGlow)"/>
+      <ellipse rx="7"  ry="1.8" fill="#9EEDFF" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotRed" overflow="visible">
+      <ellipse rx="18" ry="4" fill="#FF4136" opacity="0.5" filter="url(#dotGlow)"/>
+      <ellipse rx="7"  ry="1.8" fill="#FF9999" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotGreen" overflow="visible">
+      <ellipse rx="18" ry="4" fill="#2ECC40" opacity="0.5" filter="url(#dotGlow)"/>
+      <ellipse rx="7"  ry="1.8" fill="#A0FFAC" opacity="0.95"/>
+    </symbol>
+  </defs>
+
+  <!-- ═══ BASE ═══ -->
+  <rect width="1280" height="720" fill="url(#bgBase)"/>
+  <rect width="1280" height="720" fill="url(#auroraTeal)"/>
+  <rect width="1280" height="720" fill="url(#auroraAlert)"/>
+  <rect width="1280" height="720" fill="url(#auroraPower)"/>
+
+  <!-- Subtle particles -->
+  <g fill="#6ECFFF" opacity="0.40">
+    <circle cx="320"  cy="40"  r="0.7"/>
+    <circle cx="520"  cy="22"  r="0.5"/>
+    <circle cx="720"  cy="55"  r="0.8"/>
+    <circle cx="920"  cy="32"  r="0.6"/>
+    <circle cx="1100" cy="44"  r="0.7"/>
+    <circle cx="1200" cy="60"  r="0.5"/>
+    <circle cx="400"  cy="710" r="0.6"/>
+    <circle cx="750"  cy="715" r="0.5"/>
+    <circle cx="1050" cy="706" r="0.7"/>
+  </g>
+
+  <!-- ═══ LEFT PANEL ═══ -->
+  <rect x="0" y="0" width="206" height="720" fill="url(#leftFill)"/>
+  <line x1="206" y1="0" x2="206" y2="720" stroke="#00E5CC" stroke-width="1.2" opacity="0.35"/>
+
+  <!-- Logo area -->
+  <circle cx="32" cy="36" r="18" fill="none" stroke="#00E5CC" stroke-width="1.6" opacity="0.75"/>
+  <circle cx="32" cy="36" r="11" fill="none" stroke="#00E5CC" stroke-width="1" opacity="0.45"/>
+  <line x1="32" y1="18" x2="32" y2="54" stroke="#00E5CC" stroke-width="1.2" opacity="0.55"/>
+  <line x1="14" y1="36" x2="50" y2="36" stroke="#00E5CC" stroke-width="1.2" opacity="0.55"/>
+  <circle cx="32" cy="36" r="3.5" fill="#00E5CC" opacity="0.9"/>
+
+  <text x="58" y="32" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#FFFFFF" letter-spacing="1.5">ENERGY</text>
+  <text x="58" y="46" font-family="Arial, sans-serif" font-size="14" font-weight="900" fill="#00E5CC" letter-spacing="2">LENS</text>
+  <text x="58" y="58" font-family="Arial, sans-serif" font-size="8" fill="#4A7A90" letter-spacing="1">Page 08</text>
+
+  <!-- Separator -->
+  <line x1="14" y1="68" x2="192" y2="68" stroke="#00E5CC" stroke-width="0.5" opacity="0.25"/>
+
+  <!-- Slicer labels + boxes -->
+  <text x="14" y="88" font-family="Arial, sans-serif" font-size="9" fill="#4A9AB0" letter-spacing="1.2">DATE RANGE</text>
+  <rect x="12" y="92" width="181" height="26" rx="3" fill="url(#slicerFill)" stroke="#1A4A65" stroke-width="0.8"/>
+
+  <text x="14" y="136" font-family="Arial, sans-serif" font-size="9" fill="#4A9AB0" letter-spacing="1.2">BUILDING</text>
+  <rect x="12" y="140" width="181" height="26" rx="3" fill="url(#slicerFill)" stroke="#D47B00" stroke-width="0.8"/>
+
+  <text x="14" y="184" font-family="Arial, sans-serif" font-size="9" fill="#4A9AB0" letter-spacing="1.2">BUILDING TYPE</text>
+  <rect x="12" y="188" width="181" height="26" rx="3" fill="url(#slicerFill)" stroke="#D47B00" stroke-width="0.8"/>
+
+  <text x="14" y="232" font-family="Arial, sans-serif" font-size="9" fill="#4A9AB0" letter-spacing="1.2">SENSOR TYPE</text>
+  <rect x="12" y="236" width="181" height="26" rx="3" fill="url(#slicerFill)" stroke="#1A4A65" stroke-width="0.8"/>
+
+  <text x="14" y="280" font-family="Arial, sans-serif" font-size="9" fill="#4A9AB0" letter-spacing="1.2">ALERTS</text>
+  <rect x="12" y="284" width="181" height="26" rx="3" fill="url(#slicerFill)" stroke="#8B2FC9" stroke-width="0.8"/>
+
+  <!-- ═══ HEADER ═══ -->
+  <text x="222" y="40" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#FFFFFF" letter-spacing="0.5">IoT &amp;</text>
+  <text x="294" y="40" font-family="Arial, sans-serif" font-size="26" font-weight="900" fill="#00E5CC" letter-spacing="0.5" filter="url(#titleGlow)"> REAL-TIME MONITORING</text>
+  <text x="222" y="57" font-family="Arial, sans-serif" font-size="9" fill="#2A7A90" letter-spacing="2.5">LIVE SENSOR ANALYTICS &amp; ANOMALY DETECTION</text>
+  <line x1="215" y1="65" x2="1270" y2="65" stroke="#00E5CC" stroke-width="0.8" opacity="0.30"/>
+
+  <!-- ═══ KPI CARDS ROW — y:72 to y:180 ═══ -->
+  <!-- C1: Building Power (x=215, w=255) -->
+  <rect x="215" y="72" width="255" height="108" rx="4" fill="url(#panelFill)" stroke="#00E5CC" stroke-width="1.0" opacity="0.85"/>
+  <line x1="215" y1="72" x2="470" y2="72" stroke="#00E5CC" stroke-width="1.8" opacity="0.7"/>
+  <text x="228" y="91" font-family="Arial, sans-serif" font-size="9" fill="#00E5CC" letter-spacing="1.5" opacity="0.75">REAL-TIME BUILDING POWER</text>
+
+  <!-- C2: Zone Compliance (x=480, w=255) -->
+  <rect x="480" y="72" width="255" height="108" rx="4" fill="url(#panelFill)" stroke="#00E5CC" stroke-width="1.0" opacity="0.85"/>
+  <line x1="480" y1="72" x2="735" y2="72" stroke="#00E5CC" stroke-width="1.8" opacity="0.7"/>
+  <text x="493" y="91" font-family="Arial, sans-serif" font-size="9" fill="#00E5CC" letter-spacing="1.5" opacity="0.75">ZONE COMFORT COMPLIANCE</text>
+
+  <!-- C3: CO2 (x=745, w=255) -->
+  <rect x="745" y="72" width="255" height="108" rx="4" fill="url(#panelFill)" stroke="#00E5CC" stroke-width="1.0" opacity="0.85"/>
+  <line x1="745" y1="72" x2="1000" y2="72" stroke="#00E5CC" stroke-width="1.8" opacity="0.7"/>
+  <text x="758" y="91" font-family="Arial, sans-serif" font-size="9" fill="#00E5CC" letter-spacing="1.5" opacity="0.75">CO₂ LEVEL</text>
+
+  <!-- C4: Active Alerts (x=1010, w=255) -->
+  <rect x="1010" y="72" width="255" height="108" rx="4" fill="url(#panelFill)" stroke="#00E5CC" stroke-width="1.0" opacity="0.85"/>
+  <line x1="1010" y1="72" x2="1265" y2="72" stroke="#00E5CC" stroke-width="1.8" opacity="0.7"/>
+  <text x="1023" y="91" font-family="Arial, sans-serif" font-size="9" fill="#00E5CC" letter-spacing="1.5" opacity="0.75">ACTIVE ALERTS + ESTIMATED COST</text>
+
+  <!-- Connector dots — card tops -->
+  <use href="#dotTeal" transform="translate(342,72)"/>
+  <use href="#dotTeal" transform="translate(607,72)"/>
+  <use href="#dotTeal" transform="translate(872,72)"/>
+  <use href="#dotTeal" transform="translate(1137,72)"/>
+
+  <!-- ═══ MIDDLE ROW — y:188 to y:418 ═══ -->
+  <!-- V1: 24h Power Trend (wide left, x=215, w=660) -->
+  <rect x="215" y="188" width="660" height="225" rx="4" fill="url(#panelFill)" stroke="#00AAFF" stroke-width="1.0" opacity="0.80"/>
+  <line x1="215" y1="188" x2="875" y2="188" stroke="#00AAFF" stroke-width="1.6" opacity="0.65"/>
+  <text x="228" y="206" font-family="Arial, sans-serif" font-size="9" fill="#00AAFF" letter-spacing="1.5" opacity="0.70">BUILDING &amp; HVAC POWER — LAST 24h</text>
+
+  <!-- V2: Sensor Uptime Matrix (right, x=885, w=380) -->
+  <rect x="885" y="188" width="380" height="225" rx="4" fill="url(#panelFill)" stroke="#00E5CC" stroke-width="1.0" opacity="0.80"/>
+  <line x1="885" y1="188" x2="1265" y2="188" stroke="#00E5CC" stroke-width="1.6" opacity="0.65"/>
+  <text x="898" y="206" font-family="Arial, sans-serif" font-size="9" fill="#00E5CC" letter-spacing="1.5" opacity="0.70">SENSOR UPTIME BY ZONE</text>
+
+  <!-- Connector dots — middle row tops -->
+  <use href="#dotBlue" transform="translate(545,188)"/>
+  <use href="#dotTeal" transform="translate(1075,188)"/>
+
+  <!-- ═══ BOTTOM ROW — y:428 to y:710 ═══ -->
+  <!-- V3: Zone Anomaly Bar Chart (left, x=215, w=375) -->
+  <rect x="215" y="428" width="375" height="278" rx="4" fill="url(#panelFill)" stroke="#FF851B" stroke-width="1.0" opacity="0.80"/>
+  <line x1="215" y1="428" x2="590" y2="428" stroke="#FF851B" stroke-width="1.6" opacity="0.65"/>
+  <text x="228" y="446" font-family="Arial, sans-serif" font-size="9" fill="#FF851B" letter-spacing="1.5" opacity="0.75">ZONE ANOMALY COUNT — BY SEVERITY</text>
+
+  <!-- V4: Alert Table WIDE (right, x=600, w=665) -->
+  <rect x="600" y="428" width="665" height="278" rx="4" fill="url(#panelFill)" stroke="#FF4136" stroke-width="1.0" opacity="0.80"/>
+  <line x1="600" y1="428" x2="1265" y2="428" stroke="#FF4136" stroke-width="1.6" opacity="0.65"/>
+  <text x="613" y="446" font-family="Arial, sans-serif" font-size="9" fill="#FF4136" letter-spacing="1.5" opacity="0.75">ALERT DETAIL — ZONE / SENSOR / ACTION / EST. COST</text>
+
+  <!-- Connector dots — bottom row tops -->
+  <use href="#dotRed"  transform="translate(402,428)"/>
+  <use href="#dotRed"  transform="translate(932,428)"/>
+
+  <!-- Subtle scan line effect across content area -->
+  <rect x="215" y="0" width="1055" height="720" fill="none"
+        stroke="#00E5CC" stroke-width="0" opacity="0"
+        style="background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,229,204,0.012) 3px, rgba(0,229,204,0.012) 4px)"/>
+
+  <!-- Bottom data-pulse bar (decorative) -->
+  <rect x="215" y="713" width="1050" height="2" rx="1" fill="url(#auroraTeal)" opacity="0.4"/>
+  <rect x="215" y="713" width="320" height="2" rx="1" fill="#00E5CC" opacity="0.6"/>
+
+</svg>

@@ -104,10 +104,10 @@ def notebook_exit(message: str):
             raise SystemExit(message)
 
 # ── Table existence check ────────────────────────────────────
-def table_exists(path: str) -> bool:
+# FIX (2026-05-18): Path-based değil, metastore-based kontrol.
+def table_exists(table_name: str) -> bool:
     try:
-        spark.read.format("delta").load(path).limit(0).count()
-        return True
+        return spark.catalog.tableExists(table_name)
     except Exception:
         return False
 
@@ -321,14 +321,16 @@ log("Base archetypes definition loaded.")
 # ============================================================
 
 # Guard: silver_energy_readings must exist
-if not table_exists(PATHS["energy_readings"]):
+# FIX (2026-05-18): table_exists artık name-based (managed table için)
+if not table_exists("silver_energy_readings_clean"):
     notebook_exit("silver_energy_readings_clean tablosu bulunamadı. Silver transformation (02) önce çalışmalı.")
 
-if not table_exists(PATHS["building"]):
+if not table_exists("silver_building_master"):
     notebook_exit("silver_building_master tablosu bulunamadı. Silver transformation önce çalışmalı.")
 
 log("Reading silver_building_master …")
-_bldg_raw = spark.read.format("delta").load(PATHS["building"])
+# FIX (2026-05-18): path → spark.table() (managed table için)
+_bldg_raw = spark.table("silver_building_master")
 
 # max_occupants: kolonu varsa kullan, yoksa fallback dict'ten doldur
 if "max_occupants" in _bldg_raw.columns:
@@ -367,7 +369,8 @@ log(f"Reading silver_energy_readings_clean (last {LOOKBACK_DAYS} days) …")
 cutoff_ts = F.date_sub(F.current_date(), LOOKBACK_DAYS)
 
 df_readings = (
-    spark.read.format("delta").load(PATHS["energy_readings"])
+    # FIX (2026-05-18): path → spark.table() (managed table için)
+    spark.table("silver_energy_readings_clean")
     .filter(F.to_date(F.col("timestamp_utc")) >= cutoff_ts)  # FIX: no 'date' col, derive from timestamp_utc
     .select(
         "building_id",
@@ -732,7 +735,7 @@ df_final_typed = spark.createDataFrame(df_final.rdd, schema=OUTPUT_SCHEMA)
     .mode("overwrite")
     .option("overwriteSchema", "true")   # schema değişse bile güvenli overwrite
     .partitionBy("day_of_week")
-    .save(PATHS["occupancy"])
+    .saveAsTable("gold_occupancy_profile")   # FIX (2026-05-18): saveAsTable → Fabric metastore'a kayıt et
 )
 
 log(f"  Write complete — {df_final_typed.count():,} rows written (overwrite mode, full refresh).")
@@ -742,17 +745,24 @@ log(f"  Write complete — {df_final_typed.count():,} rows written (overwrite mo
 # ============================================================
 log("Running OPTIMIZE + ZORDER on gold_occupancy_profile …")
 
-# Fabric'te relative path ile OPTIMIZE: tablo adını doğrudan kullan
-spark.sql("OPTIMIZE gold_occupancy_profile ZORDER BY (building_id, hour_of_day)")
-
-log("OPTIMIZE complete.")
+# FIX (2026-05-17): Path syntax + try/except
+# Eski hata: .save() ile yazılan tablo metastore'da anında görünmüyor,
+# OPTIMIZE tablo adıyla çağrılınca TABLE_OR_VIEW_NOT_FOUND fail oluyordu.
+# Çözüm: delta.`path` syntax — metastore lookup bypass.
+# Ayrıca OPTIMIZE non-critical, fail olursa pipeline durmasın.
+try:
+    spark.sql("OPTIMIZE gold_occupancy_profile ZORDER BY (building_id, hour_of_day)")
+    log("OPTIMIZE complete.")
+except Exception as e:
+    log(f"OPTIMIZE skipped (non-critical): {str(e)[:200]}")
 
 
 # Cell 11 — Validation & Summary Report
 # ============================================================
 log("=== Validation Report ===")
 
-df_check = spark.read.format("delta").load(PATHS["occupancy"])
+# FIX (2026-05-18): path → spark.table() (managed table için)
+df_check = spark.table("gold_occupancy_profile")
 
 total_rows     = df_check.count()
 total_buildings = df_check.select("building_id").distinct().count()

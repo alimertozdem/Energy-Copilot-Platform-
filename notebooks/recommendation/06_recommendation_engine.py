@@ -999,14 +999,20 @@ df_bms_rec = (
 # Captures: night setback, weekend setback, pre-cooling/heating optimisation
 
 HVAC_SHARE_BY_TYPE = {
-    "OFFICE":     0.45, "RETAIL":   0.35, "LOGISTICS": 0.40,
-    "HOTEL":      0.35, "SCHOOL":   0.50, "HEALTHCARE": 0.40,
-    "EDUCATION":  0.50, "HOSPITAL": 0.40,
+    "OFFICE":      0.45, "RETAIL":    0.35, "LOGISTICS":  0.40,
+    "HOTEL":       0.35, "SCHOOL":    0.50, "HEALTHCARE": 0.40,
+    "EDUCATION":   0.50, "HOSPITAL":  0.40,
+    # 2026-05-21: Yeni vertical'lar
+    "DATA_CENTER": 0.65,  # Cooling-dominated, ama scheduling tipik DC için uygulanmaz (24/7)
+    "LAB":         0.55,  # HEPA + setpoint precision dominant
 }
 
+# DATA_CENTER ve LAB scheduling'den hariç:
+#   - DATA_CENTER: 24/7 IT yükü, setpoint deviation = SLA risk
+#   - LAB: Setpoint precision (±0.5°C), animal/cleanroom continuity
 df_hvac_sched_rec = (
     df_base
-    .filter(~col("building_type_upper").isin("HOSPITAL", "DATA_CENTER"))
+    .filter(~col("building_type_upper").isin("HOSPITAL", "DATA_CENTER", "LAB"))
     .withColumn("_hvac_share",
         when(col("building_type_upper") == "OFFICE",     lit(0.45))
         .when(col("building_type_upper") == "RETAIL",    lit(0.35))

@@ -1,0 +1,375 @@
+// ==========================================================================
+// Energy Copilot Platform — DAX v52: Page 1 Portfolio Scorecard
+// File: semantic-model/60_dax_v52_page1_portfolio_scorecard.dax
+// Created: 2026-05-14
+//
+// PURPOSE:
+//   Page 1 "Portfolio Overview" iyileştirmesi — sayfa şu an Building Name
+//   slicer'ı bir bina seçili olduğunda portfolio gibi davranmıyor.
+//   Bu dosya 3 problemi çözer:
+//     1) Portfolio Scorecard table (V_NEW1) — building × KPIs renkli grid
+//     2) EUI Benchmark by Building (V_NEW2) — peer median + regulation line
+//     3) Dynamic Goals (replace static placeholders)
+//
+// PRECONDITIONS (Power BI Desktop'ta YAPILMASI ŞART):
+//   A) v17 MonthIndex Sort uygulanmış olmalı (Bölüm 0, dosya 22).
+//      Hâlâ uygulanmadıysa: Date tablosu → YearMonth kolonu →
+//      Column tools → Sort by Column → MonthIndex.
+//   B) Building Name slicer Page 1'den KALDIRILMALI (drill-through sayfasına
+//      taşınmalı) VEYA default değeri "All" yapılmalı.
+//      Neden: "Portfolio Overview" tek bina filtrelenmesin.
+//   C) Sample data v5.1 generator'ı çalıştırılmış olmalı (raw_energy_readings
+//      yenilenmiş). EUI değerleri industry band'a oturmuş olmalı.
+// ==========================================================================
+
+
+// ==========================================================================
+// BÖLÜM 1 — PORTFOLIO SCORECARD TABLE MEASURES
+//   Visual: Power BI "Table" or "Matrix"
+//   Rows: silver_building_master[building_name]
+//   Columns: aşağıdaki 8 ölçü
+//
+//   Renk kuralları (Conditional formatting → Background color → Rules):
+//     EUI:    < target → green, < +20% → amber, > +20% → red
+//     Cost:   en düşük 3 → green, en yüksek 3 → red
+//     Anomaly: 0 → green, 1-3 → amber, 4+ → red
+//     CRREM:  Aligned → green, At Risk → amber, Stranded → red
+// ==========================================================================
+
+// 1A — Building Total Consumption kWh (annualized 2025, dimension-friendly)
+// Kullanım: Scorecard'ın "Total kWh" sütunu
+P1 Scorecard Total kWh =
+VAR _bid = SELECTEDVALUE(silver_building_master[building_id])
+VAR _result =
+    CALCULATE(
+        SUM(gold_kpi_daily[total_consumption_kwh]),
+        silver_building_master[building_id] = _bid,
+        YEAR(gold_kpi_daily[date]) = 2025
+    )
+RETURN
+    DIVIDE(_result, 1000) // bin kWh
+
+// 1B — Building EUI Annualized kWh/m²/yr
+// Kullanım: Scorecard'ın "EUI" sütunu — fiziksel m² ile bölünmüş
+P1 Scorecard EUI =
+VAR _bid = SELECTEDVALUE(silver_building_master[building_id])
+VAR _area = SELECTEDVALUE(silver_building_master[gross_floor_area_m2])
+VAR _kwh =
+    CALCULATE(
+        SUM(gold_kpi_daily[total_consumption_kwh]),
+        silver_building_master[building_id] = _bid,
+        YEAR(gold_kpi_daily[date]) = 2025
+    )
+RETURN
+    DIVIDE(_kwh, _area, 0)
+
+// 1C — EUI Color Rule (numeric — for conditional formatting)
+// 1 = green (good), 2 = amber, 3 = red
+P1 Scorecard EUI Color =
+VAR _eui = [P1 Scorecard EUI]
+VAR _btype = SELECTEDVALUE(silver_building_master[building_type])
+// Industry medians (kWh/m²/yr) — adjust per regional context
+VAR _target =
+    SWITCH(_btype,
+        "Office",     100,
+        "Retail",     260,
+        "Logistics",  130,
+        "Hotel",      300,
+        "Healthcare", 500,
+        "Education",  200,
+        200
+    )
+RETURN
+    SWITCH(TRUE(),
+        _eui <= _target * 0.85, 1,        // green
+        _eui <= _target * 1.20, 2,        // amber
+        3                                 // red
+    )
+
+// 1D — Annual Cost EUR (per building)
+// Assumes country grid price from silver_building_master[country_code]
+P1 Scorecard Cost EUR =
+VAR _bid = SELECTEDVALUE(silver_building_master[building_id])
+VAR _country = SELECTEDVALUE(silver_building_master[country_code])
+VAR _price_per_kwh =
+    SWITCH(_country,
+        "DE", 0.205,
+        "AT", 0.198,
+        "NL", 0.225,
+        "TR", 0.140,
+        0.200
+    )
+VAR _kwh =
+    CALCULATE(
+        SUM(gold_kpi_daily[total_consumption_kwh]),
+        silver_building_master[building_id] = _bid,
+        YEAR(gold_kpi_daily[date]) = 2025
+    )
+RETURN
+    _kwh * _price_per_kwh
+
+// 1E — Active Anomaly Count (per building)
+// v52.1 fix (2026-05-14): table name was gold_anomaly_alerts (wrong) → gold_anomaly_log
+P1 Scorecard Active Anomalies =
+VAR _bid = SELECTEDVALUE(silver_building_master[building_id])
+RETURN
+    CALCULATE(
+        COUNTROWS(gold_anomaly_log),
+        silver_building_master[building_id] = _bid,
+        gold_anomaly_log[is_resolved] = FALSE(),
+        gold_anomaly_log[severity] IN { "High", "Critical" }
+    ) + 0  // +0 keeps it as 0 instead of BLANK
+
+// 1F — EPC Label (per building, display)
+P1 Scorecard EPC =
+SELECTEDVALUE(silver_building_master[energy_certificate])
+
+// 1G — CRREM Status (per building) — v52.2 fix (2026-05-14)
+// FIX: gold_compliance_results tablosunda crrem_status KOLONU YOK.
+// Gerçek kolon: overall_status (EXCELLENT/GOOD/PARTIAL/AT_RISK/NON_COMPLIANT)
+// Bu değerleri "Aligned/At Risk/Stranded" CRREM dilime mapliyoruz.
+P1 Scorecard CRREM Status =
+VAR _bid = SELECTEDVALUE(silver_building_master[building_id])
+VAR _overall =
+    CALCULATE(
+        SELECTEDVALUE(gold_compliance_results[overall_status]),
+        silver_building_master[building_id] = _bid
+    )
+VAR _crrem_label =
+    SWITCH(_overall,
+        "EXCELLENT",     "Aligned",
+        "GOOD",          "Aligned",
+        "PARTIAL",       "At Risk",
+        "AT_RISK",       "At Risk",
+        "NON_COMPLIANT", "Stranded",
+        BLANK()
+    )
+// Fallback: gold_compliance_results boş ya da bina yoksa → EPC bazlı tahmin
+VAR _epc = SELECTEDVALUE(silver_building_master[energy_certificate])
+VAR _fallback =
+    SWITCH(TRUE(),
+        _epc IN { "A", "B" }, "Aligned",
+        _epc = "C",           "At Risk",
+        "Stranded"
+    )
+RETURN
+    IF(NOT ISBLANK(_crrem_label), _crrem_label, _fallback)
+
+// 1H — CRREM Status Color (for conditional formatting)
+P1 Scorecard CRREM Color =
+VAR _status = [P1 Scorecard CRREM Status]
+RETURN
+    SWITCH(_status,
+        "Aligned",  1,
+        "At Risk",  2,
+        "Stranded", 3,
+        2
+    )
+
+
+// ==========================================================================
+// BÖLÜM 2 — EUI BENCHMARK VISUAL MEASURES
+//   Visual type: "Clustered Bar Chart" (yatay)
+//   Axis: silver_building_master[building_name]
+//   Values: [P1 Scorecard EUI]
+//   Line value: [Portfolio Median EUI]
+//   Color saturation: [P1 Scorecard EUI Color]
+// ==========================================================================
+
+// 2A — Portfolio-wide median EUI (reference line) — v52.2 fix
+// FIX: SUMMARIZE + SELECTEDVALUE row context'te BLANK döndürüyordu →
+// MEDIANX BLANK'leri görüp yanlış değer veriyordu (KPI kartında 0,04 çıkışı).
+// Yeni pattern: ADDCOLUMNS + VALUES + iki ayrı CALCULATE (her bina için).
+Portfolio Median EUI =
+VAR _table =
+    ADDCOLUMNS(
+        VALUES(silver_building_master[building_id]),
+        "@kwh",
+            CALCULATE(
+                SUM(gold_kpi_daily[total_consumption_kwh]),
+                YEAR(gold_kpi_daily[date]) = 2025
+            ),
+        "@area",
+            CALCULATE(
+                MAX(silver_building_master[gross_floor_area_m2])
+            ),
+        "@eui",
+            DIVIDE(
+                CALCULATE(
+                    SUM(gold_kpi_daily[total_consumption_kwh]),
+                    YEAR(gold_kpi_daily[date]) = 2025
+                ),
+                CALCULATE(
+                    MAX(silver_building_master[gross_floor_area_m2])
+                ),
+                0
+            )
+    )
+VAR _nonZero = FILTER(_table, [@eui] > 0)
+RETURN
+    MEDIANX(_nonZero, [@eui])
+
+// 2B — EU 2030 regulation target (CRREM 1.5°C pathway, simplified)
+// Sektör-bazlı sabit hedefler — değiştirilebilir parametre olarak tutuluyor
+EU 2030 EUI Target =
+VAR _btype = SELECTEDVALUE(silver_building_master[building_type])
+RETURN
+    SWITCH(_btype,
+        "Office",      75,
+        "Retail",     180,
+        "Logistics",   95,
+        "Hotel",      220,
+        "Healthcare", 380,
+        "Education",  140,
+        130
+    )
+
+
+// ==========================================================================
+// BÖLÜM 3 — DYNAMIC GOALS (replace static placeholders on KPI cards)
+//
+//   Mevcut sorun: KPI kartlarında "Goal: 107,491 (-5.26%)" gibi sabit
+//   değerler görünüyor — bunlar gerçek hedef değil, formüldeki sabit sayı.
+//   Çözüm: Hedefleri previous-year + reduction-target formülünden türet.
+// ==========================================================================
+
+// 3A — Total Energy Goal kWh (5% azaltma hedefi — typical ESG target)
+P1 Goal Total Energy kWh =
+VAR _py = [Previous Year Consumption kWh]
+RETURN
+    _py * 0.95   // 5% reduction goal vs. PY
+
+// 3B — EUI Goal — peer median benchmark
+P1 Goal Avg EUI =
+[Portfolio Median EUI]
+
+// 3C — Active Anomalies Goal (target = 0)
+P1 Goal Active Anomalies = 0
+
+// 3D — Cost Goal EUR
+P1 Goal Cost EUR =
+VAR _py_cost = [Previous Year Cost EUR]
+RETURN
+    _py_cost * 0.93   // 7% cost reduction goal
+
+// 3E — Net Carbon Goal tCO2 (CRREM 1.5°C pathway: -10% YoY)
+P1 Goal Net Carbon tCO2 =
+VAR _py = [Previous Year Net Carbon tCO2]
+RETURN
+    _py * 0.90
+
+
+// ==========================================================================
+// BÖLÜM 4 — TOP/BOTTOM PERFORMERS (optional ribbon)
+//   2 küçük kart sayfa üst-banda için
+// ==========================================================================
+
+// 4A — Best Performer Building (lowest EUI vs target)
+P1 Best Performer =
+VAR _ranked =
+    ADDCOLUMNS(
+        VALUES(silver_building_master[building_name]),
+        "@rank",
+            VAR _b = silver_building_master[building_name]
+            VAR _eui =
+                CALCULATE(
+                    [P1 Scorecard EUI],
+                    silver_building_master[building_name] = _b
+                )
+            VAR _tgt =
+                CALCULATE(
+                    [EU 2030 EUI Target],
+                    silver_building_master[building_name] = _b
+                )
+            RETURN DIVIDE(_eui, _tgt, 999)
+    )
+VAR _winner =
+    TOPN(1, _ranked, [@rank], ASC)
+RETURN
+    CONCATENATEX(_winner, silver_building_master[building_name])
+
+// 4B — Worst Performer Building (highest EUI vs target)
+P1 Worst Performer =
+VAR _ranked =
+    ADDCOLUMNS(
+        VALUES(silver_building_master[building_name]),
+        "@rank",
+            VAR _b = silver_building_master[building_name]
+            VAR _eui =
+                CALCULATE(
+                    [P1 Scorecard EUI],
+                    silver_building_master[building_name] = _b
+                )
+            VAR _tgt =
+                CALCULATE(
+                    [EU 2030 EUI Target],
+                    silver_building_master[building_name] = _b
+                )
+            RETURN DIVIDE(_eui, _tgt, 0)
+    )
+VAR _loser =
+    TOPN(1, _ranked, [@rank], DESC)
+RETURN
+    CONCATENATEX(_loser, silver_building_master[building_name])
+
+
+// ==========================================================================
+// BÖLÜM 5 — UYGULAMA REHBERİ (Power BI Desktop)
+// ==========================================================================
+//
+// ADIM 1 — Bu dosyadaki ölçüleri ekle:
+//   Modeling → New measure → Bölüm 1-4'teki her DAX bloğunu kopyala-yapıştır
+//
+// ADIM 2 — Building Name slicer'ı düzelt:
+//   Sayfa 1'de Building Name slicer'ı seç → sağ paneldeki "Selection
+//   controls" → "Select all" yap → Default = "All".
+//   ALTERNATİF: Slicer'ı tamamen sayfadan kaldır → drill-through sayfaya taşı.
+//
+// ADIM 3 — Yeni Visual: Portfolio Scorecard Table
+//   Insert → Visualizations → Table
+//   Field well:
+//     • silver_building_master[building_name]
+//     • silver_building_master[country_code]
+//     • silver_building_master[building_type]
+//     • silver_building_master[energy_certificate]
+//     • [P1 Scorecard EUI]
+//     • [P1 Scorecard Cost EUR]
+//     • [P1 Scorecard Active Anomalies]
+//     • [P1 Scorecard CRREM Status]
+//   Conditional formatting:
+//     • EUI column: Background color → Format style: Rules
+//       1=green (#3FA34D), 2=amber (#F0B100), 3=red (#D14B4B)
+//       Apply to: [P1 Scorecard EUI Color]
+//     • CRREM column: aynı şekilde [P1 Scorecard CRREM Color]
+//   Yer: sayfanın sağ panelinde, Anomaly Heatmap'i replace et
+//
+// ADIM 4 — EUI Benchmark visual fix:
+//   Mevcut "EUI Benchmark by Building" visual'ını seç
+//   Axis: silver_building_master[building_name] (All buildings görünmeli)
+//   Values: [P1 Scorecard EUI]
+//   Tooltip ekle: [EU 2030 EUI Target]
+//   Reference line (Format → Analytics → Constant line):
+//     • Value: [Portfolio Median EUI]
+//     • Label: "Portfolio Median"
+//     • Color: gray, dashed
+//
+// ADIM 5 — KPI cards Goal alanlarını dinamik yap:
+//   Her KPI kartında (Total Energy, EUI, Anomalies, Cost, Carbon):
+//     Goal alanını ilgili "P1 Goal ..." ölçüsüne bağla
+//   Format → Goal → Show as: Target value
+//
+// ADIM 6 — YearMonth Sort by Column (TEKRAR HATIRLATMA):
+//   Model view → Date tablosu → YearMonth kolonu seç
+//   Column tools → Sort by Column → MonthIndex
+//   → Monthly Energy Trend X-ekseni artık kronolojik
+//
+// ADIM 7 — Doğrulama:
+//   [ ] Page 1 açıldığında Building Name slicer "All" olmalı
+//   [ ] Building-Based Consumption (Current vs PY) → 6 bar görünmeli
+//   [ ] Anomaly Heatmap → 6 satır × 4 severity
+//   [ ] Monthly Energy Trend → 2023-01 → 2026-04 kronolojik sıralı
+//   [ ] Portfolio Scorecard → 6 satır, renk-kodlu
+//   [ ] EUI Benchmark → 6 bar + median reference line
+//   [ ] KPI kart Goal'leri dinamik (sabit "+0%" gözükmemeli)
+//
+// ==========================================================================

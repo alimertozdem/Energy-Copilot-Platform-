@@ -146,12 +146,15 @@ DATA_GAP_HOURS        = 6     # Beklenen okuma sayısının altında kalınca ga
 # Değerler (kgCO₂/m²/yıl, CRREM v2.0 2024):
 #   Office DE: 47 | Office TR: ~55 | Hotel: 50 | Healthcare: 80 | Logistics: 65
 CARBON_REF_DAILY = {
-    "OFFICE":      47 / 365,   # CRREM 2024 DE/EU Office pathway
-    "RETAIL":      55 / 365,   # CRREM 2024 Retail estimate
-    "INDUSTRIAL":  65 / 365,   # Logistics/Industrial reference (Logistics → INDUSTRIAL)
-    "HOTEL":       50 / 365,   # CRREM 2024 Hotel estimate
-    "HEALTHCARE":  80 / 365,   # Healthcare — higher operasyonel yük
-    "EDUCATION":   45 / 365,   # Üniversite/eğitim binası — düşük yoğunluk
+    "OFFICE":      47 / 365,    # CRREM 2024 DE/EU Office pathway
+    "RETAIL":      55 / 365,    # CRREM 2024 Retail estimate
+    "INDUSTRIAL":  65 / 365,    # Logistics/Industrial reference (Logistics → INDUSTRIAL)
+    "HOTEL":       50 / 365,    # CRREM 2024 Hotel estimate
+    "HEALTHCARE":  80 / 365,    # Healthcare — higher operasyonel yük
+    "EDUCATION":   45 / 365,    # Üniversite/eğitim binası — düşük yoğunluk
+    # 2026-05-21: Yeni vertical'lar (B009 Frankfurt DC, B010 Stockholm Lab)
+    "DATA_CENTER": 200 / 365,   # CRREM 2024 DC pathway — IT load × PUE, çok yüksek
+    "LAB":         140 / 365,   # ASHRAE Lab — HEPA + fume hood + equipment yoğun
     "DEFAULT":     55 / 365,
 }
 # Referansın %30 üzeri → CRREM "stranding zone" — gerçekçi anomaly eşiği
@@ -181,14 +184,52 @@ def log_step(step, count=None, table=None):
 
 
 def table_exists(path):
-    # Fabric'te var olmayan Delta tablosu sorgulandığında
-    # Java katmanından Py4JJavaError (400 Bad Request) fırlatılır.
-    # spark.read ile limit(0) daha sağlam yakalanır.
+    """
+    Tablo varlığını hem catalog hem path yöntemiyle kontrol et.
+    Fabric'te bazen path-based load başarısız oluyor; catalog daha güvenilir.
+
+    path: "Tables/xxx" formatında relative path
+    """
+    # Tablo adını path'ten çıkar: "Tables/gold_kpi_daily" → "gold_kpi_daily"
+    table_name = path.replace("Tables/", "").strip("/")
+
+    # 1. Catalog-based check (Fabric'te en güvenilir yol)
+    try:
+        if spark.catalog.tableExists(table_name):
+            return True
+    except Exception:
+        pass
+
+    # 2. Path-based fallback (eski yöntem)
     try:
         spark.read.format("delta").load(path).limit(0).count()
         return True
     except Exception:
         return False
+
+
+def read_table_safe(path):
+    """
+    Tabloyu önce catalog, sonra path ile okumayı dene.
+    Fabric'te path-based read başarısızsa catalog daha güvenilir.
+    """
+    table_name = path.replace("Tables/", "").strip("/")
+
+    # 1. Catalog (Fabric'te güvenilir)
+    try:
+        return spark.read.table(table_name)
+    except Exception as e_cat:
+        print(f"   ⚠️  Catalog read failed for '{table_name}': {str(e_cat)[:80]}")
+
+    # 2. Path fallback
+    try:
+        return spark.read.format("delta").load(path)
+    except Exception as e_path:
+        raise RuntimeError(
+            f"Tablo '{table_name}' hem catalog hem path ile okunamadı.\n"
+            f"  Catalog error: {e_cat}\n"
+            f"  Path error:    {e_path}"
+        )
 
 
 def notebook_exit(message):
@@ -337,7 +378,8 @@ if missing:
 # ── Tablolar mevcut, veriyi oku ──────────────────────────────
 
 # gold_kpi_daily — tarih filtresi BACKFILL_MODE'a göre değişir
-_kpi_raw = spark.read.format("delta").load(PATHS["kpi_daily"])
+# Catalog fallback ile oku (Fabric'te path-based zaman zaman fail eder)
+_kpi_raw = read_table_safe(PATHS["kpi_daily"])
 
 if BACKFILL_MODE:
     # Tüm tarih aralığı: DATA_START_DATE'den bugüne
@@ -357,7 +399,7 @@ log_step("gold_kpi_daily okundu", df_kpi.count(), "gold_kpi_daily")
 # Bunları df_building'den seçmiyoruz — join sonrası AMBIGUOUS_REFERENCE hatası verir.
 # Sadece gold_kpi_daily'de OLMAYAN kolonları alıyoruz:
 df_building = broadcast(
-    spark.read.format("delta").load(PATHS["building"])
+    read_table_safe(PATHS["building"])
     .select(
         "building_id",
         "building_type",          # kpi_daily'de yok
@@ -683,6 +725,9 @@ df_carbon_daily = (
         .when(col("building_type") == "HOTEL",     lit(CARBON_REF_DAILY.get("HOTEL")))
         .when(col("building_type") == "HEALTHCARE",lit(CARBON_REF_DAILY.get("HEALTHCARE")))
         .when(col("building_type") == "EDUCATION", lit(CARBON_REF_DAILY.get("EDUCATION")))
+        # 2026-05-21: Yeni vertical'lar (B009, B010)
+        .when(col("building_type") == "DATA_CENTER",lit(CARBON_REF_DAILY.get("DATA_CENTER")))
+        .when(col("building_type") == "LAB",       lit(CARBON_REF_DAILY.get("LAB")))
         .otherwise(lit(CARBON_REF_DAILY.get("DEFAULT")))
     )
     .withColumn("carbon_threshold", col("carbon_ref") * lit(CARBON_EXCEED_FACTOR))
@@ -790,14 +835,16 @@ from pyspark.sql.functions import dayofweek
 
 # 24/7 operasyon yapan bina tipleri AFTER_HOURS_WASTE tespitinden muaf tutulur.
 # Bu binalarda hafta sonu tüketimi beklenen operasyonel davranıştır — anomaly değil.
-#   HOTEL     : Sürekli misafir kabulü
-#   HEALTHCARE: Hastane 24/7 klinik operasyonu
-#   INDUSTRIAL: Lojistik/üretim 24/7 sevkiyat
+#   HOTEL       : Sürekli misafir kabulü
+#   HEALTHCARE  : Hastane 24/7 klinik operasyonu
+#   INDUSTRIAL  : Lojistik/üretim 24/7 sevkiyat
+#   DATA_CENTER : 7/24 IT yükü, sabit cooling (2026-05-21 eklendi — B009)
 # 24/7 operasyon tipleri — AFTER_HOURS_WASTE tespitinden muaf
 # INDUSTRIAL: Logistics Hub (B003 "Logistics" → normalize edildi)
 # HOTEL: Wien Grand Hotel (B004)
 # HEALTHCARE: Frankfurt Klinikum (B005)
-ALWAYS_ON_TYPES = {"HOTEL", "HEALTHCARE", "INDUSTRIAL"}
+# DATA_CENTER: Frankfurt DigitalRealty (B009) — sabit yük baseline
+ALWAYS_ON_TYPES = {"HOTEL", "HEALTHCARE", "INDUSTRIAL", "DATA_CENTER"}
 
 df_eligible = df_daily.filter(
     ~col("building_type").isin(list(ALWAYS_ON_TYPES))
@@ -929,63 +976,123 @@ else:
 #   Gerçek bir operasyonel sistemde anomaly'lerin bir kısmı zaman içinde
 #   tespit + aksiyon + çözüm döngüsünden geçer. Sentetik verimizde
 #   is_resolved her zaman False → "hiçbir şey çözülmemiyor" izlenimi.
-#   Bu adım, 45 günden eski anomaly'lerin %30'unu resolved olarak işaretler.
+#   Bu adım, 45 günden eski anomaly'lerin %15-40'ını severity bazlı resolved
+#   olarak işaretler.
+#
+# UYGULAMA (v2 — 2026-05-18 patch):
+#   spark.sql("UPDATE ...") Fabric'te sessizce exception fırlatıyordu
+#   → is_resolved %100 FALSE kalıyordu → C4/C5 kartları bozuluyordu.
+#   Bu versiyon DeltaTable.merge() API kullanıyor → Fabric'te güvenilir çalışır.
+#   (29b_anomaly_resolved_fix.py notebook'unun mantığı bu bölüme entegre edildi.)
 #
 # MANTIK:
-#   • Sadece 45 günden eski anomaly'ler hedef alınır
+#   • Sadece RESOLVED_CUTOFF_DAYS (45) günden eski anomaly'ler hedef alınır
 #     (yeni anomaly'ler hâlâ aktif/open kalır — doğal davranış)
-#   • Hangi %30'un resolved olacağını ABS(HASH(anomaly_id)) % 10 < 3
+#   • Hangi anomaly'lerin resolved olacağını ABS(HASH(anomaly_id)) % N
 #     ile deterministik seçiyoruz:
 #       - Random değil → notebook her çalışmada aynı sonucu verir
 #       - anomaly_id benzersiz string → hash iyi dağılım sağlar
-#       - Yaklaşık %30 oranı (0,1,2 → 3/10 → %30)
-#   • Severity bazlı kural: "critical" anomaly'ler daha zor çözülür (%15),
-#     "high" %25, "medium" ve altı %40 oranında resolved yapılır.
+#   • Severity bazlı kural:
+#       critical : hash % 20 < 3  → ~%15  (zor çözülür)
+#       high     : hash % 20 < 5  → ~%25
+#       medium   : hash % 10 < 4  → ~%40  (kolay çözülür)
+#       low/info : hash % 10 < 4  → ~%40
 #
-# ETKİ: Power BI Page 3'te Unresolved ≠ Total → gerçekçi operasyonel görünüm
+# ETKİ: Power BI Page 3'te Unresolved < Total → gerçekçi operasyonel görünüm
+#       Resolution Rate %30-40 aralığında → C5 kartı anlamlı değer gösterir
 # =============================================================================
 
 if table_exists(PATHS["anomalies"]):
-    print("\n🔄 Resolved status güncelleniyor...")
+    print("\n🔄 Resolved status güncelleniyor (DeltaTable API)...")
 
     RESOLVED_CUTOFF_DAYS = 45   # Bu kadar günden eski anomaly'ler resolve adayı
-    # Catalog tablo adı (Tables/ prefix'i olmadan) — spark.sql UPDATE için
     _anomaly_cat_name = PATHS["anomalies"].replace("Tables/", "")
 
     try:
-        # Severity bazlı resolved oranları (hash modulo ile deterministik seçim)
-        # critical: hash % 20 < 3  → ~%15
-        # high:     hash % 20 < 5  → ~%25
-        # medium:   hash % 10 < 4  → ~%40
-        # low/info: hash % 10 < 4  → ~%40
-        # NOT: delta.`Tables/...` path Fabric'te spark.sql UPDATE'inde tanınmıyor.
-        #      Catalog adını (gold_anomaly_log) doğrudan kullanıyoruz.
-        spark.sql(f"""
-            UPDATE {_anomaly_cat_name}
-            SET is_resolved = true
-            WHERE is_resolved = false
-              AND detected_date < date_sub(current_date(), {RESOLVED_CUTOFF_DAYS})
-              AND (
-                    (severity = 'CRITICAL' AND abs(hash(anomaly_id)) % 20 < 3)
-                 OR (severity = 'HIGH'     AND abs(hash(anomaly_id)) % 20 < 5)
-                 OR (severity IN ('MEDIUM','LOW','INFORMATIONAL')
-                                           AND abs(hash(anomaly_id)) % 10 < 4)
-              )
-        """)
+        # ── 1. Tabloyu oku ve resolved flag'i deterministik hesapla ──────────
+        from pyspark.sql.functions import hash as spark_hash
 
-        # Sonucu raporla — catalog adıyla oku (relative path Fabric'te güvenilmez)
-        df_res_check = spark.read.table(_anomaly_cat_name)
-        total_all      = df_res_check.count()
-        total_resolved = df_res_check.filter(col("is_resolved") == lit(True)).count()
-        total_open     = total_all - total_resolved
+        df_before = spark.read.format("delta").load(PATHS["anomalies"])
+        total_before    = df_before.count()
+        resolved_before = df_before.filter(col("is_resolved") == lit(True)).count()
 
-        print(f"   Toplam anomaly  : {total_all:,}")
-        print(f"   Resolved (kapalı): {total_resolved:,}  ({100*total_resolved/max(total_all,1):.0f}%)")
-        print(f"   Open (aktif)     : {total_open:,}  ({100*total_open/max(total_all,1):.0f}%)")
-        print("✅ Resolved status güncellendi")
+        df_flagged = (
+            df_before
+            .withColumn("_age_days", datediff(current_date(), col("detected_date")))
+            .withColumn(
+                "_new_resolved",
+                # Zaten resolved → değiştirme
+                when(col("is_resolved") == lit(True), lit(True))
+                # Çok yeni → hâlâ open
+                .when(col("_age_days") < lit(RESOLVED_CUTOFF_DAYS), lit(False))
+                # CRITICAL: hash % 20 < 3  → ~%15
+                .when(
+                    col("severity") == lit("CRITICAL"),
+                    (spark_abs(spark_hash(col("anomaly_id"))) % lit(20)) < lit(3)
+                )
+                # HIGH: hash % 20 < 5  → ~%25
+                .when(
+                    col("severity") == lit("HIGH"),
+                    (spark_abs(spark_hash(col("anomaly_id"))) % lit(20)) < lit(5)
+                )
+                # MEDIUM / LOW / INFORMATIONAL: hash % 10 < 4 → ~%40
+                .when(
+                    col("severity").isin("MEDIUM", "LOW", "INFORMATIONAL"),
+                    (spark_abs(spark_hash(col("anomaly_id"))) % lit(10)) < lit(4)
+                )
+                .otherwise(lit(False))
+            )
+        )
+
+        # Sadece DEĞİŞECEK satırları MERGE kaynağı olarak hazırla
+        df_updates = (
+            df_flagged
+            .filter(col("_new_resolved") != col("is_resolved"))
+            .select(
+                col("anomaly_id"),
+                col("_new_resolved").alias("is_resolved_new")
+            )
+        )
+
+        will_resolve = df_updates.count()
+        print(f"   Değişecek satır sayısı  : {will_resolve:,}")
+
+        if will_resolve == 0:
+            print("   ℹ️  Güncelleme gerekmez (45+ gün eski yeterli anomaly yok veya zaten resolved).")
+        else:
+            # ── 2. DeltaTable MERGE — Fabric'te güvenilir UPDATE deseni ──────
+            # spark.sql("UPDATE …") path-based çağrılarda Fabric'te susarak fail
+            # ediyor. forName + merge kombinasyonu kanıtlanmış (29b notebook).
+            try:
+                dt = DeltaTable.forName(spark, _anomaly_cat_name)
+            except Exception:
+                dt = DeltaTable.forPath(spark, PATHS["anomalies"])
+
+            (dt.alias("target")
+                .merge(
+                    df_updates.alias("src"),
+                    "target.anomaly_id = src.anomaly_id"
+                )
+                .whenMatchedUpdate(set={"is_resolved": "src.is_resolved_new"})
+                .execute()
+            )
+
+        # ── 3. Sonucu raporla ────────────────────────────────────────────────
+        df_after = spark.read.table(_anomaly_cat_name)
+        total_after    = df_after.count()
+        resolved_after = df_after.filter(col("is_resolved") == lit(True)).count()
+        open_after     = total_after - resolved_after
+
+        print(f"   Toplam anomaly  : {total_after:,}")
+        print(f"   Resolved (kapalı): {resolved_after:,}  ({100*resolved_after/max(total_after,1):.0f}%)")
+        print(f"   Open (aktif)     : {open_after:,}  ({100*open_after/max(total_after,1):.0f}%)")
+        print(f"   Bu çalışmada yeni resolved: {resolved_after - resolved_before:,}")
+        print("✅ Resolved status güncellendi (DeltaTable MERGE)")
 
     except Exception as _re:
-        print(f"⚠️  Resolved update atlandı: {str(_re)[:120]}")
+        # Bu blok artık SESSİZCE atlamamalı — hata fırlatsın ki notebook kırılsın
+        print(f"❌ Resolved update HATASI: {str(_re)[:200]}")
+        raise
 else:
     print("ℹ️  gold_anomalies tablosu yok — resolved update atlandı")
 

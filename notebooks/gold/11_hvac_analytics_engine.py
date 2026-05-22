@@ -105,11 +105,45 @@ print("✅ Spark konfigürasyonu tamamlandı")
 # BÖLÜM 2 — SABİTLER VE REFERANS DEĞERLER
 # =============================================================================
 
-# Tablo yolları
-SILVER_BUILDING  = "Tables/silver_building_master"
-GOLD_KPI_DAILY   = "Tables/gold_kpi_daily"
-GOLD_GHG_SCOPE   = "Tables/gold_ghg_scope"
-OUTPUT_TABLE     = "Tables/gold_hvac_analytics"
+# 2026-05-21: Schema-enabled lakehouse uyumu — dinamik ABFS path resolver
+# Hardcoded "Tables/..." schema-enabled lakehouse'ta çalışmaz (gerçek path "Tables/dbo/...")
+# Bu pattern catalog query ile actual physical path'i discover eder
+import re
+
+def _resolve_tables_prefix() -> tuple[str, str]:
+    """Lakehouse'un Tables prefix'ini dinamik tespit eder.
+    Schema-enabled (dbo) ve flat lakehouse'ları otomatik destekler."""
+    candidate_tables = ["gold_kpi_daily", "silver_building_master", "gold_recommendations"]
+    sample_path = None
+    for t in candidate_tables:
+        try:
+            sample_path = spark.table(t).inputFiles()[0]
+            break
+        except Exception:
+            continue
+    if not sample_path:
+        raise Exception("Referans tablo catalog'da yok — 01_bronze ve 02_silver çalıştı mı?")
+    match = re.match(r"(abfss://[^/]+@[^/]+/[^/]+)", sample_path)
+    if not match:
+        raise Exception(f"ABFS base extract edilemedi: {sample_path}")
+    abfss_base = match.group(1)
+    if "/Tables/dbo/" in sample_path:
+        return (f"{abfss_base}/Tables/dbo", "schema-enabled (dbo)")
+    elif "/Tables/" in sample_path:
+        return (f"{abfss_base}/Tables", "flat")
+    else:
+        raise Exception(f"Tables prefix tanınamadı: {sample_path}")
+
+TABLES_PREFIX, _lakehouse_format = _resolve_tables_prefix()
+print(f"✅ Lakehouse format: {_lakehouse_format}")
+print(f"   Tables prefix: {TABLES_PREFIX}")
+
+# Tablo yolları (dinamik prefix ile)
+SILVER_BUILDING  = f"{TABLES_PREFIX}/silver_building_master"
+GOLD_KPI_DAILY   = f"{TABLES_PREFIX}/gold_kpi_daily"
+GOLD_GHG_SCOPE   = f"{TABLES_PREFIX}/gold_ghg_scope"
+OUTPUT_TABLE     = f"{TABLES_PREFIX}/gold_hvac_analytics"
+OUTPUT_TABLE_NAME = "gold_hvac_analytics"  # catalog table name (without prefix)
 
 # ─── GEG 2023 Referans U-Değerleri (W/m²K) ────────────────────────────────
 # Kaynak: Gebäudeenergiegesetz 2023, §19 — Modernizasyon teknik minimumları
@@ -140,20 +174,34 @@ U_WEIGHTS = {
 
 # ─── HVAC Enerji Ayrıştırma Katsayıları (bina tipine göre) ────────────────
 # Kaynak: ASHRAE Handbook 2021, Bölüm 32 + EN ISO 13790 basitleştirme
-# heating_sens: HDD bazlı ısıtma payı katsayısı
-# cooling_sens: CDD bazlı soğutma payı katsayısı
+#         + Uptime Institute Tier III DC profile (Datacenter)
+#         + ASHRAE Lab Design Guide 2.0 (Lab/Research)
+# heating_sens: HDD bazlı ısıtma payı katsayısı (yıllık total'ın %'si)
+# cooling_sens: CDD bazlı soğutma payı katsayısı (yıllık total'ın %'si)
 # ventilation:  Sabit havalandırma payı (toplam tüketimin oranı)
 #
 # Varsayım V1: Gerçek sub-meter verisi olmadığında HDD/CDD oransal model
 # Bu katsayılar sektörel ortalamadır — gerçek binada kalibrasyon gerekir
+#
+# 2026-05-20: Data_Center ve Lab profilleri eklendi (yeni vertical'lar — B009, B010)
+# 2026-05-21: "Datacenter" → "Data_Center" (ref_building_type_profiles uyumu, UPPER = DATA_CENTER)
 HVAC_COEFFICIENTS = {
-    "Office":     {"heating_sens": 0.35, "cooling_sens": 0.12, "ventilation": 0.15},
-    "Retail":     {"heating_sens": 0.28, "cooling_sens": 0.18, "ventilation": 0.15},
-    "Logistics":  {"heating_sens": 0.42, "cooling_sens": 0.05, "ventilation": 0.10},
-    "Hotel":      {"heating_sens": 0.40, "cooling_sens": 0.12, "ventilation": 0.18},
-    "Healthcare": {"heating_sens": 0.22, "cooling_sens": 0.10, "ventilation": 0.20},
-    "Education":  {"heating_sens": 0.48, "cooling_sens": 0.05, "ventilation": 0.15},
-    "DEFAULT":    {"heating_sens": 0.35, "cooling_sens": 0.10, "ventilation": 0.15},
+    "Office":      {"heating_sens": 0.35, "cooling_sens": 0.12, "ventilation": 0.15},
+    "Retail":      {"heating_sens": 0.28, "cooling_sens": 0.18, "ventilation": 0.15},
+    "Logistics":   {"heating_sens": 0.42, "cooling_sens": 0.05, "ventilation": 0.10},
+    "Hotel":       {"heating_sens": 0.40, "cooling_sens": 0.12, "ventilation": 0.18},
+    "Healthcare":  {"heating_sens": 0.22, "cooling_sens": 0.10, "ventilation": 0.20},
+    "Education":   {"heating_sens": 0.48, "cooling_sens": 0.05, "ventilation": 0.15},
+    # ── YENİ VERTICAL'LAR (2026-05-20) ───────────────────────────────────
+    # Data_Center: Cooling-dominated. IT load dominates total kWh.
+    #   Heating minimal (atık ısı yan ürün). Free cooling kış aylarında.
+    #   Uptime Institute Tier III: ~65% cooling, ~2% heating, ~10% ventilation, kalan IT load
+    "Data_Center": {"heating_sens": 0.02, "cooling_sens": 0.65, "ventilation": 0.10},
+    # Lab/Research: Yüksek havalandırma (HEPA + fume hood + 8-12 ACH).
+    #   Mixed heating/cooling (precise setpoint). Ventilation enerjinin %35'i.
+    #   ASHRAE Lab Design Guide referans
+    "Lab":         {"heating_sens": 0.18, "cooling_sens": 0.20, "ventilation": 0.35},
+    "DEFAULT":     {"heating_sens": 0.35, "cooling_sens": 0.10, "ventilation": 0.15},
 }
 
 # ─── Isı Pompası Teknoloji Karşılaştırması ────────────────────────────────
@@ -244,6 +292,9 @@ df_bldg = df_building.select(
     coalesce(col("window_u_value"), lit(2.00)).alias("u_window"),
     coalesce(col("window_to_wall_ratio"), lit(0.30)).alias("wwr"),
     coalesce(col("insulation_year"), lit(None).cast("integer")).alias("insulation_year"),
+    # 2026-05-20: hava sızdırmazlık + termal köprü flag'i (önceden okunmuyordu)
+    coalesce(col("air_tightness_ach"), lit(2.0)).alias("air_tightness_ach"),  # 2.0 = sektör ortalama
+    coalesce(col("has_thermal_bridge").cast("boolean"), lit(False)).alias("has_thermal_bridge"),
     # Enerji sertifikası
     coalesce(col("energy_certificate"), lit("Unknown")).alias("energy_cert"),
 ).distinct()
@@ -275,25 +326,72 @@ df_bldg = df_bldg.withColumn(
     )
 )
 
-# Yalıtım Skoru hesabı (Varsayım V4: GEG 2023 referansı)
-# element_score = min(100, (target / actual) × 100)
+# Yalıtım Skoru hesabı (2026-05-20 — 3-PARÇALI LINEER, Passive House diskriminasyonu)
+#
+# ÖNCEKİ HATA: score = min(100, target/u × 100) → Passive House (U=0.15) ve GEG (U=0.24)
+#              her ikisi de 100 puana clipleniyordu → premium binalar ayırt edilemiyordu.
+#
+# YENI 3-PARÇALI EĞRİ (her U-element için):
+#   U ≤ U_passive     → 100 puan (Passive House sınıfı)
+#   U_passive..U_geg  → lineer 100→70 (GEG seviyesi = 70 puan)
+#   U_geg..2×U_geg    → lineer 70→0  (GEG'in 2 katı = sıfır puan)
+#   U > 2×U_geg       → 0 puan
+#
+# Sonuç: Passive House binası 90-100, GEG-modern bina 65-75, eski bina 20-50 arası
 for elem, w in INSULATION_WEIGHTS.items():
-    target = U_BENCHMARK[elem]
+    target  = U_BENCHMARK[elem]   # GEG referans (70 puan eşiği)
+    passive = U_PASSIVE[elem]     # Passive House (100 puan)
+    target_2x = 2.0 * target      # 2× GEG (0 puan)
+
+    u_col = col(f"u_{elem}")
+
     df_bldg = df_bldg.withColumn(
         f"ins_score_{elem}",
         spark_round(
-            least(lit(100.0), (lit(target) / col(f"u_{elem}")) * 100),
+            when(u_col <= lit(passive), lit(100.0))
+            .when(u_col <= lit(target),
+                  lit(100.0) - (u_col - lit(passive)) / lit(target - passive) * lit(30.0))
+            .when(u_col <= lit(target_2x),
+                  lit(70.0) - (u_col - lit(target)) / lit(target_2x - target) * lit(70.0))
+            .otherwise(lit(0.0)),
             1
         )
     )
 
+# Base score: ağırlıklı U-değeri kompoziti
 df_bldg = df_bldg.withColumn(
-    "insulation_score",
+    "_ins_base_score",
     spark_round(
         col("ins_score_wall")   * lit(INSULATION_WEIGHTS["wall"])   +
         col("ins_score_window") * lit(INSULATION_WEIGHTS["window"]) +
         col("ins_score_roof")   * lit(INSULATION_WEIGHTS["roof"])   +
         col("ins_score_floor")  * lit(INSULATION_WEIGHTS["floor"]),
+        1
+    )
+)
+
+# Air tightness cezası (n50 / ACH50 değeri)
+# CIBSE TM23: <1.0 mükemmel, 1-3 iyi, 3-7 zayıf, >7 sızıntılı
+# Penalty: ACH ≥ 5 → -10 puan, ACH ≥ 3 → -5 puan, ACH < 3 → 0
+df_bldg = df_bldg.withColumn(
+    "_air_penalty",
+    when(col("air_tightness_ach") >= 5.0, lit(-10.0))
+    .when(col("air_tightness_ach") >= 3.0, lit(-5.0))
+    .otherwise(lit(0.0))
+)
+
+# Termal köprü cezası — has_thermal_bridge = True ise -3 puan
+df_bldg = df_bldg.withColumn(
+    "_tb_penalty",
+    when(col("has_thermal_bridge"), lit(-3.0)).otherwise(lit(0.0))
+)
+
+df_bldg = df_bldg.withColumn(
+    "insulation_score",
+    spark_round(
+        greatest(lit(0.0), least(lit(100.0),
+            col("_ins_base_score") + col("_air_penalty") + col("_tb_penalty")
+        )),
         1
     )
 )
@@ -455,10 +553,19 @@ df_joined = df_bldg.join(
 # Sub-meter verisi geldiğinde bu bölüm gerçek veriyle değiştirilmeli.
 # =============================================================================
 
-# Yıllık HDD ve CDD toplamları (normalize için)
+# Yıllık HDD, CDD ve TOPLAM TÜKETİM (normalize için)
+# 2026-05-20 BUG FIX: total_consumption_annual eklendi.
+#   ÖNCEKİ HATA: heating/cooling formülü `total_consumption_kwh` (aylık) kullanıyordu
+#   → annual heating = total/12 × heating_sens (12× DÜŞÜK!)
+#   → HVAC Share %19 (gerçek beklenen %55-65)
+#   YENI: heating = total_ANNUAL × heating_sens × hdd_fraction
+#   → annual sum doğru: total × heating_sens (heating_sens = annual share)
 win_bldg_year = Window.partitionBy("building_id", "reporting_year")
 
 df_with_annual = df_joined.withColumn(
+    "total_consumption_annual",
+    spark_sum(coalesce(col("total_consumption_kwh"), lit(0.0))).over(win_bldg_year)
+).withColumn(
     "hdd_annual", spark_sum("hdd_monthly").over(win_bldg_year)
 ).withColumn(
     "cdd_annual", spark_sum("cdd_monthly").over(win_bldg_year)
@@ -480,7 +587,8 @@ df_with_frac = df_with_annual.withColumn(
 # HVAC katsayılarını bina tipine göre uygula
 # PySpark'ta UDF kullanmak yerine CASE WHEN (DP-600 best practice)
 def add_hvac_coeff(df, coeff_key, col_out):
-    """Bina tipine göre HVAC katsayısını ekle."""
+    """Bina tipine göre HVAC katsayısını ekle.
+    2026-05-20: Datacenter ve Lab tipleri de destekleniyor (B009, B010)."""
     c = HVAC_COEFFICIENTS
     return df.withColumn(
         col_out,
@@ -490,6 +598,8 @@ def add_hvac_coeff(df, coeff_key, col_out):
         .when(col("building_type") == "Hotel",     lit(c["Hotel"][coeff_key]))
         .when(col("building_type") == "Healthcare",lit(c["Healthcare"][coeff_key]))
         .when(col("building_type") == "Education", lit(c["Education"][coeff_key]))
+        .when(col("building_type") == "Data_Center",lit(c["Data_Center"][coeff_key]))
+        .when(col("building_type") == "Lab",        lit(c["Lab"][coeff_key]))
         .otherwise(lit(c["DEFAULT"][coeff_key]))
     )
 
@@ -497,17 +607,26 @@ df_with_frac = add_hvac_coeff(df_with_frac, "heating_sens", "_h_sens")
 df_with_frac = add_hvac_coeff(df_with_frac, "cooling_sens", "_c_sens")
 df_with_frac = add_hvac_coeff(df_with_frac, "ventilation",  "_vent_share")
 
-# Enerji ayrıştırması
+# Enerji ayrıştırması (2026-05-20 düzeltildi — total_consumption_annual kullanıyor)
+#
+# MATEMATİK MANTIK:
+#   heating_sens = yıllık tüketimin % kaçı ısıtmadır (Office=35%)
+#   hdd_fraction = ay HDD'sinin yıllık HDD'ye oranı (yıl boyu Σ=1.0)
+#   heating_monthly = total_ANNUAL × heating_sens × hdd_fraction
+#   → Σ heating_monthly over year = total_annual × heating_sens × 1.0 ✅
+#
+#   Ventilation aylık total ile çarpıma devam ediyor (yıllık toplam doğru çıkıyor):
+#   Σ vent = Σ(total_monthly × 0.15) = total_annual × 0.15 ✅
 df_disagg = df_with_frac.withColumn(
     "heating_energy_kwh",
     spark_round(
-        col("total_consumption_kwh") * col("_h_sens") * col("hdd_fraction"),
+        col("total_consumption_annual") * col("_h_sens") * col("hdd_fraction"),
         2
     )
 ).withColumn(
     "cooling_energy_kwh",
     spark_round(
-        col("total_consumption_kwh") * col("_c_sens") * col("cdd_fraction"),
+        col("total_consumption_annual") * col("_c_sens") * col("cdd_fraction"),
         2
     )
 ).withColumn(
@@ -563,12 +682,21 @@ print("✅ HVAC enerji ayrıştırması tamamlandı")
 # Isı köprüsü katsayısı (Δu) = 0.10 W/m²K eklendi (EN ISO 14683 default)
 # =============================================================================
 
-THERMAL_BRIDGE_FACTOR = 0.10  # W/m²K — Isı köprüsü ek kaybı (EN ISO 14683)
+# EN ISO 14683 — Isı köprüsü katsayısı (default vs poor-detailing)
+# 2026-05-20: has_thermal_bridge flag'i artık kullanılıyor
+#   has_thermal_bridge = True  → 0.10 W/m²K (eski detaylandırma, yüksek kayıp)
+#   has_thermal_bridge = False → 0.05 W/m²K (modern detaylandırma, EN ISO 14683 best practice)
+THERMAL_BRIDGE_FACTOR_GOOD = 0.05
+THERMAL_BRIDGE_FACTOR_POOR = 0.10
 
 df_heat_loss = df_disagg.withColumn(
+    "_tb_factor",
+    when(col("has_thermal_bridge"), lit(THERMAL_BRIDGE_FACTOR_POOR))
+    .otherwise(lit(THERMAL_BRIDGE_FACTOR_GOOD))
+).withColumn(
     "heat_loss_kwh",
     spark_round(
-        (col("u_composite") + lit(THERMAL_BRIDGE_FACTOR))  # toplam U + köprü
+        (col("u_composite") + col("_tb_factor"))            # toplam U + köprü (dinamik)
         * col("envelope_area_m2")                           # m²
         * col("hdd_monthly")                                # K·gün
         * 24                                                # saat/gün
@@ -602,10 +730,11 @@ print("✅ Isı kaybı hesaplandı")
 win_rolling = (Window.partitionBy("building_id").orderBy("year_month")
                     .rowsBetween(-2, 0))  # 3 aylık rolling
 
+# 2026-05-20 BUG FIX: GSHP ve WSHP de heat pump ailesinde → SCOP hesabına dahil
 df_with_scop = df_heat_loss.withColumn(
     "scop_rolling",
     when(
-        col("system_type") == "heat_pump",
+        col("system_type").isin("heat_pump", "gshp", "wshp"),
         spark_round(spark_avg("cop_actual_avg").over(win_rolling), 2)
     ).otherwise(lit(None).cast("double"))
 )
@@ -667,6 +796,11 @@ df_with_eff = df_with_scop.withColumn(
             col("system_type") == "electric",
             # Elektrikli direnç: COP=1, yüksek karbon riski → 10-30
             least(lit(30.0), col("insulation_score") * 0.25 + lit(5.0))
+        ).when(
+            col("system_type") == "chiller",
+            # Chiller (cooling-led datacenter): PUE odaklı verim, refrigerant COP 3-5
+            # Modern free-cooling + heat recovery → 55-85 puan
+            least(lit(85.0), col("insulation_score") * 0.30 + lit(50.0))
         ).otherwise(
             # Gaz kazan + other: yalıtıma göre 10-50, karbon dezavantajı
             least(lit(50.0), col("insulation_score") * 0.45)
@@ -691,11 +825,15 @@ print("✅ HVAC verimlilik skoru hesaplandı")
 # Eşikler: insulation_score ≥ 70 → iyi, ≥ 45 → orta, < 45 → kötü
 # =============================================================================
 
+# 2026-05-20 ALIGNMENT: _ins_band eşikleri DAX EPC sınırlarıyla hizalandı
+#   DAX Insulation Label v43 eşikleri: 35 / 50 / 65 / 80
+#   Yeni: poor < 50 (EPC E/F/G), medium 50-65 (EPC D), good ≥ 65 (EPC A/B/C)
+#   Bu sayede notebook karar (renovation_priority) ile DAX etiketi (EPC) tutarlı
 df_with_reno = df_with_eff.withColumn(
     "_ins_band",
-    when(col("insulation_score") >= 70, lit("good"))
-    .when(col("insulation_score") >= 45, lit("medium"))
-    .otherwise(lit("poor"))
+    when(col("insulation_score") >= 65, lit("good"))     # EPC A/B/C
+    .when(col("insulation_score") >= 50, lit("medium"))  # EPC D
+    .otherwise(lit("poor"))                              # EPC E/F/G
 ).withColumn(
     "renovation_priority",
     when(col("system_type").isin("heat_pump","gshp","wshp"),
@@ -715,7 +853,11 @@ df_with_reno = df_with_eff.withColumn(
     ).when(col("system_type") == "hybrid",
          when(col("_ins_band") == "poor",   lit("High"))
          .otherwise(                         lit("Medium"))
-    ).otherwise(  # gas_boiler / other / chiller
+    ).when(col("system_type") == "chiller",
+         # Chiller (DC cooling): envelope iyi → Low, kötü → Medium
+         when(col("_ins_band") == "poor",   lit("Medium"))
+         .otherwise(                         lit("Low"))
+    ).otherwise(  # gas_boiler / other
          when(col("_ins_band") == "good",   lit("Medium"))
          .otherwise(                         lit("High"))
     )
@@ -759,6 +901,12 @@ df_with_reno = df_with_eff.withColumn(
         )
     ).when(col("system_type") == "electric",
         lit("Elektrikli direnç: COP=1.0, ASHP'ye geçiş ile enerji %65 azalır")
+    ).when(col("system_type") == "chiller",
+        when(col("_ins_band") == "poor",
+            lit("Datacenter zarf retrofit: termal infiltrasyonu azalt, free-cooling saatlerini artır")
+        ).otherwise(
+            lit("Datacenter chiller: F-Gas refrigerant denetimi, free-cooling maksimize, atık ısı geri kazanımı")
+        )
     ).otherwise(
         lit("Sistem tipi belirsiz: Enerji denetimi ve HVAC envanteri önerilir")
     )
@@ -816,7 +964,7 @@ print("\n📊 Renovasyon öncelikleri:")
 #        Power BI → Date[Date] ilişkisi doğrudan kurulabilir.
 # =============================================================================
 
-_tbl_name = OUTPUT_TABLE.replace("Tables/", "")
+_tbl_name = OUTPUT_TABLE_NAME  # catalog adı (sadece "gold_hvac_analytics")
 _needs_overwrite = False
 
 try:
@@ -870,7 +1018,7 @@ print("✅ Z-ORDER OPTIMIZE tamamlandı")
 # Fabric'te CREATE TABLE ... LOCATION relative path KABUL ETMEZ (absolute ABFS lazım).
 # Bunun yerine: tablo katalogda varsa cache'i temizle, yoksa Fabric otomatik keşfeder.
 
-_tbl_name = OUTPUT_TABLE.replace("Tables/", "")
+_tbl_name = OUTPUT_TABLE_NAME  # catalog adı (ABFS path'ten ayrı)
 
 try:
     spark.catalog.refreshTable(_tbl_name)

@@ -1,0 +1,132 @@
+// =============================================================================
+// DAX PATCH — v51 — Page 9: Final Fixes (minimal, surgical)
+// File    : 62_dax_v51_final_fixes.dax
+// Date    : 2026-05-09
+//
+// ONLY 4 measures in this file. Touch nothing else.
+//
+// 1. [V4 ROI Gauge Pct]          — redesign: payback-based score (0–100)
+// 2. [V4 ROI Status Label]        — updated labels for payback logic
+// 3. [EU Compliance Portfolio Label] — re-add (user deleted it)
+// 4. [Active Strategy Short Label]   — simplified, no TOPN (was causing "See details")
+// =============================================================================
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. V4 ROI Gauge Pct — v51 REDESIGN
+//
+// WHY OLD VERSION WAS BROKEN:
+//   ActualSavings (€37k dispatch) / TargetSavings (€387k simulation optimistic)
+//   = 9.5% → gauge always near empty → misleading and visually broken.
+//   Dispatch and simulation use different methodologies and will never match.
+//
+// NEW LOGIC — Payback-based Investment Score:
+//   Score = (1 − Payback / 12) × 100, capped between 0 and 100
+//   - Payback 1.5 yr (Frankfurt Backup) → score 87.5% → gauge full  ✅
+//   - Payback 7 yr (threshold)          → score 41.7% → gauge mid
+//   - Payback 12 yr (max acceptable)    → score 0%   → gauge empty  ✅
+//   - Payback > 12 yr                   → score 0%   → gauge empty  ✅
+//
+// This score directly answers: "How good is this investment?"
+// Short payback = high score = needle to the right.
+//
+// VISUAL SETTINGS after applying this measure:
+//   Gauge Value    → [V4 ROI Gauge Pct]
+//   Minimum        → 0
+//   Maximum        → 100
+//   Target value   → 42  (= payback of 7yr → the "Good" threshold)
+//   Callout value  → [V4 ROI Status Label]
+// ─────────────────────────────────────────────────────────────────────────────
+
+[V4 ROI Gauge Pct] =
+VAR Payback = [C2 Payback Years]
+VAR Score = MAX(0, MIN(100, (1 - DIVIDE(Payback, 12)) * 100))
+RETURN
+    IF(ISBLANK(Payback), BLANK(), IFERROR(Score, BLANK()))
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. V4 ROI Status Label — v51 UPDATE
+//
+// Returns a short text label for the gauge callout value.
+// Aligned with payback thresholds used in [V4 ROI Gauge Pct].
+// ─────────────────────────────────────────────────────────────────────────────
+
+[V4 ROI Status Label] =
+VAR Payback = [C2 Payback Years]
+RETURN
+    IF(ISBLANK(Payback), "No data",
+    IF(Payback <= 3,  "Excellent ROI",
+    IF(Payback <= 7,  "Good — below 7yr threshold",
+    IF(Payback <= 12, "Acceptable — review strategy",
+    "Poor — exceeds 12yr max"))))
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. EU Compliance Portfolio Label — RE-ADD (user deleted previous version)
+//
+// Shows count of non-compliant buildings across the portfolio.
+// Uses text comparison ("False") to handle Direct Lake boolean-as-text columns.
+// Bound to: subtitle of Active Battery Label card OR standalone card.
+// ─────────────────────────────────────────────────────────────────────────────
+
+[EU Compliance Portfolio Label] =
+VAR NonCompliant =
+    CALCULATE(
+        DISTINCTCOUNT(gold_battery_simulation[building_id]),
+        gold_battery_simulation[eu_compliant] = FALSE()
+            || gold_battery_simulation[eu_compliant] = "False"
+    )
+RETURN
+    IF(
+        NonCompliant > 0,
+        FORMAT(NonCompliant, "0") & " NON-COMPLIANT · EU 2023/1670",
+        "All batteries EU-compliant ✓"
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. Active Strategy Short Label — v51 SIMPLIFIED
+//
+// WHY "See details" ERROR APPEARED:
+//   v50 version used TOPN(1, ...) inside MAXX inside CALCULATE.
+//   TOPN creates a virtual table — not supported in some Direct Lake card contexts.
+//
+// FIX: Removed TOPN entirely. Simple SWITCH on slicer selection.
+//   When S2 = All → shows "— Select strategy (S2) —" in English.
+//   When S2 = specific → shows "● Strategy Name".
+//
+// If you want to show the best strategy when S2=All, bind V3 table instead:
+//   user can click a row in V3 → cross-filters S2 → this card updates.
+// ─────────────────────────────────────────────────────────────────────────────
+
+[Active Strategy Short Label] =
+VAR SelStrat = SELECTEDVALUE(gold_battery_dispatch[strategy])
+RETURN
+    SWITCH(
+        SelStrat,
+        "peak_shaving",     "● Peak-Shaving",
+        "self_consumption", "● Self-Consumption",
+        "tou",              "● Time-of-Use (ToU)",
+        "backup",           "● Backup + Opportunistic",
+        "— Select strategy (S2) —"
+    )
+
+
+// =============================================================================
+// HOW TO APPLY v51
+//
+// DELETE first (if they exist from v47 or v50):
+//   [V4 ROI Gauge Pct]
+//   [V4 ROI Status Label]
+//   [EU Compliance Portfolio Label]
+//   [Active Strategy Short Label]
+//
+// THEN: Modeling → New Measure → paste each of the 4 measures above.
+//
+// After applying, update V4 gauge visual:
+//   Gauge Value → [V4 ROI Gauge Pct]
+//   Maximum     → 100
+//   Target      → 42
+//   Callout     → [V4 ROI Status Label]
+// =============================================================================

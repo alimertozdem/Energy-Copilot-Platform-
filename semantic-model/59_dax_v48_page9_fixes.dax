@@ -1,0 +1,224 @@
+// =============================================================================
+// DAX PATCH — v48 — PAGE 9: Bug Fixes & Visual Improvements
+// File     : 59_dax_v48_page9_fixes.dax
+// Updated  : 2026-05-09
+// Replaces : specific measures from 58_dax_v47_page9_battery.dax
+//
+// WHAT CHANGED vs v47
+//   FIX 1: C4 column name bug — round_trip_efficiency → round_trip_efficiency_percent
+//   FIX 2: [Active Strategy Short Label] — removes building name, shows only strategy
+//   NEW  : [Scatter Label] — readable V5 bubble labels (add as calculated column)
+//   NEW  : [Active Battery Label] — battery type + compliance for right panel card
+//   NOTE : MonthYear grouping → add as CALCULATED COLUMN in Data view (see guide)
+// =============================================================================
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 1 — C4: Round-Trip Efficiency (column name corrected)
+// BUG in v47: used [round_trip_efficiency] — column does NOT exist
+// CORRECT column name: round_trip_efficiency_percent
+// ─────────────────────────────────────────────────────────────────────────────
+
+[C4 Round Trip Efficiency Pct] =
+VAR SelectedBuilding = SELECTEDVALUE(silver_building_master[building_id])
+VAR AvgEff =
+    CALCULATE(
+        AVERAGEX(
+            gold_battery_dispatch,
+            gold_battery_dispatch[round_trip_efficiency_percent]  // FIXED: was [round_trip_efficiency]
+        ),
+        gold_battery_dispatch[building_id] = SelectedBuilding
+            || ISBLANK(SelectedBuilding)
+    )
+RETURN
+    IFERROR(AvgEff, BLANK())
+
+
+// C4 Label — battery type + EU compliance status
+// Replaces v47 label which was showing wrong type string for mixed portfolios
+[C4 Label Efficiency] =
+VAR Eff = [C4 Round Trip Efficiency Pct]
+VAR BattType =
+    SELECTEDVALUE(gold_battery_dispatch[battery_type], "Mixed")
+VAR IsCompliant =
+    IF(
+        CALCULATE(
+            MIN(gold_battery_dispatch[eu_compliant]),
+            gold_battery_dispatch[eu_compliant] = FALSE()
+        ) = FALSE(),
+        "(NON-EU)",
+        "(EU OK)"
+    )
+VAR EffLabel =
+    SWITCH(
+        TRUE(),
+        BattType = "LFP",  "LFP — High Efficiency",
+        BattType = "NMC",  "NMC/NCA — Moderate",
+        BattType = "Mixed","Portfolio Average",
+        "Battery"
+    )
+RETURN
+    IF(ISBLANK(Eff), "No data", EffLabel & " " & IsCompliant)
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIX 2 — Active Strategy Short Label
+// Replaces: [Active Strategy Label] in v47 which showed "Building — strategy_name"
+// New behavior: shows ONLY the strategy label (building already in slicer S1)
+// Used by: Active Strategy info card (left/right panel)
+// ─────────────────────────────────────────────────────────────────────────────
+
+[Active Strategy Short Label] =
+VAR SelectedBuilding = SELECTEDVALUE(silver_building_master[building_id])
+VAR SelectedStrategy = SELECTEDVALUE(gold_battery_dispatch[strategy])
+
+// Resolve active strategy for selected building
+VAR ActiveStratRow =
+    CALCULATE(
+        MAXX(
+            FILTER(
+                gold_battery_simulation,
+                gold_battery_simulation[is_active_strategy] = TRUE()
+            ),
+            gold_battery_simulation[strategy_label]
+        ),
+        gold_battery_simulation[building_id] = SelectedBuilding
+            || ISBLANK(SelectedBuilding)
+    )
+
+// If a specific strategy is selected via slicer S2, override with that
+VAR DisplayStrategy =
+    IF(
+        NOT ISBLANK(SelectedStrategy),
+        SWITCH(
+            SelectedStrategy,
+            "peak_shaving",    "Peak-Shaving",
+            "self_consumption","Self-Consumption",
+            "tou",             "Time-of-Use (ToU)",
+            "backup",          "Backup + Opportunistic",
+            SelectedStrategy
+        ),
+        IF(ISBLANK(ActiveStratRow), "Simulation Only", ActiveStratRow)
+    )
+
+// Is this the active (installed) strategy or a simulated alternative?
+VAR IsActiveMark =
+    IF(
+        CALCULATE(
+            MAX(gold_battery_simulation[is_active_strategy]),
+            gold_battery_simulation[strategy] = SelectedStrategy
+                || ISBLANK(SelectedStrategy)
+        ) = TRUE(),
+        "● Active",
+        "◌ Simulated"
+    )
+
+VAR IsSimBuilding =
+    CALCULATE(
+        MAX(gold_battery_dispatch[is_simulated]),
+        gold_battery_dispatch[building_id] = SelectedBuilding
+    )
+
+RETURN
+    IF(
+        IsSimBuilding = TRUE(),
+        "◌ Simulation | " & DisplayStrategy,
+        IsActiveMark & " | " & DisplayStrategy
+    )
+
+
+// Subtitle line: data currency
+// Keep using same [Page9 Data As Of] measure from v47, no change needed.
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NEW — Active Battery Label (for right panel info card)
+// Shows battery type, capacity, and EU compliance in one line
+// Position: right panel, below ROI Gauge
+// ─────────────────────────────────────────────────────────────────────────────
+
+[Active Battery Label] =
+VAR SelectedBuilding = SELECTEDVALUE(silver_building_master[building_id])
+VAR BattType =
+    CALCULATE(
+        SELECTEDVALUE(gold_battery_simulation[battery_type], "Multiple"),
+        gold_battery_simulation[is_active_strategy] = TRUE(),
+        gold_battery_simulation[building_id] = SelectedBuilding
+            || ISBLANK(SelectedBuilding)
+    )
+VAR CapKwh =
+    CALCULATE(
+        SELECTEDVALUE(gold_battery_simulation[battery_capacity_kwh], BLANK()),
+        gold_battery_simulation[is_active_strategy] = TRUE(),
+        gold_battery_simulation[building_id] = SelectedBuilding
+            || ISBLANK(SelectedBuilding)
+    )
+VAR IsEU =
+    CALCULATE(
+        MIN(gold_battery_simulation[eu_compliant]),
+        gold_battery_simulation[is_active_strategy] = TRUE(),
+        gold_battery_simulation[building_id] = SelectedBuilding
+            || ISBLANK(SelectedBuilding)
+    )
+VAR EUBadge = IF(IsEU = TRUE(), "EU ✓", "NON-EU ✗")
+RETURN
+    IF(
+        ISBLANK(CapKwh),
+        "No battery installed — Simulation",
+        BattType & " · " & FORMAT(CapKwh, "#,##0") & " kWh · " & EUBadge
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CALCULATED COLUMNS — ADD IN POWER BI DATA VIEW (not measures)
+// These must be created as New Column in the respective tables.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// TABLE: gold_battery_dispatch
+// New Column 1 — MonthYear (text, for X-axis of V1 and V2 charts)
+// Formula: FORMAT(gold_battery_dispatch[date], "MMM YYYY")
+// Sort by Column: MonthYearSort (see below)
+// ⚠ After locale fix (English US), MMM will show Jan/Feb/Mar not Oca/Şub/Mar
+
+// New Column 2 — MonthYearSort (integer, for correct chronological sort)
+// Formula: YEAR(gold_battery_dispatch[date]) * 100 + MONTH(gold_battery_dispatch[date])
+// Set MonthYear → Sort by Column → MonthYearSort
+
+// TABLE: gold_battery_simulation
+// New Column 3 — Scatter Label (readable bubble label for V5)
+// Formula: gold_battery_simulation[building_id] & " · " & gold_battery_simulation[strategy_label]
+// Example output: "B001 · Peak-Shaving", "B003 · Time-of-Use (ToU)"
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// V3 TABLE — NOTE (no new measures needed, fix is structural in Power BI)
+// ─────────────────────────────────────────────────────────────────────────────
+// The sparsity issue is caused by using silver_building_master[building_name]
+// in the table. This creates a cross-join with simulation rows → blank values.
+//
+// FIX: In Power BI table visual (V3):
+//   - REMOVE  silver_building_master[building_name]
+//   - REPLACE with gold_battery_simulation[building_name]  (col already exists in CSV)
+//
+// Table field order after fix:
+//   gold_battery_simulation[building_name]      → Building
+//   gold_battery_simulation[strategy_label]     → Strategy
+//   gold_battery_simulation[battery_type]       → Battery
+//   gold_battery_simulation[battery_capacity_kwh] → kWh
+//   gold_battery_simulation[total_capex_eur]    → CAPEX (€)
+//   gold_battery_simulation[annual_savings_eur] → Savings/yr (€)
+//   gold_battery_simulation[payback_years]      → Payback (yr)
+//   [V3 NPV Display]                            → NPV 10yr
+//   gold_battery_simulation[irr_percent]        → IRR (%)
+//   gold_battery_simulation[annual_co2_avoided_kg] ÷ 1000  → CO₂ (tCO₂/yr)
+//   [V3 EU Compliance Label]                    → EU Status
+//   gold_battery_simulation[comparison_score]   → Score (data bar)
+//
+// This ensures 13 rows × all columns = no blanks.
+
+
+// =============================================================================
+// END OF v48 PATCH
+// Import ALL measures above + apply calculated column instructions in Data view
+// See report-design/page9-v48-final-fix-guide.md for complete step-by-step
+// =============================================================================
