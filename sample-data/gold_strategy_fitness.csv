@@ -1,0 +1,50 @@
+building_type,strategy,strategy_label,fitness_score,typical_annual_savings_eur_per_kwh,energy_logic_rationale,risk_or_caveat,is_primary,is_secondary
+office,self_consumption,Self-Consumption (PV+Battery),85,52,"Office daytime load (9-17h) overlaps with PV generation 60-80%. Battery covers evening cleaning/server load. Best for PV ratio > 15 kWp per 1000 m².","Requires PV. Empty weekends → idle capacity unless TOU added.",true,false
+office,peak_shaving,Peak-Shaving (Demand Reduction),90,68,"German Leistungspreis or NL transport tariff is 50% of office bill. Predictable 11:00-14:00 peak → battery discharge to clip top 15-25%.","Demand charge must exist (DE/NL/BE/UK/IT). Pure energy markets (NO/SE) yield less.",true,false
+office,tou,Time-of-Use Arbitrage,65,38,"Charge off-peak (€0.06) → discharge peak (€0.28) = ~€0.18/kWh spread minus 6% RTE loss. Office matches EPEX day-night pattern.","Spread must be >€0.12/kWh post-tax. Erodes in flat-tariff markets.",false,true
+office,backup,Backup + Opportunistic,40,18,"Office can survive 1-2h outages (UPS sufficient). Backup as primary = wasted capacity. Only justified for trading floor or data room.","Low energy-domain value unless mission-critical IT.",false,false
+office,frequency_reserve,Frequency Reserve (FCR/aFRR),72,41,"Office load steady → battery free during day. FCR weekly tender DE/DK = €4-8/kW/week. Symmetric product safest.","Requires aggregator (€0.5-1.5k/yr fees). Min 1 MW pool → small office unfit.",false,true
+office,capacity_market,Capacity Market,55,28,"UK T-4 auction €19-35/kW/year. Lower revenue but firm 4-yr contract.","UK/IT only. Min derated capacity 1 MW.",false,false
+office,v2g,Vehicle-to-Grid Coordination,48,32,"If office EV fleet ≥ 10 cars → V2G aggregator (NL/DE Pilot). 5-10 kWh export per car/day off-peak hours.","Bidirectional charger CAPEX. Driver behavior risk. Best at >20 cars.",false,false
+retail,self_consumption,Self-Consumption (PV+Battery),75,48,"Retail 9-21h matches PV until 17h. AC + lighting heavy. PV+battery cuts grid 30-45%.","Mall/big-box retail only — high-street rents prevent rooftop PV.",true,false
+retail,peak_shaving,Peak-Shaving (Demand Reduction),78,58,"AC + checkout/POS spikes 12:00-15:00 → demand peak. Battery clips peak in cooling season.","Seasonal (summer >> winter savings).",true,false
+retail,tou,Time-of-Use Arbitrage,70,42,"Retail closes 21:00 → 9h off-peak window. Charge fully, discharge during 17:00-20:00 evening peak.","Spread sensitivity. Best in NL/DE/UK.",false,true
+retail,backup,Backup + Opportunistic,55,22,"Refrigeration in food retail mandates 4-8h backup. Cold-chain loss €5-15k per outage event.","Food retail only. Non-food retail waste capacity.",false,false
+retail,frequency_reserve,Frequency Reserve (FCR/aFRR),60,34,"Retail load predictable → some FCR window. Lower than office due to evening discharge need.","Small retail unfit. Big-box chain pool model required.",false,false
+retail,capacity_market,Capacity Market,45,22,"Lower stack rank.","UK only.",false,false
+retail,v2g,Vehicle-to-Grid Coordination,30,18,"Retail customers don't park long enough. EV charging revenue (B2C) better than V2G.","Not applicable for most retail.",false,false
+hotel,self_consumption,Self-Consumption (PV+Battery),88,58,"24/7 base load + PV overlap on rooftop. Hotel pool/spa heating ideal battery sink in evening.","Pool/spa heating must be electric, not gas.",true,false
+hotel,peak_shaving,Peak-Shaving (Demand Reduction),72,48,"Less defined peak (continuous load) → lower benefit vs office.","Best for >150-room hotels with HVAC central plant.",false,true
+hotel,tou,Time-of-Use Arbitrage,68,42,"Hotel uses electricity 24/7 — TOU spread captured continuously. EV charging stations boost case.","Spread sensitivity.",false,false
+hotel,backup,Backup + Opportunistic,95,75,"Guest safety + reputation = mandatory backup. ASHRAE 90.1 + many EU codes require >4h emergency power. Battery superior to diesel for indoor air quality.","Sizing must cover egress lighting + 1 elevator + critical IT — typically 60-100 kWh per 100 rooms.",true,false
+hotel,frequency_reserve,Frequency Reserve (FCR/aFRR),55,32,"24/7 demand competes with FCR symmetric obligation. Limited window.","Best as secondary stream when primary strategy is backup.",false,false
+hotel,capacity_market,Capacity Market,52,28,"Lower stack rank.","UK/IT only.",false,false
+hotel,v2g,Vehicle-to-Grid Coordination,62,38,"Guest EV charging stations + V2G aggregator → off-peak hours when occupancy low. Mature in NL.","Park duration variable — guests typically 10h overnight = perfect V2G window.",false,true
+healthcare,self_consumption,Self-Consumption (PV+Battery),70,40,"24/7 base + PV overlap moderate. Some PV → battery to cover surgical block evening load.","Surgical block can never depend on solo PV+battery — backup must remain.",false,true
+healthcare,peak_shaving,Peak-Shaving (Demand Reduction),78,55,"Imaging (MRI/CT) spike loads 10:00-16:00. Battery clips imaging-induced demand peak.","Imaging schedule unpredictable — DR (Demand Response) algorithm needed.",false,true
+healthcare,tou,Time-of-Use Arbitrage,55,30,"Continuous load reduces arbitrage window — partial benefit only.","Lower priority.",false,false
+healthcare,backup,Backup + Opportunistic,100,95,"EN 50171 / DIN VDE 0108 mandates emergency power for life-safety circuits. Diesel still legal but battery+PV hybrid increasingly required for ESG.","Sizing: typically 200-800 kWh per hospital wing. UPS-grade response time (<10 ms) requires high-power chemistry (LFP or Hybrid+Supercap).",true,false
+healthcare,frequency_reserve,Frequency Reserve (FCR/aFRR),35,18,"Mission-critical load makes FCR symmetric obligation risky.","Not recommended.",false,false
+healthcare,capacity_market,Capacity Market,48,24,"Lower stack rank.","UK only.",false,false
+healthcare,v2g,Vehicle-to-Grid Coordination,28,12,"Ambulance/staff fleet → cannot risk discharged batteries.","Not applicable.",false,false
+education,self_consumption,Self-Consumption (PV+Battery),82,50,"School day 8-17h overlaps PV. Holiday gaps (summer) → battery soaks excess for grid export.","Summer holidays = lowest load when PV peaks → excess export.",true,false
+education,peak_shaving,Peak-Shaving (Demand Reduction),68,40,"University labs spike load. Most schools no demand charge.","Universities only.",false,true
+education,tou,Time-of-Use Arbitrage,65,38,"Off-peak nights + weekends = long charging window. Schools closed 17:00-08:00.","Spread sensitivity.",false,true
+education,backup,Backup + Opportunistic,45,18,"Egress lighting mandate + IT continuity → modest backup need.","Most schools fine with 2h backup.",false,false
+education,frequency_reserve,Frequency Reserve (FCR/aFRR),58,32,"Predictable schedule fits FCR week-tender.","Aggregator required.",false,false
+education,capacity_market,Capacity Market,42,20,"Lower stack rank.","UK only.",false,false
+education,v2g,Vehicle-to-Grid Coordination,55,28,"Staff parking lots 8h/day → V2G window. Student fleet too transient.","Charging infrastructure must already exist.",false,false
+logistics,self_consumption,Self-Consumption (PV+Battery),72,48,"Warehouse roof area massive → high PV capacity (>500 kWp typical). Battery captures excess for forklift fleet evening charge.","Forklift fleet must be electric (Li-Ion or Pb), not propane.",false,true
+logistics,peak_shaving,Peak-Shaving (Demand Reduction),95,82,"Forklift fast-charging spikes load 10-50x base. Cross-docking 6-22h with morning/evening surges. Demand charges in DE/NL/BE/UK punish unmanaged peaks.","Critical — without peak-shaving, demand charges exceed energy cost.",true,false
+logistics,tou,Time-of-Use Arbitrage,78,52,"Night operations + early-morning shifts use off-peak rates. Some logistics 24/7 → arbitrage continuous.","Operations schedule dictates economic case.",true,false
+logistics,backup,Backup + Opportunistic,50,22,"Cold chain (frozen/refrigerated warehouse) needs continuity. Otherwise modest.","Cold-chain logistics only.",false,false
+logistics,frequency_reserve,Frequency Reserve (FCR/aFRR),68,38,"Large connection size + flexible discharge → ideal FCR pool member.","Aggregator + min capacity threshold.",false,false
+logistics,capacity_market,Capacity Market,62,32,"UK fulfilment centers + DRSP eligible for T-1 auctions.","UK/IT mostly.",false,false
+logistics,v2g,Vehicle-to-Grid Coordination,72,42,"Truck depots (overnight parked) + electric truck fleets (DAF/Volvo eTrucks 2025+) → biggest V2G volumes coming 2026-2030.","V2G regulation for heavy-duty still emerging.",false,true
+data_center,self_consumption,Self-Consumption (PV+Battery),40,22,"Roof too small relative to load. PV trivial vs 1-10 MW data center demand.","Limited PV potential.",false,false
+data_center,peak_shaving,Peak-Shaving (Demand Reduction),85,72,"Cooling-system + IT load peaks during hot afternoons. Battery + free-cooling integration cuts demand 10-18%.","Cooling-correlated peak well-known. Battery sizing critical.",true,false
+data_center,tou,Time-of-Use Arbitrage,55,30,"24/7 load = lower arbitrage benefit. Partial only.","Lower priority.",false,false
+data_center,backup,Backup + Opportunistic,100,98,"Uptime SLA (99.999%) requires UPS-grade battery + generator. Modern DC moving from VRLA to LFP for footprint + lifecycle.","Lithium fire protocol (NFPA 855 / EN 1363) mandatory.",true,false
+data_center,frequency_reserve,Frequency Reserve (FCR/aFRR),78,55,"Major US/EU hyperscalers monetizing UPS pools (DC FCR a.k.a. 'Dynamic Containment EFR'). National Grid UK pioneer.","Customer SLA risk — must contract carefully.",false,true
+data_center,capacity_market,Capacity Market,72,42,"UK Capacity Market well-suited (Aviva/Microsoft DC participants 2023-).","UK leading. IT/DE emerging.",false,false
+data_center,v2g,Vehicle-to-Grid Coordination,18,8,"Data centers do not have meaningful EV fleets.","Not applicable.",false,false
