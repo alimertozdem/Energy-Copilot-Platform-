@@ -272,7 +272,7 @@ EnergyLens follows a **bottom-up, validation-first** GTM model:
 ### Brand positioning
 - **Tagline:** "Smart energy for smart buildings"
 - **Promise:** "EU compliance + cost savings + carbon reduction, in one Microsoft-native platform"
-- **Differentiator:** "The only Fabric-native energy intelligence platform built for EU regulations"
+- **Differentiator:** "The only Fabric-native energy intelligence platform built for EU regulations — with an AI Copilot that reasons over your Lakehouse via tool use, not text summaries"
 
 ### Content themes (LinkedIn + blog)
 1. EU energy regulation deep-dives (EnEfG, GEG, CRREM)
@@ -306,5 +306,5 @@ Solo founder economics work because:
 
 ---
 
-*Document version 1.0 — May 2026*
+*Document version 1.1 — May 28, 2026 (added AI Copilot to differentiator)*
 *Author: Ali Mert Özdemir, Founder*

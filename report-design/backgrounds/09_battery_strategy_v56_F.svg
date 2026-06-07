@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="bgFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0E1622"/>
+      <stop offset="60%" stop-color="#0B1320"/>
+      <stop offset="100%" stop-color="#15182A"/>
+    </linearGradient>
+    <linearGradient id="panelFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0F1B26"/>
+      <stop offset="100%" stop-color="#0A1420"/>
+    </linearGradient>
+    <linearGradient id="logoCardFill" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#F0F4F8"/></linearGradient>
+    <linearGradient id="ZZZ" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0A1119"/>
+      <stop offset="100%" stop-color="#101A26"/>
+    </linearGradient>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="2.4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <symbol id="dotCyan" overflow="visible">
+      <ellipse rx="14" ry="2.8" fill="#3FA9F5" opacity="0.55" filter="url(#glow)"/>
+      <ellipse rx="5" ry="1.4" fill="#A8E0FF" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotAmber" overflow="visible">
+      <ellipse rx="14" ry="2.8" fill="#F4A62A" opacity="0.55" filter="url(#glow)"/>
+      <ellipse rx="5" ry="1.4" fill="#FFD580" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotGreen" overflow="visible">
+      <ellipse rx="14" ry="2.8" fill="#27AE60" opacity="0.55" filter="url(#glow)"/>
+      <ellipse rx="5" ry="1.4" fill="#A8F0BC" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotCoral" overflow="visible">
+      <ellipse rx="14" ry="2.8" fill="#E74C3C" opacity="0.55" filter="url(#glow)"/>
+      <ellipse rx="5" ry="1.4" fill="#FFB3A8" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotPurple" overflow="visible">
+      <ellipse rx="14" ry="2.8" fill="#9B59B6" opacity="0.55" filter="url(#glow)"/>
+      <ellipse rx="5" ry="1.4" fill="#D8B0F0" opacity="0.95"/>
+    </symbol>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bgFill)"/>
+  <text x="240" y="36" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#FFFFFF">Battery Dispatch &amp;</text>
+  <text x="488" y="36" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#F4A62A">Financial Simulation</text><text x="240" y="58" font-family="Arial, sans-serif" font-size="9" fill="#3FA9F5" letter-spacing="2">STRATEGY COMPARISON  &#183;  EU 2023/1542  &#183;  NPV / IRR / PAYBACK</text>
+  <line x1="15" y1="75" x2="1265" y2="75" stroke="#F4A62A" stroke-width="0.5" opacity="0.30"/>
+  <rect x="15" y="80" width="295" height="30" rx="3" fill="url(#panelFill)" stroke="#3FA9F5" stroke-width="1.2"/>
+  <use href="#dotCyan" transform="translate(162,80)"/>
+  <rect x="322" y="80" width="295" height="30" rx="3" fill="url(#panelFill)" stroke="#F4A62A" stroke-width="1.2"/>
+  <use href="#dotAmber" transform="translate(469,80)"/>
+  <rect x="629" y="80" width="295" height="30" rx="3" fill="url(#panelFill)" stroke="#9B59B6" stroke-width="1.2"/>
+  <use href="#dotPurple" transform="translate(776,80)"/>
+  <rect x="936" y="80" width="295" height="30" rx="3" fill="url(#panelFill)" stroke="#E74C3C" stroke-width="1.2"/>
+  <use href="#dotCoral" transform="translate(1083,80)"/>
+  <rect x="15" y="115" width="240" height="55" rx="3" fill="url(#panelFill)" stroke="#27AE60" stroke-width="1.2"/>
+  <use href="#dotGreen" transform="translate(135,115)"/>
+  <rect x="260" y="115" width="240" height="55" rx="3" fill="url(#panelFill)" stroke="#3FA9F5" stroke-width="1.2"/>
+  <use href="#dotCyan" transform="translate(380,115)"/>
+  <rect x="505" y="115" width="240" height="55" rx="3" fill="url(#panelFill)" stroke="#27AE60" stroke-width="1.2"/>
+  <use href="#dotGreen" transform="translate(625,115)"/>
+  <rect x="750" y="115" width="240" height="55" rx="3" fill="url(#panelFill)" stroke="#F4A62A" stroke-width="1.2"/>
+  <use href="#dotAmber" transform="translate(870,115)"/>
+  <rect x="995" y="115" width="240" height="55" rx="3" fill="url(#panelFill)" stroke="#F4A62A" stroke-width="1.2"/>
+  <use href="#dotAmber" transform="translate(1115,115)"/>
+  <rect x="15" y="180" width="760" height="230" rx="3" fill="url(#panelFill)" stroke="#27AE60" stroke-width="1.2"/>
+  <use href="#dotGreen" transform="translate(395,180)"/>
+  <rect x="785" y="180" width="450" height="230" rx="3" fill="url(#panelFill)" stroke="#F4A62A" stroke-width="1.2"/>
+  <use href="#dotAmber" transform="translate(1010,180)"/>
+  <rect x="15" y="420" width="500" height="280" rx="3" fill="url(#panelFill)" stroke="#9B59B6" stroke-width="1.2"/>
+  <use href="#dotPurple" transform="translate(265,420)"/>
+  <rect x="525" y="420" width="490" height="280" rx="3" fill="url(#panelFill)" stroke="#3FA9F5" stroke-width="1.2"/>
+  <use href="#dotCyan" transform="translate(770,420)"/>
+  <rect x="1025" y="420" width="210" height="280" rx="3" fill="url(#panelFill)" stroke="#E74C3C" stroke-width="1.2"/>
+  <use href="#dotCoral" transform="translate(1130,420)"/>
+</svg>

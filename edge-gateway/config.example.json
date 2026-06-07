@@ -1,0 +1,20 @@
+{
+  "_comment": "Per-site OPC-UA gateway config. Copy to config.<site>.json and edit. Run: python opcua_gateway.py --config config.<site>.json. Secrets come from env vars (password_env, sink.connection_env), never inline.",
+  "server_url": "opc.tcp://plc.example.local:4840",
+  "security": "Basic256Sha256,SignAndEncrypt,/certs/client-cert.der,/certs/client-key.pem",
+  "username": "energylens_gateway",
+  "password_env": "OPCUA_PASSWORD",
+  "batch": 100,
+  "max_retries": 0,
+  "sink": {
+    "type": "eventhub",
+    "eventhub_name": "iot-raw",
+    "connection_env": "EVENTHUB_CONN"
+  },
+  "nodes": [
+    { "node_id": "ns=2;s=B005.Chiller1.COP",          "sensor_type": "chiller_cop",      "building_id": "B005", "unit": "ratio" },
+    { "node_id": "ns=2;s=B001.AHU1.SupplyAirTemp",    "sensor_type": "HVAC_supply_temp", "building_id": "B001", "unit": "degC" },
+    { "node_id": "ns=2;s=B007.PV.Inverter1.Power",    "sensor_type": "pv_ac_power",      "building_id": "B007", "unit": "kW" },
+    { "node_id": "ns=3;s=Building9.Meter.ActivePower", "browse_name": "Main Meter Active Power", "building_id": "B009", "unit": "kW" }
+  ]
+}

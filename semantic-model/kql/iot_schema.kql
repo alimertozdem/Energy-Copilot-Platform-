@@ -1,0 +1,217 @@
+// =============================================================================
+// iot_schema.kql
+// Energy Copilot Platform — KQL Eventhouse Schema
+// =============================================================================
+//
+// PURPOSE:
+//   These commands create the tables inside Fabric Eventhouse (KQL Database).
+//   Run them in the Fabric KQL Queryset editor, top to bottom, once.
+//
+// WHAT IS KQL / EVENTHOUSE?
+//   KQL = Kusto Query Language. Eventhouse = Fabric's time-series database.
+//   Unlike Delta tables in Lakehouse (great for batch/history), Eventhouse is
+//   optimized for high-frequency time-series: sub-second ingestion latency,
+//   millisecond query response on billions of rows.
+//
+//   Hot path:  raw readings arrive here via EventStream in real-time
+//   Cold path: same data lands in Lakehouse bronze_iot_raw (Delta)
+//
+// HOW TO USE:
+//   1. In Fabric: Create a KQL Database named "iot_eventhouse"
+//   2. Open the database → New KQL Queryset
+//   3. Copy-paste each section below and run with "Run"
+//   4. Verify tables created: .show tables
+//
+// TABLES:
+//   iot_hot_readings    — all sensor readings (30-day retention)
+//   iot_anomaly_alerts  — anomalies only (90-day retention for trend analysis)
+//   iot_sensor_master   — sensor metadata (static reference, no expiry)
+// =============================================================================
+
+
+// =============================================================================
+// TABLE 1: iot_hot_readings
+// Primary time-series table. All sensor readings arrive here via EventStream.
+// Retention: 30 days (hot data — older data is in Lakehouse gold tables)
+// =============================================================================
+
+.create-or-alter table iot_hot_readings (
+    ingestion_time:    datetime,     // auto-set by EventStream (server-side)
+    event_timestamp:   datetime,     // sensor-reported timestamp (from payload)
+    device_id:         string,       // e.g. "B001_HVAC_TEMP_F1Z1"
+    building_id:       string,       // e.g. "B001"
+    sensor_type:       string,       // HVAC_temp | humidity | CO2 | power
+    sensor_location:   string,       // "Floor 2, Zone A"
+    reading_value:     real,         // numeric reading
+    reading_unit:      string,       // C | % | ppm | kW
+    source_protocol:   string,       // BACnet | Modbus | MQTT | REST | Simulated
+    reading_quality:   int,          // 0-100
+    is_anomaly:        bool,         // detected by adapter/simulator
+    anomaly_type:      string,       // spike | drift | threshold_exceeded | null
+    anomaly_severity:  string        // High | Medium | Low | null
+)
+
+// Retention policy: 30 days (hot window, balance cost vs query freshness)
+.alter table iot_hot_readings policy retention
+```
+{
+  "SoftDeletePeriod": "30.00:00:00",
+  "Recoverability": "Disabled"
+}
+```
+
+// Ingestion mapping: maps JSON field names → table columns
+// This is what EventStream uses to parse each message
+.create-or-alter table iot_hot_readings ingestion json mapping "iot_readings_mapping"
+```
+[
+  {"column": "event_timestamp",  "path": "$.timestamp",       "datatype": "datetime"},
+  {"column": "device_id",        "path": "$.device_id",       "datatype": "string"},
+  {"column": "building_id",      "path": "$.building_id",     "datatype": "string"},
+  {"column": "sensor_type",      "path": "$.sensor_type",     "datatype": "string"},
+  {"column": "sensor_location",  "path": "$.sensor_location", "datatype": "string"},
+  {"column": "reading_value",    "path": "$.reading_value",   "datatype": "real"},
+  {"column": "reading_unit",     "path": "$.reading_unit",    "datatype": "string"},
+  {"column": "source_protocol",  "path": "$.source_protocol", "datatype": "string"},
+  {"column": "reading_quality",  "path": "$.reading_quality", "datatype": "int"},
+  {"column": "is_anomaly",       "path": "$.is_anomaly",      "datatype": "bool"},
+  {"column": "anomaly_type",     "path": "$.anomaly_type",    "datatype": "string"},
+  {"column": "anomaly_severity", "path": "$.anomaly_severity","datatype": "string"}
+]
+```
+
+
+// =============================================================================
+// TABLE 2: iot_anomaly_alerts
+// Anomalies only — filtered subset of iot_hot_readings.
+// Kept longer (90 days) for incident trend analysis.
+// Populated by an Update Policy (auto-trigger on iot_hot_readings ingestion).
+// =============================================================================
+
+.create-or-alter table iot_anomaly_alerts (
+    alert_time:        datetime,
+    building_id:       string,
+    device_id:         string,
+    sensor_type:       string,
+    sensor_location:   string,
+    reading_value:     real,
+    reading_unit:      string,
+    anomaly_type:      string,
+    anomaly_severity:  string,
+    source_protocol:   string,
+    reading_quality:   int,
+    is_resolved:       bool,          // updated manually by operator
+    resolved_time:     datetime       // null until resolved
+)
+
+.alter table iot_anomaly_alerts policy retention
+```
+{
+  "SoftDeletePeriod": "90.00:00:00",
+  "Recoverability": "Disabled"
+}
+```
+
+// Update Policy: auto-populate iot_anomaly_alerts from iot_hot_readings
+// Fires on every ingestion to iot_hot_readings
+.create-or-alter function iot_anomaly_filter() {
+    iot_hot_readings
+    | where is_anomaly == true
+    | project
+        alert_time       = ingestion_time,
+        building_id,
+        device_id,
+        sensor_type,
+        sensor_location,
+        reading_value,
+        reading_unit,
+        anomaly_type,
+        anomaly_severity,
+        source_protocol,
+        reading_quality,
+        is_resolved      = false,
+        resolved_time    = datetime(null)
+}
+
+.alter table iot_anomaly_alerts policy update
+```
+[{
+  "IsEnabled": true,
+  "Source": "iot_hot_readings",
+  "Query": "iot_anomaly_filter",
+  "IsTransactional": false,
+  "PropagateIngestionProperties": false
+}]
+```
+
+
+// =============================================================================
+// TABLE 3: iot_sensor_master
+// Static reference table — sensor metadata, setpoints, alert thresholds.
+// No retention limit (reference data, manually maintained).
+// Populated once from gold_iot_sensor_master.csv via Lakehouse.
+// =============================================================================
+
+.create-or-alter table iot_sensor_master (
+    sensor_id:              string,
+    building_id:            string,
+    sensor_type:            string,
+    sensor_location:        string,
+    setpoint_min:           real,
+    setpoint_max:           real,
+    alert_threshold_low:    real,
+    alert_threshold_high:   real,
+    last_calibration_date:  datetime,
+    is_active:              bool,
+    install_date:           datetime,
+    protocol:               string
+)
+
+
+// =============================================================================
+// SAMPLE QUERIES (for testing after setup)
+// Run these after the simulator sends some data.
+// =============================================================================
+
+// Q1: Latest reading per sensor type per building (current state)
+iot_hot_readings
+| summarize arg_max(event_timestamp, reading_value, reading_unit, is_anomaly)
+    by building_id, sensor_type
+| order by building_id asc, sensor_type asc
+
+// Q2: Active high-severity alerts (last 24h)
+iot_anomaly_alerts
+| where alert_time > ago(24h)
+| where anomaly_severity == "High"
+| where is_resolved == false
+| order by alert_time desc
+
+// Q3: Temperature trend last 2 hours (all buildings)
+iot_hot_readings
+| where event_timestamp > ago(2h)
+| where sensor_type == "HVAC_temp"
+| summarize avg_temp = avg(reading_value) by building_id, bin(event_timestamp, 15m)
+| order by event_timestamp asc
+
+// Q4: Sensor uptime % by building + type (last 24h)
+// Uptime = readings with quality > 80 / total readings
+iot_hot_readings
+| where event_timestamp > ago(24h)
+| summarize
+    total   = count(),
+    healthy = countif(reading_quality > 80)
+    by building_id, sensor_type
+| extend uptime_pct = round(100.0 * healthy / total, 1)
+| order by building_id, sensor_type
+
+// Q5: CO2 level by building right now
+iot_hot_readings
+| where sensor_type == "CO2"
+| summarize last_reading = arg_max(event_timestamp, reading_value)
+    by building_id
+| extend co2_status = case(
+    reading_value < 1000, "Good",
+    reading_value < 1500, "Fair",
+    "Poor"
+  )
+| order by reading_value desc

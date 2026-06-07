@@ -1,26 +1,246 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* ============================================
+     EnergyLens Brand Tokens — Tailwind v4
+     ============================================ */
+
+  /* Page surfaces (dark) */
+  --color-bg-base: #0A1628;
+  --color-bg-elevated: #0F1F35;
+  --color-bg-input: #142944;
+
+  /* Brand emerald spectrum */
+  --color-brand-deep: #0F6E56;
+  --color-brand-emerald: #1D9E75;
+  --color-brand-mint: #5DCAA5;
+  --color-brand-glow: #C0DD97;
+  --color-brand-pulse: #639922;
+
+  /* Text on dark */
+  --color-text-primary: #FFFFFF;
+  --color-text-muted: #94A3B8;
+  --color-text-faint: #64748B;
+
+  /* Light surfaces (logo card, etc.) */
+  --color-surface-light: #F1EFE8;
+  --color-surface-light-bright: #FFFFFF;
+  --color-text-on-light: #2C2C2A;
+
+  /* Tile accent palette (per-page color identity) */
+  --color-accent-cyan: #06B6D4;
+  --color-accent-blue: #3B82F6;
+  --color-accent-yellow: #EAB308;
+  --color-accent-red: #EF4444;
+  --color-accent-purple: #A855F7;
+  --color-accent-orange: #F97316;
+
+  /* Borders */
+  --color-border-subtle: rgba(29, 158, 117, 0.2);
+  --color-border-strong: rgba(29, 158, 117, 0.5);
+  --color-border-faint: rgba(148, 163, 184, 0.15);
+
+  /* Type scale */
+  --text-display: 2.25rem;
+  --text-h1: 1.875rem;
+  --text-h2: 1.5rem;
+  --text-h3: 1.25rem;
+  --text-body: 0.9375rem;
 }
+
+/* Power BI embed full-size fix.
+   With the wrapper aspect-locked to 16:9 and FitToPage, the iframe fills
+   its container exactly. We still force a dark bg in case PBI flashes
+   white during initial load, and overflow:hidden defends against any
+   freak vertical excess. */
+.report-style-class,
+.report-style-class > div,
+.report-style-class iframe {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+  display: block !important;
+  background-color: #0A1628 !important;
+  overflow: hidden !important;
+}
+
+/* Subtle ambient glow at corners — auth pages background */
+.bg-radial-emerald-glow {
+  background:
+    radial-gradient(circle at 15% 100%, rgba(29, 158, 117, 0.15) 0%, transparent 35%),
+    radial-gradient(circle at 85% 0%, rgba(99, 153, 34, 0.08) 0%, transparent 40%),
+    var(--color-bg-base);
+}
+
+/* Dot grid pattern — subtle texture */
+.bg-dot-grid {
+  background-image: radial-gradient(circle, rgba(29, 158, 117, 0.07) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ============================================
+   shadcn token bridge — pointed at brand tokens
+   ============================================ */
 
 @theme inline {
-  --color-background: var(--background);
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Single dark theme for V1 — no light/dark toggle yet.
+   shadcn variables map to EnergyLens brand tokens. */
+:root {
+  --background: var(--color-bg-base);
+  --foreground: var(--color-text-primary);
+  --card: var(--color-bg-elevated);
+  --card-foreground: var(--color-text-primary);
+  --popover: var(--color-bg-elevated);
+  --popover-foreground: var(--color-text-primary);
+  --primary: var(--color-brand-emerald);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--color-bg-elevated);
+  --secondary-foreground: var(--color-text-primary);
+  --muted: var(--color-bg-elevated);
+  --muted-foreground: var(--color-text-muted);
+  --accent: var(--color-brand-mint);
+  --accent-foreground: var(--color-bg-base);
+  --destructive: var(--color-accent-red);
+  --border: var(--color-border-subtle);
+  --input: var(--color-bg-input);
+  --ring: var(--color-brand-emerald);
+  --chart-1: var(--color-brand-emerald);
+  --chart-2: var(--color-brand-mint);
+  --chart-3: var(--color-accent-cyan);
+  --chart-4: var(--color-brand-glow);
+  --chart-5: var(--color-accent-purple);
+  --radius: 0.5rem;
+  --sidebar: var(--color-bg-elevated);
+  --sidebar-foreground: var(--color-text-primary);
+  --sidebar-primary: var(--color-brand-emerald);
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: var(--color-brand-deep);
+  --sidebar-accent-foreground: var(--color-text-primary);
+  --sidebar-border: var(--color-border-subtle);
+  --sidebar-ring: var(--color-brand-emerald);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    background: var(--color-bg-base);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  html {
+    @apply font-sans;
+    /* Dark background on <html> too (not just body): the reserved scrollbar
+       gutter + the canvas/overscroll area render with html's background, so
+       without this they show white slivers at the page edges. */
+    background: var(--color-bg-base);
+    /* Reserve the scrollbar gutter always, so navigating between short and tall
+       pages doesn't shift the centred header/content sideways ("kayma" fix). */
+    scrollbar-gutter: stable;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ============================================
+   Accessibility (Day 47)
+   ============================================ */
+
+/* Visible keyboard focus ring on interactive elements (:focus-visible →
+   mouse clicks unaffected). Unlayered so it wins over the @layer base outline;
+   shadcn components keep their own ring, custom buttons/links get this. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-brand-emerald);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
+
+/* Respect reduced-motion: damp ping/pulse/spin animations + transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ===== Landing motion (design pass). Auto-damped by the prefers-reduced-motion block above. ===== */
+@keyframes el-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+@keyframes el-fade-up {
+  0% { opacity: 0; transform: translateY(18px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes el-aurora {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.55; }
+  50% { transform: translate(5%, -4%) scale(1.18); opacity: 0.8; }
+}
+.el-float { animation: el-float 7s ease-in-out infinite; }
+.el-float-slow { animation: el-float 11s ease-in-out infinite; }
+.el-fade-up { animation: el-fade-up 0.7s ease-out both; }
+.el-aurora {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  pointer-events: none;
+  animation: el-aurora 18s ease-in-out infinite;
+}
+.font-display { font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif; }

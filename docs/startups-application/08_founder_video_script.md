@@ -66,9 +66,13 @@
 
 > **"And third — I'm in Berlin. The DACH region is the most regulated, most demanding energy market in Europe. We're not bolting on EU features later — they're at the core."**
 
+*[Brief pause, then slightly faster — execution proof line.]*
+
+> **"And in the last three weeks, solo, I shipped the live web application AND an AI Copilot that reasons over the Microsoft Fabric Lakehouse using tool use. Not a prototype — a working system you can sign into today."**
+
 *[Brief pause. Final line, slightly slower.]*
 
-> **"With Microsoft for Startups support, EnergyLens can become the default Fabric-native energy platform for European commercial buildings. I'd love to be part of the program."**
+> **"With Microsoft for Startups support — especially Azure OpenAI credits to take the Copilot from Mock to production — EnergyLens can become the default Fabric-native energy platform for European commercial buildings. I'd love to be part of the program."**
 
 *[Slight smile. Hold for 1-2 seconds. Cut.]*
 
@@ -80,10 +84,10 @@
 |---|---|---|---|
 | Hook | ~40 | 15 sec | 0:15 |
 | Problem + Solution | ~110 | 40 sec | 0:55 |
-| Why Me + Vision | ~110 | 35 sec | 1:30 |
-| **Total** | **~260 words** | **~90 seconds** | **1:30** |
+| Why Me + Vision (with execution proof) | ~150 | 50 sec | 1:45 |
+| **Total** | **~300 words** | **~105 seconds** | **1:45** |
 
-If you naturally take longer pauses, this could extend to 120 seconds. That's fine.
+With natural pauses this lands around 110-120 seconds — still inside the 120 sec target.
 
 ---
 
@@ -164,7 +168,7 @@ If you naturally take longer pauses, this could extend to 120 seconds. That's fi
 
 > "Did you know that commercial buildings in Europe produce 36 percent of all CO2 emissions? Yet most are managed with monthly bills and spreadsheets.
 
-> I'm Mert, Energy Engineer, finishing my Master's in Berlin. I built EnergyLens, a Microsoft Fabric-native platform that gives property managers live multi-building dashboards with EU compliance scoring built in.
+> I'm Mert, Energy Engineer, finishing my Master's in Berlin. I built EnergyLens — a Microsoft Fabric-native platform with a live web application and an AI Copilot that reasons over the Lakehouse via tool use. All shipped solo in the last few weeks.
 
 > I'm Microsoft DP-600 certified. I understand the domain — Energy Engineering + Energy Management. And I'm in Berlin, the most demanding EU energy market.
 
@@ -178,5 +182,5 @@ After "I AM the customer" sentence, add:
 
 ---
 
-*Script version 1.0 — May 2026*
+*Script version 1.1 — May 28, 2026 (updated after Day 16: execution proof line added)*
 *Ready for: Ali Mert Özdemir to record*

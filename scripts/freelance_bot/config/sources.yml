@@ -1,0 +1,54 @@
+# Job source definitions — RSS feeds + email inboxes.
+# Use environment variables for any credentials; never hardcode.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RSS sources (public, no auth needed to read once you have the URL)
+# ─────────────────────────────────────────────────────────────────────────────
+rss_sources:
+  - name: "freelance.de — Data/BI (English-only saved search)"
+    url: "https://www.freelance.de/projekte/skill-1234567-rss.xml"
+    # OPTIONAL secondary. ~70% German. Needs a freelance.de account.
+    # Log in -> Projektsuche -> filters (Englisch, Remote, Power BI/Data) -> RSS button -> copy URL.
+    enabled: false
+    job_id_prefix: "fdde_"
+
+  - name: "Indeed — Power BI remote EU"
+    url: "https://de.indeed.com/rss?q=power+bi+csrd&l=remote&fromage=3"
+    enabled: false   # noisy + Indeed RSS often deprecated; enable only if desperate for volume
+    job_id_prefix: "indeed_"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Email IMAP sources — the PRIMARY multi-platform path.
+# freelancermap project agent + Malt + Contra + LinkedIn all deliver by email.
+# Set up Gmail filters that LABEL each platform's alert emails, then point the
+# folders below at those labels (Gmail labels appear as IMAP folders).
+# Credentials via env: FREELANCE_GMAIL_USER + FREELANCE_GMAIL_APP_PASSWORD.
+# ─────────────────────────────────────────────────────────────────────────────
+email_sources:
+  - name: "Freelance alerts Gmail"
+    imap_host: "imap.gmail.com"
+    imap_port: 993
+    username_env: "FREELANCE_GMAIL_USER"
+    password_env: "FREELANCE_GMAIL_APP_PASSWORD"   # Gmail App Password, not the real password
+    enabled: true
+    folders:
+      - name: "freelancermap"          # Gmail label applied to freelancermap project-agent emails
+        parser: "freelancermap"
+        job_id_prefix: "fmap_"
+      - name: "Malt"
+        parser: "malt"
+        job_id_prefix: "malt_"
+      - name: "Contra"
+        parser: "contra"
+        job_id_prefix: "contra_"
+      - name: "LinkedIn"
+        parser: "linkedin"
+        job_id_prefix: "li_"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Polling cadence
+# ─────────────────────────────────────────────────────────────────────────────
+poll:
+  rss_lookback_hours: 24      # only consider RSS items posted in the last N hours
+  email_lookback_hours: 48    # emails sometimes arrive late, scan a bit further back
+  dedup_window_days: 90       # remember job_ids for this long

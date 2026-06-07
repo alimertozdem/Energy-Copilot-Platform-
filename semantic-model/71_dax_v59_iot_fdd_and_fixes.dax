@@ -1,0 +1,100 @@
+// ============================================================
+// EnergyLens — DAX v59 — PAGE 8 IoT: FDD + cost-ref + true-compliance (2026-05-30)
+// Sektör-grade Page 8. v44'ün üstüne: FDD bulgu ölçüleri + GERÇEK setpoint
+// uyumu (in_setpoint, anomali-proxy değil) + ref-tarifeli maliyet.
+// ------------------------------------------------------------
+// MODELE EKLE (v44 bunları içermiyordu):
+//   gold_iot_realtime   (11b çıktısı — in_setpoint, cost_eur_window içerir)
+//   gold_iot_fdd        (11c çıktısı — FDD teşhisleri, ref-bazlı cost)
+//   İlişki: ikisi de [building_id]→silver_building_master, [event_date]→'Date'[Date]
+// ============================================================
+
+
+// ─────────────────────────────────────────────────────────────
+// FDD — çok-sensörlü arıza teşhisleri (asıl sektör farkı)
+// ─────────────────────────────────────────────────────────────
+
+// Bugünkü toplam FDD bulgusu
+IoT FDD Findings Today =
+CALCULATE(COUNTROWS(gold_iot_fdd),
+    gold_iot_fdd[event_date] = TODAY(), REMOVEFILTERS('Date'))
+
+// Bugünkü yüksek-ciddiyet FDD (C4 kart başlığı)
+IoT FDD High Today =
+CALCULATE(COUNTROWS(gold_iot_fdd),
+    gold_iot_fdd[severity] = "High", gold_iot_fdd[event_date] = TODAY(), REMOVEFILTERS('Date'))
+
+// audit H1: FDD tahmini maliyet — ref_electricity_tariffs grid fiyatından (hardcoded €0.20 yok)
+IoT FDD Cost Today EUR =
+CALCULATE(SUM(gold_iot_fdd[cost_eur_estimate]),
+    gold_iot_fdd[event_date] = TODAY(), REMOVEFILTERS('Date'))
+
+// FDD kural başına bulgu (V5 bar/tablo)
+IoT FDD Count by Rule = COUNTROWS(gold_iot_fdd)
+
+// V5 tablo: ciddiyet sıralama anahtarı
+IoT FDD Severity Sort =
+SWITCH(MAX(gold_iot_fdd[severity]), "High", 3, "Medium", 2, "Low", 1, 0)
+
+// V5 tablo: maliyet etiketi
+IoT FDD Cost Label =
+VAR _c = SUM(gold_iot_fdd[cost_eur_estimate])
+RETURN IF(ISBLANK(_c), "--", "Est. €" & FORMAT(_c, "0.00"))
+
+
+// ─────────────────────────────────────────────────────────────
+// C4 — başlık: FDD arızaları + ref-bazlı € (eski hardcoded SWITCH yerine)
+// ─────────────────────────────────────────────────────────────
+IoT C4 Label v59 =
+VAR _faults = [IoT FDD High Today]
+VAR _cost   = [IoT FDD Cost Today EUR]
+RETURN
+    IF(_faults = 0 && (_cost = 0 || ISBLANK(_cost)),
+        "All Clear",
+        FORMAT(_faults, "0") & " faults — Est. €" & FORMAT(ROUND(_cost, 0), "0") & " today")
+
+IoT C4 Color v59 =
+VAR _f = [IoT FDD High Today]
+RETURN SWITCH(TRUE(), ISBLANK(_f) || _f = 0, "#2ECC40", _f <= 2, "#FF851B", "#FF4136")
+
+
+// ─────────────────────────────────────────────────────────────
+// C2/V3 — GERÇEK setpoint uyumu (EN 16798) — in_setpoint kullanır
+// (v44 "is_anomaly = FALSE" proxy'siydi → anomali ≠ setpoint-dışı)
+// ─────────────────────────────────────────────────────────────
+IoT Zone Setpoint Compliance Pct =
+VAR _total =
+    CALCULATE(COUNTROWS(gold_iot_realtime),
+        gold_iot_realtime[sensor_type] IN {"HVAC_temp", "humidity", "CO2"})
+VAR _in =
+    CALCULATE(COUNTROWS(gold_iot_realtime),
+        gold_iot_realtime[sensor_type] IN {"HVAC_temp", "humidity", "CO2"},
+        gold_iot_realtime[in_setpoint] = TRUE())
+RETURN DIVIDE(_in, _total, 0) * 100
+
+IoT Zone Compliance Display =
+VAR _p = [IoT Zone Setpoint Compliance Pct]
+RETURN IF(ISBLANK(_p), "-- %", FORMAT(ROUND(_p, 0), "0") & "% in setpoint (EN 16798)")
+
+IoT Zone Compliance Color =
+VAR _p = [IoT Zone Setpoint Compliance Pct]
+RETURN SWITCH(TRUE(), ISBLANK(_p), "#AAAAAA", _p >= 90, "#2ECC40", _p >= 75, "#FF851B", "#FF4136")
+
+
+// ─────────────────────────────────────────────────────────────
+// Toplam günlük IoT maliyet = FDD (ref) + threshold-anomali (gold_iot_realtime, ref-wired sonrası)
+// ─────────────────────────────────────────────────────────────
+IoT Total Cost Today EUR =
+[IoT FDD Cost Today EUR]
++ CALCULATE(SUM(gold_iot_realtime[cost_eur_window]),
+    gold_iot_realtime[event_date] = TODAY(), REMOVEFILTERS('Date'))
+
+// ============================================================
+// KURULUM NOTU:
+//   1. gold_iot_realtime + gold_iot_fdd'yi modele ekle (DirectLake).
+//   2. İlişkileri kur (building_id, event_date).
+//   3. Page 8: C2/C4'ü v59 ölçülerine bağla; yeni V5 "FDD Findings" tablosu ekle
+//      (gold_iot_fdd: fdd_rule, severity, description, recommended_action, IoT FDD Cost Label).
+//   4. 11b'nin threshold-anomali cost'unu da ref'e bağla (küçük follow-up) ki
+//      IoT Total Cost iki kalemi de ref-tarifeden alsın.
+// ============================================================

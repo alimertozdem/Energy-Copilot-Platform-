@@ -1,0 +1,233 @@
+// ==========================================================================
+// Energy Copilot Platform — DAX v33: Page 7 (HVAC & Envelope) Final Pass
+// File: semantic-model/42_dax_v33_page7_hvac_final.dax
+// Last updated: 2026-05-03
+//
+// AMAÇ:
+//   Page 7'yi enerji yöneticisi gözüyle "directly applicable final"
+//   haline getirmek. Mevcut DAX v8 (13_dax_v8_hvac_envelope.dax) ve
+//   DAX v10 (15_dax_v10_review_fixes.dax) ölçülerinin üstüne 4 grup
+//   patch ekler — HİÇBİR mevcut ölçü silinmez.
+//
+// ROOT-CAUSE ÖZETİ (PDF/screenshot review):
+//   1. Avg COP "—": cop_actual_avg fiziksel olarak yok →
+//      [COP Monthly Actual] tüm portföyde BLANK döner.
+//      FIX: cop_rated (silver_building_master) fallback'i ekle.
+//   2. HVAC Share %: "2.78401…" formatı + yanlış ölçü bağlandı.
+//      FIX: HVAC Share Pct Safe (v10) + format "0.0" + suffix " %".
+//   3. System Type Display tüm satırlarda "Heat Pump":
+//      ALLEXCEPT(gold_hvac_analytics, [building_id]) row context kırıyor.
+//      FIX: Basit MAX(...) — silver_building_master row context yeterli.
+//   4. Buildings for Renovation tek bina seçince "—":
+//      0 yerine BLANK dönüyor.
+//      FIX: COALESCE(_n, 0) wrapper.
+//
+// KURULUM:
+//   Power BI Desktop → Model view → 'gold_hvac_analytics' (veya herhangi
+//   bir tablo) → New measure → her bloğu ayrı ölçü olarak yapıştır.
+//
+// BAĞLAMA HARİTASI (page7 final layout):
+//   C1 Card  : HVAC Share Pct Safe        format "0.0" + suffix " %"
+//   C2 Card  : HVAC Efficiency Score      format "0.0"   (mevcut, bağlama)
+//   C3 Card  : Avg Insulation Score Card  (yeni, v33)    format "0.0"
+//   C4 Card  : Heat Loss kWh m2 Annual    (mevcut, bağlama)
+//   C5 Card  : Buildings For Retrofit     (yeni, v33)    format "0"
+//   V1       : Heating/Cooling/Vent Energy (mevcut)
+//   V2 Table : System Type Display Robust + COP Display Robust
+//              + Renovation Priority Icon + Insulation Rating Label
+//   V3       : U Wall/Roof/Floor/Window Actual (mevcut)
+//   V4       : Insulation Score (mevcut, görsel filtresiyle)
+//   V5       : HVAC Efficiency Score × Insulation Score (mevcut)
+// ==========================================================================
+
+
+// ==========================================================================
+// BÖLÜM 1 — COP FALLBACK (cop_actual_avg yokken cop_rated kullan)
+// ==========================================================================
+
+// COP Display Robust =
+// Tek-bina row context'inde önce gerçek SCOP, yoksa cop_rated, hiçbiri yoksa "n/a".
+// Hibrit / gaz binalarında BLANK yerine "n/a (gas)" döner — manager için okunabilir.
+COP Display Robust =
+VAR _scop_actual = [COP Monthly Actual]
+VAR _rated = AVERAGE(silver_building_master[heat_pump_cop_rated])
+VAR _has_hp =
+    CALCULATE(
+        MAX(silver_building_master[has_heat_pump]),
+        ALLSELECTED(silver_building_master)
+    )
+RETURN
+    SWITCH(
+        TRUE(),
+        NOT(_has_hp),                         "n/a (non-HP)",
+        NOT(ISBLANK(_scop_actual)) && _scop_actual > 0,
+            FORMAT(_scop_actual, "0.00") & "  (actual)",
+        NOT(ISBLANK(_rated)) && _rated > 0,
+            FORMAT(_rated, "0.00") & "  (rated)",
+        "n/a"
+    )
+// Tablo (V2) için ideal — tek hücrede hem değer hem kaynak görünür.
+
+// Card: Avg HP COP Robust =
+// Portföy düzeyinde ortalama: önce SCOP gerçek, yoksa cop_rated. HP olan
+// binalarla sınırlı. Card 2 (Avg COP) için sayısal — ek olarak isteğe bağlı.
+Card: Avg HP COP Robust =
+VAR _scop = CALCULATE(
+    AVERAGEX(gold_hvac_analytics, gold_hvac_analytics[scop_rolling]),
+    silver_building_master[has_heat_pump] = TRUE()
+)
+VAR _rated = CALCULATE(
+    AVERAGE(silver_building_master[heat_pump_cop_rated]),
+    silver_building_master[has_heat_pump] = TRUE()
+)
+RETURN COALESCE(_scop, _rated)
+// NOT: Final layout'ta Avg COP card'ı KALDIRILDI — bu ölçü tablo tooltip
+// veya V5 detail için yedek olarak duruyor.
+
+
+// ==========================================================================
+// BÖLÜM 2 — SYSTEM TYPE / RENOVATION PRIORITY ROBUST WRAPPERS
+// (CALCULATE+ALLEXCEPT row context bug'ını çözen sade versiyon)
+// ==========================================================================
+
+// System Type Display Robust =
+// Mevcut [System Type Display] CALCULATE/ALLEXCEPT kullanıyor — table row
+// context'te yanlış değer dönebiliyor. Basit MAX(...) versiyon hem doğru
+// hem daha hızlı.
+System Type Display Robust =
+VAR _sys = MAX(gold_hvac_analytics[system_type])
+RETURN
+    SWITCH(
+        _sys,
+        "heat_pump",  "🔵  Heat Pump (ASHP/GSHP)",
+        "hybrid",     "🟣  Hybrid HP + Gas Backup",
+        "gas_boiler", "🟠  Gas Boiler (CSRD risk)",
+        "other",      "⚪  Other / Not specified",
+        BLANK()
+    )
+
+// Renovation Priority Icon Robust =
+// Aynı sebep — ALLEXCEPT kaldırıldı.
+Renovation Priority Icon Robust =
+VAR _label = MAX(gold_hvac_analytics[renovation_priority])
+RETURN
+    SWITCH(
+        _label,
+        "High",   "🔴  High — Act now",
+        "Medium", "🟡  Medium — Plan in 2 yr",
+        "Low",    "🟢  Low — Monitor",
+        BLANK()
+    )
+
+
+// ==========================================================================
+// BÖLÜM 3 — KPI CARD WRAPPERS (final layout C1–C5 için)
+// ==========================================================================
+
+// Card: HVAC Share Pct Display =
+// 0–100 arası sayı + " %" suffix. "0.0" format kullan, "0%" KULLANMA.
+// (HVAC Share Pct Safe DAX v10'da var — bu sadece "—" davranışı + suffix.)
+Card: HVAC Share Pct Display =
+VAR _v = [HVAC Share Pct Safe]
+RETURN IF(ISBLANK(_v) || _v = 0, BLANK(), _v)
+// Format string: 0.0 "%"
+// Kullanım: C1 yeni Card visual, "0.0 %" formatı.
+
+// Card: Avg Insulation Score =
+// Mevcut [Card: Avg Portfolio Insulation Score] zaten doğru — alias.
+Card: Avg Insulation Score =
+[Card: Avg Portfolio Insulation Score]
+
+// Card: Buildings For Retrofit =
+// "—" yerine 0 göstersin. High priority count + tek bina seçimde 0 kalsın.
+Card: Buildings For Retrofit =
+VAR _n = [High Priority Building Count]
+RETURN COALESCE(_n, 0)
+// Format: "0"
+// Conditional formatting: > 0 ise font color #E24B4A, ≤0 ise default.
+
+// Card: HVAC Efficiency Display =
+// "—" davranışı için wrapper (mevcut HVAC Efficiency Score zaten 0–100).
+Card: HVAC Efficiency Display =
+VAR _v = [HVAC Efficiency Score]
+RETURN IF(ISBLANK(_v), BLANK(), _v)
+
+
+// ==========================================================================
+// BÖLÜM 4 — V5 RENOVATION MATRIX YARDIMCI ÖLÇÜLERİ
+// ==========================================================================
+
+// Renovation Priority Color =
+// Scatter visual'da "Color saturation" alanına uygun NUMERIC değer.
+// 1 = Low/Green, 2 = Medium/Amber, 3 = High/Red — conditional formatting
+// için kullanılabilir.
+Renovation Priority Color =
+VAR _label = MAX(gold_hvac_analytics[renovation_priority])
+RETURN
+    SWITCH(
+        _label,
+        "Low",    1,
+        "Medium", 2,
+        "High",   3,
+        BLANK()
+    )
+
+// Building Total Consumption kWh Annual =
+// Scatter "Size" (bubble) için bina bazlı yıllık tüketim.
+// Mevcut [Total Consumption kWh] tüm filtreleri saygılar — V5'te
+// renovasyon önceliği bina bazlı olduğu için her bina ayrı bubble olur.
+Building Total Consumption kWh Annual =
+[Total Consumption kWh]
+// Alias — visual'da semantik isim.
+
+
+// ==========================================================================
+// BÖLÜM 5 — V2 TABLE EK SÜTUN ÖLÇÜLERİ (Aksiyon kolonu)
+// ==========================================================================
+
+// Action Recommendation Short =
+// Tablo'ya "next action" sütunu ekler — manager bir bakışta ne yapacağını görür.
+// Renovation reason'ın kısaltılmış hali (uzun cümleler tabloyu boğar).
+Action Recommendation Short =
+VAR _sys = MAX(gold_hvac_analytics[system_type])
+VAR _ins = [Insulation Score]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_sys),                BLANK(),
+        _sys = "gas_boiler" && _ins < 55,  "Switch to ASHP + insulate envelope",
+        _sys = "gas_boiler" && _ins < 75,  "Plan ASHP retrofit by 2030",
+        _sys = "gas_boiler",                "Envelope ok — plan ASHP transition",
+        _sys = "hybrid",                    "Reduce gas backup share",
+        _sys = "heat_pump" && _ins < 55,   "Insulate envelope — boost SCOP",
+        _sys = "heat_pump",                 "Monitor SCOP & service interval",
+        "Audit recommended"
+    )
+
+
+// ==========================================================================
+// KISA YERLEŞTİRME ÖZETİ
+//
+// CARDS (Row 1 — 5 cards, equal width 250 × 80):
+//   C1  Value : Card: HVAC Share Pct Display      Format: 0.0  Suffix: " %"
+//   C2  Value : Card: HVAC Efficiency Display     Format: 0.0  Target line: 60
+//   C3  Value : Card: Avg Insulation Score        Format: 0.0  Target line: 75
+//   C4  Value : Heat Loss kWh m2 Annual           Format: 0.0  Suffix: " kWh/m²"
+//   C5  Value : Card: Buildings For Retrofit      Format: 0    Conditional red >0
+//
+// V2 Table (Building HVAC summary):
+//   silver_building_master[building_name]
+//   System Type Display Robust
+//   Renovation Priority Icon Robust
+//   COP Display Robust                — string column (text)
+//   Insulation Rating Label
+//   Heat Loss kWh m2 Annual          — sayfa toplamı, format "0.0"
+//   Action Recommendation Short
+//
+// V5 Scatter:
+//   X: Insulation Score
+//   Y: HVAC Efficiency Score
+//   Size: Building Total Consumption kWh Annual
+//   Details: silver_building_master[building_name]
+//   Color saturation: Renovation Priority Color  (1=#1D9E75, 2=#FFC107, 3=#E24B4A)
+// ==========================================================================

@@ -12,4 +12,11 @@ SIMULATOR  = os.path.join(SCRIPT_DIR, "iot_device_simulator.py")
 os.environ["EVENTHUB_CONNECTION_STRING"] = os.getenv(
     "EVENTHUB_CONNECTION_STRING",
     "Endpoint=sb://YOUR_NAMESPACE.servicebus.windows.net/;"
-    "SharedAccessKeyName=Ro
+    "SharedAccessKeyName=RootManageSharedAccessKey;"
+    "SharedAccessKey=YOUR_KEY_HERE"
+)
+
+subprocess.run([
+    sys.executable, SIMULATOR,
+    "--mode", "batch", "--count", "96"
+])

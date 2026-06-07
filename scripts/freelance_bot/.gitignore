@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+.env
+*.log
+
+# We DO commit data/jobs.db so dedup state survives across cron runs.
+# To exclude it, uncomment:
+# data/*.db
+*.bak

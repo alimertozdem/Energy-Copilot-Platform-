@@ -1,0 +1,300 @@
+// ==========================================================================
+// ENERGY COPILOT PLATFORM — DAX v28
+// File   : 37_dax_v28_page4_savings_recal.dax
+// Page   : 04_forecast_recommendations
+// Author : Energy Copilot Team
+// Date   : 2026-04-29
+//
+// PURPOSE
+// -------
+// After expanding the recommendation engine to 16 action types (3-layer),
+// the gold_recommendations table now produces ~37 rows per portfolio run
+// vs ~7 previously. This breaks 3 things on Page 4:
+//
+//   1. C3 "Savings Potential (€)" → now shows €2.69M (all 37 recs summed)
+//      vs €150K goal → +1,693% → meaningless comparison
+//
+//   2. Actions by Priority bar chart → MEDIUM=13 category had no DAX measure
+//      (old Rec Count INFORMATIONAL was incorrectly grouping MEDIUM)
+//
+//   3. C4 "CRITICAL Actions" → worked visually but lacked an explicit measure
+//      for CF and tooltip re-use
+//
+// FIXES IN THIS FILE
+// ------------------
+//   A. Savings Annual Target EUR    → updated from 150,000 to 300,000
+//      Rationale: 5 CRITICAL recs total ~€360K savings. Goal = capture 80%.
+//      Users should be motivated by +20% achievement, not -1,693%.
+//
+//   B. Savings Potential EUR (C3)   → NEW: CRITICAL-only (most actionable)
+//      Replaces or supplements "Total CRITICAL HIGH Savings EUR" from v25.
+//      Showing CRITICAL only = "what you MUST do this year" story.
+//
+//   C. Rec Count CRITICAL           → new explicit measure
+//   D. Rec Count MEDIUM             → new explicit measure
+//   E. Rec Count INFORMATIONAL FIX  → now correctly excludes MEDIUM
+//   F. Total All Savings EUR        → renamed alias for Total Portfolio Savings
+//      (use as subtitle or tooltip on C3 to show full picture)
+//
+// IMPORT ORDER
+// ------------
+// Import this after v24, v25, v26, v27. Measures with the same name
+// will OVERWRITE the previous version (intended).
+//
+// UI ACTIONS AFTER IMPORT (Page 4 remaining steps)
+// -------------------------------------------------
+//   C3 card: Change Value field to "Savings Potential EUR CRITICAL"
+//   C3 card: Goal field stays "Savings Annual Target EUR" (now 300,000)
+//   C4 card: Value field → "Rec Count CRITICAL" (same result, explicit measure)
+//   V12 "Actions by Priority": Update data labels to use Rec Count MEDIUM
+// ==========================================================================
+
+
+// ==========================================================================
+// SECTION A — C3 SAVINGS POTENTIAL RECALIBRATION
+// ==========================================================================
+
+// A1. New C3 value — CRITICAL-only annual savings
+//
+// BUSINESS LOGIC:
+//   Shows the total annual savings achievable by executing ONLY the CRITICAL
+//   priority recommendations (highest compliance urgency + best ROI).
+//   For the current portfolio (5 CRITICAL recs):
+//     Frankfurt Klinikum Solar Thermal : ~€137,215
+//     Istanbul Ticaret LED             : ~€ 47,567
+//     Wien Grand Hotel HVAC Scheduling : ~€ 30,162
+//     Wien Grand Hotel Solar Thermal   : ~€ 89,768
+//     Wien Grand Hotel BMS             : ~€ 57,451
+//     TOTAL                            : ~€362,163
+//
+//   This is the "you must do THIS" number — not a wish list, not the full
+//   portfolio potential. Facility managers respond better to a focused ask.
+//
+// NOTE: If a building slicer is active, this reflects filtered buildings only.
+// Format: "€ #,##0"
+
+Savings Potential EUR CRITICAL =
+CALCULATE (
+    SUM ( gold_recommendations[annual_saving_eur] ),
+    gold_recommendations[priority_label] = "CRITICAL"
+)
+
+
+// A2. Updated savings target
+//
+// RATIONALE: Old target was €150,000 (designed when only 7 recs existed).
+//   New action type set produces ~€360K CRITICAL savings alone.
+//   New target: capture 80% of CRITICAL savings = €290K → rounded to €300K.
+//   Achievable in 12 months by executing the 5 CRITICAL recommendations.
+//
+//   TO CUSTOMISE: Change the number below to reflect client's annual budget.
+//   If a specific building is selected, you may want to reduce proportionally.
+// Format: "€ #,##0"
+
+Savings Annual Target EUR =
+VAR _target = 300000
+RETURN _target
+
+
+// A3. Achievement % (C3 subtitle/tooltip)
+// Unchanged from v25 but references updated measures above.
+// Format: "+0.0%;-0.0%;—"
+
+Savings Achievement Pct =
+VAR _actual = [Savings Potential EUR CRITICAL]
+VAR _target = [Savings Annual Target EUR]
+RETURN
+    IF (
+        NOT ISBLANK ( _actual ) && _target > 0,
+        ROUND ( DIVIDE ( _actual, _target ) * 100, 1 ),
+        BLANK ()
+    )
+
+
+// A4. Full portfolio savings (for context — use as tooltip or secondary label)
+//
+//   "Total annual savings if ALL 37 recommendations are executed"
+//   This is the ceiling / strategic opportunity.
+//   Show in a tooltip or as a second row on C3 (Call-out value visual).
+// Format: "€ #,##0"
+
+Total Portfolio Savings EUR =
+CALCULATE (
+    SUM ( gold_recommendations[annual_saving_eur] ),
+    NOT ISBLANK ( gold_recommendations[annual_saving_eur] )
+)
+
+
+// A5. CRITICAL + HIGH combined (from v25 — keep for V10 table use)
+// Unchanged from v25. Included here to ensure latest version is active.
+// Format: "€ #,##0"
+
+Total CRITICAL HIGH Savings EUR =
+CALCULATE (
+    SUM ( gold_recommendations[annual_saving_eur] ),
+    gold_recommendations[priority_label] IN { "CRITICAL", "HIGH" }
+)
+
+
+// ==========================================================================
+// SECTION B — REC COUNT MEASURES (COMPLETE SET)
+// ==========================================================================
+// These feed the V12 "Actions by Priority" bar chart and C4 card.
+// All measures handle BLANK → 0 so the bar chart always has data.
+
+// B1. CRITICAL count — previously missing, now explicit
+// C4 "CRITICAL Actions" card should use this as its Value field.
+// Format: "#,##0"
+
+Rec Count CRITICAL =
+VAR _count =
+    CALCULATE (
+        COUNTROWS ( gold_recommendations ),
+        gold_recommendations[priority_label] = "CRITICAL"
+    )
+RETURN IF ( ISBLANK ( _count ), 0, _count )
+
+
+// B2. HIGH count — unchanged from v24, included for completeness
+// Format: "#,##0"
+
+Rec Count HIGH =
+VAR _count =
+    CALCULATE (
+        COUNTROWS ( gold_recommendations ),
+        UPPER ( gold_recommendations[priority_label] ) = "HIGH"
+    )
+RETURN IF ( ISBLANK ( _count ), 0, _count )
+
+
+// B3. MEDIUM count — previously missing
+//
+// NOTE: Old "Rec Count INFORMATIONAL" incorrectly included MEDIUM.
+//   With 16 action types, MEDIUM is now a distinct meaningful category
+//   (13 recommendations = operational best-practice actions with good ROI).
+//   MEDIUM ≠ INFORMATIONAL. Separate measures required.
+// Format: "#,##0"
+
+Rec Count MEDIUM =
+VAR _count =
+    CALCULATE (
+        COUNTROWS ( gold_recommendations ),
+        gold_recommendations[priority_label] = "MEDIUM"
+    )
+RETURN IF ( ISBLANK ( _count ), 0, _count )
+
+
+// B4. LOW count — unchanged from v24
+// Format: "#,##0"
+
+Rec Count LOW =
+VAR _count =
+    CALCULATE (
+        COUNTROWS ( gold_recommendations ),
+        UPPER ( gold_recommendations[priority_label] ) = "LOW"
+    )
+RETURN IF ( ISBLANK ( _count ), 0, _count )
+
+
+// B5. INFORMATIONAL count — FIXED: no longer includes MEDIUM
+//
+// BEFORE (v24): IN { "INFORMATIONAL", "INFO", "MEDIUM" }  ← WRONG
+// AFTER  (v28): = "INFORMATIONAL" only                    ← CORRECT
+// Format: "#,##0"
+
+Rec Count INFORMATIONAL =
+VAR _count =
+    CALCULATE (
+        COUNTROWS ( gold_recommendations ),
+        gold_recommendations[priority_label] = "INFORMATIONAL"
+    )
+RETURN IF ( ISBLANK ( _count ), 0, _count )
+
+
+// B6. Total recommendation count (all priorities)
+// Use in subtitle: "X recommendations across Y buildings"
+// Format: "#,##0"
+
+Rec Count Total =
+COUNTROWS ( gold_recommendations )
+
+
+// ==========================================================================
+// SECTION C — V12 ACTIONS BY PRIORITY SORT HELPER
+// ==========================================================================
+//
+// V12 bar chart needs custom sort so CRITICAL appears at top.
+// If Priority Sort Order column doesn't exist in the table,
+// use this measure as a sort-by for the visual.
+
+Priority Sort Order =
+SWITCH (
+    SELECTEDVALUE ( gold_recommendations[priority_label] ),
+    "CRITICAL",      1,
+    "HIGH",          2,
+    "MEDIUM",        3,
+    "LOW",           4,
+    "INFORMATIONAL", 5,
+    99
+)
+
+
+// ==========================================================================
+// SECTION D — V11 PAYBACK VS SAVINGS FILTER HELPER
+// ==========================================================================
+//
+// Already defined in v26 (35_dax_v26). Included here in case v26 is not
+// imported. If it's already present, Power BI will show "measure already
+// exists" — just skip.
+//
+// Visual-level filter: Rec Has Financial Data = 1
+// This hides ENERGY_AUDIT recommendations (no annual saving) from scatter.
+// Format: 0 or 1
+
+Rec Has Financial Data =
+IF (
+    NOT ISBLANK ( SELECTEDVALUE ( gold_recommendations[annual_saving_eur] ) )
+        && SELECTEDVALUE ( gold_recommendations[annual_saving_eur] ) > 0
+        && NOT ISBLANK ( SELECTEDVALUE ( gold_recommendations[payback_years] ) )
+        && SELECTEDVALUE ( gold_recommendations[payback_years] ) < 99,
+    1,
+    0
+)
+
+
+// ==========================================================================
+// VALIDATION NOTES
+// ==========================================================================
+//
+// After importing, verify on Page 4:
+//
+// C3 "Savings Potential (€)":
+//   ✅ Value  = Savings Potential EUR CRITICAL   → ~€362K (5 bina portfolio)
+//   ✅ Goal   = Savings Annual Target EUR         → 300,000
+//   ✅ Result = +20% (positive, motivating — user is above target)
+//   ✅ Subtitle tooltip: Total Portfolio Savings EUR → ~€2.69M (full picture)
+//
+// C4 "CRITICAL Actions":
+//   ✅ Value  = Rec Count CRITICAL               → 5
+//   ✅ Goal   = lit(3) or "Rec Count CRITICAL Target" (not implemented yet)
+//
+// V12 "Actions by Priority":
+//   ✅ CRITICAL = 5, HIGH = 9, MEDIUM = 13, LOW = 7, INFORMATIONAL = 3
+//   ✅ Sort: CRITICAL at top (Priority Sort Order measure)
+//   ✅ Colors: CRITICAL=#FF4560, HIGH=#FF6B35, MEDIUM=#FFB020
+//              LOW=#00C8FF, INFORMATIONAL=#7DB4DC
+//
+// V11 "Payback vs Savings":
+//   ✅ Visual filter: Rec Has Financial Data = 1
+//      (hides ENERGY_AUDIT + null-saving entries from scatter)
+//
+// REMAINING PAGE 4 UI TASKS (not DAX — manual in Power BI):
+//   ⚠️ V4 chart: Visual type → "Line and Clustered Column Chart"
+//   ⚠️ V4 chart: X-axis → Date[YearMonth], Sort-by → Date[MonthIndex]
+//   ⚠️ V4 chart: Column values: Monthly Actual kWh, Monthly Forecast kWh
+//              Line values: Monthly PY kWh
+//   ⚠️ V4 chart: Colors → Actual=#00C8FF, Forecast=#A064FF, PY=#FFC107 dashed
+//   ⚠️ V4 chart: Edit Interactions → Date Range slicer → "None" for V4
+//   ⚠️ MAPE bar chart: X-axis max → 60, reference lines at X=10 and X=30
+//   ⚠️ C1 Goal: Actual 7Day Aligned kWh (from v26)
+// ==========================================================================

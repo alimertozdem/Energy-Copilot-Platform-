@@ -1,0 +1,31 @@
+[project]
+name = "freelance-bot"
+version = "0.1.0"
+description = "Finds CSRD/ESG + Fabric jobs across freelance platforms, drafts proposals, pushes to Telegram."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Ali Mert Özdemir" }]
+
+dependencies = [
+  "feedparser>=6.0.11",
+  "httpx>=0.27",
+  "imap-tools>=1.6",
+  "beautifulsoup4>=4.12",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[project.scripts]
+freelance-bot = "src.main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

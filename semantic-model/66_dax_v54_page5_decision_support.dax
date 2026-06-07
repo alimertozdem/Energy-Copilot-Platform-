@@ -1,0 +1,303 @@
+// ============================================================
+// DAX v54 — Page 5: Decision-Support Layer
+// Energy Copilot Platform
+// Date: 2026-05-19
+// ============================================================
+// SCOPE
+//   Sayfa 5'i descriptive katmandan prescriptive katmana taşır.
+//   4 yeni measure + 1 mevcut measure güncellemesi.
+//
+//   Eksiklik tanılaması (Page 5 audit, 2026-05-19):
+//     1. Decision-support layer yok (descriptive ama prescriptive değil)
+//     2. Ghost-load risk görseli yok ([Phantom Load Risk Pct] var ama bind edilmemiş)
+//     3. Underutilized buildings için trigger yok
+//     4. Page 4 (recommendations) ile bağlantı yok
+//     5. C4 Goal portföye kalibre değil (650 → karma portföy için iyimser)
+//
+// ÇÖZÜM
+//   v54 = 4 yeni KPI + 1 prescriptive insight text measure + Goal kalibresi
+//   Yeni bottom-strip görselleri Page 5 layout'una eklenir.
+//
+// INSTALL METHOD
+//   Önerilen: TE2 script — semantic-model/scripts/page5_v54_install.cs
+//   Alternatif: Power BI Desktop → New Measure (her birini manuel kopyala)
+//
+// HOME TABLE STRATEGY
+//   gold_occupancy_profile  → Status/text/variance ölçüleri (occupancy semantics)
+//   gold_kpi_daily          → €-cinsinden finansal ölçüler (kWh semantics)
+//
+// DEPENDENCIES — SELF-CONTAINED (no measure chain dependencies)
+//   Tablolar yeterli: gold_occupancy_profile, gold_kpi_daily, silver_building_master
+//   Sebep: 02_dax_measures.dax ve v29 measure'ları modelde olmayabiliyor.
+//   Bu yüzden tüm measure'lar tablodan direkt hesaplar.
+//
+//   Sadece 2 measure inter-dependency:
+//     [Occupancy Top Insight] -> [Occupied Hours Variance Hours], [Ghost Load Annual Cost EUR]
+//     Bu ikisi de self-contained, dolayısıyla chain temiz.
+// ============================================================
+
+
+// ────────────────────────────────────────────────────────────
+// SECTION A — UPDATE: Energy per Occupant Goal kWh
+// ────────────────────────────────────────────────────────────
+// REVISION: Portföy default 650 → 1200
+// JUSTIFICATION:
+//   Mevcut portföy mix'i healthcare + hotel + logistics ağırlıklı.
+//   Bu binalar tipik olarak kişi başı 900-1100 kWh/ay tüketir
+//   (24/7 operasyon, baseload dominant, az kişi).
+//
+//   650 hedefi salt ofis portföyleri için makul; karma portföyde
+//   "sürekli kırmızı" gösterir → KPI olarak anlamsızlaşır.
+//
+//   1200 = ASHRAE 90.1 karma portföy üst sınırı (achievable target).
+//   Bina-spesifik hedefler değişmedi (Office 250, Healthcare 1100, vb).
+
+Energy per Occupant Goal kWh =
+VAR _selected_buildings = DISTINCTCOUNT( gold_occupancy_profile[building_id] )
+VAR _building_type =
+    IF(
+        _selected_buildings = 1,
+        CALCULATE(
+            SELECTEDVALUE( silver_building_master[building_type] ),
+            TREATAS( VALUES( gold_occupancy_profile[building_id] ),
+                     silver_building_master[building_id] )
+        ),
+        "Portfolio"
+    )
+RETURN
+    SWITCH(
+        TRUE(),
+        _building_type = "Office",      250,
+        _building_type = "Retail",      320,
+        _building_type = "Hotel",       900,
+        _building_type = "Healthcare", 1100,
+        _building_type = "Education",   250,
+        _building_type = "Logistics",  1000,
+        1200    -- portfolio default (calibrated 2026-05-19)
+    )
+
+// Format string: #,##0
+// Home table:    gold_occupancy_profile
+// Display folder: Page 5 - Energy Density
+
+
+// ────────────────────────────────────────────────────────────
+// SECTION B1 — NEW BASE: Ghost Load Risk Pct
+// ────────────────────────────────────────────────────────────
+// Mesai-dışı (>=20h veya <7h) ortalama occupancy probability'nin
+// 24h ortalamaya oranı (%). Self-contained — başka measure'a bağlı değil.
+
+Ghost Load Risk Pct =
+VAR _after_hours_avg =
+    CALCULATE(
+        AVERAGE( gold_occupancy_profile[occupancy_probability] ),
+        gold_occupancy_profile[hour_of_day] >= 20
+            || gold_occupancy_profile[hour_of_day] < 7
+    )
+VAR _total_avg = AVERAGE( gold_occupancy_profile[occupancy_probability] )
+RETURN
+    IF(
+        NOT ISBLANK( _total_avg ) && _total_avg > 0,
+        ROUND( DIVIDE( _after_hours_avg, _total_avg ) * 100, 1 ),
+        BLANK()
+    )
+
+// Format string: 0.0
+// Home table:    gold_occupancy_profile
+// Display folder: Page 5 - Decision Support
+
+
+// ────────────────────────────────────────────────────────────
+// SECTION B2 — NEW: Ghost Load Risk Status (text label)
+// ────────────────────────────────────────────────────────────
+// PURPOSE
+//   Card subtitle olarak ghost load yüzdesini insan diline çevirir.
+//   Hesaplamayı içeride yapıyor (chain dependency yok).
+//
+// THRESHOLDS (ASHRAE-aligned)
+//   < 20% : Efficient        — mesai-dışı tüketim normal baseload
+//   < 35% : Review schedule  — iyileştirme alanı var
+//   >= 35% : Critical        — ghost load problemi, immediate action
+
+Ghost Load Risk Status =
+VAR _after_hours_avg =
+    CALCULATE(
+        AVERAGE( gold_occupancy_profile[occupancy_probability] ),
+        gold_occupancy_profile[hour_of_day] >= 20
+            || gold_occupancy_profile[hour_of_day] < 7
+    )
+VAR _total_avg = AVERAGE( gold_occupancy_profile[occupancy_probability] )
+VAR _pct =
+    IF( _total_avg > 0,
+        DIVIDE( _after_hours_avg, _total_avg ) * 100,
+        BLANK()
+    )
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK( _pct ),    "—",
+        _pct < 20,          "Efficient",
+        _pct < 35,          "Review schedule",
+                            "Critical ghost load"
+    )
+
+// Format string: (empty — text)
+// Home table:    gold_occupancy_profile
+// Display folder: Page 5 - Decision Support
+
+
+// ────────────────────────────────────────────────────────────
+// SECTION C — NEW: Ghost Load Annual Cost EUR
+// ────────────────────────────────────────────────────────────
+// FORMULA
+//   wasted_kwh = annual_total_kwh × (phantom_pct / 100) × baseload_factor
+//   wasted_eur = wasted_kwh × eur_per_kwh
+//
+// ASSUMPTIONS (stated)
+//   baseload_factor = 0.20
+//     Mesai-dışı boş binalarda tüketim genellikle operasyonel yükün
+//     %15-25'i seviyesindedir. 0.20 portföy ortalaması için makul.
+//     Kaynak: ASHRAE 90.1 Appendix G; CIBSE TM54.
+//
+//   eur_per_kwh = 0.20
+//     Almanya 2024-2026 ticari elektrik ort. (Eurostat, BDEW).
+//     v55'te country-specific'e çekilecek (DE 0.20 / TR 0.14).
+
+Ghost Load Annual Cost EUR =
+VAR _after_hours_avg =
+    CALCULATE(
+        AVERAGE( gold_occupancy_profile[occupancy_probability] ),
+        gold_occupancy_profile[hour_of_day] >= 20
+            || gold_occupancy_profile[hour_of_day] < 7
+    )
+VAR _total_avg = AVERAGE( gold_occupancy_profile[occupancy_probability] )
+VAR _phantom_pct =
+    IF( _total_avg > 0,
+        DIVIDE( _after_hours_avg, _total_avg ) * 100,
+        BLANK()
+    )
+VAR _annual_kwh = CALCULATE( SUM( gold_kpi_daily[total_consumption_kwh] ) )
+VAR _baseload_factor = 0.20
+VAR _eur_per_kwh = 0.20
+VAR _wasted_kwh = _annual_kwh * ( _phantom_pct / 100 ) * _baseload_factor
+VAR _wasted_eur = _wasted_kwh * _eur_per_kwh
+RETURN
+    IF(
+        NOT ISBLANK( _wasted_eur ) && _wasted_eur > 0,
+        ROUND( _wasted_eur, 0 ),
+        BLANK()
+    )
+
+// Format string: "€"#,##0
+// Home table:    gold_kpi_daily
+// Display folder: Page 5 - Decision Support
+
+
+// ────────────────────────────────────────────────────────────
+// SECTION D — NEW: Occupied Hours Variance Hours
+// ────────────────────────────────────────────────────────────
+// PURPOSE
+//   Card altyazısı için: "actual - goal" delta.
+//   Negatif = bina hedeften az çalışıyor (under-utilized).
+//   Pozitif = hedeften fazla çalışıyor (over-utilized veya 24/7 op).
+
+Occupied Hours Variance Hours =
+VAR _occupied_threshold = 0.30
+VAR _occupied_hours_per_week =
+    CALCULATE(
+        COUNTROWS( gold_occupancy_profile ),
+        gold_occupancy_profile[occupancy_probability] >= _occupied_threshold
+    )
+VAR _actual = DIVIDE( _occupied_hours_per_week, 7 )
+VAR _selected_buildings = DISTINCTCOUNT( gold_occupancy_profile[building_id] )
+VAR _building_type =
+    IF(
+        _selected_buildings = 1,
+        CALCULATE(
+            SELECTEDVALUE( silver_building_master[building_type] ),
+            TREATAS( VALUES( gold_occupancy_profile[building_id] ),
+                     silver_building_master[building_id] )
+        ),
+        "Portfolio"
+    )
+VAR _goal =
+    SWITCH(
+        TRUE(),
+        _building_type = "Office",       9,
+        _building_type = "Retail",      12,
+        _building_type = "Hotel",       18,
+        _building_type = "Healthcare",  20,
+        _building_type = "Education",    8,
+        _building_type = "Logistics",   14,
+        10
+    )
+RETURN
+    IF(
+        NOT ISBLANK( _actual ) && _goal > 0,
+        ROUND( _actual - _goal, 1 ),
+        BLANK()
+    )
+
+// Format string: +0.0;-0.0;0
+// Home table:    gold_occupancy_profile
+// Display folder: Page 5 - Decision Support
+
+
+// ────────────────────────────────────────────────────────────
+// SECTION E — NEW: Occupancy Top Insight (prescriptive text)
+// ────────────────────────────────────────────────────────────
+// PURPOSE
+//   Page 5'i descriptive'den prescriptive'e taşıyan KEY measure.
+//   Mevcut sinyalleri okur ve en yüksek-etki aksiyonu metin olarak döndürür.
+//   Page 4 (recommendations) sayfasına yönlendirme içerir.
+//
+// DECISION LOGIC (öncelik sırası)
+//   1. Veri eksik → uyarı (notebook bug check)
+//   2. Phantom load >= 35% → CRITICAL ghost load aksiyonu
+//   3. Phantom load >= 20% → MODERATE after-hours aksiyonu
+//   4. Occupied hours << goal → under-utilization aksiyonu
+//   5. Hiçbiri yoksa → healthy
+
+Occupancy Top Insight =
+VAR _after_hours_avg =
+    CALCULATE(
+        AVERAGE( gold_occupancy_profile[occupancy_probability] ),
+        gold_occupancy_profile[hour_of_day] >= 20
+            || gold_occupancy_profile[hour_of_day] < 7
+    )
+VAR _total_avg = AVERAGE( gold_occupancy_profile[occupancy_probability] )
+VAR _phantom =
+    IF( _total_avg > 0,
+        DIVIDE( _after_hours_avg, _total_avg ) * 100,
+        BLANK()
+    )
+VAR _hours_variance = [Occupied Hours Variance Hours]
+VAR _annual_cost = [Ghost Load Annual Cost EUR]
+VAR _cost_text = IF( ISBLANK( _annual_cost ), "n/a", "EUR " & FORMAT( _annual_cost, "#,##0" ) )
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK( _phantom ),
+            "Insufficient occupancy data. Verify gold_occupancy_profile load (notebook v1.3.0).",
+        _phantom >= 35,
+            "CRITICAL ghost load. Schedule HVAC/lighting off after 20h. " &
+            "Est. saving: " & _cost_text & "/yr. See Page 4 for recommendations.",
+        _phantom >= 20,
+            "MODERATE after-hours waste. Review lighting + plug-load scheduling. " &
+            "Est. saving: " & _cost_text & "/yr. See Page 4 for recommendations.",
+        NOT ISBLANK( _hours_variance ) && _hours_variance < -1.5,
+            "Under-utilized portfolio (" & FORMAT( _hours_variance, "0.0" ) &
+            "h below goal). Consider tenant mix review or space consolidation.",
+        "Healthy utilization pattern. No immediate action required."
+    )
+
+// Format string: (empty — text)
+// Home table:    gold_occupancy_profile
+// Display folder: Page 5 - Decision Support
+
+
+// ============================================================
+// END OF v54
+// Next: Run TE script (page5_v54_install.cs) → Ctrl+S → refresh in Power BI
+// Then bind measures per visual plan (docs/page5_v54_visual_plan.md)
+// ============================================================

@@ -1,0 +1,95 @@
+// ============================================================
+// EnergyLens — DAX v60 — PAGE 8 IoT: FDD priority / confidence / energy-impact
+// Complements v59. Uses the NEW diagnosis-level columns added by 11c v3
+// (full AFDD): priority_score, confidence, occurrence_count, energy_impact_kwh,
+// equipment, probable_cause, fault_code.
+// Home table: gold_iot_fdd.  (These will be folded into the consolidated TE2 script.)
+// ------------------------------------------------------------
+// gold_iot_fdd columns used: event_date, severity, confidence, priority_score,
+//   occurrence_count, energy_impact_kwh, cost_eur_estimate, equipment, fault_code,
+//   probable_cause.
+// ============================================================
+
+
+// ── Top-line cards ────────────────────────────────────────────
+
+// Diagnoses raised today (one row per building × scope × fault × day)
+IoT FDD Diagnoses Today =
+CALCULATE(COUNTROWS(gold_iot_fdd),
+    gold_iot_fdd[event_date] = TODAY(), REMOVEFILTERS('Date'))
+
+// Highest priority score in the current context (0–100) — drives the C4 urgency
+IoT FDD Max Priority =
+MAXX(gold_iot_fdd, gold_iot_fdd[priority_score])
+
+// Average diagnostic confidence (0–1) → display as %
+IoT FDD Avg Confidence =
+AVERAGE(gold_iot_fdd[confidence])
+
+IoT FDD Avg Confidence Pct =
+VAR _c = [IoT FDD Avg Confidence]
+RETURN IF(ISBLANK(_c), "--", FORMAT(_c, "0%"))
+
+// Modeled wasted energy from active faults (kWh) — today
+IoT FDD Energy Impact kWh Today =
+CALCULATE(SUM(gold_iot_fdd[energy_impact_kwh]),
+    gold_iot_fdd[event_date] = TODAY(), REMOVEFILTERS('Date'))
+
+
+// ── V5 "FDD Findings" table — row-level helpers ──────────────
+// Bind the table to gold_iot_fdd; sort by priority_score DESC. These format
+// the per-diagnosis cells.
+
+// Confidence as % for the current row
+IoT FDD Row Confidence =
+VAR _c = SELECTEDVALUE(gold_iot_fdd[confidence])
+RETURN IF(ISBLANK(_c), "--", FORMAT(_c, "0%"))
+
+// Priority badge text (High/Med/Low band from the 0–100 score)
+IoT FDD Priority Band =
+VAR _p = SELECTEDVALUE(gold_iot_fdd[priority_score])
+RETURN
+    SWITCH(TRUE(),
+        ISBLANK(_p), "--",
+        _p >= 60, "🔴 Urgent",
+        _p >= 35, "🟠 High",
+        _p >= 20, "🟡 Medium",
+        "🟢 Low")
+
+// Priority band colour (for conditional formatting)
+IoT FDD Priority Color =
+VAR _p = SELECTEDVALUE(gold_iot_fdd[priority_score])
+RETURN
+    SWITCH(TRUE(),
+        ISBLANK(_p), "#AAAAAA",
+        _p >= 60, "#FF4136",
+        _p >= 35, "#FF851B",
+        _p >= 20, "#FFDC00",
+        "#2ECC40")
+
+// Estimated € for the current row (energy-impact based, ref-priced in 11c)
+IoT FDD Row Cost Label =
+VAR _c = SELECTEDVALUE(gold_iot_fdd[cost_eur_estimate])
+RETURN IF(ISBLANK(_c) || _c = 0, "--", "Est. €" & FORMAT(_c, "0.00"))
+
+
+// ── Optional executive summary ───────────────────────────────
+
+// Single highest-priority diagnosis as a one-line headline (C-suite tooltip)
+IoT FDD Top Diagnosis =
+VAR _top =
+    TOPN(1, gold_iot_fdd, gold_iot_fdd[priority_score], DESC)
+RETURN
+    CONCATENATEX(_top,
+        gold_iot_fdd[equipment] & " — " & gold_iot_fdd[fault_code]
+        & " (" & FORMAT(gold_iot_fdd[confidence], "0%") & ")", ", ")
+
+// ============================================================
+// INTEGRATION:
+//   - Cards: IoT FDD Diagnoses Today, IoT FDD Max Priority, IoT FDD Avg
+//     Confidence Pct, IoT FDD Energy Impact kWh Today.
+//   - V5 table (gold_iot_fdd): columns equipment, fault_code, severity,
+//     IoT FDD Priority Band, IoT FDD Row Confidence, IoT FDD Row Cost Label,
+//     probable_cause; sort visual by priority_score DESC.
+//   - Keep v59 measures (C2/C4 + cost) unchanged — v60 is additive.
+// ============================================================

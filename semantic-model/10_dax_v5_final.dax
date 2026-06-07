@@ -1,0 +1,246 @@
+// ============================================================
+// Energy Copilot Platform — DAX Additions v5 (Final)
+// Semantic Model : EnergycopilotModel
+// Last updated   : 2026-04-16
+//
+// BU DOSYA: Sadece YENİ veya DEĞİŞTİRİLMİŞ ölçüler içerir.
+// Mevcut 02_dax_measures.dax (v3) dosyasındaki ölçüleri
+// SILME — bu dosyadaki ölçüler onları tamamlar veya değiştirir.
+//
+// KURULUM:
+//   Fabric Semantic Model editöründe:
+//   Her ölçü için → New Measure → adı yaz → formülü yapıştır → Enter
+//
+// DEĞİŞİKLİK TABLOSU:
+//   🆕 NEW     = v3'te yoktu, tamamen yeni
+//   🔄 CHANGED = v3'teki ölçünün yerine geçer (aynı adla)
+//   🔁 ALIAS   = başka bir ölçünün kısayolu, layout'ta referans var
+//
+// ⚠️ FORMAT KURALI (tüm *Pct ölçüleri):
+//   DAX içinde zaten ×100 çarpılmış → format string "0.0" kullan
+//   "0%" KULLANMA → Power BI yeniden ×100 çarpar → 2587% hatası
+// ============================================================
+
+
+// ============================================================
+// BÖLÜM A — HEAT MAP (Sayfa 5 Matrix için zorunlu)
+// ============================================================
+
+// 🆕 NEW — Occupancy probability ortalaması (0–1 arası, ×100 yapılmamış)
+// Sayfa 5 Matrix görselinin Values alanına bağla.
+// Gradyan conditional formatting için 0–1 aralığı gereklidir.
+// FORMAT: "0.00"
+Avg Occupancy Probability =
+AVERAGE(gold_occupancy_profile[occupancy_probability])
+
+// NOT: Matrix Rows alanı için "Day Name TR" hesaplanmış kolonunu
+// gold_occupancy_profile tablosuna "New column" ile ekle:
+//
+// Day Name TR =
+// SWITCH(gold_occupancy_profile[day_of_week],
+//     0, "0-Pzt", 1, "1-Sal", 2, "2-Çar",
+//     3, "3-Per", 4, "4-Cum", 5, "5-Cmt", 6, "6-Paz", "?"
+// )
+// → Sonra Day Name TR kolonuna sağ tıkla → "Sort by column" → day_of_week
+
+
+// ============================================================
+// BÖLÜM B — KART 5 SAYFA 1 — Carbon YoY Karşılaştırma
+// ============================================================
+
+// 🆕 NEW — Net Carbon Footprint geçen yıl değeri (Sayfa 1 Kart 5 Target goals)
+// Sayfa 1 Kart 5'in "Target goals" alanına bağla.
+// Bu sayede kart otomatik yüzde fark hesaplar.
+// FORMAT: "#,##0.0"
+Previous Year Net Carbon tCO2 =
+CALCULATE(
+    [Net Carbon Footprint tCO2],
+    DATEADD(gold_kpi_daily[date], -1, YEAR)
+)
+
+
+// ============================================================
+// BÖLÜM C — KART 3 SAYFA 1 — Anomali YoY Karşılaştırma
+// ============================================================
+
+// 🆕 NEW — Active anomaly count for same period last year
+// Sayfa 1 Kart 3'ün "Target goals" alanına bağla.
+// Geçen yıldan daha fazla anomali varsa kırmızı gösterir.
+// FORMAT: "#,##0"
+Anomaly Count PY Same Period =
+CALCULATE(
+    [Active Anomaly Count],
+    DATEADD(gold_kpi_daily[date], -1, YEAR)
+)
+
+
+// ============================================================
+// BÖLÜM D — FORECAST SUPPORT (Sayfa 4 için)
+// ============================================================
+
+// 🆕 NEW — Forecast kaç günü kapsıyor (Sayfa 4 KPI kartı)
+// FORMAT: "#,##0"
+Forecast Period Days =
+CALCULATE(
+    DISTINCTCOUNT(gold_consumption_forecast[forecast_date]),
+    ALLSELECTED()
+)
+
+// 🆕 NEW — Forecast başlangıç tarihi (tooltip veya card için)
+// FORMAT: text veya "DD.MM.YYYY"
+Forecast Start Date Label =
+VAR _d = CALCULATE(MIN(gold_consumption_forecast[forecast_date]), ALLSELECTED())
+RETURN
+IF(ISBLANK(_d), "—", FORMAT(_d, "DD.MM.YYYY"))
+
+// 🆕 NEW — Forecast bitiş tarihi (tooltip veya card için)
+// FORMAT: text veya "DD.MM.YYYY"
+Forecast End Date Label =
+VAR _d = CALCULATE(MAX(gold_consumption_forecast[forecast_date]), ALLSELECTED())
+RETURN
+IF(ISBLANK(_d), "—", FORMAT(_d, "DD.MM.YYYY"))
+
+
+// ============================================================
+// BÖLÜM E — SAYFA 6 CARBON INTENSITY
+// ============================================================
+
+// 🆕 NEW — Yıllık karbon yoğunluğu (günlük × 365)
+// Mevcut [Avg Carbon Intensity kg m2] günlük değer döndürüyor.
+// CRREM, EPBD ve CSRD/ESRS E1 yıllık birim kullanır.
+// Sayfa 6 Kart 5'e bağla.
+// FORMAT: "0.0"
+Carbon Intensity kgCO2 m2 yr =
+[Avg Carbon Intensity kg m2] * 365
+
+
+// ============================================================
+// BÖLÜM F — ANOMALY TABLE (Sayfa 1 + Sayfa 3)
+// ============================================================
+
+// 🆕 NEW — Kritik ve çözülmemiş anomali sayısı
+// Sayfa 3 Kart 2'ye bağla ("Critical Open Anomalies").
+// Hiç yoksa 0 döner, BLANK değil.
+// FORMAT: "#,##0"
+Critical Anomaly Open Count =
+VAR _count =
+    CALCULATE(
+        COUNTROWS(gold_anomaly_log),
+        gold_anomaly_log[severity] = "critical",
+        gold_anomaly_log[is_resolved] = FALSE
+    )
+RETURN
+IF(ISBLANK(_count), 0, _count)
+
+
+// ============================================================
+// BÖLÜM G — EUI GUARD (Sıfır veya BLANK gösterme önlemi)
+// ============================================================
+
+// 🆕 NEW — EUI durum etiketi (kart alt yazısı veya tooltip için)
+// FORMAT: text
+EUI Status Label =
+VAR _eui = [Avg EUI kWh m2]
+RETURN
+SWITCH(
+    TRUE(),
+    ISBLANK(_eui) || _eui = 0, "⚠ No data",
+    _eui <= 0.27,              "🟢 Excellent",
+    _eui <= 0.41,              "🟡 Good",
+    _eui <= 0.55,              "🟠 Fair",
+                               "🔴 Poor"
+)
+
+// NOT: Kart hâlâ 0 gösteriyorsa format string "0.000" yap.
+// 0 veya #,##0 format → ondalık kısmı keser → 0.350 → 0 görünür.
+
+
+// ============================================================
+// BÖLÜM H — DATE TABLOSU HESAPLANMIŞ KOLON
+// ============================================================
+
+// Bu bir Measure değil, Date tablosuna eklenecek HESAPLANMIŞ KOLON.
+// Model view → Date tablosu → New column → aşağıdaki formülü yaz:
+//
+// MonthIndex = YEAR('Date'[Date]) * 100 + MONTH('Date'[Date])
+//
+// Sonra Date[YearMonth] kolonuna sağ tıkla:
+// "Sort by column" → MonthIndex
+// Bu olmadan tüm aylık grafiklerin X ekseni alfabetik sırada olur
+// (Ağustos → Ekim → Eylül gibi).
+
+
+// ============================================================
+// BÖLÜM I — DEĞİŞTİRİLEN ÖLÇÜLER (v3'ün yerini alır)
+// ============================================================
+
+// 🔄 CHANGED — Previous Year CO2 (v3'te yoktu, Sayfa 6 Kart 1 için)
+// v3'teki "Previous Year CO2 Emissions tCO2" ölçüsü gold_kpi_daily[date]
+// tablosunu referans alıyor — bu tutarlı.
+// Eğer v3'te bu ölçü tanımlıysa, aşağıdaki ile değiştir:
+// FORMAT: "#,##0.0"
+Previous Year CO2 Emissions tCO2 =
+CALCULATE(
+    [Total CO2 Emissions tCO2],
+    DATEADD(gold_kpi_daily[date], -1, YEAR)
+)
+
+// 🔄 CHANGED — EUI Target Daily (sabit değer — v3'te varsa aynı)
+// Sayfa 1 Kart 2 ve Sayfa 2 Kart 3'ün "Target goals" alanına bağla.
+// FORMAT: "0.000"
+EUI Target Daily =
+0.27
+
+
+// ============================================================
+// BÖLÜM J — BLANK KORUMALARI (Kritik ölçüler için)
+// ============================================================
+
+// 🆕 NEW — Total Consumption BLANK korumalı
+// Veri olmayan binalarda BLANK yerine 0 döndürür.
+// Sadece BLANK sorunu varsa kullan; normal durumda [Total Consumption kWh] yeterli.
+// FORMAT: "#,##0"
+Total Consumption Safe kWh =
+VAR _val = [Total Consumption kWh]
+RETURN IF(ISBLANK(_val), 0, _val)
+
+// 🆕 NEW — Net Carbon Footprint BLANK korumalı
+// FORMAT: "#,##0.0"
+Net Carbon Footprint Safe tCO2 =
+VAR _val = [Net Carbon Footprint tCO2]
+RETURN IF(ISBLANK(_val), 0, _val)
+
+// 🆕 NEW — Active Anomaly Count BLANK korumalı
+// FORMAT: "#,##0"
+Active Anomaly Safe Count =
+VAR _val = [Active Anomaly Count]
+RETURN IF(ISBLANK(_val), 0, _val)
+
+
+// ============================================================
+// ÖZET: SAYFA BAŞINA HANGİ YENİ ÖLÇÜYÜ NEREYE EKLE
+// ============================================================
+//
+// SAYFA 1:
+//   Kart 3 → Target goals → [Anomaly Count PY Same Period]        (BÖLÜM C)
+//   Kart 5 → Value        → [Net Carbon Footprint tCO2]           (v3'te var)
+//   Kart 5 → Target goals → [Previous Year Net Carbon tCO2]       (BÖLÜM B)
+//
+// SAYFA 3:
+//   Kart 2 → Value        → [Critical Anomaly Open Count]         (BÖLÜM F)
+//
+// SAYFA 4:
+//   KPI 3  → Value        → [Forecast Period Days]                (BÖLÜM D)
+//
+// SAYFA 5:
+//   Heat Map → Values     → [Avg Occupancy Probability]           (BÖLÜM A)
+//   Heat Map → Rows       → Day Name TR (hesaplanmış kolon)       (BÖLÜM A notu)
+//
+// SAYFA 6:
+//   Kart 5  → Value       → [Carbon Intensity kgCO2 m2 yr]       (BÖLÜM E)
+//   Kart 1  → Target      → [Previous Year CO2 Emissions tCO2]   (BÖLÜM I)
+//
+// TÜM SAYFALAR (MonthIndex):
+//   Date tablosu → New column → MonthIndex = YEAR×100 + MONTH    (BÖLÜM H)
+//   Date[YearMonth] → Sort by column → MonthIndex
+// ============================================================

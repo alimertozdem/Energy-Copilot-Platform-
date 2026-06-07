@@ -1,0 +1,513 @@
+// ==========================================================================
+// DAX v43 — PAGE 7 HVAC & Building Envelope — FINAL FIXES + ENGLISH + TIME INTEL
+// Energy Copilot Platform — 2026-05-06
+//
+// Changes from v40/v41/v42:
+//   (1) BUG FIX: renovation_priority filter was integer (1/2/3) → now string ("High"/"Medium"/"Low")
+//   (2) BUG FIX: HVAC Efficiency shows "58.7999..." → ROUND added
+//   (3) BUG FIX: Gas Exposure shows "—" when 0 gas buildings → COALESCE fix
+//   (4) BUG FIX: EPC Compliance shows "—" when 0 compliant → COALESCE fix
+//   (5) ALL LABELS: fully English (no Turkish text anywhere)
+//   (6) TIME INTELLIGENCE: YoY + MoM measures for all major KPIs
+//
+// HOW TO APPLY:
+//   Step 1 — Import all measures below as "New measure" (assign to gold_hvac_analytics)
+//   Step 2 — Per-card binding guide at the bottom of this file
+// ==========================================================================
+
+
+// ==========================================================================
+// SECTION 1 — CARD CALLOUT MEASURES (main numeric values)
+// ==========================================================================
+
+// ── C1: HVAC Share % ──────────────────────────────────────────────────────
+
+Card: HVAC Share v43 =
+VAR _pct = AVERAGE ( gold_hvac_analytics[hvac_share_pct] )
+RETURN
+    IF ( ISBLANK ( _pct ), "—", FORMAT ( ROUND ( _pct, 1 ), "0.0" ) & "%" )
+// Expected (portfolio All): 35–55%  |  Healthcare B005: 45–65%
+
+
+// ── C2: HVAC Efficiency Score ─────────────────────────────────────────────
+// BUG FIX: previous measure missing ROUND → showed "58.7999999..."
+
+Card: HVAC Efficiency v43 =
+VAR _score = AVERAGE ( gold_hvac_analytics[hvac_efficiency_score] )
+RETURN
+    IF ( ISBLANK ( _score ), "—", FORMAT ( ROUND ( _score, 0 ), "0" ) )
+// Scale: 0–100.  Gas buildings cap at 50.  Heat pump with good insulation: 70–85.
+// Expected (Berliner HP): ~70–80  |  Gas boiler portfolio: ~35–50
+
+
+// ── C3: Avg Insulation Score ──────────────────────────────────────────────
+
+Card: Avg Insulation v43 =
+VAR _score = AVERAGE ( gold_hvac_analytics[insulation_score] )
+RETURN
+    IF ( ISBLANK ( _score ), "—", FORMAT ( ROUND ( _score, 0 ), "0" ) & " / 100" )
+// Expected (All): 65–75  |  Berliner: 86+  |  Amsterdam: ~55
+
+
+// ── C4: Heat Loss Annual (×12 fix) ────────────────────────────────────────
+
+Card: Heat Loss v43 =
+VAR _hl_monthly = AVERAGE ( gold_hvac_analytics[heat_loss_kwh_m2] )
+VAR _hl_annual  = _hl_monthly * 12
+RETURN
+    IF ( ISBLANK ( _hl_monthly ), "—", FORMAT ( ROUND ( _hl_annual, 0 ), "0" ) & " kWh/m²·yr" )
+// Expected: 30–150 kWh/m²·yr  |  Berliner: ~35–55  |  Frankfurt gas: ~90–130
+
+
+// ── C5: Buildings For Retrofit ────────────────────────────────────────────
+// BUG FIX: was filtering renovation_priority = 1 (integer) — column stores "High"/"Medium"/"Low"
+
+Card: Buildings For Retrofit v43 =
+VAR _cnt =
+    COALESCE (
+        CALCULATE (
+            DISTINCTCOUNT ( gold_hvac_analytics[building_id] ),
+            gold_hvac_analytics[renovation_priority] = "High"
+        ),
+        0
+    )
+RETURN FORMAT ( _cnt, "0" )
+// Expected (All): 2 (Istanbul + Frankfurt gas with lower insulation)
+// Single building select: 0 or 1
+
+
+// ── C6: HVAC CO₂ tCO₂/yr ─────────────────────────────────────────────────
+
+Card: HVAC CO2 v43 =
+VAR _gasF  = 0.2017   // kgCO₂/kWh — natural gas Scope 1 (BAFA/IPCC 2024)
+VAR _elecF = 0.350    // kgCO₂e/kWh — EU grid average Scope 2 (EEA 2024)
+VAR _total_kg =
+    SUMX (
+        VALUES ( gold_hvac_analytics[building_id] ),
+        VAR _bid  = gold_hvac_analytics[building_id]
+        VAR _sys  =
+            CALCULATE ( MAX ( gold_hvac_analytics[system_type] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _isS1 = _sys = "gas_boiler" || _sys = "hybrid" || _sys = "biomass"
+        VAR _hkwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[heating_energy_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _ckwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[cooling_energy_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _vkwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[ventilation_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _hkg = IF ( _isS1, COALESCE(_hkwh,0)*_gasF, COALESCE(_hkwh,0)*_elecF )
+        RETURN _hkg + COALESCE(_ckwh,0)*_elecF + COALESCE(_vkwh,0)*_elecF
+    )
+RETURN
+    IF ( ISBLANK ( _total_kg ), "—",
+         FORMAT ( ROUND ( DIVIDE ( _total_kg, 1000 ), 1 ), "0.0" ) & " tCO₂" )
+
+
+// ── C7: Gas Exposure % ────────────────────────────────────────────────────
+// BUG FIX: returned "—" when 0 gas buildings visible (e.g. Amsterdam VRF selected)
+// COALESCE converts BLANK→0 before DIVIDE
+
+Card: Gas Exposure v43 =
+VAR _gas_cnt =
+    COALESCE (
+        CALCULATE (
+            DISTINCTCOUNT ( gold_hvac_analytics[building_id] ),
+            gold_hvac_analytics[system_type] IN { "gas_boiler", "hybrid", "biomass" }
+        ),
+        0
+    )
+VAR _total = COALESCE ( DISTINCTCOUNT ( gold_hvac_analytics[building_id] ), 0 )
+VAR _pct   = IF ( _total = 0, BLANK(), DIVIDE ( _gas_cnt, _total ) * 100 )
+RETURN
+    IF ( ISBLANK ( _pct ), "—", FORMAT ( ROUND ( _pct, 0 ), "0" ) & "%" )
+// Portfolio (3 gas / 6 total): 50%
+// Amsterdam only (VRF): 0%  — now correctly shows "0%" not "—"
+
+
+// ── C8: EPC Compliance ────────────────────────────────────────────────────
+// BUG FIX: returned "—" when 0 compliant buildings (COALESCE fix)
+// BUG FIX: threshold was <= 90 on monthly value → correct is <= 7.5 (90/12)
+
+Card: EPC Compliance v43 =
+VAR _compliant =
+    COALESCE (
+        CALCULATE (
+            DISTINCTCOUNT ( gold_hvac_analytics[building_id] ),
+            gold_hvac_analytics[insulation_score]  >= 65,
+            gold_hvac_analytics[heat_loss_kwh_m2]  <= 7.5   // monthly → 7.5 × 12 = 90 kWh/m²·yr
+        ),
+        0
+    )
+VAR _total = COALESCE ( DISTINCTCOUNT ( gold_hvac_analytics[building_id] ), 0 )
+RETURN
+    IF ( _total = 0, "—",
+         FORMAT ( _compliant, "0" ) & " / " & FORMAT ( _total, "0" ) & " buildings" )
+// Expected (All): 3 / 6 buildings  |  Berliner, Munich, Rotterdam expected compliant
+
+
+// ==========================================================================
+// SECTION 2 — REFERENCE LABEL MEASURES (English, shown below callout)
+// ==========================================================================
+
+Card: HVAC Share Label v43 =
+VAR _pct = AVERAGE ( gold_hvac_analytics[hvac_share_pct] )
+RETURN
+    SWITCH ( TRUE (),
+        ISBLANK ( _pct ),  "No data",
+        _pct >= 55,        "⚠️ High — CSRD Energy Risk",
+        _pct >= 42,        "🟡 Above EU Average (42–55%)",
+        _pct >= 30,        "✅ Normal Range (30–42%)",
+                           "ℹ️ Low HVAC Share (<30%)"
+    )
+
+
+Card: HVAC Efficiency Label v43 =
+VAR _score = AVERAGE ( gold_hvac_analytics[hvac_efficiency_score] )
+RETURN
+    SWITCH ( TRUE (),
+        ISBLANK ( _score ),  "No data",
+        _score >= 75,        "🟢 High Efficiency — NZEB Ready",
+        _score >= 60,        "🟡 Moderate — Improvement Advised",
+        _score >= 40,        "🟠 Low — Retrofit Recommended",
+                             "🔴 Poor — Urgent Action Required"
+    )
+
+
+Card: Insulation Label v43 =
+VAR _score = AVERAGE ( gold_hvac_analytics[insulation_score] )
+RETURN
+    SWITCH ( TRUE (),
+        ISBLANK ( _score ),  "No data",
+        _score >= 80,        "🟢 EPC A/B — NZEB Ready",
+        _score >= 65,        "🟡 EPC C — Improvement Advised",
+        _score >= 50,        "🟠 EPC D — Below GEG Limit",
+        _score >= 35,        "🔴 EPC E/F — Retrofit Required",
+                             "🔴 EPC G — Urgent Action"
+    )
+
+
+Card: Heat Loss Label v43 =
+VAR _hl_monthly = AVERAGE ( gold_hvac_analytics[heat_loss_kwh_m2] )
+VAR _hl         = _hl_monthly * 12
+RETURN
+    SWITCH ( TRUE (),
+        ISBLANK ( _hl ),  "No data",
+        _hl <= 30,        "🟢 Passive House Level",
+        _hl <= 55,        "🟢 EPC A — NZEB Compliant",
+        _hl <= 90,        "🟡 EPC B/C — EU Average",
+        _hl <= 150,       "🟠 EPC D/E — High Loss",
+                          "🔴 EPC F/G — Critical Loss"
+    )
+
+
+// BUG FIX: was filtering renovation_priority = 1/2 (integer) — correct values are strings
+Card: Retrofit Label v43 =
+VAR _high  =
+    COALESCE ( CALCULATE ( DISTINCTCOUNT ( gold_hvac_analytics[building_id] ),
+        gold_hvac_analytics[renovation_priority] = "High" ),   0 )
+VAR _med   =
+    COALESCE ( CALCULATE ( DISTINCTCOUNT ( gold_hvac_analytics[building_id] ),
+        gold_hvac_analytics[renovation_priority] = "Medium" ), 0 )
+VAR _total = COALESCE ( DISTINCTCOUNT ( gold_hvac_analytics[building_id] ), 0 )
+RETURN
+    FORMAT ( _high, "0" ) & " urgent  ·  " &
+    FORMAT ( _med,  "0" ) & " planned  ·  " &
+    FORMAT ( _total - _high - _med, "0" ) & " OK"
+// Expected (All, 6 bldg): "2 urgent  ·  1 planned  ·  3 OK"
+
+
+Card: CO2 Label v43 =
+VAR _gasF  = 0.2017
+VAR _elecF = 0.350
+VAR _s1_kg =
+    SUMX (
+        VALUES ( gold_hvac_analytics[building_id] ),
+        VAR _bid  = gold_hvac_analytics[building_id]
+        VAR _sys  =
+            CALCULATE ( MAX ( gold_hvac_analytics[system_type] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _isS1 = _sys = "gas_boiler" || _sys = "hybrid" || _sys = "biomass"
+        VAR _hkwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[heating_energy_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        RETURN IF ( _isS1, COALESCE(_hkwh,0)*_gasF, 0 )
+    )
+VAR _total_kg =
+    SUMX (
+        VALUES ( gold_hvac_analytics[building_id] ),
+        VAR _bid  = gold_hvac_analytics[building_id]
+        VAR _sys  =
+            CALCULATE ( MAX ( gold_hvac_analytics[system_type] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _isS1 = _sys = "gas_boiler" || _sys = "hybrid" || _sys = "biomass"
+        VAR _hkwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[heating_energy_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _ckwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[cooling_energy_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _vkwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[ventilation_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        RETURN
+            IF ( _isS1, COALESCE(_hkwh,0)*_gasF, COALESCE(_hkwh,0)*_elecF )
+            + COALESCE(_ckwh,0)*_elecF + COALESCE(_vkwh,0)*_elecF
+    )
+VAR _s1_pct = ROUND ( DIVIDE ( _s1_kg, _total_kg ) * 100, 0 )
+RETURN
+    IF ( ISBLANK ( _total_kg ), "No data",
+         "Scope 1: " & FORMAT ( _s1_pct, "0" ) & "%  ·  " &
+         "Scope 2: " & FORMAT ( 100 - _s1_pct, "0" ) & "%" )
+// Expected (gas-heavy portfolio): "Scope 1: 65%  ·  Scope 2: 35%"
+
+
+Card: Gas Exposure Label v43 =
+VAR _gas_cnt =
+    COALESCE (
+        CALCULATE (
+            DISTINCTCOUNT ( gold_hvac_analytics[building_id] ),
+            gold_hvac_analytics[system_type] IN { "gas_boiler", "hybrid", "biomass" }
+        ),
+        0
+    )
+VAR _total = COALESCE ( DISTINCTCOUNT ( gold_hvac_analytics[building_id] ), 0 )
+VAR _pct   = IF ( _total = 0, 0, ROUND ( DIVIDE ( _gas_cnt, _total ) * 100, 0 ) )
+RETURN
+    IF ( _total = 0, "No data",
+        SWITCH ( TRUE (),
+            _pct >= 80,  "🔴 Critical — High Transition Risk",
+            _pct >= 50,  "🟠 High — CSRD Disclosure Required",
+            _pct >= 25,  "🟡 Medium — Transition Plan Needed",
+            _pct > 0,    "🟢 Low Fossil Dependency",
+                         "🟢 Zero Fossil Heating"
+        )
+    )
+
+
+Card: EPC Label v43 =
+VAR _compliant =
+    COALESCE (
+        CALCULATE (
+            DISTINCTCOUNT ( gold_hvac_analytics[building_id] ),
+            gold_hvac_analytics[insulation_score]  >= 65,
+            gold_hvac_analytics[heat_loss_kwh_m2]  <= 7.5
+        ),
+        0
+    )
+VAR _total = COALESCE ( DISTINCTCOUNT ( gold_hvac_analytics[building_id] ), 0 )
+VAR _pct   = IF ( _total = 0, 0, ROUND ( DIVIDE ( _compliant, _total ) * 100, 0 ) )
+RETURN
+    IF ( _total = 0, "No data",
+        SWITCH ( TRUE (),
+            _pct >= 80,  "🟢 EPC D+ Compliant",
+            _pct >= 50,  "🟡 Partial — EPBD 2030 Risk",
+                         "🔴 Most EPC E/F/G — Urgent"
+        ) & "  (EPBD target: EPC E+)"
+    )
+
+
+// ==========================================================================
+// SECTION 3 — TIME INTELLIGENCE: YoY + MoM MEASURES
+// Requirement: Date table relationship active with gold_hvac_analytics
+// ==========================================================================
+
+// ── CO₂ Year-over-Year ────────────────────────────────────────────────────
+// Use as: C6 card tooltip  OR  secondary reference label
+// ▼ = improvement (good)  |  ▲ = increase (bad)
+
+Card: CO2 YoY v43 =
+VAR _gasF  = 0.2017
+VAR _elecF = 0.350
+VAR _calc_co2 =
+    SUMX (
+        VALUES ( gold_hvac_analytics[building_id] ),
+        VAR _bid  = gold_hvac_analytics[building_id]
+        VAR _sys  =
+            CALCULATE ( MAX ( gold_hvac_analytics[system_type] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _isS1 = _sys = "gas_boiler" || _sys = "hybrid" || _sys = "biomass"
+        VAR _hkwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[heating_energy_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _ckwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[cooling_energy_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        VAR _vkwh =
+            CALCULATE ( SUM ( gold_hvac_analytics[ventilation_kwh] ),
+                FILTER ( gold_hvac_analytics, gold_hvac_analytics[building_id] = _bid ) )
+        RETURN
+            IF ( _isS1, COALESCE(_hkwh,0)*_gasF, COALESCE(_hkwh,0)*_elecF )
+            + COALESCE(_ckwh,0)*_elecF + COALESCE(_vkwh,0)*_elecF
+    )
+VAR _curr = _calc_co2
+VAR _prev = CALCULATE ( _calc_co2, DATEADD ( 'Date'[Date], -1, YEAR ) )
+VAR _chg  = DIVIDE ( _curr - _prev, _prev ) * 100
+RETURN
+    IF ( ISBLANK ( _prev ) || _prev = 0, "No prior year",
+        IF ( _chg <= 0,
+             "▼ " & FORMAT ( ABS ( _chg ), "0.0" ) & "% YoY ✅",
+             "▲ " & FORMAT ( _chg, "0.0" ) & "% YoY ⚠️"
+        )
+    )
+
+
+// ── HVAC Share Month-over-Month ───────────────────────────────────────────
+// Use as: C1 card tooltip
+
+Card: HVAC Share MoM v43 =
+VAR _curr = AVERAGE ( gold_hvac_analytics[hvac_share_pct] )
+VAR _prev = CALCULATE (
+    AVERAGE ( gold_hvac_analytics[hvac_share_pct] ),
+    DATEADD ( 'Date'[Date], -1, MONTH )
+)
+VAR _diff = _curr - _prev
+RETURN
+    IF ( ISBLANK ( _prev ), "—",
+        IF ( _diff >= 0,
+             "▲ " & FORMAT ( ABS ( _diff ), "0.1" ) & "% vs prev month",
+             "▼ " & FORMAT ( ABS ( _diff ), "0.1" ) & "% vs prev month"
+        )
+    )
+
+
+// ── Heat Loss Year-over-Year ──────────────────────────────────────────────
+// Use as: C4 card tooltip
+
+Card: Heat Loss YoY v43 =
+VAR _curr = AVERAGE ( gold_hvac_analytics[heat_loss_kwh_m2] ) * 12
+VAR _prev = CALCULATE (
+    AVERAGE ( gold_hvac_analytics[heat_loss_kwh_m2] ) * 12,
+    DATEADD ( 'Date'[Date], -1, YEAR )
+)
+VAR _chg = DIVIDE ( _curr - _prev, _prev ) * 100
+RETURN
+    IF ( ISBLANK ( _prev ), "No prior year",
+        IF ( _chg <= 0,
+             "▼ " & FORMAT ( ABS ( _chg ), "0.0" ) & "% vs prior year ✅",
+             "▲ " & FORMAT ( _chg, "0.0" ) & "% vs prior year ⚠️"
+        )
+    )
+
+
+// ── Insulation Score Year-over-Year ──────────────────────────────────────
+// Use as: C3 card tooltip
+
+Card: Insulation YoY v43 =
+VAR _curr = CALCULATE (
+    AVERAGE ( gold_hvac_analytics[insulation_score] ), ALLSELECTED ( gold_hvac_analytics ) )
+VAR _prev = CALCULATE (
+    AVERAGE ( gold_hvac_analytics[insulation_score] ),
+    ALLSELECTED ( gold_hvac_analytics ),
+    DATEADD ( 'Date'[Date], -1, YEAR )
+)
+VAR _diff = _curr - _prev
+RETURN
+    IF ( ISBLANK ( _prev ), "—",
+        IF ( _diff >= 0,
+             "▲ " & FORMAT ( _diff, "0.0" ) & " pts YoY ✅",
+             "▼ " & FORMAT ( ABS ( _diff ), "0.0" ) & " pts YoY ⚠️"
+        )
+    )
+
+
+// ── V1: Prior Year Heating Series ─────────────────────────────────────────
+// Add as second Y-axis series on V1 bar chart → shows prior year heating line
+// Color: #FF6B35 dashed  |  Legend: "Prior Year Heating"
+
+Heating Prior Year v43 =
+CALCULATE (
+    SUM ( gold_hvac_analytics[heating_energy_kwh] ),
+    DATEADD ( 'Date'[Date], -1, YEAR )
+)
+
+
+// ==========================================================================
+// SECTION 4 — V2 TABLE SUPPORT MEASURES (already in v39/v40, confirmed English)
+// ==========================================================================
+// These already exist — confirm they are bound in V2:
+//   Col 1: silver_building_master[building_name]   → rename to "Building"
+//   Col 2: System Type Display v39                 → rename to "System"
+//   Col 3: Renovation Priority Icon v39            → rename to "Priority"
+//   Col 4: COP Display v39                         → rename to "COP / SCOP"
+//   Col 5: Scope Badge v40                         → rename to "Scope"
+//   Col 6: gold_hvac_analytics[insulation_score]   → rename to "Insulation"
+//   Col 7: Card: Heat Loss v43                     → rename to "Heat Loss"
+//   Col 8: Action Recommendation v39               → rename to "Action"
+
+
+// ==========================================================================
+// APPLICATION GUIDE — v43
+// ==========================================================================
+//
+// STEP 1 — Import all measures (Power BI Desktop → Make changes to this model)
+//   For each measure: New measure → paste DAX → Enter
+//   Assign to table: gold_hvac_analytics
+//   Total new measures: ~22
+//
+// STEP 2 — Update Card Callout values
+//   C1  HVAC Share %        → Callout: Card: HVAC Share v43
+//   C2  HVAC Efficiency     → Callout: Card: HVAC Efficiency v43          ← FIX decimal
+//   C3  Avg Insulation      → Callout: Card: Avg Insulation v43
+//   C4  Heat Loss           → Callout: Card: Heat Loss v43
+//   C5  Retrofit Count      → Callout: Card: Buildings For Retrofit v43   ← FIX integer filter
+//   C6  HVAC CO₂            → Callout: Card: HVAC CO2 v43
+//   C7  Gas Exposure %      → Callout: Card: Gas Exposure v43             ← FIX blank→0%
+//   C8  EPC Compliance      → Callout: Card: EPC Compliance v43           ← FIX blank→0
+//
+// STEP 3 — Update Reference Labels (English)
+//   C1  → Reference label: Card: HVAC Share Label v43
+//   C2  → Reference label: Card: HVAC Efficiency Label v43
+//   C3  → Reference label: Card: Insulation Label v43
+//   C4  → Reference label: Card: Heat Loss Label v43
+//   C5  → Reference label: Card: Retrofit Label v43                       ← FIX string filter
+//   C6  → Reference label: Card: CO2 Label v43
+//   C7  → Reference label: Card: Gas Exposure Label v43
+//   C8  → Reference label: Card: EPC Label v43
+//
+// STEP 4 — Add YoY/MoM to card Tooltips (time intelligence)
+//   C1  tooltip → Card: HVAC Share MoM v43
+//   C3  tooltip → Card: Insulation YoY v43
+//   C4  tooltip → Card: Heat Loss YoY v43
+//   C6  tooltip → Card: CO2 YoY v43
+//   How: Select card → Format → Tooltips → Values → drag measure
+//
+// STEP 5 — V1 Chart: absolute kWh (not 100% stacked)
+//   Click V1 → Format pane → Y axis → Turn OFF "Stack to 100%"
+//   Result: shows actual monthly kWh split (heating dominates in winter)
+//   Optional: V1 → Add data field → Y-axis → Heating Prior Year v43
+//             Format this series as Line + dashed + color #FF6B35
+//
+// STEP 6 — Slicer: remove (Blank) option
+//   Click Building Name slicer → Filters pane (right) →
+//   "Filters on this visual" → building_name → uncheck "Show items with no data"
+//   OR: Slicer → Format → Slicer settings → Show "Select all" → ON
+//       Then add a filter: building_name is not blank
+//
+// STEP 7 — V2 Table: rename columns for readability
+//   Click V2 → Columns field well → right-click each field → Rename:
+//   building_name → "Building"
+//   System Type Display v39 → "System"
+//   Renovation Priority Icon v39 → "Priority"
+//   COP Display v39 → "COP / SCOP"
+//   Scope Badge v40 → "Scope"
+//   insulation_score → "Insulation"
+//   Card: Heat Loss v43 → "Heat Loss"
+//   Action Recommendation v39 → "Action"
+//
+// VALIDATION CHECKLIST (after all steps):
+//   [ ] C1: 20–55% for portfolio  |  winter months higher when date filtered
+//   [ ] C2: whole number, no decimals  (e.g. "49" not "58.7999...")
+//   [ ] C3: label in English (e.g. "EPC D — Below GEG Limit")
+//   [ ] C4: value × 12 applied (e.g. "48 kWh/m²·yr" not "4 kWh/m²")
+//   [ ] C5: shows integer count  |  reference label: "2 urgent · 1 planned · 3 OK"
+//   [ ] C6: label shows "Scope 1: 65% · Scope 2: 35%"
+//   [ ] C7: 0% when only HP/VRF selected  |  50% for full portfolio
+//   [ ] C8: "3 / 6 buildings" not "—" for full portfolio
+//   [ ] V1: Y-axis shows absolute kWh (heating spikes in Jan/Feb/Nov/Dec)
+//   [ ] Slicer: no (Blank) row
+//   [ ] V2 columns: English headers, all 6 buildings show data
+//
+// ==========================================================================

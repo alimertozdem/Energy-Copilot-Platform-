@@ -17,26 +17,40 @@ NOW (May 2026)    +6mo (Nov 2026)    +12mo (May 2027)    +24mo (May 2028)
 
 ---
 
-## PHASE 1 — Foundation (Q2 2026, NOW)
+## PHASE 1 — Foundation (Q2 2026, COMPLETE)
 
-### Status: ✅ Mostly complete
+### Status: ✅ Complete
 
-**What's done:**
+**Data & analytics layer (April-May 2026):**
 - ✅ 9-page Power BI dashboard MVP (Portfolio, Building, Anomalies, Forecast, Occupancy, Sustainability, HVAC, IoT, Battery)
-- ✅ Microsoft Fabric medallion architecture (Bronze/Silver/Gold)
-- ✅ Sample data: 6 representative buildings (DE, TR, AT, NL), 3.5 years, 693k+ data points
-- ✅ DAX measure library (v52, 50+ measures)
+- ✅ Microsoft Fabric medallion architecture (Bronze/Silver/Gold, 57 tables)
+- ✅ Realistic data: 10 representative buildings (DE, TR, AT, NL), 3.5 years, 693k+ data points
+- ✅ DAX measure library (v56, 50+ measures, building-type aware thresholds)
+- ✅ Battery dispatch simulator (12 countries × 8 chemistries × 7 strategies, EU 2023/1542 compliant)
+- ✅ CRREM pathway integration, Scope 1/2/3 GHG accounting
+- ✅ Anomaly detection engine, HVAC analytics with envelope U-values
+
+**Web application (May 24-27, 2026):**
+- ✅ Next.js 16 + FastAPI + Azure PostgreSQL (10 tables, multi-provider auth)
+- ✅ Three-provider authentication: Microsoft Entra ID + Google + Email/Password (bcrypt)
+- ✅ `/portfolio` reading directly from Fabric Lakehouse SQL Analytics Endpoint (custom React + pyodbc + ODBC Driver 18)
+- ✅ `/buildings/[id]` with embedded Power BI via service principal (V2 embed API, DirectLake compatible, app-owns-data)
+- ✅ Brand-aligned design system (Tailwind v4 design tokens, shadcn/ui, EnergyLens "Emerald Pulse" applied across UI)
+
+**AI Copilot (May 28, 2026):**
+- ✅ LLM provider abstraction (Anthropic / Azure OpenAI / Mock)
+- ✅ Six production tools: query_kpi, compare_buildings, list_recommendations, get_anomalies, simulate_battery_scenario, update_action_status
+- ✅ Tool dispatcher routing to Fabric Lakehouse + PostgreSQL
+- ✅ Server-Sent Events streaming, conversation persistence, JWT auth, org/building-level access control
+- ✅ End-to-end smoke tested with real Fabric SQL queries
+
+**Brand & domain:**
 - ✅ Brand identity finalized (EnergyLens "Emerald Pulse")
-- ✅ Battery dispatch simulator (4 strategies, EU 2023/1670 compliant)
-- ✅ CRREM pathway integration
-- ✅ Anomaly detection engine
-- ✅ HVAC analytics with envelope U-values
+- ✅ Domain energylens.eu registered
 
 **What's remaining (this phase):**
-- ⏳ Page 1-9 final review + polish
-- ⏳ Production-grade Fabric capacity (currently throttled on trial)
-- ⏳ Microsoft for Startups application
-- ⏳ Domain registration (energylens.eu)
+- ⏳ Page 8 IoT dashboard polish (post-capacity)
+- ⏳ Microsoft for Startups application submission
 
 **Deliverables by July 2026:**
 - Final dashboard MVP screenshot pack
@@ -45,9 +59,11 @@ NOW (May 2026)    +6mo (Nov 2026)    +12mo (May 2027)    +24mo (May 2028)
 
 ---
 
-## PHASE 2 — First Pilots & Production Stack (Q3-Q4 2026)
+## PHASE 2 — First Pilots & Azure Production Migration (Q3-Q4 2026)
 
-### Status: 🎯 Starting Aug 2026 (post-graduation)
+### Status: 🎯 Starting Jul 2026 (post-Tier 2 approval)
+
+**Note (May 28, 2026):** The web app + Copilot work originally scoped for Phase 2 was pulled into Phase 1 and shipped early. Phase 2 is now focused on pilot acquisition, Azure deployment migration, and the Azure OpenAI swap — not on building the app from scratch.
 
 ### 2A — Pilot Acquisition (Aug-Oct 2026)
 
@@ -68,21 +84,21 @@ NOW (May 2026)    +6mo (Nov 2026)    +12mo (May 2027)    +24mo (May 2028)
 4. Monthly review for 3 months
 5. Conversion to paid
 
-### 2B — Production Infrastructure (Aug-Sep 2026)
+### 2B — Azure Deployment Migration (Jul-Aug 2026)
 
-**Web app build (Next.js + FastAPI + PostgreSQL):**
-- Customer onboarding flow
-- User management (Microsoft Entra ID auth)
-- Embedded Power BI viewer
-- Per-customer building inventory
-- Subscription management (Stripe integration)
-- Basic admin dashboard
-
-**Infrastructure setup:**
-- Azure Static Web App (frontend)
-- Azure Container App (backend)
-- Azure PostgreSQL Flexible (database)
+**Web app already built — migrating from local dev to Azure (~3 hours of work, code unchanged):**
+- Azure Static Web Apps (Next.js frontend, currently localhost:3000)
+- Azure Container Apps (FastAPI backend, currently localhost:8000)
+- Azure PostgreSQL Flexible (currently Supabase Frankfurt — pg_dump / pg_restore migration)
 - Embed Power BI via Premium capacity (Startups credit)
+
+**Net new for Phase 2:**
+- Customer onboarding wizard (`/onboarding` route — building inventory + module flags)
+- Subscription management (Stripe integration, deferred to V1.5 if pilots stay free)
+- Basic admin dashboard (`/admin` — tenant overview)
+- `/actions` page using existing `recommendation_status` Postgres table
+- Public `/demo` page (kayıtsız, read-only, 6 sample binalar)
+- **Azure OpenAI swap:** LLM_PROVIDER environment variable flip from Mock → Azure OpenAI. Tools, dispatcher, frontend unchanged.
 
 ### 2C — IoT Adapters Phase 1 (Sep-Nov 2026)
 
@@ -126,13 +142,15 @@ After first 2-3 customer commitments:
 - 2-3 case studies published
 - First DACH conference presentation (e.g., Light + Building Frankfurt 2027)
 
-### 3B — AI Recommendation Engine (Feb-Apr 2027)
+### 3B — AI Copilot V2 (Feb-Apr 2027)
 
-Azure OpenAI integration:
-- **Natural language insights** — "Your hospital's HVAC is using 12% more than peers; investigate boiler #3"
-- **Auto-generated weekly reports** — Customer-specific narratives
-- **Conversational dashboard** — "Show me Berlin buildings underperforming vs CRREM 2030"
-- **Predictive maintenance** — ML-based equipment fault prediction
+The Copilot core (tool use + SSE streaming + provider abstraction) is already live (May 2026). V2 expansion:
+- **Production Azure OpenAI** — running in production from Phase 2 (Jul 2026), with V2 focus on cost optimization and observability
+- **Auto-generated weekly reports** — Customer-specific narratives (additional tool: `generate_weekly_report`)
+- **Markdown + chart rendering** in chat output (react-markdown, embedded recharts)
+- **Building context selector + conversation titles** (V1.5 polish, planned Feb 2027)
+- **Predictive maintenance** — ML-based equipment fault prediction surfaced as a Copilot tool
+- **Multi-turn analytical workflows** — Copilot can plan a sequence of 3-5 tool calls to answer compound questions ("Which buildings underperform CRREM AND have high recommendation backlog AND have not been audited?")
 
 ### 3C — MQTT 5.0 Streaming (Mar-May 2027)
 
@@ -254,5 +272,5 @@ Premium customers in advanced automation:
 
 ---
 
-*Document version 1.0 — May 2026*
+*Document version 1.1 — May 28, 2026 (updated after Day 16: web app + AI Copilot pulled into Phase 1)*
 *Author: Ali Mert Özdemir, Founder*

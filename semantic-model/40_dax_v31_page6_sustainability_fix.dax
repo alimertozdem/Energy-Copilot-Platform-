@@ -1,0 +1,391 @@
+// ============================================================
+// DAX v31 — Page 6: Sustainability & Compliance — Production Fix
+// Energy Copilot Platform
+// ============================================================
+// SCOPE — 4 sorun düzeltildi:
+//
+//   FIX 1: Renewable Energy Share > 100% (Hamburg 303% sorunu)
+//          Hamburg 500 kWp + 800 kWh batarya → net energy exporter.
+//          Solar üretim > bina tüketimi olduğunda oran >100% çıkıyor.
+//          Çözüm: MIN(..., 100) ile cap uygula.
+//          Enerji yöneticisine "100% = net exporter" mesajı göster.
+//
+//   FIX 2: C4 (Renewable Energy Share) Goal → sabit 40 yaz
+//          Power BI kart goal alanına 40 gir (bağımsız DAX ölçüsü).
+//          Şu anki 2.336 / 16.808 bozuk.
+//
+//   FIX 3: C3 (EPC Rating) → Avg EPC Class Text göster
+//          Mevcut C3 kartı CRREM "Well Below Pathway" metni gösteriyor.
+//          Doğru bağlama: Value = [Avg EPC Class Text] (v11'den)
+//
+//   FIX 4: CRREM tablosu — Istanbul Retail/TR pathway eksik
+//          retail/TR CRREM standardında yok (Turkey not covered).
+//          Fallback: retail/EU pathway kullan.
+//          Bu dosyada DAX SWITCH fallback ölçüleri var;
+//          notebook fix'i ayrı bölümde belirtildi.
+//
+// ÖN KOŞUL:
+//   DAX v7 (12_dax_v7_ghg_crrem.dax): gold_crrem_pathways ilişkisi
+//   DAX v11 (16_dax_v11_severity_quality_epc_fix.dax): Avg EPC Class Text
+//   DAX v12 (17_dax_v12_stranding_year_fix.dax): Stranding Year ölçüleri
+// ============================================================
+
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM A — FIX 1: Renewable Energy Share — 100% Cap
+// ────────────────────────────────────────────────────────────
+// SORUN:
+//   [Renewable Energy Rate Pct] = solar_generated_kwh / total_consumption_kwh × 100
+//   Hamburg: 500 kWp solar + 800 kWh batarya → solar_generated >> total_consumption
+//   → Oranı 303% gösteriyor. Kart bozuk görünüyor.
+//
+// NEDEN 100% DOĞRU SINIRDIR?
+//   "Renewable Energy Share" semantiği: bina ihtiyacının yüzde kaçı
+//   yenilenebilirden karşılandı?
+//   100%'ı geçemez — binanın 100%'ını kullandığın anda kalan sıfır.
+//   Fazlası şebekeye satılan ihracat (export) — farklı bir metrik.
+//   ISO 50001 ve GRI 302-1 standartlarında self-consumption oranı [0,1] aralığında.
+//
+// Hamburg 100% = "Bu bina kendi ihtiyacından fazla üretiyor → net exporter"
+// Tooltip/alt metin ile kullanıcıya açıklanır (aşağıda status ölçüsü var).
+
+Renewable Energy Share Display Pct =
+VAR _raw_pct =
+    DIVIDE(
+        SUM(gold_kpi_daily[solar_generated_kwh]),
+        SUM(gold_kpi_daily[total_consumption_kwh])
+    ) * 100
+RETURN
+    IF(
+        NOT ISBLANK(_raw_pct),
+        MIN(ROUND(_raw_pct, 1), 100),
+        BLANK()
+    )
+
+// Net Exporter Flag — kart alt yazısı veya tooltip için
+Renewable Energy Status =
+VAR _raw_pct =
+    DIVIDE(
+        SUM(gold_kpi_daily[solar_generated_kwh]),
+        SUM(gold_kpi_daily[total_consumption_kwh])
+    ) * 100
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_raw_pct),    "—",
+        _raw_pct >= 100,      "Net energy exporter ↑",
+        _raw_pct >= 60,       "High renewable share",
+        _raw_pct >= 30,       "Growing renewable",
+        _raw_pct >= 10,       "Early stage",
+        "Fossil dominant"
+    )
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM B — FIX 2: Renewable Energy Share Goal (C4)
+// ────────────────────────────────────────────────────────────
+// C4 kartının Goal alanına bağla.
+// Referans: EU Taxonomy 2024 — commercial buildings renewable target ≥ 30%
+//           Best practice: EU Fit-for-55 yol haritasında ticari binalar için ≥ 40%
+//           Bu portföy için ambitious ama achievable target: 40%
+//
+// Power BI'da C4 kart ayarı:
+//   Value        → [Renewable Energy Share Display Pct]
+//   Goal         → [Renewable Energy Share Goal Pct]  ← bu ölçüyü bağla
+//   Trend axis   → Date[Month]
+//   Format       → % (0 decimal)
+
+Renewable Energy Share Goal Pct =
+40   -- EU Fit-for-55 commercial building target; ≥40% by 2030
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM C — FIX 3: EPC Rating Card (C3) — Doğru Bağlama
+// ────────────────────────────────────────────────────────────
+// SORUN:
+//   C3 kartında şu an "Well Below 2°C Pathway" metni görünüyor.
+//   Bu CRREM status metni — yanlış ölçü bağlı.
+//
+// ÇÖZÜM:
+//   C3 Value alanını [Avg EPC Class Text]'e bağla.
+//   Bu ölçü DAX v11'de tanımlandı. Aşağıda referans için tekrarlandı
+//   (Power BI'ya eklemene gerek yok, zaten var).
+//
+// Power BI'da C3 kart ayarı:
+//   Value        → [Avg EPC Class Text]          ← DEĞİŞTİR (CRREM Status'tan)
+//   Goal         → "B"  (text goal — Power BI'da sabit yaz)
+//   Subtitle     → "Energy Performance Certificate"
+//   Tooltip      → [EPC Distribution Summary]    ← opsiyonel, aşağıda tanımlandı
+
+// [Avg EPC Class Text] — DAX v11'den referans (ZATen modelde var, TEKRAR EKLEME)
+// Avg EPC Class Text =
+// VAR _avg_score = AVERAGE(silver_epc_ratings[epc_numeric_score])
+// RETURN
+//   SWITCH(TRUE(), _avg_score >= 90,"A+", _avg_score>=75,"A",
+//          _avg_score>=60,"B", _avg_score>=45,"C",
+//          _avg_score>=30,"D", _avg_score>=15,"E", "F")
+
+// EPC Distribution Summary — tooltip veya kart alt metni için
+// EPC Distribution Summary — tooltip için bina dağılımı özeti
+// Gerçek kolon: silver_epc_ratings[epc_class] (text: "A", "B", "C", "D", "E", "F", "G")
+// epc_numeric_score YOKTUR — tablo doğru kolonu epc_class'tır.
+EPC Distribution Summary =
+VAR _a  = CALCULATE(COUNTROWS(silver_epc_ratings), silver_epc_ratings[epc_class] = "A")
+VAR _b  = CALCULATE(COUNTROWS(silver_epc_ratings), silver_epc_ratings[epc_class] = "B")
+VAR _c  = CALCULATE(COUNTROWS(silver_epc_ratings), silver_epc_ratings[epc_class] = "C")
+VAR _d  = CALCULATE(COUNTROWS(silver_epc_ratings), silver_epc_ratings[epc_class] = "D")
+VAR _ef = CALCULATE(COUNTROWS(silver_epc_ratings), silver_epc_ratings[epc_class] IN {"E","F","G"})
+VAR _total = COUNTROWS(silver_epc_ratings)
+RETURN
+    IF(
+        _total > 0,
+        "A: "  & COALESCE(_a,  0) &
+        "  B: " & COALESCE(_b,  0) &
+        "  C: " & COALESCE(_c,  0) &
+        "  D: " & COALESCE(_d,  0) &
+        "  E-G: " & COALESCE(_ef, 0),
+        "—"
+    )
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM D — FIX 4: CRREM Tablosu — Retail/TR Fallback
+// ────────────────────────────────────────────────────────────
+// SORUN:
+//   Istanbul Retail/TR için gold_crrem_pathways'te kayıt yok.
+//   Neden: CRREM standardı Türkiye'yi kapsamamıyor (yalnızca AB + İsviçre + Norveç).
+//
+// ÇÖZÜM YAKLAŞIMI (İki seçenek):
+//
+//   SEÇENEk 1 — DAX Fallback (Hızlı, notebook değişikliği yok):
+//   CRREM Status ölçüsünü "TR yoksa EU kullan" mantığıyla yeniden yaz.
+//   Bu, var olan ölçünün üstüne yazılır.
+//
+//   SEÇENEK 2 — Notebook Fix (Kalıcı, tavsiye edilen):
+//   10_crrem_pathway_loader'a retail/TR → retail/EU alias ekle.
+//   Böylece gold_crrem_pathways'te retail/TR kaydı da olur.
+//   Notebook fix sonrası bu DAX fallback'e gerek kalmaz.
+//
+// ŞUAN: Seçenek 1 DAX fallback (hızlı fix).
+// Notebook fix için ayrı bölüm var (Bölüm E).
+
+// CRREM 2°C Carbon Benchmark (kgCO₂/m²/yr)
+// ─────────────────────────────────────────────────────────────────────
+// NEDEN CALCULATE + REMOVEFILTERS (LOOKUPVALUE değil):
+//   Tablo görselinde external filter context (building_name, date slicer vb.)
+//   gold_crrem_pathway üzerine yanlış filtre uygulayabilir.
+//   REMOVEFILTERS(gold_crrem_pathway) bunu engeller, kendi filtrelerimiz geçerli olur.
+//
+// FALLBACK ZİNCİRİ:
+//   1. Ülke + kendi tipi → direkt match
+//   2. Ülke yok (TR, NL) → EU pathway, kendi tipi
+//   3. Bina tipi de yoksa → EU pathway, "office" (en genel proxy)
+//
+// _year = YEAR(TODAY()): date slicer'dan bağımsız, her zaman cari yıl
+//   gold_crrem_pathway 2020–2050 arası tüm yılları içeriyor (interpolated)
+//
+// Format: "0.0"  (kgCO₂/m²/yr)
+CRREM Carbon Benchmark kgCO2 m2 =
+VAR _country = SELECTEDVALUE(silver_building_master[country_code])
+// LOWER() normalizasyonu: silver_building_master "Hotel" veya "HOTEL" saklayabilir
+// gold_crrem_pathway ise her zaman küçük harf ("hotel", "office") saklar.
+// Eşleşme için _type'ı küçük harfe çevir.
+VAR _type    = LOWER(SELECTEDVALUE(silver_building_master[building_type]))
+VAR _year    = YEAR(TODAY())
+// 1. Direkt: ülke + tip (case-insensitive)
+VAR _direct =
+    CALCULATE(
+        MIN(gold_crrem_pathway[pathway_2c_kgco2_m2_yr]),
+        REMOVEFILTERS(gold_crrem_pathway),
+        gold_crrem_pathway[building_type] = _type,
+        gold_crrem_pathway[country_code]  = _country,
+        gold_crrem_pathway[pathway_year]  = _year
+    )
+// 2. EU fallback: ülke CRREM'de yok (TR, NL, AT → EU)
+VAR _eu_same_type =
+    CALCULATE(
+        MIN(gold_crrem_pathway[pathway_2c_kgco2_m2_yr]),
+        REMOVEFILTERS(gold_crrem_pathway),
+        gold_crrem_pathway[building_type] = _type,
+        gold_crrem_pathway[country_code]  = "EU",
+        gold_crrem_pathway[pathway_year]  = _year
+    )
+// 3. EU + office fallback: bina tipi de CRREM'de yok (hospital, university vb.)
+VAR _eu_office =
+    CALCULATE(
+        MIN(gold_crrem_pathway[pathway_2c_kgco2_m2_yr]),
+        REMOVEFILTERS(gold_crrem_pathway),
+        gold_crrem_pathway[building_type] = "office",
+        gold_crrem_pathway[country_code]  = "EU",
+        gold_crrem_pathway[pathway_year]  = _year
+    )
+RETURN
+    COALESCE(_direct, _eu_same_type, _eu_office, BLANK())
+
+// CRREM Status — GHG Intensity vs 2°C Carbon Benchmark karşılaştırması
+// ─────────────────────────────────────────────────────────────────────
+// DÜZELTME: Artık kgCO₂/m²/yr bazında karşılaştırma yapıyor (doğru birim).
+//           [Energy Intensity kWh m2] yerine [GHG Intensity kgCO2 m2 yr] kullanıyor.
+//           "*" = EU fallback pathway kullanıldı (TR CRREM'de yok)
+//
+// CRREM Tablosunda kullan: Col2 = [CRREM Carbon Benchmark kgCO2 m2]
+//                          Col3 = [CRREM Status Display]
+// Format: text
+// CRREM Status Display — GHG Intensity vs 2°C Carbon Benchmark karşılaştırması
+// "_is_fallback": ülke direkt CRREM'de yok, EU proxy kullanıldı → "*" ekler
+// Format: text
+CRREM Status Display =
+VAR _actual     = [GHG Intensity kgCO2 m2 yr]
+VAR _benchmark  = [CRREM Carbon Benchmark kgCO2 m2]
+VAR _country    = SELECTEDVALUE(silver_building_master[country_code])
+// LOWER() burada da zorunlu — _direct_exists kontrolü de CRREM tablosuna bakıyor
+VAR _type       = LOWER(SELECTEDVALUE(silver_building_master[building_type]))
+VAR _year       = YEAR(TODAY())
+VAR _direct_exists =
+    CALCULATE(
+        COUNTROWS(gold_crrem_pathway),
+        REMOVEFILTERS(gold_crrem_pathway),
+        gold_crrem_pathway[building_type] = _type,
+        gold_crrem_pathway[country_code]  = _country,
+        gold_crrem_pathway[pathway_year]  = _year
+    )
+VAR _is_fallback = ISBLANK(_direct_exists) || _direct_exists = 0
+RETURN
+    IF(
+        ISBLANK(_actual) || ISBLANK(_benchmark),
+        "No data",
+        VAR _ratio  = DIVIDE(_actual, _benchmark)
+        VAR _status =
+            SWITCH(
+                TRUE(),
+                _ratio <= 0.85, "✅ Well Below Pathway",
+                _ratio <= 1.00, "🟡 On Pathway",
+                _ratio <= 1.20, "⚠ Above Pathway",
+                               "🔴 Stranded Asset Risk"
+            )
+        RETURN IF(_is_fallback, _status & " *", _status)
+    )
+
+// CRREM Table Footer Note — tablonun altına koy (card veya text visual)
+CRREM Coverage Note =
+VAR _missing_country_count =
+    CALCULATE(
+        DISTINCTCOUNT(silver_building_master[building_id]),
+        NOT(
+            silver_building_master[country_code] IN
+            VALUES(gold_crrem_pathway[country_code])   -- doğru tablo adı: pathway (s yok)
+        )
+    )
+RETURN
+    IF(
+        _missing_country_count > 0,
+        "* " & _missing_country_count & " building(s) use EU pathway as fallback (country not in CRREM standard)",
+        ""
+    )
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM E — Notebook Fix Notu: retail/TR → retail/EU Alias
+// ────────────────────────────────────────────────────────────
+// Bu bölüm DAX değil — notebook için yapılacak değişikliği belgeliyor.
+//
+// DOSYA: notebooks/gold/10_crrem_pathway_loader_FABRIC_KOPYALA.py
+//
+// EKLENECEK KOD (mevcut pathway yükleme bloğunun SONUNA):
+//
+//   # ── CRREM Coverage Fallback: TR binalar için EU pathway alias ──
+//   # CRREM standardı Türkiye'yi kapsamıyor.
+//   # Yaklaşım: her bina tipi için retail/EU pathway'i retail/TR olarak kopyala.
+//
+//   COUNTRY_FALLBACKS = {
+//       "TR": "EU"   # Türkiye → AB referansı
+//   }
+//
+//   # Gold tablosunda hangi (type, country) çiftleri var?
+//   existing_combos = set(
+//       (row.building_type, row.country_code)
+//       for row in df_pathways.select("building_type","country_code").distinct().collect()
+//   )
+//
+//   # Portföydeki tüm (type, country) çiftleri
+//   from pyspark.sql import functions as F
+//   building_combos = spark.sql("""
+//       SELECT DISTINCT building_type, country_code
+//       FROM silver_building_master
+//   """).collect()
+//
+//   alias_rows = []
+//   for row in building_combos:
+//       btype, country = row.building_type, row.country_code
+//       if (btype, country) not in existing_combos:
+//           fallback_country = COUNTRY_FALLBACKS.get(country)
+//           if fallback_country and (btype, fallback_country) in existing_combos:
+//               alias_rows.append((btype, country, fallback_country, "alias"))
+//
+//   if alias_rows:
+//       from pyspark.sql.types import StructType, StructField, StringType
+//       alias_schema = StructType([
+//           StructField("building_type", StringType()),
+//           StructField("country_code",  StringType()),
+//           StructField("source_country", StringType()),
+//           StructField("pathway_source", StringType()),
+//       ])
+//       df_alias_meta = spark.createDataFrame(alias_rows, alias_schema)
+//
+//       # Gerçek pathway değerlerini EU'dan kopyala, country_code'u TR yap
+//       df_aliases = (
+//           df_pathways
+//           .join(df_alias_meta.select("building_type", F.col("source_country").alias("country_code"),
+//                                      F.col("country_code").alias("alias_country")),
+//                 ["building_type", "country_code"], "inner")
+//           .withColumn("country_code", F.col("alias_country"))
+//           .drop("alias_country")
+//       )
+//
+//       # Ana tabloya ekle
+//       df_pathways = df_pathways.unionByName(df_aliases, allowMissingColumns=True)
+//       print(f"CRREM alias rows added: {df_alias_meta.count()}")
+//       df_alias_meta.show()
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM F — Page 6 KPI Kart Binding Özeti
+// ────────────────────────────────────────────────────────────
+// Tüm Page 6 kartları için doğru ölçü bağlaması:
+//
+//   C1 — GHG Intensity (kgCO₂e/m²):
+//        Value  → [GHG Intensity kgCO2e m2]          (v7)
+//        Goal   → [GHG Intensity Goal]                (v7)
+//        Trend  → Date[Month]
+//        Format → 1 decimal, "kgCO₂e/m²"
+//
+//   C2 — CRREM Stranding Year:
+//        Value  → [Building Stranding Year Display]   (v13)
+//        Goal   → yok (sabit referans değil)
+//        Format → whole number, "Year"
+//        Note   → Single building seçiminde anlamlı
+//
+//   C3 — EPC Rating:
+//        Value  → [Avg EPC Class Text]                (v11) ← BUGÜN DÜZELTİLDİ
+//        Goal   → "B" (Power BI'da sabit text yaz)
+//        Format → text
+//        Tooltip→ [EPC Distribution Summary]          (v31)
+//
+//   C4 — Renewable Energy Share (%):
+//        Value  → [Renewable Energy Share Display Pct] (v31) ← BUGÜN DÜZELTİLDİ (cap 100%)
+//        Goal   → [Renewable Energy Share Goal Pct]   (v31) = 40 ← BUGÜN DÜZELTİLDİ
+//        Trend  → Date[Month]
+//        Format → 0 decimal, "%"
+//
+//   C5 — Carbon Scope 2 (%):
+//        Value  → [Scope 2 Share Pct]                 (v7)
+//        Goal   → yok
+//        Format → 1 decimal, "%"
+//
+//   CRREM Status Table:
+//        Rows   → silver_building_master[building_name]
+//        Col1   → [Energy Intensity kWh m2]           (v7)
+//        Col2   → [CRREM Benchmark kWh m2]            (v31) ← fallback dahil
+//        Col3   → [CRREM Status Display]              (v31) ← fallback dahil + "*" işareti
+//        Note   → [CRREM Coverage Note] ölçüsünü tablo altına text visual olarak ekle
+//
+//   GHG Scope Bar Chart:
+//        Values → [Scope 1 kgCO2e m2], [Scope 2 kgCO2e m2], [Scope 3 kgCO2e m2]  (v7)
+//        Axis   → silver_building_master[building_name]
+//        Format → Stacked Bar
+

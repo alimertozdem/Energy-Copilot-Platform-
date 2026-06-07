@@ -1,0 +1,68 @@
+{
+  "name": "01_bronze_batch_pipeline",
+  "description": "Bronze layer ingestion: loads raw sensor readings and reference data into the Lakehouse. Notebooks 00 and 01 run in parallel since they write to independent tables.",
+  "properties": {
+    "activities": [
+      {
+        "name": "Load_Reference_Data",
+        "type": "TridentNotebook",
+        "description": "Run 00_reference_data_loader — loads static reference tables (building types, technology catalog, tariffs, regulations, simulation inputs).",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.00:30:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 60,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "notebookId": "00_reference_data_loader",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Load_Bronze_Sensor_Data",
+        "type": "TridentNotebook",
+        "description": "Run 01_bronze_ingestion — loads raw sensor readings from IoT / CSV sources into bronze_sensor_readings_raw. Uses incremental watermark to avoid full reloads.",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.01:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 60,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "notebookId": "01_bronze_ingestion",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Bronze_Completed",
+        "type": "Wait",
+        "description": "Barrier activity — ensures both bronze notebooks finish before downstream pipelines start.",
+        "dependsOn": [
+          {
+            "activity": "Load_Reference_Data",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Load_Bronze_Sensor_Data",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "typeProperties": {
+          "waitTimeInSeconds": 1
+        }
+      }
+    ],
+    "parameters": {},
+    "annotations": [
+      "layer:bronze",
+      "schedule:daily",
+      "tier:insight"
+    ]
+  }
+}

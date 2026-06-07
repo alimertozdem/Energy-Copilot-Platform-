@@ -1,0 +1,149 @@
+// ==========================================================================
+// Energy Copilot Platform — DAX v37: C6 HVAC CO₂ + Layout Koordinatları
+// File: semantic-model/46_dax_v37_page7_c6_co2_and_layout.dax
+// Last updated: 2026-05-04
+//
+// === NEDEN v37? ============================================================
+//
+// Yeni sidebar layout (v3 background) ile birlikte 6. KPI kartı eklendi:
+//   C6 — HVAC CO₂  (tCO₂/yıl)  · MOR (#9B59B6)
+//
+// Bu kart CSRD/ESRS E1 bağlamında kritik:
+//   - Gas binalar: CSRD scope 1 emisyon riski
+//   - HP binaları: scope 2 (elektrik kaynaklı)
+//   - Enerji yöneticisi "gas→HP" geçişin CO₂ etkisini doğrudan görür
+//
+// === EMİSYON FAKTÖRLERİ ===================================================
+//
+//   Doğalgaz (scope 1): 0.2017 kgCO₂/kWh  [BAFA Germany / IPCC 2006]
+//   Elektrik (scope 2): 0.350 kgCO₂e/kWh  [EU ortalama 2024 approx]
+//     - DE: 0.366 · NL: 0.270 · AT: 0.107 · TR: 0.447 · EU avg ≈ 0.350
+//   Varsayım: ülke bazlı değil portföy geneli EU ortalama kullanılıyor.
+//   Production'da: emission_factors tablosu + country JOIN ile genişletilir.
+//
+// === has_gas KOLONU ========================================================
+//
+//   gold_hvac_analytics[has_gas] = notebook 11'de hesaplandı.
+//   TRUE → doğalgaz kazanı (scope 1 emisyon)
+//   FALSE → ısı pompası (scope 2 elektrik)
+//   Pipeline 01→02→03→11 re-run sonrası has_gas_heating doğru akıyor.
+//
+// ==========================================================================
+
+
+// ==========================================================================
+// C6 — HVAC CO₂ (tCO₂/yıl)
+//    Gas binalar: heating_kwh × 0.2017 (scope 1)
+//    HP binaları: heating_kwh × 0.350 (scope 2)
+//    Cooling + Ventilation: her zaman elektrik → × 0.350
+//    Sonuç: tCO₂ (kilograms / 1000)
+// ==========================================================================
+
+HVAC CO2 tCO2 v37 =
+VAR _gasF  = 0.2017   // kgCO2/kWh — natural gas (BAFA/IPCC)
+VAR _elecF = 0.350    // kgCO2e/kWh — EU electricity grid avg 2024
+
+// Per-building heating: gas vs HP ayrımı
+VAR _heatingKg =
+    SUMX (
+        VALUES ( gold_hvac_analytics[building_id] ),
+        VAR _isGas  = CALCULATE ( MAX ( gold_hvac_analytics[has_gas] ) )
+        VAR _heatKwh = CALCULATE ( SUM ( gold_hvac_analytics[heating_energy_kwh] ) )
+        RETURN
+            IF (
+                _isGas = TRUE,
+                _heatKwh * _gasF,       // scope 1 — direct gas combustion
+                _heatKwh * _elecF       // scope 2 — heat pump electricity
+            )
+    )
+
+// Cooling and ventilation: always electricity
+VAR _coolingKg  = SUM ( gold_hvac_analytics[cooling_energy_kwh] )    * _elecF
+VAR _ventKg     = SUM ( gold_hvac_analytics[ventilation_kwh] )       * _elecF
+
+RETURN
+    DIVIDE ( _heatingKg + _coolingKg + _ventKg, 1000 )
+    // Result: tCO₂/yr (seçilen dönem / filtre context'ine göre)
+
+// Format (Card New → Callout value): 0.0" tCO₂"
+// Display units: None
+//
+// Beklenen (All binalar, 12 ay):
+//   B001 Berliner (HP):   ~15-25 tCO₂ (scope 2 ağırlıklı)
+//   B002 Istanbul (Gas):  ~45-65 tCO₂ (scope 1 high — hem heating hem cooling)
+//   B003 Hamburg (Gas):   ~55-75 tCO₂ (büyük lojistik bina)
+//   B004 Wien (Gas):      ~35-50 tCO₂
+//   B005 Frankfurt (Gas): ~40-60 tCO₂ (Healthcare — 24/7 HVAC)
+//   B006 Amsterdam (Gas): ~50-70 tCO₂ (kötü yalıtım → yüksek kayıp)
+//   Portföy toplam → 240-345 tCO₂
+//
+// EĞER çok düşük geliyorsa (< 50 tCO₂ portföy):
+//   → heating_energy_kwh verisi düşük → HDD pipeline bug
+//   → Notebook 03 → 11 re-run yap
+//
+// CO₂ Display (TEXT ölçüsü, eğer format string yetmezse):
+// HVAC CO2 Display v37 =
+// VAR _co2 = [HVAC CO2 tCO2 v37]
+// RETURN IF(ISBLANK(_co2), "—", FORMAT(_co2,"0.0") & " tCO₂")
+
+
+// ==========================================================================
+// LAYOUT KOORDİNATLARI — SIDEBAR v3 (background: 07_hvac_building_envelope_sidebar.png)
+// Canvas: 1280 × 720 · Sol panel: 0–205 · İçerik: 215–1270
+//
+// POWER BI VISUAL POZİSYONLARI (piksel):
+//
+// ─── SOL PANEL: SLICERLAR ────────────────────────────────────────────────
+//
+//   S1 Date Range:    x=13,  y=87,  w=180, h=52   [mavi — date picker]
+//   S2 Country:       x=13,  y=157, w=180, h=31   [amber — dropdown]
+//   S3 Building Type: x=13,  y=205, w=180, h=31   [turuncu — dropdown]
+//   S4 System Type:   x=13,  y=253, w=180, h=31   [yeşil — dropdown/tile]
+//   S5 Building:      x=13,  y=301, w=180, h=31   [kırmızı — dropdown]
+//
+// ─── KPI KARTLARI (6 adet) ───────────────────────────────────────────────
+//
+//   C1 HVAC Share %:   x=215,  y=78,  w=169, h=90  [turuncu #FF6B35]
+//   C2 HVAC Efficiency:x=392,  y=78,  w=169, h=90  [amber   #FFC107]
+//   C3 Avg Insulation: x=569,  y=78,  w=169, h=90  [yeşil   #1D9E75]
+//   C4 Heat Loss:      x=746,  y=78,  w=169, h=90  [mavi    #00D4FF]
+//   C5 Retrofit Count: x=923,  y=78,  w=169, h=90  [kırmızı #E24B4A]
+//   C6 HVAC CO₂:       x=1100, y=78,  w=169, h=90  [mor     #9B59B6]
+//
+// ─── GENIŞ VİZÜELLER (V1 + V2) ──────────────────────────────────────────
+//
+//   V1 HVAC Breakdown: x=215,  y=182, w=519, h=211
+//   V2 System Table:   x=742,  y=182, w=528, h=211
+//
+// ─── DETAY VİZÜELLER (V3 + V4 + V5) ────────────────────────────────────
+//
+//   V3 U-Values:       x=215,  y=405, w=346, h=307
+//   V4 Insulation Bar: x=569,  y=405, w=346, h=307
+//   V5 Renovation:     x=923,  y=405, w=347, h=307
+//
+// ==========================================================================
+
+
+// ==========================================================================
+// VISUAL FORMAT AYARLARI (tüm görseller için)
+//
+// Her görsel → Format pane:
+//   Background → Transparency: 100% (tamamen transparan)
+//   Border → Off
+//   Title → Off  ← ÖNEMLİ: başlıklar arka planda değil, Power BI'da kapalı
+//   Visual header → Off (üç nokta menüsünü gizle — embed için)
+//
+// Slicer formatı:
+//   Background: #050D1C, 5% opacity
+//   Border: 1px #1E2D5F, radius 4px
+//   Header: OFF (arka planda label var, çift başlık olmasın)
+//   Item font: Segoe UI, 10pt, #C8DCF0
+//
+// Card (new) formatı:
+//   Background: 100% transparent
+//   Border: Off
+//   Title: Off
+//   Callout value: Segoe UI Semibold, 32pt, #FFFFFF
+//   Label: Segoe UI, 10pt, #7DB4DC
+//
+// ==========================================================================

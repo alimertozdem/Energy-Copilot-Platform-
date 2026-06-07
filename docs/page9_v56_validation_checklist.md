@@ -45,9 +45,9 @@ Use this checklist after running the install script and binding visuals.
 
 - [ ] [C1 Annual Savings EUR] ≈ €100 000
 - [ ] [C2 Payback Years] ≈ 1.7-2.0
-- [ ] [C5] = "✓ EU 2023/1670 compliant"
+- [ ] [C5] = "✓ EU 2023/1542 compliant"
 - [ ] [I1] mentions "logistics" + "Peak-Shaving"
-- [ ] [I3] = "✓ Active battery fully EU 2023/1670 compliant..."
+- [ ] [I3] = "✓ Active battery fully EU 2023/1542 compliant..."
 
 ## F. Visual layer
 

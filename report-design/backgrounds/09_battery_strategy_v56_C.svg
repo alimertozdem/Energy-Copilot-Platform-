@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <!--
+    Page 9 v56 — LAYOUT C (12 zones, horizontal slicer strip)
+    Date: 2026-05-21
+    User-approved layout. Logo is overlaid as separate PNG (not drawn here).
+    Zones (empty frames, no inner text):
+      Header  : y  5-60   (logo zone left x:15-195, title text right of logo)
+      Slicers : y 65-95   (4 horizontal: S1 S2 S3 S4)
+      KPI     : y 100-165 (5 cards: C1 C2 C3 C4 C5)
+      Row 1   : y 175-405 (V2 24h | V1 Matrix | System Health)
+      Row 2   : y 415-705 (V5 EU Heatmap | V6 Scenario Table)
+  -->
+
+  <defs>
+    <linearGradient id="bgFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#0E1622"/>
+      <stop offset="60%"  stop-color="#0B1320"/>
+      <stop offset="100%" stop-color="#15182A"/>
+    </linearGradient>
+    <linearGradient id="panelFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#0F1B26"/>
+      <stop offset="100%" stop-color="#0A1420"/>
+    </linearGradient>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="2.4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <symbol id="dotCyan" overflow="visible">
+      <ellipse rx="14" ry="2.8" fill="#3FA9F5" opacity="0.55" filter="url(#glow)"/>
+      <ellipse rx="5"  ry="1.4" fill="#A8E0FF" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotAmber" overflow="visible">
+      <ellipse rx="14" ry="2.8" fill="#F4A62A" opacity="0.55" filter="url(#glow)"/>
+      <ellipse rx="5"  ry="1.4" fill="#FFD580" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotGreen" overflow="visible">
+      <ellipse rx="14" ry="2.8" fill="#27AE60" opacity="0.55" filter="url(#glow)"/>
+      <ellipse rx="5"  ry="1.4" fill="#A8F0BC" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotCoral" overflow="visible">
+      <ellipse rx="14" ry="2.8" fill="#E74C3C" opacity="0.55" filter="url(#glow)"/>
+      <ellipse rx="5"  ry="1.4" fill="#FFB3A8" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotPurple" overflow="visible">
+      <ellipse rx="14" ry="2.8" fill="#9B59B6" opacity="0.55" filter="url(#glow)"/>
+      <ellipse rx="5"  ry="1.4" fill="#D8B0F0" opacity="0.95"/>
+    </symbol>
+  </defs>
+
+  <!-- BASE -->
+  <rect width="1280" height="720" fill="url(#bgFill)"/>
+
+  <!-- ─── HEADER: title only (logo overlaid separately) ─── -->
+  <text x="215" y="38" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#FFFFFF" letter-spacing="0.4">Battery Dispatch &amp;</text>
+  <text x="490" y="38" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#F4A62A" letter-spacing="0.4">Financial Simulation</text>
+  <text x="215" y="54" font-family="Arial, sans-serif" font-size="8" fill="#3FA9F5" letter-spacing="2.5">STRATEGY COMPARISON · EU 2023/1542 · NPV / IRR / PAYBACK</text>
+  <line x1="15" y1="62" x2="1265" y2="62" stroke="#F4A62A" stroke-width="0.5" opacity="0.30"/>
+
+  <!-- ─── SLICER STRIP — y:65-95, 4 horizontal slicers ─── -->
+  <rect x="15"  y="65" width="295" height="30" rx="3" fill="url(#panelFill)" stroke="#3FA9F5" stroke-width="1.2"/>
+  <use href="#dotCyan" transform="translate(162,65)"/>
+
+  <rect x="322" y="65" width="295" height="30" rx="3" fill="url(#panelFill)" stroke="#F4A62A" stroke-width="1.2"/>
+  <use href="#dotAmber" transform="translate(469,65)"/>
+
+  <rect x="629" y="65" width="295" height="30" rx="3" fill="url(#panelFill)" stroke="#9B59B6" stroke-width="1.2"/>
+  <use href="#dotPurple" transform="translate(776,65)"/>
+
+  <rect x="936" y="65" width="295" height="30" rx="3" fill="url(#panelFill)" stroke="#E74C3C" stroke-width="1.2"/>
+  <use href="#dotCoral" transform="translate(1083,65)"/>
+
+  <!-- ─── KPI STRIP — y:100-165, 5 cards (each 240w + 5 gap) ─── -->
+  <rect x="15"   y="100" width="240" height="65" rx="3" fill="url(#panelFill)" stroke="#27AE60" stroke-width="1.2"/>
+  <use href="#dotGreen" transform="translate(135,100)"/>
+
+  <rect x="260"  y="100" width="240" height="65" rx="3" fill="url(#panelFill)" stroke="#3FA9F5" stroke-width="1.2"/>
+  <use href="#dotCyan" transform="translate(380,100)"/>
+
+  <rect x="505"  y="100" width="240" height="65" rx="3" fill="url(#panelFill)" stroke="#27AE60" stroke-width="1.2"/>
+  <use href="#dotGreen" transform="translate(625,100)"/>
+
+  <rect x="750"  y="100" width="240" height="65" rx="3" fill="url(#panelFill)" stroke="#F4A62A" stroke-width="1.2"/>
+  <use href="#dotAmber" transform="translate(870,100)"/>
+
+  <rect x="995"  y="100" width="240" height="65" rx="3" fill="url(#panelFill)" stroke="#F4A62A" stroke-width="1.2"/>
+  <use href="#dotAmber" transform="translate(1115,100)"/>
+
+  <!-- ─── MAIN ROW 1 — y:175-405 (h:230) ─── -->
+  <!-- V2 24h Battery Behavior (biggest, left) -->
+  <rect x="15"  y="175" width="600" height="230" rx="3" fill="url(#panelFill)" stroke="#3FA9F5" stroke-width="1.2"/>
+  <use href="#dotCyan" transform="translate(315,175)"/>
+
+  <!-- V1 Strategy Matrix (middle) -->
+  <rect x="625" y="175" width="330" height="230" rx="3" fill="url(#panelFill)" stroke="#F4A62A" stroke-width="1.2"/>
+  <use href="#dotAmber" transform="translate(790,175)"/>
+
+  <!-- System Health panel (right — combined Active Strategy + V7 mini cards) -->
+  <rect x="965" y="175" width="300" height="230" rx="3" fill="url(#panelFill)" stroke="#9B59B6" stroke-width="1.2"/>
+  <use href="#dotPurple" transform="translate(1115,175)"/>
+
+  <!-- ─── MAIN ROW 2 — y:415-705 (h:290) ─── -->
+  <!-- V5 EU Regulation Heatmap (left) -->
+  <rect x="15"  y="415" width="600" height="290" rx="3" fill="url(#panelFill)" stroke="#E74C3C" stroke-width="1.2"/>
+  <use href="#dotCoral" transform="translate(315,415)"/>
+
+  <!-- V6 Scenario Comparison Table (right) -->
+  <rect x="625" y="415" width="640" height="290" rx="3" fill="url(#panelFill)" stroke="#27AE60" stroke-width="1.2"/>
+  <use href="#dotGreen" transform="translate(945,415)"/>
+
+</svg>

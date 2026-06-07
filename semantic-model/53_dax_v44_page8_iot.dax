@@ -1,0 +1,411 @@
+// =============================================================================
+// DAX v44 — Page 8: IoT Real-Time Monitoring & Anomaly Detection
+// Energy Copilot Platform
+// Updated: 2026-05-08 — corrected to use only actual tables in semantic model
+//
+// TABLES USED (confirmed in Data pane):
+//   iot_hot_readings   — KQL shortcut (live stream every ~30 sec)
+//                        Columns: anomaly_severity, anomaly_type, building_id,
+//                        device_id, is_anomaly, reading_quality, reading_unit,
+//                        reading_value, sensor_location, sensor_type,
+//                        source_protocol, timestamp
+//   iot_anomaly_alerts — KQL shortcut (alert events only)
+//                        Columns: alert_time, anomaly_severity, anomaly_type,
+//                        building_id, device_id, is_resolved, reading_quality,
+//                        reading_unit, reading_value, resolved_time,
+//                        sensor_location, sensor_type, source_protocol
+//
+// NOT AVAILABLE in semantic model (notebook 11b gold tables not added yet):
+//   gold_iot_realtime, gold_iot_daily_summary
+//   → baseline_value, in_setpoint_pct, cost_eur_window → calculated here from raw data
+//
+// HOME TABLE: iot_hot_readings
+// =============================================================================
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C1: Real-time building power (kW)
+// Color: green <100% baseline | amber 100-120% | red >120%
+// Baseline = average of non-anomaly building_kwh readings (rolling proxy)
+// ─────────────────────────────────────────────────────────────────────────────
+
+C1_Building_kW_Raw =
+VAR LatestTS =
+    CALCULATE(
+        MAX(iot_hot_readings[timestamp]),
+        iot_hot_readings[sensor_type] = "building_kwh",
+        REMOVEFILTERS('Date')
+    )
+RETURN
+    CALCULATE(
+        AVERAGE(iot_hot_readings[reading_value]),
+        iot_hot_readings[sensor_type] = "building_kwh",
+        iot_hot_readings[timestamp] = LatestTS,
+        REMOVEFILTERS('Date')
+    )
+
+C1_Building_kW_Baseline =
+// Average of all normal (non-anomaly) building_kwh readings — used as reference.
+// Remove timestamp filter so baseline is constant across any time window context.
+CALCULATE(
+    AVERAGE(iot_hot_readings[reading_value]),
+    iot_hot_readings[sensor_type] = "building_kwh",
+    iot_hot_readings[is_anomaly] = FALSE(),
+    REMOVEFILTERS(iot_hot_readings[timestamp]),
+    REMOVEFILTERS('Date')
+)
+
+C1_Building_kW_Display =
+VAR kW      = [C1_Building_kW_Raw]
+VAR Base    = [C1_Building_kW_Baseline]
+VAR Ratio   = DIVIDE(kW, Base, 1)
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(kW),   "-- kW",
+        Ratio > 1.2,   FORMAT(kW, "0.0") & " kW ▲ High",
+        Ratio > 1.0,   FORMAT(kW, "0.0") & " kW ~ Above normal",
+        FORMAT(kW, "0.0") & " kW ✓ Normal"
+    )
+
+C1_Building_kW_Color =
+VAR kW    = [C1_Building_kW_Raw]
+VAR Base  = [C1_Building_kW_Baseline]
+VAR Ratio = DIVIDE(kW, Base, 1)
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(kW),  "#AAAAAA",
+        Ratio > 1.2,  "#FF4136",
+        Ratio > 1.0,  "#FF851B",
+        "#2ECC40"
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C2: Zone comfort compliance %
+// Proxy: % of comfort sensor (HVAC_temp / humidity / CO2) readings with no anomaly.
+// is_anomaly = FALSE means reading was within setpoint range in simulator.
+// ─────────────────────────────────────────────────────────────────────────────
+
+C2_Zone_Compliance_Pct_Raw =
+VAR TotalReadings =
+    CALCULATE(
+        COUNTROWS(iot_hot_readings),
+        iot_hot_readings[sensor_type] IN {"HVAC_temp", "humidity", "CO2"},
+        REMOVEFILTERS('Date')
+    )
+VAR NormalReadings =
+    CALCULATE(
+        COUNTROWS(iot_hot_readings),
+        iot_hot_readings[sensor_type] IN {"HVAC_temp", "humidity", "CO2"},
+        iot_hot_readings[is_anomaly] = FALSE(),
+        REMOVEFILTERS('Date')
+    )
+RETURN
+    DIVIDE(NormalReadings, TotalReadings, 0) * 100
+
+C2_Zone_Compliance_Display =
+VAR Pct = [C2_Zone_Compliance_Pct_Raw]
+RETURN
+    IF(
+        ISBLANK(Pct),
+        "-- %",
+        FORMAT(ROUND(Pct, 0), "0") & "% zones OK"
+    )
+
+C2_Zone_Compliance_Color =
+VAR Pct = [C2_Zone_Compliance_Pct_Raw]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(Pct), "#AAAAAA",
+        Pct >= 90,    "#2ECC40",
+        Pct >= 75,    "#FF851B",
+        "#FF4136"
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C3: CO₂ level — max reading across selected building
+// Thresholds: EN 13779 / EN 16798 indoor air quality (non-residential)
+// ─────────────────────────────────────────────────────────────────────────────
+
+C3_CO2_Current_Raw =
+CALCULATE(
+    MAX(iot_hot_readings[reading_value]),
+    iot_hot_readings[sensor_type] = "CO2",
+    REMOVEFILTERS('Date')
+)
+
+C3_CO2_Quality_Label =
+VAR CO2 = [C3_CO2_Current_Raw]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(CO2), "No Data",
+        CO2 < 800,    "IDA 1 Excellent",
+        CO2 < 1000,   "IDA 2 Good",
+        CO2 < 1400,   "IDA 3 Review",
+        "IDA 4 Poor — Ventilate"
+    )
+
+C3_CO2_Display =
+VAR CO2   = [C3_CO2_Current_Raw]
+VAR Label = [C3_CO2_Quality_Label]
+RETURN
+    IF(ISBLANK(CO2), "-- ppm", FORMAT(CO2, "0") & " ppm — " & Label)
+
+C3_CO2_Color =
+VAR CO2 = [C3_CO2_Current_Raw]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(CO2), "#AAAAAA",
+        CO2 < 800,    "#2ECC40",
+        CO2 < 1000,   "#2ECC40",
+        CO2 < 1400,   "#FF851B",
+        "#FF4136"
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C4: Active high alerts + estimated daily cost
+// Source: iot_anomaly_alerts — one row per alert event, includes is_resolved flag
+// Cost estimation: sensor-type based extra kW × avg 30-min duration × grid price
+// ─────────────────────────────────────────────────────────────────────────────
+
+C4_Active_High_Alerts =
+// Unresolved High-severity alerts from iot_anomaly_alerts
+CALCULATE(
+    COUNTROWS(iot_anomaly_alerts),
+    iot_anomaly_alerts[anomaly_severity] = "High",
+    iot_anomaly_alerts[is_resolved] = FALSE(),
+    REMOVEFILTERS('Date')
+)
+
+C4_Alert_Cost_Today_EUR =
+// Estimate: extra_kW × avg_duration_h × grid_price_EUR per kWh
+// Sensor-type based extra kW (CLAUDE.md energy logic):
+//   HVAC_temp High → 5 kW, Medium → 2.5 kW
+//   CO2 High       → 3 kW, Medium → 1.5 kW (extra ventilation)
+//   building_kwh High → 8 kW  (power spike)
+//   hvac_kwh High  → 4 kW
+//   default        → 1.5 kW
+VAR GridPrice  = 0.20   -- €/kWh (DE market rate)
+VAR AvgDurH    = 0.50   -- 30-min average anomaly duration
+RETURN
+CALCULATE(
+    SUMX(
+        iot_anomaly_alerts,
+        VAR ST  = iot_anomaly_alerts[sensor_type]
+        VAR Sev = iot_anomaly_alerts[anomaly_severity]
+        VAR ExtraKW =
+            SWITCH(
+                TRUE(),
+                ST = "HVAC_temp"    && Sev = "High",   5.0,
+                ST = "HVAC_temp"    && Sev = "Medium",  2.5,
+                ST = "CO2"          && Sev = "High",    3.0,
+                ST = "CO2"          && Sev = "Medium",  1.5,
+                ST = "building_kwh" && Sev = "High",    8.0,
+                ST = "building_kwh" && Sev = "Medium",  3.0,
+                ST = "hvac_kwh"     && Sev = "High",    4.0,
+                ST = "hvac_kwh"     && Sev = "Medium",  2.0,
+                1.5
+            )
+        RETURN ExtraKW * AvgDurH * GridPrice
+    ),
+    iot_anomaly_alerts[alert_time] >= TODAY(),
+    REMOVEFILTERS('Date')
+)
+
+C4_Alert_Label =
+VAR Alerts = [C4_Active_High_Alerts]
+VAR Cost   = [C4_Alert_Cost_Today_EUR]
+RETURN
+    IF(
+        ISBLANK(Alerts) || Alerts = 0,
+        "All Clear",
+        FORMAT(Alerts, "0") & " High Alerts — Est. €" & FORMAT(ROUND(Cost, 0), "0") & " today"
+    )
+
+C4_Alert_Color =
+VAR Alerts = [C4_Active_High_Alerts]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(Alerts) || Alerts = 0, "#2ECC40",
+        Alerts <= 2,                   "#FF851B",
+        "#FF4136"
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// V1: 24h Power Trend — building_kwh and hvac_kwh as separate series
+// X-axis: iot_hot_readings[timestamp] (put directly on axis — no aggregation needed)
+// Series: V1_Building_kW (blue), V1_HVAC_kW (teal), V1_Baseline_kW (grey dashed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+V1_Building_kW =
+CALCULATE(
+    AVERAGE(iot_hot_readings[reading_value]),
+    iot_hot_readings[sensor_type] = "building_kwh"
+)
+
+V1_HVAC_kW =
+CALCULATE(
+    AVERAGE(iot_hot_readings[reading_value]),
+    iot_hot_readings[sensor_type] = "hvac_kwh"
+)
+
+V1_Baseline_kW =
+// Flat reference line — average of all normal building_kwh readings.
+// REMOVEFILTERS on timestamp so the same value appears at every point on the axis.
+CALCULATE(
+    AVERAGE(iot_hot_readings[reading_value]),
+    iot_hot_readings[sensor_type] = "building_kwh",
+    iot_hot_readings[is_anomaly] = FALSE(),
+    REMOVEFILTERS(iot_hot_readings[timestamp])
+)
+
+V1_HVAC_Share_Pct =
+// HVAC as % of building total — for tooltip on V1 chart
+VAR TotalKW = [V1_Building_kW]
+VAR HvacKW  = [V1_HVAC_kW]
+RETURN DIVIDE(HvacKW, TotalKW, BLANK()) * 100
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// V2: Sensor Uptime Matrix
+// Rows: iot_hot_readings[sensor_location]
+// Columns: iot_hot_readings[sensor_type]
+// Value: average reading_quality (0-100 scale from simulator)
+// ─────────────────────────────────────────────────────────────────────────────
+
+V2_Sensor_Uptime_Pct =
+// reading_quality 0-100: 100 = clean signal, <75 = sensor issue
+AVERAGE(iot_hot_readings[reading_quality])
+
+V2_Uptime_Color_Index =
+// 1 = green (>=90%), 2 = yellow (75-90%), 3 = red (<75%)
+VAR Uptime = [V2_Sensor_Uptime_Pct]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(Uptime), BLANK(),
+        Uptime >= 90, 1,
+        Uptime >= 75, 2,
+        3
+    )
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// V3: Zone Setpoint Compliance Matrix
+// Rows: iot_hot_readings[sensor_location]
+// Columns: iot_hot_readings[sensor_type] (filter visual to comfort sensors)
+// Value: % readings with is_anomaly = FALSE (= within setpoint)
+// ─────────────────────────────────────────────────────────────────────────────
+
+V3_Zone_Compliance_Pct =
+VAR Total  = COUNTROWS(iot_hot_readings)
+VAR Normal = CALCULATE(COUNTROWS(iot_hot_readings), iot_hot_readings[is_anomaly] = FALSE())
+RETURN
+    DIVIDE(Normal, Total, 1) * 100
+
+V3_Zone_Compliance_Color =
+// 1 = green (>=90%), 2 = amber (70-90%), 3 = red (<70%)
+VAR Pct = [V3_Zone_Compliance_Pct]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(Pct), BLANK(),
+        Pct >= 90, 1,
+        Pct >= 70, 2,
+        3
+    )
+
+V3_Zone_Out_Of_Range_Pct =
+// How far out of compliance is this zone/sensor?
+100 - [V3_Zone_Compliance_Pct]
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// V4: Alert Table
+// Source: iot_anomaly_alerts (drag columns directly onto table visual)
+// Columns to add: sensor_location, sensor_type, reading_value, reading_unit,
+//                 anomaly_severity, anomaly_type, alert_time, is_resolved
+// Measures below are calculated columns for the table visual
+// ─────────────────────────────────────────────────────────────────────────────
+
+V4_Cost_Per_Alert_EUR =
+// Estimated cost per alert row in V4 table
+// Same logic as C4 — shows cost next to each individual alert
+VAR GridPrice = 0.20
+VAR AvgDurH   = 0.50
+VAR ST        = MAX(iot_anomaly_alerts[sensor_type])
+VAR Sev       = MAX(iot_anomaly_alerts[anomaly_severity])
+VAR ExtraKW =
+    SWITCH(
+        TRUE(),
+        ST = "HVAC_temp"    && Sev = "High",   5.0,
+        ST = "HVAC_temp"    && Sev = "Medium",  2.5,
+        ST = "CO2"          && Sev = "High",    3.0,
+        ST = "CO2"          && Sev = "Medium",  1.5,
+        ST = "building_kwh" && Sev = "High",    8.0,
+        ST = "building_kwh" && Sev = "Medium",  3.0,
+        ST = "hvac_kwh"     && Sev = "High",    4.0,
+        ST = "hvac_kwh"     && Sev = "Medium",  2.0,
+        1.5
+    )
+RETURN
+    IF(NOT ISBLANK(Sev), ROUND(ExtraKW * AvgDurH * GridPrice, 2), BLANK())
+
+V4_Cost_Label =
+VAR Cost = [V4_Cost_Per_Alert_EUR]
+RETURN
+    IF(ISBLANK(Cost), "--", "Est. €" & FORMAT(Cost, "0.00"))
+
+V4_Severity_Sort =
+// Numeric sort key: High=3, Medium=2, Low=1, null=0
+// Apply to sort the alert table by severity descending
+SWITCH(
+    MAX(iot_anomaly_alerts[anomaly_severity]),
+    "High",   3,
+    "Medium", 2,
+    "Low",    1,
+    0
+)
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUMMARY MEASURES (used in tooltips and cross-page badges)
+// ─────────────────────────────────────────────────────────────────────────────
+
+Summary_Total_High_Alerts_Today =
+CALCULATE(
+    COUNTROWS(iot_anomaly_alerts),
+    iot_anomaly_alerts[anomaly_severity] = "High",
+    iot_anomaly_alerts[alert_time] >= TODAY(),
+    REMOVEFILTERS('Date')
+)
+
+Summary_Total_Medium_Alerts_Today =
+CALCULATE(
+    COUNTROWS(iot_anomaly_alerts),
+    iot_anomaly_alerts[anomaly_severity] = "Medium",
+    iot_anomaly_alerts[alert_time] >= TODAY(),
+    REMOVEFILTERS('Date')
+)
+
+Summary_Total_Cost_Today_EUR =
+[C4_Alert_Cost_Today_EUR]
+
+Summary_Avg_Compliance_Pct =
+[C2_Zone_Compliance_Pct_Raw]
+
+// Used by V3 visual filter: returns 1 for comfort sensors only
+Filter_Comfort_Sensors_Only =
+IF(
+    SELECTEDVALUE(iot_hot_readings[sensor_type]) IN {"HVAC_temp", "humidity", "CO2"},
+    1, 0
+)

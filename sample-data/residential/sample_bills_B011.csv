@@ -1,0 +1,5 @@
+fabric_building_id,period_start,period_end,energy_type,consumption_kwh,cost_eur,meter_id,source
+B011,2026-01-01,2026-01-31,district_heat,18450.0,1240.50,DH-001,utility_bill
+B011,2026-01-01,2026-01-31,electricity,3120.0,936.00,EL-COMMON-01,utility_bill
+B011,2026-02-01,2026-02-28,district_heat,16980.0,1142.10,DH-001,utility_bill
+B011,2026-02-01,2026-02-28,electricity,2890.0,867.00,EL-COMMON-01,utility_bill

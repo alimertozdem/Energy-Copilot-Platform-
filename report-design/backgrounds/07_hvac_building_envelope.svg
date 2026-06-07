@@ -1,0 +1,267 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <!-- ============================================================
+       Energy Copilot Platform — Page 7 HVAC & Building Envelope
+       BACKGROUND v2 (frames only, 5+5 layout)
+       Design language: Electric Ecology
+       Canvas: 1280 × 720
+       ============================================================ -->
+
+  <defs>
+    <!-- Background gradient -->
+    <radialGradient id="bgGrad" cx="50%" cy="40%" r="80%">
+      <stop offset="0%" stop-color="#0E1B30"/>
+      <stop offset="60%" stop-color="#0A1628"/>
+      <stop offset="100%" stop-color="#060E1C"/>
+    </radialGradient>
+
+    <!-- Subtle aurora glow at the bottom-left -->
+    <radialGradient id="auroraGreen" cx="0%" cy="100%" r="55%">
+      <stop offset="0%" stop-color="#1D9E75" stop-opacity="0.18"/>
+      <stop offset="60%" stop-color="#1D9E75" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#1D9E75" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="auroraPurple" cx="100%" cy="0%" r="45%">
+      <stop offset="0%" stop-color="#6B4EFF" stop-opacity="0.12"/>
+      <stop offset="60%" stop-color="#6B4EFF" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#6B4EFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Frosted-glass panel fill -->
+    <linearGradient id="panelFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0E1B30" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#0A1628" stop-opacity="0.78"/>
+    </linearGradient>
+
+    <!-- Glow filter for accent dots -->
+    <filter id="dotGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Soft frame edge glow -->
+    <filter id="frameGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="1.2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Title underline gradient -->
+    <linearGradient id="titleAccent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00D4FF"/>
+      <stop offset="100%" stop-color="#FF6B35"/>
+    </linearGradient>
+
+    <!-- Reusable accent dot -->
+    <symbol id="accentDotOrange" overflow="visible">
+      <ellipse cx="0" cy="0" rx="22" ry="5" fill="#FF6B35" opacity="0.55" filter="url(#dotGlow)"/>
+      <ellipse cx="0" cy="0" rx="10" ry="2.5" fill="#FFB585" opacity="0.85"/>
+    </symbol>
+    <symbol id="accentDotYellow" overflow="visible">
+      <ellipse cx="0" cy="0" rx="22" ry="5" fill="#FFC107" opacity="0.5" filter="url(#dotGlow)"/>
+      <ellipse cx="0" cy="0" rx="10" ry="2.5" fill="#FFE08A" opacity="0.85"/>
+    </symbol>
+    <symbol id="accentDotRed" overflow="visible">
+      <ellipse cx="0" cy="0" rx="22" ry="5" fill="#E24B4A" opacity="0.55" filter="url(#dotGlow)"/>
+      <ellipse cx="0" cy="0" rx="10" ry="2.5" fill="#FF9A99" opacity="0.85"/>
+    </symbol>
+    <symbol id="accentDotGreen" overflow="visible">
+      <ellipse cx="0" cy="0" rx="22" ry="5" fill="#1D9E75" opacity="0.55" filter="url(#dotGlow)"/>
+      <ellipse cx="0" cy="0" rx="10" ry="2.5" fill="#7FE3BD" opacity="0.85"/>
+    </symbol>
+    <symbol id="accentDotBlue" overflow="visible">
+      <ellipse cx="0" cy="0" rx="22" ry="5" fill="#00D4FF" opacity="0.5" filter="url(#dotGlow)"/>
+      <ellipse cx="0" cy="0" rx="10" ry="2.5" fill="#9EEEFF" opacity="0.85"/>
+    </symbol>
+  </defs>
+
+  <!-- ============================ BASE LAYER ============================ -->
+  <rect width="1280" height="720" fill="url(#bgGrad)"/>
+  <rect width="1280" height="720" fill="url(#auroraGreen)"/>
+  <rect width="1280" height="720" fill="url(#auroraPurple)"/>
+
+  <!-- Faint particle constellation (upper area) -->
+  <g opacity="0.55" fill="#7FB8FF">
+    <circle cx="120" cy="55" r="0.9"/>
+    <circle cx="220" cy="40" r="0.6"/>
+    <circle cx="380" cy="62" r="0.8"/>
+    <circle cx="510" cy="48" r="0.5"/>
+    <circle cx="690" cy="38" r="0.7"/>
+    <circle cx="860" cy="55" r="0.6"/>
+    <circle cx="980" cy="32" r="0.5"/>
+    <circle cx="1110" cy="60" r="0.7"/>
+    <circle cx="1180" cy="45" r="0.5"/>
+    <circle cx="160" cy="220" r="0.5"/>
+    <circle cx="900" cy="240" r="0.6"/>
+    <circle cx="1140" cy="200" r="0.5"/>
+    <circle cx="60"  cy="690" r="0.7"/>
+    <circle cx="440" cy="700" r="0.5"/>
+    <circle cx="780" cy="710" r="0.6"/>
+    <circle cx="1080" cy="700" r="0.5"/>
+  </g>
+
+  <!-- ============================ TITLE BAR (KEEP) ============================ -->
+  <!-- Logo block -->
+  <g transform="translate(20,15)">
+    <rect x="0" y="0" width="50" height="50" rx="10" fill="#0E1B30" stroke="#00D4FF" stroke-width="1.5" opacity="0.95"/>
+    <!-- Stylized building/lens icon -->
+    <g stroke="#00D4FF" stroke-width="1.4" fill="none">
+      <circle cx="25" cy="25" r="11"/>
+      <line x1="25" y1="14" x2="25" y2="36"/>
+      <line x1="14" y1="25" x2="36" y2="25"/>
+      <rect x="20" y="20" width="10" height="10" fill="#00D4FF" fill-opacity="0.25"/>
+    </g>
+    <text x="55" y="20" font-family="Inter,Segoe UI,Arial" font-size="9" font-weight="700" fill="#00D4FF" letter-spacing="1.4">ENERGY</text>
+    <text x="55" y="32" font-family="Inter,Segoe UI,Arial" font-size="9" font-weight="700" fill="#00D4FF" letter-spacing="1.4">LENS</text>
+  </g>
+
+  <!-- Title -->
+  <text x="135" y="40" font-family="Inter,Segoe UI,Arial" font-size="28" font-weight="700" fill="#FFFFFF" letter-spacing="0.5">HVAC &amp; <tspan fill="#FF6B35">BUILDING ENVELOPE</tspan></text>
+  <text x="135" y="58" font-family="Inter,Segoe UI,Arial" font-size="10" font-weight="500" fill="#7FB8FF" letter-spacing="2.4">MECHANICAL SYSTEMS PERFORMANCE</text>
+
+  <!-- 4 thematic icons (top-right) -->
+  <g transform="translate(950,30)">
+    <!-- COP -->
+    <circle cx="20" cy="10" r="18" fill="none" stroke="#E24B4A" stroke-width="1.4" opacity="0.9"/>
+    <text x="20" y="14" text-anchor="middle" font-family="Inter,Arial" font-size="9" font-weight="700" fill="#E24B4A">COP</text>
+    <ellipse cx="20" cy="32" rx="10" ry="2" fill="#E24B4A" opacity="0.55" filter="url(#dotGlow)"/>
+    <!-- Sun -->
+    <g transform="translate(85,0)">
+      <circle cx="20" cy="10" r="6" fill="#FFC107" opacity="0.8"/>
+      <g stroke="#FFC107" stroke-width="1.3">
+        <line x1="20" y1="0" x2="20" y2="3"/>
+        <line x1="20" y1="17" x2="20" y2="20"/>
+        <line x1="10" y1="10" x2="13" y2="10"/>
+        <line x1="27" y1="10" x2="30" y2="10"/>
+        <line x1="13" y1="3" x2="15" y2="5"/>
+        <line x1="25" y1="15" x2="27" y2="17"/>
+        <line x1="13" y1="17" x2="15" y2="15"/>
+        <line x1="25" y1="5" x2="27" y2="3"/>
+      </g>
+      <circle cx="20" cy="10" r="18" fill="none" stroke="#FFC107" stroke-width="1.4"/>
+      <ellipse cx="20" cy="32" rx="10" ry="2" fill="#FFC107" opacity="0.55" filter="url(#dotGlow)"/>
+    </g>
+    <!-- Battery / insulation -->
+    <g transform="translate(170,0)">
+      <circle cx="20" cy="10" r="18" fill="none" stroke="#E24B4A" stroke-width="1.4"/>
+      <rect x="13" y="6" width="11" height="8" rx="1" fill="none" stroke="#E24B4A" stroke-width="1.2"/>
+      <rect x="24" y="8" width="2" height="4" fill="#E24B4A"/>
+      <rect x="14" y="7" width="6" height="6" fill="#E24B4A" opacity="0.6"/>
+      <ellipse cx="20" cy="32" rx="10" ry="2" fill="#E24B4A" opacity="0.55" filter="url(#dotGlow)"/>
+    </g>
+    <!-- CO2 -->
+    <g transform="translate(255,0)">
+      <circle cx="20" cy="10" r="18" fill="none" stroke="#E24B4A" stroke-width="1.4"/>
+      <text x="20" y="13" text-anchor="middle" font-family="Inter,Arial" font-size="8" font-weight="700" fill="#E24B4A">CO₂</text>
+    </g>
+  </g>
+
+  <!-- Hairline divider under title -->
+  <line x1="20" y1="78" x2="1260" y2="78" stroke="#00D4FF" stroke-width="0.5" opacity="0.18"/>
+
+  <!-- ============================ ROW 1: 5 SLICERS ============================ -->
+  <!-- y: 92–128, h: 36 -->
+  <!-- 5 slicers: x = 30, 282, 534, 786, 1038 ; w = 216, gap = 36 -->
+  <!-- Use gap = (1280 - 60 - 5*216) / 4 = 35 -->
+  <g>
+    <!-- Slicer 1: Date Range -->
+    <use href="#accentDotBlue" x="138" y="86"/>
+    <rect x="30" y="92" width="216" height="36" rx="8" fill="url(#panelFill)" stroke="#00D4FF" stroke-width="1.2" opacity="0.95" filter="url(#frameGlow)"/>
+
+    <!-- Slicer 2: Country -->
+    <use href="#accentDotYellow" x="389" y="86"/>
+    <rect x="281" y="92" width="216" height="36" rx="8" fill="url(#panelFill)" stroke="#FFC107" stroke-width="1.2" opacity="0.95" filter="url(#frameGlow)"/>
+
+    <!-- Slicer 3: Building Type -->
+    <use href="#accentDotOrange" x="640" y="86"/>
+    <rect x="532" y="92" width="216" height="36" rx="8" fill="url(#panelFill)" stroke="#FF6B35" stroke-width="1.2" opacity="0.95" filter="url(#frameGlow)"/>
+
+    <!-- Slicer 4: System Type -->
+    <use href="#accentDotGreen" x="891" y="86"/>
+    <rect x="783" y="92" width="216" height="36" rx="8" fill="url(#panelFill)" stroke="#1D9E75" stroke-width="1.2" opacity="0.95" filter="url(#frameGlow)"/>
+
+    <!-- Slicer 5: Building -->
+    <use href="#accentDotRed" x="1142" y="86"/>
+    <rect x="1034" y="92" width="216" height="36" rx="8" fill="url(#panelFill)" stroke="#E24B4A" stroke-width="1.2" opacity="0.95" filter="url(#frameGlow)"/>
+  </g>
+
+  <!-- Slicer row caption (helps the empty frames read as 'controls') -->
+  <text x="30" y="142" font-family="Inter,Arial" font-size="8" font-weight="600" fill="#7FB8FF" letter-spacing="1.6" opacity="0.6">FILTERS</text>
+
+  <!-- ============================ ROW 2: 5 KPI CARDS ============================ -->
+  <!-- y: 152–246, h: 94 -->
+  <!-- 5 cards: same x-grid as slicers, w=216 -->
+  <g>
+    <!-- C1 HVAC Share % (Orange — primary metric) -->
+    <use href="#accentDotOrange" x="138" y="146"/>
+    <rect x="30" y="152" width="216" height="94" rx="10" fill="url(#panelFill)" stroke="#FF6B35" stroke-width="1.4" opacity="0.95" filter="url(#frameGlow)"/>
+    <text x="42" y="170" font-family="Inter,Arial" font-size="8" font-weight="600" fill="#FF6B35" letter-spacing="1.4">HVAC SHARE</text>
+
+    <!-- C2 HVAC Efficiency Score (Yellow — score) -->
+    <use href="#accentDotYellow" x="389" y="146"/>
+    <rect x="281" y="152" width="216" height="94" rx="10" fill="url(#panelFill)" stroke="#FFC107" stroke-width="1.4" opacity="0.95" filter="url(#frameGlow)"/>
+    <text x="293" y="170" font-family="Inter,Arial" font-size="8" font-weight="600" fill="#FFC107" letter-spacing="1.4">HVAC EFFICIENCY</text>
+
+    <!-- C3 Avg Insulation Score (Green — envelope health) -->
+    <use href="#accentDotGreen" x="640" y="146"/>
+    <rect x="532" y="152" width="216" height="94" rx="10" fill="url(#panelFill)" stroke="#1D9E75" stroke-width="1.4" opacity="0.95" filter="url(#frameGlow)"/>
+    <text x="544" y="170" font-family="Inter,Arial" font-size="8" font-weight="600" fill="#1D9E75" letter-spacing="1.4">AVG INSULATION</text>
+
+    <!-- C4 Heat Loss kWh/m²·yr (Blue — physics) -->
+    <use href="#accentDotBlue" x="891" y="146"/>
+    <rect x="783" y="152" width="216" height="94" rx="10" fill="url(#panelFill)" stroke="#00D4FF" stroke-width="1.4" opacity="0.95" filter="url(#frameGlow)"/>
+    <text x="795" y="170" font-family="Inter,Arial" font-size="8" font-weight="600" fill="#00D4FF" letter-spacing="1.4">HEAT LOSS  kWh/m²·yr</text>
+
+    <!-- C5 Buildings for Retrofit (Red — action) -->
+    <use href="#accentDotRed" x="1142" y="146"/>
+    <rect x="1034" y="152" width="216" height="94" rx="10" fill="url(#panelFill)" stroke="#E24B4A" stroke-width="1.4" opacity="0.95" filter="url(#frameGlow)"/>
+    <text x="1046" y="170" font-family="Inter,Arial" font-size="8" font-weight="600" fill="#E24B4A" letter-spacing="1.4">RETROFIT NEEDED</text>
+  </g>
+
+  <!-- ============================ ROW 3: 2 WIDE VISUALS ============================ -->
+  <!-- y: 268–478, h: 210 -->
+  <!-- 2 visuals: x = 30 (V1), x = 645 (V2). w = 605 each, gap = 10 -->
+  <g>
+    <!-- V1 — HVAC Energy Breakdown (Heating / Cooling / Ventilation) -->
+    <use href="#accentDotOrange" x="332" y="262"/>
+    <rect x="30" y="268" width="605" height="210" rx="12" fill="url(#panelFill)" stroke="#FF6B35" stroke-width="1.4" opacity="0.95" filter="url(#frameGlow)"/>
+    <text x="48" y="288" font-family="Inter,Arial" font-size="11" font-weight="700" fill="#FFFFFF" letter-spacing="0.8">HVAC ENERGY BREAKDOWN</text>
+    <text x="48" y="302" font-family="Inter,Arial" font-size="8.5" font-weight="500" fill="#7FB8FF" letter-spacing="1.2" opacity="0.85">Monthly heating · cooling · ventilation (kWh)</text>
+
+    <!-- V2 — Building HVAC System Summary (table) -->
+    <use href="#accentDotGreen" x="947" y="262"/>
+    <rect x="645" y="268" width="605" height="210" rx="12" fill="url(#panelFill)" stroke="#1D9E75" stroke-width="1.4" opacity="0.95" filter="url(#frameGlow)"/>
+    <text x="663" y="288" font-family="Inter,Arial" font-size="11" font-weight="700" fill="#FFFFFF" letter-spacing="0.8">BUILDING HVAC SYSTEM SUMMARY</text>
+    <text x="663" y="302" font-family="Inter,Arial" font-size="8.5" font-weight="500" fill="#7FB8FF" letter-spacing="1.2" opacity="0.85">System · COP · Insulation · Priority · Action</text>
+  </g>
+
+  <!-- ============================ ROW 4: 3 DETAIL VISUALS ============================ -->
+  <!-- y: 498–706, h: 208 -->
+  <!-- 3 visuals: w = 400 each, gap = 10. x = 30, 440, 850 -->
+  <g>
+    <!-- V3 — U-Values vs Reference -->
+    <use href="#accentDotBlue" x="230" y="492"/>
+    <rect x="30" y="498" width="400" height="208" rx="12" fill="url(#panelFill)" stroke="#00D4FF" stroke-width="1.4" opacity="0.95" filter="url(#frameGlow)"/>
+    <text x="48" y="518" font-family="Inter,Arial" font-size="11" font-weight="700" fill="#FFFFFF" letter-spacing="0.8">ENVELOPE U-VALUES</text>
+    <text x="48" y="532" font-family="Inter,Arial" font-size="8.5" font-weight="500" fill="#7FB8FF" letter-spacing="1.2" opacity="0.85">Wall · Roof · Floor · Window  vs GEG 2023 reference</text>
+
+    <!-- V4 — Insulation Score by Building -->
+    <use href="#accentDotYellow" x="640" y="492"/>
+    <rect x="440" y="498" width="400" height="208" rx="12" fill="url(#panelFill)" stroke="#FFC107" stroke-width="1.4" opacity="0.95" filter="url(#frameGlow)"/>
+    <text x="458" y="518" font-family="Inter,Arial" font-size="11" font-weight="700" fill="#FFFFFF" letter-spacing="0.8">INSULATION SCORE BY BUILDING</text>
+    <text x="458" y="532" font-family="Inter,Arial" font-size="8.5" font-weight="500" fill="#7FB8FF" letter-spacing="1.2" opacity="0.85">Score 0–100 · sorted descending</text>
+
+    <!-- V5 — Renovation Priority Matrix -->
+    <use href="#accentDotRed" x="1050" y="492"/>
+    <rect x="850" y="498" width="400" height="208" rx="12" fill="url(#panelFill)" stroke="#E24B4A" stroke-width="1.4" opacity="0.95" filter="url(#frameGlow)"/>
+    <text x="868" y="518" font-family="Inter,Arial" font-size="11" font-weight="700" fill="#FFFFFF" letter-spacing="0.8">RENOVATION PRIORITY MATRIX</text>
+    <text x="868" y="532" font-family="Inter,Arial" font-size="8.5" font-weight="500" fill="#7FB8FF" letter-spacing="1.2" opacity="0.85">Insulation × Efficiency · bubble = annual kWh</text>
+  </g>
+
+  <!-- Soft bottom horizon line -->
+  <line x1="20" y1="715" x2="1260" y2="715" stroke="#1D9E75" stroke-width="0.5" opacity="0.18"/>
+</svg>

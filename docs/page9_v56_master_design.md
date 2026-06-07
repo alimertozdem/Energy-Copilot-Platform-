@@ -14,7 +14,7 @@ visuals broke at the same time.
 
 Rather than patching v52 one more time, v56 is a **production-grade refactor**
 aligned with the Phase 2 architecture decision (2026-05-07) — IoT
-interoperability, EU 2023/1670 compliance, and dynamic pricing — and with the
+interoperability, EU 2023/1542 compliance, and dynamic pricing — and with the
 DAX patterns learned in Pages 5–7 (self-contained measures, building-type aware
 thresholds, country-aware logic).
 
@@ -123,7 +123,7 @@ Where competitors stop, this Page 9 keeps going:
 - **V2G** economics depend on EV fleet size ≥ 10 vehicles and aggregator
   contract. For buildings without EV fleets the V2G fitness score is ≤ 30 and
   the recommender skips it.
-- **Second-Life NMC** has compliance subtleties: EU 2023/1670 second-life
+- **Second-Life NMC** has compliance subtleties: EU 2023/1542 second-life
   provisions allow repurposing but limit eligibility to non-critical loads.
   We flag this in the I3 measure for healthcare and data_center building types.
 - **NMC ban** in DE/AT applies to new commercial installations from 2025-01.
@@ -155,7 +155,7 @@ Quarterly updates that keep this Page 9 accurate:
 
 ## 10. References
 
-- EU Regulation 2023/1670 — Batteries Regulation
+- EU Regulation 2023/1542 — Batteries Regulation
 - DNV·GL "European Energy Storage Outlook 2025"
 - Eurelectric "Demand Response & Storage in Europe" Nov 2024
 - IEA "Batteries and Secure Energy Transitions" 2024

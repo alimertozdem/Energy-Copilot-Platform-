@@ -1,0 +1,264 @@
+// ==========================================================================
+// Energy Copilot Platform — DAX v20: Page 3 Production Fix
+// File: semantic-model/29_dax_v20_page3_production_fix.dax
+// Last updated: 2026-04-25
+//
+// AMAÇ: Sayfa 3 (Anomalies & Alerts) embed öncesi production hazırlığı.
+//       Screenshotlardan tespit edilen 5 root cause düzeltildi.
+//
+// ROOT CAUSE ANALİZİ:
+//
+//   C3 — Goal: (Blank) (-∞%)
+//     NEDEN: High Anomaly Count Previous Week, DATESINPERIOD ile
+//            gold_kpi_daily üzerinden son 7 günü alıyor.
+//            Mart 2026 civarındaki son 7 KPI gününde HIGH anomali
+//            tespit edilmediğinden ölçü BLANK dönüyor.
+//     FİX: DATEADD(-1, MONTH) ile aylık karşılaştırmaya geç.
+//          Anomaly detection aylık granülitede çalışıyor — haftalık
+//          window anlamsız ve fragile.
+//
+//   C4 — Goal: 1 (-19.600%)
+//     NEDEN: Unresolved Count Previous Week, son 7 KPI gününde
+//            DETECTED anomaly sayısını veriyor (=1).
+//            Bunu tüm zamanların unresolved toplamıyla (197)
+//            karşılaştırmak apples-to-oranges → -19,600%.
+//     FİX: Unresolved Count YoY ile geçen yıl aynı dönem karşılaştır.
+//          C1'deki Anomaly Count PY Same Period ile tutarlı hale gelir.
+//
+//   C5 — "See details" hatası (tek bina seçiminde)
+//     NEDEN: KPI Indicator visual'ının Trend Axis alanı Date[Week] ile
+//            dolu. silver_data_quality aylık granülitede → haftalık
+//            bağlamda büyük kısmı BLANK → KPI visual kırılıyor.
+//            Özellikle tek bina seçilince BLANK hafta oranı artar.
+//     FİX: KPI Indicator → New Card (görsel tip değişikliği, DAX yok).
+//          Ek: Data Quality Target Numeric = 95 ölçüsü yeni card için.
+//
+//   C5 — Goal: 95% (-10,426.32%)
+//     NEDEN: Değer: 100 (0-100 skalası). Goal field'a bağlı ölçü
+//            0.95 (0-1 ratio skalası) döndürüyor.
+//            Hesap: (100 - 0.95) / 0.95 × 100 = 10,426% sapma.
+//     FİX: Data Quality Target Numeric = 95 (sabit, aynı skala).
+//
+//   V6 Tablo — "Active Anomaly" sütunu her satırda "1"
+//     NEDEN: Active Anomaly Count ölçüsü her anomali satır bağlamında
+//            COUNTROWS → 1 döndürüyor. Bilgi değeri sıfır.
+//     FİX: Sütunu kaldır. deviation_pct (metric_value vs threshold_value)
+//          ekle → "ne kadar aştı?" sorusunu yanıtlar.
+//
+// KURULUM:
+//   Power BI Desktop → Home → New Measure → her ölçü için adı + formülü yapıştır.
+//   Aynı adlı eski ölçü varsa ÜSTÜNE YAPISTIR (overwrite).
+//   Ardından aşağıdaki "UI ADIMLARI" bölümündeki değişiklikleri uygula.
+//
+// ETKİLENEN SAYFALAR: Sayfa 3 (Anomalies & Alerts)
+// ==========================================================================
+
+
+// ==========================================================================
+// BÖLÜM 1 — C3 FİX: STABLE MONTHLY TARGET
+//
+// Eski: High Anomaly Count Previous Week
+//       → DATESINPERIOD(gold_kpi_daily[date], MAX-7, -7, DAY)
+//       → Son 7 KPI gününde HIGH yoksa BLANK
+//
+// Yeni: High Anomaly Count Previous Month
+//       → DATEADD('Date'[Date], -1, MONTH)
+//       → Geçen aynı dönemle karşılaştır — aylık algılama ile tutarlı
+//       → Relationship: gold_anomaly_log[detected_date] → Date[Date]
+//
+// Kart C3 → Goal / Target Field → bu ölçüyü bağla
+// Format: "#,##0"
+// Direction: Low is Good
+// ==========================================================================
+
+High Anomaly Count Previous Month =
+CALCULATE(
+    [High Anomaly Count],
+    DATEADD ( 'Date'[Date], -1, MONTH )
+)
+
+
+// ==========================================================================
+// BÖLÜM 2 — C4 FİX: MEANINGFUL YoY BENCHMARK
+//
+// Eski: Unresolved Count Previous Week
+//       → Son 7 KPI gününde DETECTED anomaly sayısı (=1)
+//       → Tüm zamanların toplamıyla (197) karşılaştırma → -19,600%
+//       → İş açısından anlamsız
+//
+// Yeni: Unresolved Count YoY
+//       → Geçen yıl aynı dönemdeki aktif anomali sayısı
+//       → C1 (Total Anomalies) ile tutarlı benchmark mantığı
+//       → Operasyonel soru: "Geçen yıla göre daha mı kötüyüz?"
+//
+// Kart C4 → Goal / Target Field → bu ölçüyü bağla
+// Format: "#,##0"
+// Direction: Low is Good
+// ==========================================================================
+
+Unresolved Count YoY =
+CALCULATE (
+    [Active Anomaly Count],
+    DATEADD ( 'Date'[Date], -1, YEAR )
+)
+
+
+// ==========================================================================
+// BÖLÜM 3 — C5 FİX: SCALE-CORRECT TARGET
+//
+// Data Quality Score Pct → 0-100 skalası (örn. 94.7, 100.0)
+// Eski goal field: 0.95 (ratio) → (100 - 0.95)/0.95 × 100 = 10,426% sapma
+//
+// Bu ölçü: sabit 95 → aynı skala → doğru sapma hesabı
+//
+// KULLANIM:
+//   - Eğer C5 New Card'a çevrilirse: Reference Line değeri olarak kullan
+//     (Format pane → Reference line → Value → bu ölçü)
+//   - Eğer KPI Indicator kalsaydı: Goal field'a bağlanacaktı
+//
+// Format: "0.0"  (95.0 görünsün)
+// ==========================================================================
+
+Data Quality Target Numeric =
+VAR _target = 95
+RETURN _target
+
+
+// ==========================================================================
+// BÖLÜM 4 — V6 TABLO FİX: ANOMALY DEVIATION PCT
+//
+// Mevcut sorun: "Active Anomaly" sütunu her satırda "1" gösteriyor.
+//               Bu Active Anomaly Count ölçüsünün tek satır bağlamında
+//               hep 1 döndürmesinden kaynaklanıyor — bilgi değeri yok.
+//
+// Yeni sütun: deviation_pct = (metric_value - threshold_value) / |threshold_value| × 100
+//   Örnek: CONSUMPTION_SPIKE → actual 450 kWh, threshold 300 kWh → +50.0%
+//   Örnek: SOLAR_UNDERPERFORM → PR 0.45, threshold 0.65 → -30.8%
+//
+// gold_anomaly_log şeması:
+//   metric_value    → tespit edilen gerçek değer (kWh, PR ratio, kgCO2/m², vb.)
+//   threshold_value → eşik değeri (bu değer aşılınca anomali tetiklendi)
+//
+// Tablo V6 → "Active Anomaly" sütununu kaldır →
+//            Values alanına bu ölçüyü ekle (sütun adı: "Deviation (%)")
+//
+// Format: "+0.0;-0.0;—"
+//   (Pozitif: +23.5, Negatif: -30.8, Sıfır veya Blank: — gösterir)
+// ==========================================================================
+
+Anomaly Deviation Pct =
+VAR _metric    = AVERAGE ( gold_anomaly_log[metric_value] )
+VAR _threshold = AVERAGE ( gold_anomaly_log[threshold_value] )
+RETURN
+    IF (
+        NOT ISBLANK ( _threshold ) && ABS ( _threshold ) > 0,
+        DIVIDE ( _metric - _threshold, ABS ( _threshold ) ) * 100,
+        BLANK ()
+    )
+
+
+// ==========================================================================
+// BÖLÜM 5 — YARDIMCI: DATA QUALITY SCORE — NULL-SAFE WRAPPER
+//
+// Mevcut: Data Quality Score Pct = AVERAGE(silver_data_quality[quality_score_pct])
+//         → New Card visual'da sorunsuz çalışır
+//         → KPI Indicator Trend Axis = Date[Week] ile aylık tablo → BLANK hafta → CRASH
+//
+// Bu ölçü gerekli DEĞİL eğer C5 New Card'a çevirilirse.
+// Sadece gelecekte KPI Indicator kullanmak zorunda kalınırsa
+// veya başka bir visual'da null-safe davranış gerekiyorsa kullan.
+//
+// Format: "0.0"
+// ==========================================================================
+
+Data Quality Score Pct Safe =
+VAR _score = AVERAGE ( silver_data_quality[quality_score_pct] )
+RETURN
+    IF ( ISBLANK ( _score ), BLANK (), ROUND ( _score, 1 ) )
+
+
+// ==========================================================================
+// BÖLÜM 6 — SAYFA 3 VERI TUTARLILIK NOTU (DAX DEĞİL — BİLGİ)
+//
+// BULGU 1 — is_resolved %100 FALSE (197/197 unresolved)
+//   Neden: anomaly_detection.py BÖLÜM 7b'deki spark.sql UPDATE
+//          Fabric'te başarısız oluyor (exception yakalanıp atlanıyor).
+//   Etki: Unresolved = Total → C4 her zaman Total Anomalies ile aynı
+//   Fix: 29b_anomaly_resolved_fix.py notebook'una bakın (aşağıda oluşturulacak)
+//
+// BULGU 2 — Data Quality Score = 100%
+//   Neden: Sentetik veri tam ve hatasız oluşturuluyor (tüm okumalar "OK" flag)
+//   Etki: Gerçek sistemde bu değer 85-98% arasında olur
+//   Fix: Veri kalitesi senaryosu yoktur, bu demo'da kabul edilebilir
+//
+// BULGU 3 — Severity dağılımı (197 anomali)
+//   3 CRITICAL + 35 HIGH + 159 MEDIUM → Doğru ve tutarlı
+//   AFTER_HOURS_WASTE: 115 (hepsi MEDIUM) ✓
+//   HIGH_CARBON_INTENSITY: 42 (HIGH >1.3x threshold, MEDIUM diğer) ✓
+//   SOLAR_UNDERPERFORM: 37 (CRITICAL PR<0.50, HIGH PR<0.58, MEDIUM diğer) ✓
+//   CONSUMPTION_SPIKE: 3 (hepsi CRITICAL — spike >75% threshold) ✓
+//
+// BULGU 4 — "Active Anomaly" = 1 tablosunda
+//   Neden: Active Anomaly Count ölçüsü tek satır bağlamında COUNTROWS=1
+//   Fix: Bu ölçüyü tablodan kaldır, Anomaly Deviation Pct ekle
+// ==========================================================================
+
+
+// ==========================================================================
+// UI ADIMLARI — DAX OLMAYAN DEĞİŞİKLİKLER (Power BI Desktop)
+//
+// 1. C5 — Görsel Tip Değişikliği [ZORUNLU — en kritik fix]
+//    Power BI Canvas → C5 kartını seç
+//    Visualizations pane → "KPI" icon → "New Card" ile değiştir
+//    Fields: Value → Data Quality Score Pct (format "0.0")
+//    Format pane → Callout value → Font size 28, renk #00E5A0
+//    Reference line (opsiyonel): Reference line → Value → Data Quality Target Numeric
+//    Callout subtitle: "Data Quality Score (%)"
+//    NOT: KPI Indicator'dan gelince format reset olmuş olabilir → "0.0" doğrula
+//
+// 2. C3 — Target Field Değişikliği
+//    C3 kartını seç (KPI Indicator)
+//    Fields pane → Goal (veya Target) alanı → mevcut ölçüyü kaldır
+//    → High Anomaly Count Previous Month ekle (yeni ölçü)
+//    Beklenen sonuç: Goal ~20-30 (geçen ay) → makul bir karşılaştırma
+//
+// 3. C4 — Target Field Değişikliği
+//    C4 kartını seç (KPI Indicator)
+//    Fields pane → Goal alanı → mevcut ölçüyü kaldır
+//    → Unresolved Count YoY ekle (yeni ölçü)
+//    Beklenen sonuç: Goal ~geçen yıl aynı dönemde aktif anomali sayısı
+//
+// 4. V6 Tablo — Sütun Değişikliği
+//    V6 tablosunu seç → Fields pane
+//    "Active Anomaly" (veya Active Anomaly Count) alanını kaldır
+//    → Anomaly Deviation Pct ölçüsünü ekle
+//    Sütun başlığı: "Deviation (%)"
+//    Format: "+0.0;-0.0;—"
+//    Sütunu ortala
+//
+// 5. Sayfa Başlığı Alt Metni [Metin kutusu]
+//    Mevcut: "REAL-TIME FAULT DETECTION MONITOR"
+//    Yeni:   "OPERATIONAL FAULT DETECTION & RISK MONITOR"
+//    Neden: Verimiz gerçek zamanlı değil (haftalık/aylık aggregate).
+//           "Operational" terimi doğru iş kapsamını yansıtır.
+//
+// 6. Sort-by-Column [V8 Aylık Anomaly Grafiği] — GLOBAL FIX (zaten bekliyor)
+//    Model View → Date tablosu → YearMonth kolonu
+//    Column Tools → Sort by Column → MonthIndex
+//    Bu fix aynı anda Page 1, 3, 6, 7'deki tüm monthly axis sorunlarını çözer
+// ==========================================================================
+
+
+// ==========================================================================
+// DOĞRULAMA — Tüm değişiklikler uygulandıktan sonra kontrol et
+//
+// ✅ C5 → Single bina seçiminde "See details" hatası çıkmıyor
+// ✅ C5 → Değer: 100, alt çizgi veya referans: 95 gösteriyor
+// ✅ C3 → Goal: ~geçen ay HIGH sayısı (blank değil)
+// ✅ C4 → Goal: ~geçen yıl active anomaly sayısı (1 değil)
+// ✅ V6 → "Deviation (%)" sütunu: +50.0%, -30.8% gibi değerler
+// ✅ Alt başlık: "OPERATIONAL FAULT DETECTION & RISK MONITOR"
+// ✅ V8 → X ekseni kronolojik sırada (Sort-by-Column sonrası)
+// ==========================================================================
+
+// SON

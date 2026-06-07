@@ -52,3 +52,29 @@ logs/
 
 # OS
 Thumbs.db
+
+# Temporary dashboard screenshots (local Power BI exports)
+.tmp_dashboard_pages/
+
+# LinkedIn mockup iterations (keep only assets/linkedin/ final versions)
+linkedin_mockup.png
+linkedin_slide1.png
+linkedin_slide2.png
+linkedin_02_intelligence.png
+linkedin_02_sustainability.png
+
+# Word/Office temp files
+~$*.docx
+~$*.xlsx
+
+# Notebooks pycache
+notebooks/**/__pycache__/
+
+# Large sample data files (>50MB â€” use generate_sample_data.py to recreate)
+sample-data/raw_energy_readings.csv
+sample-data/raw_weather_data.csv
+sample-data/raw_solar_generation.csv
+sample-data/raw_battery_status.csv
+sample-data/*.backup*
+sample-data/_new_buildings/
+report-design/proje þifreler..md

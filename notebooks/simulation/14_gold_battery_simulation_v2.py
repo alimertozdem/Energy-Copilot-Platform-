@@ -39,7 +39,7 @@
 #   self_consumption | 0.72           | depends on PV ratio to capacity
 #   backup           | 0.22           | minimal cycling — insurance value, not financial
 #
-# EU BATTERY REGULATION 2023/1670:
+# EU BATTERY REGULATION 2023/1542:
 #   LFP batteries: eu_compliant = True  (all CATL, BYD, Fluence units)
 #   NMC batteries: eu_compliant = False (Samsung SDI SAMSUNG_NMC_400 → B005 Frankfurt)
 #   Note: B005 Frankfurt uses NMC by design — flagged as non-compliant, replacement
@@ -230,7 +230,7 @@ BUILDINGS = [
         #   Conclusion: Frankfurt battery is doing peak_shaving/arbitrage (PV-assisted),
         #   NOT pure backup. C1 value is consistent with peak_shaving, not backup.
         #
-        # NMC: eu_compliant = False (EU 2023/1670 — fails recycled content + carbon footprint)
+        # NMC: eu_compliant = False (EU 2023/1542 — fails recycled content + carbon footprint)
         # Replacement recommendation: switch to CATL LFP 400 kWh at next maintenance cycle.
         # Backup scenario in V3 shows 6.6 yr payback — energy manager can see the cost of
         # keeping battery in backup mode vs. switching to arbitrage strategy.
@@ -506,7 +506,7 @@ df_verify \
 #    Frankfurt (B005) selected:
 #      - C2 Payback: ~1.5 yr (backup strategy, small battery, good savings)
 #      - C3 CO₂: ~13,870 kg/yr → 13.9 tCO₂
-#      - EU label: "1 NON-COMPLIANT · EU 2023/1670"
+#      - EU label: "1 NON-COMPLIANT · EU 2023/1542"
 #      - V3 table: 4 strategies with differentiated payback/score
 #      - backup: payback ~1.5yr, score ~87 (fastest ROI)
 #      - peak_shaving for B005: 400 kWh × factor → ~168k€/yr (theoretically best)

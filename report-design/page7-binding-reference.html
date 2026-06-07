@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Page 7 — HVAC Binding Reference</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #040A18; color: #C8DCF0; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; }
+
+  h1 { font-size: 18px; font-weight: 700; color: #fff; padding: 18px 24px 4px; letter-spacing: 0.5px; }
+  h1 span { color: #FF6B35; }
+  .subtitle { color: #5A88BB; font-size: 11px; letter-spacing: 1.5px; padding: 0 24px 16px; text-transform: uppercase; }
+
+  /* ── Layout diagram ── */
+  .diagram-wrap { padding: 0 24px 8px; }
+  .diagram-label { font-size: 10px; color: #4A6E96; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 6px; }
+  .layout-diagram { display: grid; width: 100%; max-width: 900px; gap: 3px; }
+
+  /* Instruction bar */
+  .hint { font-size: 10px; color: #4A6E96; padding: 0 24px 16px; }
+  .hint span { color: #FFC107; }
+
+  /* ── Cards grid ── */
+  .section-title {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase;
+    color: #4A6E96; padding: 12px 24px 6px; border-top: 1px solid #0E1E38; margin-top: 8px;
+  }
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 10px;
+    padding: 0 24px 24px;
+  }
+  .card {
+    background: #0A1528;
+    border-radius: 10px;
+    border-left: 3px solid var(--accent);
+    overflow: hidden;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .card:hover { background: #0E1C34; }
+  .card-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid #0E1E38;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .card-name { font-size: 12px; font-weight: 700; color: #fff; }
+  .card-type { font-size: 10px; color: #4A6E96; margin-left: auto; letter-spacing: 0.5px; }
+  .card-pos  { font-size: 9px; color: #2C4A70; margin-left: 4px; font-family: monospace; }
+  .card-body { padding: 8px 14px 12px; }
+
+  /* Binding rows */
+  .bind-row {
+    display: flex; align-items: baseline; gap: 6px;
+    padding: 3px 0;
+    border-bottom: 1px solid #081220;
+  }
+  .bind-row:last-child { border-bottom: none; }
+  .slot {
+    font-size: 9px; font-weight: 700; color: #4A6E96;
+    letter-spacing: 0.8px; text-transform: uppercase;
+    min-width: 88px; flex-shrink: 0;
+  }
+  .measure {
+    font-size: 11px; font-weight: 600; color: var(--accent);
+    font-family: 'Courier New', monospace;
+  }
+  .measure.col { color: #7DB4DC; }   /* plain column (no measure needed) */
+  .tag {
+    font-size: 8px; padding: 1px 5px; border-radius: 3px;
+    font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0;
+    margin-left: auto;
+  }
+  .tag.v34 { background: #1A3020; color: #3DBB6A; }
+  .tag.v35 { background: #1A1A30; color: #7B7BFF; border: 1px solid #3A3A80; }
+  .tag.v37 { background: #2A1830; color: #C06FD8; }
+  .tag.col { background: #101828; color: #5A88BB; }
+  .tag.calc{ background: #1C1A10; color: #CCA030; }
+
+  .note {
+    font-size: 10px; color: #4A6E96; margin-top: 6px; line-height: 1.5;
+    padding: 5px 8px; background: #08101E; border-radius: 4px;
+    border-left: 2px solid #1E2D5F;
+  }
+  .note strong { color: #FFC107; }
+  .note em { color: #E24B4A; font-style: normal; }
+
+  /* Format strip */
+  .format-row {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10px; color: #3A6E8A; margin-top: 5px;
+    padding: 4px 8px; background: #060E18; border-radius: 4px;
+  }
+  .format-row .label { color: #2C5A7A; font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; min-width: 60px; }
+  .format-row code { color: #00C8A0; font-family: monospace; font-size: 10px; }
+
+  /* Expected strip */
+  .expected {
+    font-size: 10px; color: #2C5A7A; margin-top: 4px;
+    padding: 3px 8px; background: #060E18; border-radius: 4px;
+  }
+  .expected strong { color: #1D9E75; }
+
+  /* Visual format global reminder */
+  .global-note {
+    margin: 0 24px 16px;
+    padding: 10px 14px;
+    background: #080E1A;
+    border: 1px solid #1E2D5F;
+    border-radius: 8px;
+    font-size: 11px; line-height: 1.7; color: #4A6E96;
+  }
+  .global-note strong { color: #FFC107; }
+  .global-note code { color: #00C8A0; font-family: monospace; font-size: 10px; }
+
+  /* Pipeline reminder */
+  .pipeline {
+    margin: 0 24px 24px;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .pipe-step {
+    padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;
+    border: 1px solid #1E2D5F; color: #7DB4DC; background: #08101E;
+    letter-spacing: 0.3px;
+  }
+  .pipe-arrow { color: #1E2D5F; font-size: 16px; }
+
+</style>
+</head>
+<body>
+
+<h1>Page 7 — <span>HVAC & Building Envelope</span> · Binding Reference</h1>
+<div class="subtitle">Visual-by-visual field &amp; measure mapping · DAX v34 / v35 / v37</div>
+
+<!-- Global visual format reminder -->
+<div class="global-note">
+  <strong>Her görsele uygula:</strong>
+  Format pane → <code>Background: Transparency 100%</code> · <code>Border: Off</code> · <code>Title: Off</code> · <code>Visual header: Off</code><br>
+  <strong>Arka plan:</strong> <code>07_hvac_building_envelope_v4.png</code> → Page background → Image fit: Fit → Transparency: 0%<br>
+  <strong>Canvas:</strong> 1280 × 720 · Custom page size
+</div>
+
+<!-- Pipeline -->
+<div class="section-title">Fabric Pipeline (önce çalıştır)</div>
+<div class="pipeline">
+  <div class="pipe-step">01_bronze_ingestion</div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step">02_silver_transformation</div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step">03_gold_kpi_engine</div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step">11_hvac_analytics_engine</div>
+  <div class="pipe-arrow">→</div>
+  <div class="pipe-step" style="color:#1D9E75;border-color:#1D9E75;">Semantic model Refresh</div>
+</div>
+
+<!-- DAX Import reminder -->
+<div class="section-title">DAX Import Sırası (Model View → DAX Query View → Paste → Run)</div>
+<div style="padding:0 24px 16px; display:flex; gap:8px; flex-wrap:wrap;">
+  <div style="padding:5px 12px;border-radius:5px;background:#0A1528;border:1px solid #3DBB6A;color:#3DBB6A;font-size:11px;font-weight:700;">43_dax_v34</div>
+  <div style="padding:5px 12px;border-radius:5px;background:#0A1528;border:1px solid #7B7BFF;color:#7B7BFF;font-size:11px;font-weight:700;">44_dax_v35</div>
+  <div style="padding:5px 12px;border-radius:5px;background:#0A1528;border:1px solid #CCA030;color:#CCA030;font-size:11px;font-weight:700;">45_dax_v36 (opsiyonel)</div>
+  <div style="padding:5px 12px;border-radius:5px;background:#0A1528;border:1px solid #C06FD8;color:#C06FD8;font-size:11px;font-weight:700;">46_dax_v37</div>
+</div>
+
+<!-- ══════════════════════ SLICERS ══════════════════════ -->
+<div class="section-title">Slicerlar — Sol Sidebar (x=8, w=184)</div>
+<div class="cards-grid">
+
+  <div class="card" style="--accent:#00D4FF;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">S1 — Date Range</div>
+      <div class="card-type">Slicer</div>
+      <div class="card-pos">x=8 y=84 w=184 h=50</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Field</span><span class="measure col">Date[Date]</span><span class="tag col">column</span></div>
+      <div class="bind-row"><span class="slot">Style</span><span class="measure col">Between (date range)</span></div>
+      <div class="note">Header: OFF · Items: Segoe UI 10pt #C8DCF0 · Border: 1px #00D4FF</div>
+    </div>
+  </div>
+
+  <div class="card" style="--accent:#FFC107;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">S2 — Country</div>
+      <div class="card-type">Slicer</div>
+      <div class="card-pos">x=8 y=151 w=184 h=32</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Field</span><span class="measure col">silver_building_master[country]</span><span class="tag col">column</span></div>
+      <div class="bind-row"><span class="slot">Style</span><span class="measure col">Dropdown</span></div>
+    </div>
+  </div>
+
+  <div class="card" style="--accent:#FF6B35;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">S3 — Building Type</div>
+      <div class="card-type">Slicer</div>
+      <div class="card-pos">x=8 y=200 w=184 h=32</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Field</span><span class="measure col">silver_building_master[building_type]</span><span class="tag col">column</span></div>
+      <div class="bind-row"><span class="slot">Style</span><span class="measure col">Dropdown</span></div>
+    </div>
+  </div>
+
+  <div class="card" style="--accent:#1D9E75;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">S4 — System Type</div>
+      <div class="card-type">Slicer</div>
+      <div class="card-pos">x=8 y=249 w=184 h=32</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Field</span><span class="measure col">gold_hvac_analytics[system_type]</span><span class="tag col">column</span></div>
+      <div class="bind-row"><span class="slot">Style</span><span class="measure col">Dropdown veya Tile</span></div>
+    </div>
+  </div>
+
+  <div class="card" style="--accent:#E24B4A;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">S5 — Building</div>
+      <div class="card-type">Slicer</div>
+      <div class="card-pos">x=8 y=298 w=184 h=32</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Field</span><span class="measure col">silver_building_master[building_name]</span><span class="tag col">column</span></div>
+      <div class="bind-row"><span class="slot">Style</span><span class="measure col">Dropdown</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════ KPI CARDS ══════════════════════ -->
+<div class="section-title">KPI Kartları — 6 adet (y=78, h=82)</div>
+<div class="cards-grid">
+
+  <div class="card" style="--accent:#FF6B35;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">C1 — HVAC Share %</div>
+      <div class="card-type">Card (new)</div>
+      <div class="card-pos">x=210 y=78 w=171 h=82</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Value</span><span class="measure">HVAC Share Pct v34</span><span class="tag v34">v34</span></div>
+      <div class="format-row"><span class="label">Format</span><code>0.0"%"</code><span style="color:#2C5A7A;">Display units: None</span></div>
+      <div class="expected">Beklenen (All): <strong>35–55%</strong> · pipeline öncesi ~16%</div>
+    </div>
+  </div>
+
+  <div class="card" style="--accent:#FFC107;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">C2 — HVAC Efficiency</div>
+      <div class="card-type">Card (new)</div>
+      <div class="card-pos">x=387 y=78 w=171 h=82</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Value</span><span class="measure">HVAC Efficiency v34</span><span class="tag v34">v34</span></div>
+      <div class="format-row"><span class="label">Format</span><code>0.0</code><span style="color:#2C5A7A;">Display units: None</span></div>
+      <div class="expected">Beklenen (All): <strong>42–58</strong> ✅ şu an 49</div>
+    </div>
+  </div>
+
+  <div class="card" style="--accent:#1D9E75;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">C3 — Avg Insulation</div>
+      <div class="card-type">Card (new)</div>
+      <div class="card-pos">x=564 y=78 w=171 h=82</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Value</span><span class="measure">Insulation Score v34</span><span class="tag v34">v34</span></div>
+      <div class="format-row"><span class="label">Format</span><code>0.0</code><span style="color:#2C5A7A;">Display units: None</span></div>
+      <div class="expected">Beklenen (All): <strong>62–78</strong> ✅ şu an 78</div>
+    </div>
+  </div>
+
+  <div class="card" style="--accent:#00D4FF;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">C4 — Heat Loss kWh/m²</div>
+      <div class="card-type">Card (new)</div>
+      <div class="card-pos">x=741 y=78 w=171 h=82</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Value</span><span class="measure">Heat Loss kWh m2 Annual v34</span><span class="tag v34">v34</span></div>
+      <div class="format-row"><span class="label">Format</span><code>0.0" kWh/m²"</code><span style="color:#2C5A7A;">Display units: None</span></div>
+      <div class="expected">Beklenen: <strong>60–110</strong> kWh/m²·yr · pipeline öncesi ~17</div>
+    </div>
+  </div>
+
+  <div class="card" style="--accent:#E24B4A;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">C5 — Retrofit Needed</div>
+      <div class="card-type">Card (new)</div>
+      <div class="card-pos">x=918 y=78 w=171 h=82</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Value</span><span class="measure">Retrofit Count v34</span><span class="tag v34">v34</span></div>
+      <div class="format-row"><span class="label">Format</span><code>0</code><span style="color:#2C5A7A;">tam sayı · Display units: None</span></div>
+      <div class="expected">Beklenen: <strong>3</strong> (pipeline sonrası Frankfurt dahil)</div>
+    </div>
+  </div>
+
+  <div class="card" style="--accent:#9B59B6;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">C6 — HVAC CO₂ tCO₂/yr ✨ YENİ</div>
+      <div class="card-type">Card (new)</div>
+      <div class="card-pos">x=1095 y=78 w=175 h=82</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Value</span><span class="measure">HVAC CO2 tCO2 v37</span><span class="tag v37">v37</span></div>
+      <div class="format-row"><span class="label">Format</span><code>0.0" tCO₂"</code><span style="color:#2C5A7A;">Display units: None</span></div>
+      <div class="expected">Beklenen: <strong>240–345 tCO₂</strong> (6 bina, 12 ay)</div>
+      <div class="note"><strong>CSRD/ESRS E1</strong>: Gas binalar scope 1 · HP scope 2 elektrik</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════ VISUALS ══════════════════════ -->
+<div class="section-title">Görseller — V1–V5</div>
+<div class="cards-grid">
+
+  <!-- V1 -->
+  <div class="card" style="--accent:#FF6B35;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">V1 — HVAC Energy Breakdown</div>
+      <div class="card-type">Stacked Column</div>
+      <div class="card-pos">x=210 y=168 w=420 h=222</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">X-axis</span><span class="measure col">Date[YearMonth]</span><span class="tag col">column</span></div>
+      <div class="bind-row"><span class="slot">Y — Heating</span><span class="measure">Heating Energy kWh v34</span><span class="tag v34">v34</span></div>
+      <div class="bind-row"><span class="slot">Y — Cooling</span><span class="measure">Cooling Energy kWh v34</span><span class="tag v34">v34</span></div>
+      <div class="bind-row"><span class="slot">Y — Vent.</span><span class="measure">Ventilation Energy kWh v34</span><span class="tag v34">v34</span></div>
+      <div class="format-row"><span class="label">Colors</span><code>#E24B4A</code> heat · <code>#00D4FF</code> cool · <code>#FFC107</code> vent</div>
+      <div class="note">X-axis sort: YearMonth → Sort by Column → <strong>MonthIndex</strong></div>
+    </div>
+  </div>
+
+  <!-- V2 -->
+  <div class="card" style="--accent:#1D9E75;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">V2 — Building HVAC System Summary</div>
+      <div class="card-type">Table</div>
+      <div class="card-pos">x=636 y=168 w=634 h=222</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Col 1: Building</span><span class="measure col">silver_building_master[building_name]</span><span class="tag col">col</span></div>
+      <div class="bind-row"><span class="slot">Col 2: System</span><span class="measure">System Type Display v35</span><span class="tag v35">⚠️ v35</span></div>
+      <div class="bind-row"><span class="slot">Col 3: Priority</span><span class="measure">Renovation Priority Icon v35</span><span class="tag v35">⚠️ v35</span></div>
+      <div class="bind-row"><span class="slot">Col 4: COP</span><span class="measure">COP Display v35</span><span class="tag v35">⚠️ v35</span></div>
+      <div class="bind-row"><span class="slot">Col 5: Insul.</span><span class="measure">Insulation Score v34</span><span class="tag v34">v34</span></div>
+      <div class="bind-row"><span class="slot">Col 6: HeatLoss</span><span class="measure">Heat Loss kWh m2 Annual v34</span><span class="tag v34">v34</span></div>
+      <div class="bind-row"><span class="slot">Col 7: Action</span><span class="measure">Action Recommendation v35</span><span class="tag v35">⚠️ v35</span></div>
+      <div class="note"><em>⚠️ v35 olmadan</em> tüm satırlar "Heat Pump / Medium" gösterir (ALLEXCEPT bug). <strong>v35 şart!</strong></div>
+    </div>
+  </div>
+
+  <!-- V3 -->
+  <div class="card" style="--accent:#00D4FF;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">V3 — Envelope U-Values</div>
+      <div class="card-type">Clustered Bar (horizontal)</div>
+      <div class="card-pos">x=210 y=398 w=349 h=280</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Y-axis</span><span class="measure col">U-Value Categories[Component]</span><span class="tag calc">calc table</span></div>
+      <div class="bind-row"><span class="slot">X-axis</span><span class="measure">U-Value Actual</span><span class="tag v35">v35</span></div>
+      <div class="note"><strong>Önce oluştur:</strong> Modeling → New table → <code>U-Value Categories</code> (Wall/Roof/Floor/Window + GEG reference)<br>
+      Sort: Component → Sort by Column → SortIdx</div>
+      <div class="format-row"><span class="label">Ref line</span><code>Reference_GEG</code> · dashed · #E24B4A · label "GEG 2023"</div>
+    </div>
+  </div>
+
+  <!-- V4 -->
+  <div class="card" style="--accent:#FFC107;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">V4 — Insulation Score by Building</div>
+      <div class="card-type">Clustered Bar (horizontal)</div>
+      <div class="card-pos">x=565 y=398 w=349 h=280</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">Y-axis</span><span class="measure col">silver_building_master[building_name]</span><span class="tag col">column</span></div>
+      <div class="bind-row"><span class="slot">X-axis</span><span class="measure">Insulation Score v34</span><span class="tag v34">v34</span></div>
+      <div class="format-row"><span class="label">Sort</span>Insulation Score v34 <strong>Desc</strong> · X-axis: Min=0, Max=100</div>
+      <div class="format-row"><span class="label">Colors fx</span>0–55 <code>#E24B4A</code> · 55–75 <code>#FFC107</code> · 75–100 <code>#1D9E75</code></div>
+      <div class="note"><em>6 bar olmalı.</em> 2–3 bar görünüyorsa → Edit Interactions → S5 → V4 → <strong>None</strong></div>
+    </div>
+  </div>
+
+  <!-- V5 -->
+  <div class="card" style="--accent:#E24B4A;">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="card-name">V5 — Renovation Priority Matrix</div>
+      <div class="card-type">Scatter Chart</div>
+      <div class="card-pos">x=920 y=398 w=350 h=280</div>
+    </div>
+    <div class="card-body">
+      <div class="bind-row"><span class="slot">X-axis</span><span class="measure">Insulation Score v34</span><span class="tag v34">v34</span></div>
+      <div class="bind-row"><span class="slot">Y-axis</span><span class="measure">HVAC Efficiency v34</span><span class="tag v34">v34</span></div>
+      <div class="bind-row"><span class="slot">Size</span><span class="measure">Total Consumption kWh v34</span><span class="tag v34">v34</span></div>
+      <div class="bind-row"><span class="slot">Details</span><span class="measure col">silver_building_master[building_name]</span><span class="tag col">col</span></div>
+      <div class="bind-row"><span class="slot">Color sat.</span><span class="measure">Renovation Priority Color v35</span><span class="tag v35">⚠️ v35</span></div>
+      <div class="format-row"><span class="label">Bubbles fx</span>1 → <code>#1D9E75</code> · 2 → <code>#FFC107</code> · 3 → <code>#E24B4A</code></div>
+      <div class="format-row"><span class="label">Ref lines</span>X=70 · Y=60 · dashed <code>#7DB4DC</code></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Edit Interactions table -->
+<div class="section-title">Edit Interactions</div>
+<div style="padding:0 24px 24px;">
+  <table style="border-collapse:collapse;width:100%;max-width:820px;font-size:11px;">
+    <thead>
+      <tr style="color:#4A6E96;font-size:9px;text-transform:uppercase;letter-spacing:1px;">
+        <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #0E1E38;">Slicer</th>
+        <th style="padding:6px 8px;border-bottom:1px solid #0E1E38;color:#FF6B35;">Cards C1–C6</th>
+        <th style="padding:6px 8px;border-bottom:1px solid #0E1E38;color:#FF6B35;">V1 Chart</th>
+        <th style="padding:6px 8px;border-bottom:1px solid #0E1E38;color:#1D9E75;">V2 Table</th>
+        <th style="padding:6px 8px;border-bottom:1px solid #0E1E38;color:#00D4FF;">V3 U-Val</th>
+        <th style="padding:6px 8px;border-bottom:1px solid #0E1E38;color:#FFC107;">V4 Insul</th>
+        <th style="padding:6px 8px;border-bottom:1px solid #0E1E38;color:#E24B4A;">V5 Matrix</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid #080E18;">
+        <td style="padding:6px 10px;color:#00D4FF;font-weight:600;">S1 Date</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#E24B4A;font-weight:700;">None</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+      </tr>
+      <tr style="border-bottom:1px solid #080E18;">
+        <td style="padding:6px 10px;color:#FFC107;font-weight:600;">S2 Country</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#E24B4A;font-weight:700;">None</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+      </tr>
+      <tr style="border-bottom:1px solid #080E18;">
+        <td style="padding:6px 10px;color:#FF6B35;font-weight:600;">S3 Building Type</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#E24B4A;font-weight:700;">None</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+      </tr>
+      <tr style="border-bottom:1px solid #080E18;">
+        <td style="padding:6px 10px;color:#1D9E75;font-weight:600;">S4 System Type</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#E24B4A;font-weight:700;">None</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 10px;color:#E24B4A;font-weight:600;">S5 Building</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+        <td style="padding:6px 8px;text-align:center;color:#E24B4A;font-weight:700;">None</td>
+        <td style="padding:6px 8px;text-align:center;color:#1D9E75;">✓</td>
+      </tr>
+    </tbody>
+  </table>
+  <div style="margin-top:8px;font-size:10px;color:#4A6E96;">
+    <span style="color:#E24B4A;font-weight:700;">None</span> = bu slicer bu görseli filtrelemez.
+    V2 tablo: sadece S5 ile filtrelenir (portföy özeti).
+    V4 bar: S5 ile filtrelenmez (daima 6 bina göster).
+  </div>
+</div>
+
+</body>
+</html>

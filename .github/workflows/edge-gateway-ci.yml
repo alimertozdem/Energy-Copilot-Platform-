@@ -1,0 +1,40 @@
+name: edge-gateway CI
+
+on:
+  push:
+    paths:
+      - "edge-gateway/**"
+      - "notebooks/iot/00_iot_adapter_framework.py"
+      - ".github/workflows/edge-gateway-ci.yml"
+  pull_request:
+    paths:
+      - "edge-gateway/**"
+      - "notebooks/iot/00_iot_adapter_framework.py"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Dependency-free smoke tests — all five gateways (adapter + batching + backoff + config + platform).
+      - name: Gateway self-tests (5 protocols)
+        run: |
+          python edge-gateway/opcua_gateway.py  --selftest
+          python edge-gateway/modbus_gateway.py --selftest
+          python edge-gateway/bacnet_gateway.py --selftest
+          python edge-gateway/mqtt_gateway.py   --selftest
+          python edge-gateway/rest_gateway.py   --selftest
+          python edge-gateway/run_agent.py     --selftest
+
+      # Unit tests (also dependency-free; asyncua/pymodbus/BAC0/paho/Azure paths not exercised).
+      - name: Unit tests
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+          pytest edge-gateway/test_opcua_gateway.py edge-gateway/test_modbus_gateway.py \
+                 edge-gateway/test_bacnet_gateway.py edge-gateway/test_mqtt_gateway.py \
+                 edge-gateway/test_rest_gateway.py edge-gateway/test_run_agent.py -v

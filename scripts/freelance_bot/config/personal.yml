@@ -1,0 +1,137 @@
+# Personal context the LLM uses to write proposals and client briefs.
+# Edit freely to keep it current. The proposal generator injects this as system context.
+#
+# NOTE (2026-06-07): Prices below are PROVISIONAL / opening rates. We finalize them
+# after scanning live postings on Malt / freelance.de. The bot needs a number to draft
+# with — treat every quoted price as "starting point, adjustable to scope".
+
+profile:
+  name: "Ali Mert Özdemir"
+  title: "Microsoft Fabric Specialist | CSRD/ESG & Energy Analytics on Power BI"
+  location: "Berlin, Germany"
+  email: "alimertozdem@gmail.com"     # update if you create a freelance-specific address
+  website: ""                          # add when you buy energylens.eu or similar
+  linkedin: ""                         # add LinkedIn URL
+  github: ""                           # add GitHub URL if/when EnergyLens repo public
+  calendly: ""                         # add Calendly booking link when set up
+
+# Languages spoken (used in proposal sign-off and client-fit reasoning)
+languages:
+  - "English (fluent — working language)"
+  - "Turkish (native)"
+  - "German (A2 conversational)"
+
+# Certifications & credentials (LLM cites these in proposals where relevant)
+credentials:
+  - "Microsoft Certified: Fabric Data Engineer Associate"
+  - "MSc Sustainable Energy Systems (BSBI Berlin)"
+  - "BEng Mechanical Engineering"
+
+# The single positioning line — LLM references this directly
+positioning: >
+  I turn fragmented building and portfolio energy data into a live, CSRD-ready
+  compliance and analytics layer on Microsoft Fabric and Power BI — auditable
+  Scope 1/2/3, plus EU Taxonomy, EPBD/MEPS and CRREM stranding exposure, with
+  regulator-grade data lineage. Few freelancers in Europe combine Fabric
+  engineering, EU energy regulation, and senior Power BI in one person.
+
+# Productized packages — LLM picks the closest match for each job.
+# Prices are PROVISIONAL opening rates (see note at top).
+packages:
+  - id: P1
+    name: "CSRD Scope 1/2/3 Quickstart"
+    price_eur: 3200
+    duration: "2 weeks"
+    fits_when: "client mentions CSRD, ESRS, ESG report, Scope 1/2/3, GHG, carbon disclosure"
+    summary: >
+      A 2-week sprint to deliver a Scope 1/2/3 dashboard mapped to ESRS E1
+      disclosures. I connect 2-3 data sources (utility bills, fleet, refrigerants),
+      build the Power BI model with both market-based and location-based Scope 2,
+      and document the methodology for your auditor.
+
+  - id: P2
+    name: "Building Energy KPI Dashboard"
+    price_eur: 1800
+    duration: "1 week (5 buildings or fewer)"
+    fits_when: "client mentions energy dashboard, EnPI, kWh/m2, building portfolio, EPC, facility energy"
+    summary: >
+      A 1-week sprint for property managers. EnPI, kWh/m2, EPC compliance
+      heatmap, baseline comparison, and anomaly detection. Works from
+      utility bills, EPC certificates, and optional BMS exports.
+
+  - id: P3
+    name: "Microsoft Fabric Audit & Roadmap"
+    price_eur: 1200
+    duration: "3 days"
+    fits_when: "client has Fabric and needs strategy, capacity sizing, Direct Lake review, architecture review"
+    summary: >
+      A 3-day audit of your Fabric setup. I review architecture, identify
+      Direct Lake and Real-Time Intelligence opportunities, recommend
+      capacity sizing, and deliver a written 90-day roadmap.
+
+  - id: P4
+    name: "Power BI Performance Tune-up"
+    price_eur: 800
+    duration: "2 days"
+    fits_when: "client mentions slow Power BI, DAX optimization, semantic model refactor, performance"
+    summary: >
+      A 2-day engagement. DAX profiling with DAX Studio, semantic model
+      optimization, before/after benchmark. Typically delivers 3-10x query
+      speed improvement.
+
+  - id: P5
+    name: "EU Compliance Readiness Scan"
+    price_eur: 2500
+    duration: "1 week"
+    fits_when: "client mentions EPBD, MEPS, EU Taxonomy, CRREM, stranding risk, ESRS E1, real-estate decarbonisation, double materiality"
+    summary: >
+      A 1-week scan that maps a building portfolio against the EU regulatory
+      radar: EPBD/MEPS minimum-performance exposure, CRREM stranding pathway,
+      EU Taxonomy alignment screening, and ESRS E1 readiness. Delivered as an
+      indicative dashboard plus a written compliance brief. Flags which assets
+      are at risk and by when.
+
+# Hourly fallback for jobs that do not match any package (provisional)
+hourly_fallback:
+  hourly_eur: 60
+  daily_eur: 450
+  notes: "For ad-hoc work outside the fixed-scope packages. Opening rates, adjustable."
+
+# EnergyLens proof artifacts — LLM picks the most relevant per job
+proof_artifacts:
+  - id: "scope_dashboard"
+    summary: "9-page production Power BI report across 10 buildings with Scope 1/2/3 mapped to ESRS E1 (market-based and location-based Scope 2, area-weighted EPC)."
+    fits_when: "CSRD, ESG, Scope, GHG, carbon, sustainability"
+
+  - id: "kpi_portfolio"
+    summary: "Multi-building EnPI and kWh/m2 dashboard with building-type-aware thresholds (Hotel/Healthcare 130, Logistics 60, Office 35) and anomaly detection."
+    fits_when: "building energy, EnPI, KPI, portfolio, EPC, kWh/m2"
+
+  - id: "compliance_radar"
+    summary: "A live EU compliance hub: EPBD/MEPS renovation-risk radar, CRREM stranding pathway, EU Taxonomy alignment screening, and ESRS E1 datapoints across a portfolio, exportable to PDF."
+    fits_when: "EPBD, MEPS, EU Taxonomy, CRREM, stranding, decarbonisation, double materiality, real estate ESG"
+
+  - id: "iot_realtime"
+    summary: "Real-time IoT monitoring via Fabric EventStream + KQL Eventhouse, ingesting BACnet/Modbus/MQTT at sub-second latency for a 10-building portfolio (Page 8)."
+    fits_when: "real-time, IoT, BMS, BACnet, Modbus, smart building, EventStream, streaming"
+
+  - id: "saas_platform"
+    summary: "A multi-tenant SaaS delivery of the platform: org-level data isolation, Power BI row-level security, Stripe self-serve billing, public no-login demo, and a guided product tour. Proof that I ship products, not just one-off reports."
+    fits_when: "SaaS, multi-tenant, white-label, product, ongoing, managed, platform, recurring"
+
+  - id: "battery_simulation"
+    summary: "EU 2023/1542-compliant battery dispatch and ROI simulation across 12 countries x 8 chemistries x 7 strategies, with country-specific electricity pricing (Page 9)."
+    fits_when: "battery, energy storage, dispatch, ROI, renewable, microgrid"
+
+  - id: "fabric_medallion"
+    summary: "Production Fabric medallion architecture: Bronze (raw ingestion) -> Silver (normalized) -> Gold (semantic) with full audit lineage and a Direct Lake semantic model."
+    fits_when: "Fabric, lakehouse, medallion, architecture, data engineering, Direct Lake"
+
+  - id: "dax_library"
+    summary: "DAX v60 measure library: self-contained, building-type-aware, optimized for Direct Lake mode."
+    fits_when: "DAX, Power BI, semantic model, optimization, performance"
+
+# Discovery call defaults — LLM uses these in proposal sign-off
+call_signoff:
+  cta: "Happy to do a 30-minute discovery call this week — I'll screen-share a walk-through of EnergyLens and we can scope your project together."
+  availability: "Available Mon-Fri 9:00-18:00 CET, weekend slots possible on request."

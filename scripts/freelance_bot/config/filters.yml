@@ -1,0 +1,140 @@
+# Filter rules — Tier 1 (keyword), Tier 2 (budget), Tier 3 (LLM score)
+# Edit these to tune what reaches your Telegram. See README for guidance.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tier 1 — Keyword filters (cheap, run first)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# A job must contain AT LEAST ONE of these include keywords (case-insensitive).
+# Listed in priority order — top matches surface higher LLM score later.
+include_keywords:
+  # Tier A — core niche (auto pass to LLM scoring)
+  - "microsoft fabric"
+  - "ms fabric"
+  - "power bi"
+  - "powerbi"
+  - "dax"
+  - "csrd"
+  - "esrs"
+  - "esg reporting"
+  - "ghg protocol"
+  - "scope 1"
+  - "scope 2"
+  - "scope 3"
+  - "carbon accounting"
+  - "carbon footprint"
+  - "sustainability dashboard"
+  - "sustainability report"
+  - "sustainability reporting"
+  - "energy dashboard"
+  - "energy analytics"
+  - "energy management"
+  - "epc rating"
+  - "epc compliance"
+  - "energy performance certificate"
+  - "iso 50001"
+  - "enpi"
+  - "building energy"
+  - "building performance"
+  - "energy data analyst"
+  - "energy management analyst"
+  - "bms data"
+  - "bacnet"
+  - "modbus"
+  - "smart building"
+  - "esg data analyst"
+  - "sustainability data analyst"
+  - "esg reporting analyst"
+
+  # Tier A2 — EU regulatory radar (2026 demand wave — high willingness to pay)
+  - "eu taxonomy"
+  - "esrs e1"
+  - "epbd"
+  - "meps"
+  - "minimum energy performance"
+  - "crrem"
+  - "stranded asset"
+  - "stranding risk"
+  - "decarbonisation pathway"
+  - "decarbonization pathway"
+  - "gresb"
+
+  # Tier B — broader MS analytics (still relevant)
+  - "direct lake"
+  - "onelake"
+  - "lakehouse"
+  - "delta lake"
+  - "kql"
+  - "azure data factory"
+  - "data warehouse"
+  - "semantic model"
+  - "tabular editor"
+
+  # Tier C — adjacent (sustainability + analytics)
+  - "carbon emission"
+  - "co2 emission"
+  - "net zero"
+  - "decarbonization"
+  - "decarbonisation"
+  - "double materiality"
+  - "sbti"
+
+# A job is REJECTED if it contains ANY of these (case-insensitive).
+exclude_keywords:
+  - "tableau only"
+  - "tableau specialist"
+  - "looker only"
+  - "qlik"
+  - "blockchain"
+  - "crypto"
+  - "web3"
+  - "nft"
+  - "marketing analytics"
+  - "seo"
+  - "ecommerce"
+  - "shopify"
+  - "wordpress"
+  - "webflow"
+  - "social media manager"
+  - "video editing"
+  - "graphic design only"
+  - "logo design"
+  - "data entry only"
+  - "manual data entry"
+  - "transcription"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tier 2 — Budget thresholds
+# ─────────────────────────────────────────────────────────────────────────────
+budget:
+  fixed_min_eur: 500        # skip fixed-price jobs below this
+  hourly_min_eur: 30        # skip hourly jobs below this (we bid 60, accept search threshold lower)
+  allow_no_budget: true     # if budget is not stated, pass to Tier 3 (LLM decides)
+
+# Approximate FX rates for budget normalization (refresh occasionally).
+fx_to_eur:
+  USD: 0.92
+  GBP: 1.17
+  TRY: 0.030
+  CHF: 1.05
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tier 3 — LLM semantic score threshold
+# ─────────────────────────────────────────────────────────────────────────────
+llm_score:
+  min_score_to_push: 7        # 1-10 scale, push to Telegram at or above this
+  min_score_to_log: 4         # below this we don't even log details (save tokens)
+  prompt_temperature: 0.2     # low temperature = consistent scoring
+  retry_on_error: 2
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Anti-spam / volume controls
+# ─────────────────────────────────────────────────────────────────────────────
+notifications:
+  max_per_day: 10
+  daily_summary_hour: 9       # local time, push a "X new matches" summary
+  weekly_digest_dow: "sun"    # Sunday
+  weekly_digest_hour: 20
+  quiet_hours_start: 22       # don't push between 22:00 and 07:00 local
+  quiet_hours_end: 7
+  timezone: "Europe/Berlin"

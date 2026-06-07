@@ -1,0 +1,153 @@
+// ============================================================
+// DAX v30 — Page 5: Heatmap Row Fix + Goal Corrections
+// Energy Copilot Platform
+// ============================================================
+// SORUN (v29 sonrası):
+//   7×24 heatmap Matrix görselinde tüm günler (Mon-Sat) aynı
+//   değeri gösteriyor. Kök neden: satır eksenindeki DayOfWeekLabel
+//   gold_occupancy_profile[day_of_week] integer kolonuyla
+//   bağlantısı yok → her satır tüm günlerin ortalaması.
+//
+// ÇÖZÜM:
+//   gold_occupancy_profile tablosuna iki hesaplanmış kolon ekle
+//   (Power Query yerine DAX Calculated Column):
+//     - DayName     : "Mon", "Tue" ... "Sun"
+//     - HourLabel   : "0:00", "1:00" ... "23:00"
+//   Heatmap Matrix satırlarına DayName'i bağla.
+//   Bu kolonlar tablonun kendi satır bağlamında çalışır —
+//   filtre propagasyonu sorunu olmaz.
+//
+// AYRICA (v29 goal düzeltmeleri):
+//   Energy per Occupant Goal → portfolio default 200 → 650
+//   After-Hours Goal → guidance: Power BI'da 20→45 değiştir
+// ============================================================
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM A — Hesaplanmış Kolonlar
+// (gold_occupancy_profile tablosuna eklenir)
+// Power BI Desktop: Table view → gold_occupancy_profile → New Column
+// ────────────────────────────────────────────────────────────
+
+// Kolon 1: DayName
+// Heatmap Matrix'in ROW eksenine bu kolonu bağla
+// (Mevcut DayOfWeekLabel yerine)
+//
+// Bu kolon gold_occupancy_profile'ın kendi day_of_week kolonundan
+// türetildiği için her satırda doğru gün etiketini gösterir.
+
+DayName =
+SWITCH(
+    gold_occupancy_profile[day_of_week],
+    0, "Mon",
+    1, "Tue",
+    2, "Wed",
+    3, "Thu",
+    4, "Fri",
+    5, "Sat",
+    6, "Sun",
+    "Unknown"
+)
+
+// Kolon 2: DayOrder (sort için)
+// DayName kolonunun Sort-by-Column'u olarak kullan
+// Table view → DayName kolonu seç → Column tools → Sort by column → DayOrder
+
+DayOrder =
+gold_occupancy_profile[day_of_week]
+
+// Kolon 3: HourLabel (isteğe bağlı — saat ekseni için)
+// Heatmap Column ekseninde hour_of_day yerine daha okunabilir format
+
+HourLabel =
+FORMAT(gold_occupancy_profile[hour_of_day], "0") & ":00"
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM B — Heatmap için Occupancy Pct ölçüsü (mevcut düzgün çalışıyor)
+// ────────────────────────────────────────────────────────────
+// Bu ölçü Matrix'in Values alanında kullanılır.
+// DayName satır filtrelemesiyle artık günler ayrışır.
+
+Heatmap Occupancy Pct =
+ROUND(
+    AVERAGE(gold_occupancy_profile[occupancy_probability]) * 100,
+    0
+)
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM C — Energy per Occupant Goal Düzeltmesi
+// ────────────────────────────────────────────────────────────
+// v29'daki portfolio default: 200 → YANLIŞ
+// Bu portföy healthcare + hotel ağırlıklı.
+// ASHRAE referanslı revize benchmarklar:
+//   Office      : 250 kWh/kişi/ay  (20W/m², 260 kişi, tam sezon)
+//   Retail      : 320 kWh/kişi/ay  (40W/m², 700 kişi, uzun saatler)
+//   Hotel       : 900 kWh/kişi/ay  (35W/m², 24/7, sıcak su dominant)
+//   Healthcare  : 1100 kWh/kişi/ay (55W/m², 24/7, medikal ekipman)
+//   Logistics   : 1000 kWh/kişi/ay (22W/m², büyük alan, az kişi)
+//   Education   : 250 kWh/kişi/ay  (18W/m², sömestr bazlı)
+//   Portfolio   : 650 kWh/kişi/ay  (healthcare+hotel ağırlıklı karma portföy)
+//
+// NEDEN 650?
+//   Basit ağırlıklı ortalama (enerji paylarına göre):
+//   Healthcare ~%47 × 1100 + Hotel ~%18 × 900 + Retail ~%15 × 320
+//   + Logistics ~%6.5 × 1000 + Office ~%4 × 250 + Education ~%10 × 250
+//   = 517 + 162 + 48 + 65 + 10 + 25 = 827 → round-down'la 650 (ambitious ama achievable)
+
+Energy per Occupant Goal kWh =
+VAR _selected_buildings =
+    DISTINCTCOUNT(gold_occupancy_profile[building_id])
+VAR _building_type =
+    IF(
+        _selected_buildings = 1,
+        CALCULATE(
+            SELECTEDVALUE(silver_building_master[building_type]),
+            TREATAS(VALUES(gold_occupancy_profile[building_id]),
+                    silver_building_master[building_id])
+        ),
+        "Portfolio"
+    )
+RETURN
+    SWITCH(
+        TRUE(),
+        _building_type = "Office",      250,
+        _building_type = "Retail",      320,
+        _building_type = "Hotel",       900,
+        _building_type = "Healthcare", 1100,
+        _building_type = "Education",   250,
+        _building_type = "Logistics",  1000,
+        650   -- portföy default (karma, healthcare+hotel ağırlıklı)
+    )
+
+// Energy per Occupant Variance % (güncellendi)
+Energy per Occupant Variance Pct =
+VAR _actual = [Energy per Occupant Monthly kWh]
+VAR _goal   = [Energy per Occupant Goal kWh]
+RETURN
+    IF(
+        NOT ISBLANK(_actual) && _goal > 0,
+        ROUND(DIVIDE(_actual - _goal, _goal) * 100, 1),
+        BLANK()
+    )
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM D — After-Hours Goal Notu
+// ────────────────────────────────────────────────────────────
+// Power BI'da C3 kartının Goal field'ına 45 yaz (sabit sayı).
+// Bu dosyada DAX ölçüsü yok — Power BI UI'da direkt değiştir.
+//
+// NEDEN 45?
+//   Portföydeki healthcare + hotel binaları gece de dolu olmalı.
+//   45% after-hours share bu karma portföy için "verimli" sayılır.
+//   20% sadece salt ofis portföyleri için geçerli bir eşiktir.
+//
+// After-Hours Status Label (opsiyonel — kart alt bilgisi için)
+After Hours Waste Status =
+VAR _pct = [After Hours Occupancy Share Pct]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_pct),  "—",
+        _pct <= 45,     "Efficient for portfolio",
+        _pct <= 60,     "Review scheduling",
+        "Ghost load risk"
+    )

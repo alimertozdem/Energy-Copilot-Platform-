@@ -66,7 +66,9 @@
 - **IoT:** BACnet, Modbus TCP, MQTT 5.0, OPC-UA adapters (Phase 2)
 - **Pricing data:** EPEX Spot integration (dynamic German electricity prices)
 
-### 9 Dashboard Pages (current state)
+### 9 Dashboard Pages + Live Web Application + AI Copilot (current state)
+
+**Power BI dashboard (9 pages, DirectLake on Fabric Lakehouse):**
 1. Portfolio Overview — Multi-building KPIs, scorecard
 2. Building-Level Detail
 3. Anomalies & Alerts
@@ -74,12 +76,23 @@
 5. Occupancy Analysis
 6. Sustainability & Compliance (CRREM, EU Battery Reg)
 7. HVAC & Building Envelope
-8. IoT Real-Time Monitoring (Phase 2)
+8. IoT Real-Time Monitoring (final polish post-capacity)
 9. Battery Strategy & Dispatch
+
+**Web Application (Next.js + FastAPI, live since May 27-28, 2026):**
+- 3-provider authentication (Microsoft Entra, Google, Email/Password)
+- `/portfolio` — custom React reading directly from Fabric SQL Analytics Endpoint
+- `/buildings/[id]` — embedded Power BI via service principal (V2 embed API, DirectLake)
+- `/copilot` — AI chat with LLM tool use over Fabric Lakehouse + Postgres
+
+**AI Copilot (live since May 28, 2026):**
+- Six production tools: `query_kpi`, `compare_buildings`, `list_recommendations`, `get_anomalies`, `simulate_battery_scenario`, `update_action_status`
+- Provider abstraction: Anthropic (Claude) / Azure OpenAI / Mock (currently active — credit-pending)
+- Server-Sent Events streaming, conversation persistence, JWT auth, RLS at app layer
 
 ### Regulatory niche
 - **CRREM** (Carbon Risk Real Estate Monitor) — pathway compliance scoring
-- **EU 2023/1670** — Battery passport regulation
+- **EU 2023/1542** — Battery passport regulation
 - **EnEfG** (Germany) — Energy efficiency law
 - **GEG** (Germany) — Building Energy Act
 - **EU CSRD** — Sustainability reporting
@@ -241,35 +254,45 @@ Before clicking SUBMIT on Microsoft Founders Hub:
 
 ---
 
-## 9. CURRENT STATUS — Where we are
+## 9. CURRENT STATUS — Where we are (updated 2026-05-28)
 
 ### ✅ Done
-- 6 buildings sample data v5.1 (physics-aware, EU realistic EUI)
-- 9 dashboard pages designed
-- Fabric medallion pipeline built
-- Brand identity finalized (EnergyLens Emerald Pulse)
+- 10 buildings realistic data, 3.5 years, 693K+ data points (DE/TR/AT/NL)
+- 9 dashboard pages live (Page 8 IoT pending final polish post-capacity)
+- Fabric medallion pipeline built (57 Lakehouse tables across Bronze/Silver/Gold)
+- DAX measure library v56 (50+ measures, building-type aware thresholds)
+- Battery dispatch simulator (12 countries × 8 chemistries × 7 strategies, EU 2023/1542)
+- **Web app v1 LIVE (Next.js + FastAPI + Postgres, 3 auth providers, embed wrap, custom React /portfolio)**
+- **AI Copilot LIVE (LLM tool use, 6 tools, SSE streaming, Anthropic + Mock providers)**
+- **3 parallel Fabric data paths validated** (DirectLake embed, SQL Analytics Endpoint, LLM tool use)
+- Brand identity finalized (EnergyLens "Emerald Pulse") + design system applied across web app
 - Subscription tier architecture defined
-- This master plan document
+- Domain energylens.eu registered + Azure subscription active
+- 10 application documents v1.1 (this plan)
 
 ### 🔄 In progress
-- Capacity throttle recovery (Fabric Trial F4 exhausted)
-- Page 1 final review (after capacity recovery)
+- Microsoft Startups portal submission (final video recording + form fill)
+- Page 8 IoT dashboard polish (deferred post-capacity)
 
-### ⏳ Pending
-- 9 application documents (this plan)
-- 2 videos (founder intro + product demo)
-- Domain registration
+### ⏳ Pending (Mert)
+- Email forwarding: alimert@energylens.eu → alimertozdem@gmail.com (Namecheap, ~15 min)
+- ElevenLabs + Loom + Descript free-tier accounts (~10 min)
+- Founder intro video recording (~30 min including takes)
+- Product demo video recording (~60 min including Copilot scenes)
 - BSBI pilot conversation
 
 ---
 
-## 10. NEXT IMMEDIATE STEPS (after capacity recovers)
+## 10. NEXT IMMEDIATE STEPS (2026-05-28)
 
-1. Wait for Fabric capacity to recover (15-60 minutes)
-2. Open Power BI Desktop → confirm model loads → Page 1 refresh
-3. Take Page 1 screenshot to confirm v5.1 values visible (B002 ~251 EUI, B006 ~173 EUI)
-4. Once Page 1 is final → proceed to Page 2-9 review (the original master plan)
-5. PARALLEL: Start Startups documents preparation (this plan)
+1. Mert: Namecheap email forwarding `alimert@energylens.eu → alimertozdem@gmail.com` (~15 min)
+2. Mert: ElevenLabs + Loom + Descript free-tier signups (~10 min total)
+3. Mert: Record founder intro video using `08_founder_video_script.md` v1.1 (~30 min)
+4. Mert: Record product demo video using `09_product_demo_script.md` v2.0 (~60 min, web app + Copilot + 3 PBI pages)
+5. Mert: Upload videos to Loom unlisted, get share links
+6. Mert: Submit at https://portal.startups.microsoft.com using `10_application_form_draft.md` v1.1
+7. Wait 3-14 days for Microsoft review
+8. Post-submission: polish Page 8 IoT (after capacity recovers or Tier 2 approved)
 
 ---
 
@@ -288,12 +311,13 @@ Before clicking SUBMIT on Microsoft Founders Hub:
 - ✅ `10_application_form_draft.md` — Pre-filled application answers
 - ✅ `ACTION_CHECKLIST.md` — Sequential task list
 
-**Status:** All 10 documents READY. Awaiting:
-1. Mert to record 2 videos (scripts ready)
-2. Mert to register energylens.eu domain
-3. Power BI capacity recovery → final dashboard screenshots
-4. Mert to submit application
+**Status (2026-05-28):** All 10 documents updated to v1.1, post-Day-16 reality. Awaiting:
+1. Mert to set up Namecheap email forwarding (15 min)
+2. Mert to record 2 videos (scripts v1.1 + v2.0 ready)
+3. Mert to submit application at https://portal.startups.microsoft.com
+
+Domain registered, Power BI dashboard 9-page complete (Page 8 polish post-capacity).
 
 ---
 
-**Last updated:** 2026-05-15 (all documents complete except video recordings)
+**Last updated:** 2026-05-28 (v1.1 — web app + AI Copilot live, ready for submission)

@@ -1,0 +1,469 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <!--
+    Energy Copilot Platform — Page 7 HVAC & Building Envelope
+    Background v3 — LEFT PANEL layout · no frame titles · HVAC color palette
+    Canvas: 1280 × 720
+    Layout: Left panel 0–205 | Content 215–1270
+    Rows: Title 0-68 | 6 KPI cards 78-168 | 2 wide visuals 182-393 | 3 detail visuals 405-712
+  -->
+
+  <defs>
+    <!-- Background -->
+    <radialGradient id="bgBase" cx="38%" cy="52%" r="72%">
+      <stop offset="0%" stop-color="#0D1B30"/>
+      <stop offset="60%" stop-color="#09101E"/>
+      <stop offset="100%" stop-color="#050810"/>
+    </radialGradient>
+
+    <!-- HVAC aurora: heating warm glow — bottom-left -->
+    <radialGradient id="auroraHeat" cx="4%" cy="88%" r="58%">
+      <stop offset="0%"   stop-color="#FF6B35" stop-opacity="0.16"/>
+      <stop offset="48%"  stop-color="#FF6B35" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#FF6B35" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- HVAC aurora: cooling glow — top-right -->
+    <radialGradient id="auroraCool" cx="96%" cy="12%" r="50%">
+      <stop offset="0%"   stop-color="#00D4FF" stop-opacity="0.13"/>
+      <stop offset="52%"  stop-color="#00D4FF" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#00D4FF" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Efficiency glow — center -->
+    <radialGradient id="auroraGreen" cx="72%" cy="62%" r="32%">
+      <stop offset="0%"   stop-color="#1D9E75" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#1D9E75" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Panel fill (content frames) -->
+    <linearGradient id="panelFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#0D1B30" stop-opacity="0.88"/>
+      <stop offset="100%" stop-color="#09101E" stop-opacity="0.83"/>
+    </linearGradient>
+
+    <!-- Left panel fill -->
+    <linearGradient id="leftFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#050A15"/>
+      <stop offset="100%" stop-color="#09111E"/>
+    </linearGradient>
+
+    <!-- Slicer box fill -->
+    <linearGradient id="slicerFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#0F1E35" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#0A1525" stop-opacity="0.95"/>
+    </linearGradient>
+
+    <!-- HVAC illustration gradient (thermal) -->
+    <linearGradient id="thermalGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#FF6B35" stop-opacity="0.55"/>
+      <stop offset="50%"  stop-color="#1D9E75" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#00D4FF" stop-opacity="0.45"/>
+    </linearGradient>
+
+    <!-- Glow filter for accent dots -->
+    <filter id="dotGlow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softGlow" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur stdDeviation="1.2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Accent dot symbols -->
+    <symbol id="dotOrange" overflow="visible">
+      <ellipse rx="20" ry="4.5" fill="#FF6B35" opacity="0.6" filter="url(#dotGlow)"/>
+      <ellipse rx="9"  ry="2.2" fill="#FFB07A" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotAmber" overflow="visible">
+      <ellipse rx="20" ry="4.5" fill="#FFC107" opacity="0.55" filter="url(#dotGlow)"/>
+      <ellipse rx="9"  ry="2.2" fill="#FFE085" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotGreen" overflow="visible">
+      <ellipse rx="20" ry="4.5" fill="#1D9E75" opacity="0.6" filter="url(#dotGlow)"/>
+      <ellipse rx="9"  ry="2.2" fill="#7FE3C0" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotBlue" overflow="visible">
+      <ellipse rx="20" ry="4.5" fill="#00D4FF" opacity="0.55" filter="url(#dotGlow)"/>
+      <ellipse rx="9"  ry="2.2" fill="#9EEDFF" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotRed" overflow="visible">
+      <ellipse rx="20" ry="4.5" fill="#E24B4A" opacity="0.6" filter="url(#dotGlow)"/>
+      <ellipse rx="9"  ry="2.2" fill="#FF9999" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotPurple" overflow="visible">
+      <ellipse rx="20" ry="4.5" fill="#9B59B6" opacity="0.6" filter="url(#dotGlow)"/>
+      <ellipse rx="9"  ry="2.2" fill="#CFA0DF" opacity="0.95"/>
+    </symbol>
+  </defs>
+
+  <!-- ═══════════════════════════════════════════════════════ BASE LAYER -->
+  <rect width="1280" height="720" fill="url(#bgBase)"/>
+  <rect width="1280" height="720" fill="url(#auroraHeat)"/>
+  <rect width="1280" height="720" fill="url(#auroraCool)"/>
+  <rect width="1280" height="720" fill="url(#auroraGreen)"/>
+
+  <!-- Particle field (subtle) -->
+  <g fill="#6EA8FF" opacity="0.45">
+    <circle cx="280"  cy="44"  r="0.7"/>
+    <circle cx="450"  cy="28"  r="0.5"/>
+    <circle cx="620"  cy="51"  r="0.8"/>
+    <circle cx="790"  cy="35"  r="0.6"/>
+    <circle cx="960"  cy="48"  r="0.7"/>
+    <circle cx="1130" cy="30"  r="0.5"/>
+    <circle cx="1200" cy="56"  r="0.6"/>
+    <circle cx="350"  cy="420" r="0.5"/>
+    <circle cx="870"  cy="440" r="0.6"/>
+    <circle cx="1180" cy="395" r="0.5"/>
+    <circle cx="240"  cy="710" r="0.6"/>
+    <circle cx="700"  cy="715" r="0.5"/>
+    <circle cx="1100" cy="708" r="0.7"/>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════ LEFT PANEL -->
+  <rect x="0" y="0" width="205" height="720" fill="url(#leftFill)"/>
+  <!-- Vertical separator -->
+  <line x1="205" y1="0" x2="205" y2="720" stroke="#00D4FF" stroke-width="0.6" opacity="0.22"/>
+  <!-- Inner edge highlight -->
+  <line x1="204" y1="0" x2="204" y2="720" stroke="#0D2040" stroke-width="1.5" opacity="0.8"/>
+
+  <!-- Logo -->
+  <g transform="translate(13, 12)">
+    <rect width="46" height="46" rx="9" fill="#0C1A2F" stroke="#00D4FF" stroke-width="1.4" opacity="0.95"/>
+    <g stroke="#00D4FF" stroke-width="1.3" fill="none">
+      <circle cx="23" cy="23" r="10"/>
+      <line x1="23" y1="13" x2="23" y2="33"/>
+      <line x1="13" y1="23" x2="33" y2="23"/>
+      <rect x="19" y="19" width="8" height="8" fill="#00D4FF" fill-opacity="0.22"/>
+    </g>
+    <text x="52" y="19" font-family="Inter,Segoe UI,Arial" font-size="8" font-weight="700" fill="#00D4FF" letter-spacing="1.3">ENERGY</text>
+    <text x="52" y="31" font-family="Inter,Segoe UI,Arial" font-size="8" font-weight="700" fill="#00D4FF" letter-spacing="1.3">LENS</text>
+    <text x="52" y="43" font-family="Inter,Segoe UI,Arial" font-size="6.5" fill="#2C5A7A" letter-spacing="0.8">Page 07</text>
+  </g>
+
+  <!-- Panel divider under logo -->
+  <line x1="13" y1="65" x2="192" y2="65" stroke="#00D4FF" stroke-width="0.4" opacity="0.18"/>
+
+  <!-- ─── SLICER AREAS ─── -->
+  <!-- S1 Date Range -->
+  <text x="17" y="83" font-family="Inter,Segoe UI,Arial" font-size="6.5" font-weight="600" fill="#5A8FC0" letter-spacing="1.6" opacity="0.85">DATE RANGE</text>
+  <rect x="13" y="87" width="180" height="52" rx="6" fill="url(#slicerFill)" stroke="#00D4FF" stroke-width="0.8" opacity="0.88"/>
+
+  <!-- S2 Country -->
+  <text x="17" y="153" font-family="Inter,Segoe UI,Arial" font-size="6.5" font-weight="600" fill="#5A8FC0" letter-spacing="1.6" opacity="0.85">COUNTRY</text>
+  <rect x="13" y="157" width="180" height="31" rx="6" fill="url(#slicerFill)" stroke="#FFC107" stroke-width="0.8" opacity="0.88"/>
+
+  <!-- S3 Building Type -->
+  <text x="17" y="201" font-family="Inter,Segoe UI,Arial" font-size="6.5" font-weight="600" fill="#5A8FC0" letter-spacing="1.6" opacity="0.85">BUILDING TYPE</text>
+  <rect x="13" y="205" width="180" height="31" rx="6" fill="url(#slicerFill)" stroke="#FF6B35" stroke-width="0.8" opacity="0.88"/>
+
+  <!-- S4 System Type -->
+  <text x="17" y="249" font-family="Inter,Segoe UI,Arial" font-size="6.5" font-weight="600" fill="#5A8FC0" letter-spacing="1.6" opacity="0.85">SYSTEM TYPE</text>
+  <rect x="13" y="253" width="180" height="31" rx="6" fill="url(#slicerFill)" stroke="#1D9E75" stroke-width="0.8" opacity="0.88"/>
+
+  <!-- S5 Building -->
+  <text x="17" y="297" font-family="Inter,Segoe UI,Arial" font-size="6.5" font-weight="600" fill="#5A8FC0" letter-spacing="1.6" opacity="0.85">BUILDING</text>
+  <rect x="13" y="301" width="180" height="31" rx="6" fill="url(#slicerFill)" stroke="#E24B4A" stroke-width="0.8" opacity="0.88"/>
+
+  <!-- ─── HVAC ILLUSTRATION ─── -->
+  <!-- Thermal schematic: building cross-section with heat flow -->
+  <g transform="translate(20, 345)" opacity="0.55">
+    <!-- Section label -->
+    <text x="83" y="14" text-anchor="middle" font-family="Inter,Arial" font-size="7" font-weight="600" fill="#3A6B8A" letter-spacing="2">THERMAL ANALYSIS</text>
+
+    <!-- Ground line -->
+    <line x1="0" y1="333" x2="165" y2="333" stroke="#2A4A6A" stroke-width="1.2" opacity="0.7"/>
+    <!-- Ground fill -->
+    <rect x="0" y="333" width="165" height="12" fill="#0A1525" opacity="0.6"/>
+    <g fill="#1A3A55" opacity="0.5">
+      <line x1="10" y1="336" x2="20" y2="343" stroke="#1A3A55" stroke-width="1"/>
+      <line x1="30" y1="336" x2="40" y2="343" stroke="#1A3A55" stroke-width="1"/>
+      <line x1="50" y1="336" x2="60" y2="343" stroke="#1A3A55" stroke-width="1"/>
+      <line x1="70" y1="336" x2="80" y2="343" stroke="#1A3A55" stroke-width="1"/>
+      <line x1="90" y1="336" x2="100" y2="343" stroke="#1A3A55" stroke-width="1"/>
+      <line x1="110" y1="336" x2="120" y2="343" stroke="#1A3A55" stroke-width="1"/>
+      <line x1="130" y1="336" x2="140" y2="343" stroke="#1A3A55" stroke-width="1"/>
+      <line x1="150" y1="336" x2="160" y2="343" stroke="#1A3A55" stroke-width="1"/>
+    </g>
+
+    <!-- Building body -->
+    <rect x="32" y="133" width="102" height="200" rx="2" fill="#0A1828" stroke="#1A4060" stroke-width="1.2"/>
+
+    <!-- Roof / insulation -->
+    <rect x="27" y="125" width="112" height="11" rx="2" fill="#0F2035" stroke="#2A5080" stroke-width="1"/>
+    <!-- Insulation hatching on roof -->
+    <g stroke="#1D9E75" stroke-width="0.7" opacity="0.5">
+      <line x1="32" y1="126" x2="38" y2="135"/> <line x1="40" y1="126" x2="46" y2="135"/>
+      <line x1="48" y1="126" x2="54" y2="135"/> <line x1="56" y1="126" x2="62" y2="135"/>
+      <line x1="64" y1="126" x2="70" y2="135"/> <line x1="72" y1="126" x2="78" y2="135"/>
+      <line x1="80" y1="126" x2="86" y2="135"/> <line x1="88" y1="126" x2="94" y2="135"/>
+      <line x1="96" y1="126" x2="102" y2="135"/> <line x1="104" y1="126" x2="110" y2="135"/>
+      <line x1="112" y1="126" x2="118" y2="135"/> <line x1="120" y1="126" x2="126" y2="135"/>
+      <line x1="128" y1="126" x2="134" y2="135"/>
+    </g>
+
+    <!-- Insulation hatching on walls -->
+    <g stroke="#1D9E75" stroke-width="0.6" opacity="0.35">
+      <!-- Left wall strip -->
+      <line x1="32" y1="145" x2="40" y2="155"/> <line x1="32" y1="160" x2="40" y2="170"/>
+      <line x1="32" y1="175" x2="40" y2="185"/> <line x1="32" y1="190" x2="40" y2="200"/>
+      <line x1="32" y1="205" x2="40" y2="215"/> <line x1="32" y1="220" x2="40" y2="230"/>
+      <line x1="32" y1="235" x2="40" y2="245"/> <line x1="32" y1="250" x2="40" y2="260"/>
+      <line x1="32" y1="265" x2="40" y2="275"/> <line x1="32" y1="280" x2="40" y2="290"/>
+      <line x1="32" y1="295" x2="40" y2="305"/> <line x1="32" y1="310" x2="40" y2="320"/>
+      <!-- Right wall strip -->
+      <line x1="126" y1="145" x2="134" y2="155"/> <line x1="126" y1="160" x2="134" y2="170"/>
+      <line x1="126" y1="175" x2="134" y2="185"/> <line x1="126" y1="190" x2="134" y2="200"/>
+      <line x1="126" y1="205" x2="134" y2="215"/> <line x1="126" y1="220" x2="134" y2="230"/>
+      <line x1="126" y1="235" x2="134" y2="245"/> <line x1="126" y1="250" x2="134" y2="260"/>
+      <line x1="126" y1="265" x2="134" y2="275"/> <line x1="126" y1="280" x2="134" y2="290"/>
+    </g>
+
+    <!-- Windows (3 rows × 2 cols) -->
+    <g fill="#0E2545" stroke="#1A4A80" stroke-width="0.8">
+      <!-- Row 1 -->
+      <rect x="50" y="152" width="24" height="20" rx="1"/>
+      <rect x="92" y="152" width="24" height="20" rx="1"/>
+      <!-- Row 2 -->
+      <rect x="50" y="196" width="24" height="20" rx="1"/>
+      <rect x="92" y="196" width="24" height="20" rx="1"/>
+      <!-- Row 3 -->
+      <rect x="50" y="240" width="24" height="20" rx="1"/>
+      <rect x="92" y="240" width="24" height="20" rx="1"/>
+    </g>
+    <!-- Window inner glow -->
+    <g fill="#1D4A90" opacity="0.25">
+      <rect x="51" y="153" width="22" height="18" rx="1"/>
+      <rect x="93" y="153" width="22" height="18" rx="1"/>
+      <rect x="51" y="197" width="22" height="18" rx="1"/>
+      <rect x="93" y="197" width="22" height="18" rx="1"/>
+    </g>
+
+    <!-- HEAT PUMP unit (left of building) -->
+    <rect x="0" y="255" width="26" height="35" rx="3" fill="#0A1F38" stroke="#FF6B35" stroke-width="1" opacity="0.9"/>
+    <text x="13" y="267" text-anchor="middle" font-family="Arial" font-size="5.5" fill="#FF6B35" opacity="0.9">HP</text>
+    <!-- HP internal fan symbol -->
+    <circle cx="13" cy="278" r="6" fill="none" stroke="#FF6B35" stroke-width="0.8" opacity="0.6"/>
+    <line x1="13" y1="272" x2="13" y2="284" stroke="#FF6B35" stroke-width="0.8" opacity="0.5"/>
+    <line x1="7"  y1="278" x2="19" y2="278" stroke="#FF6B35" stroke-width="0.8" opacity="0.5"/>
+    <!-- Pipe HP to building -->
+    <path d="M26,265 Q30,265 30,270 L30,295 Q30,300 35,300" fill="none" stroke="#FF6B35" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
+    <!-- Return pipe -->
+    <path d="M26,280 Q28,280 28,283 L28,310 Q28,315 35,315" fill="none" stroke="#00D4FF" stroke-width="1" stroke-dasharray="3,2" opacity="0.55"/>
+
+    <!-- Heat arrows (warm air rising from building) -->
+    <g stroke="#FF6B35" stroke-width="1.2" fill="none" opacity="0.75">
+      <!-- Arrow 1 -->
+      <path d="M65,123 Q62,112 65,101 Q68,90 65,79"/>
+      <polygon points="65,75 62,82 68,82" fill="#FF6B35"/>
+      <!-- Arrow 2 -->
+      <path d="M83,123 Q80,110 83,99 Q86,88 83,77"/>
+      <polygon points="83,73 80,80 86,80" fill="#FF6B35"/>
+      <!-- Arrow 3 -->
+      <path d="M101,123 Q98,112 101,101 Q104,90 101,79"/>
+      <polygon points="101,75 98,82 104,82" fill="#FF6B35"/>
+    </g>
+
+    <!-- Cool air arrows (entering from top) -->
+    <g stroke="#00D4FF" stroke-width="1" fill="none" opacity="0.6">
+      <path d="M55,69 Q53,80 55,91"/>
+      <polygon points="55,94 52,87 58,87" fill="#00D4FF"/>
+      <path d="M111,69 Q109,80 111,91"/>
+      <polygon points="111,94 108,87 114,87" fill="#00D4FF"/>
+    </g>
+
+    <!-- Thermal gradient bar (right of building) -->
+    <defs>
+      <linearGradient id="tempBar" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%"   stop-color="#FF6B35" stop-opacity="0.8"/>
+        <stop offset="50%"  stop-color="#FFC107" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#00D4FF" stop-opacity="0.8"/>
+      </linearGradient>
+    </defs>
+    <rect x="143" y="133" width="8" height="200" rx="3" fill="url(#tempBar)" opacity="0.7"/>
+    <!-- Temp labels -->
+    <text x="155" y="138" font-family="Arial" font-size="5.5" fill="#FF6B35" opacity="0.8">+</text>
+    <text x="155" y="238" font-family="Arial" font-size="5.5" fill="#7FB8FF" opacity="0.8">0</text>
+    <text x="155" y="338" font-family="Arial" font-size="5.5" fill="#00D4FF" opacity="0.8">−</text>
+
+    <!-- COP label -->
+    <text x="0" y="110" font-family="Inter,Arial" font-size="6" fill="#FF6B35" opacity="0.65" letter-spacing="0.5">COP: 3.8</text>
+
+    <!-- Bottom label -->
+    <text x="83" y="352" text-anchor="middle" font-family="Inter,Arial" font-size="6.5" fill="#2A5070" letter-spacing="1.2" opacity="0.9">HEAT PUMP  ·  GAS  ·  HYBRID</text>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════ CONTENT AREA HEADER -->
+  <!-- Full-width top hairline -->
+  <line x1="0" y1="66" x2="1280" y2="66" stroke="#0D2040" stroke-width="1" opacity="0.6"/>
+
+  <!-- Page title -->
+  <text x="225" y="40" font-family="Inter,Segoe UI,Arial" font-size="25" font-weight="700" fill="#FFFFFF" letter-spacing="0.4">HVAC &amp; <tspan fill="#FF6B35">BUILDING ENVELOPE</tspan></text>
+  <text x="225" y="58" font-family="Inter,Segoe UI,Arial" font-size="9" font-weight="500" fill="#5A88BB" letter-spacing="2.0">MECHANICAL SYSTEMS  ·  THERMAL PERFORMANCE  ·  RETROFIT INTELLIGENCE</text>
+
+  <!-- Thematic icons top-right (4 icons: COP, HDD, Insulation, CO₂) -->
+  <!-- COP -->
+  <g transform="translate(960, 12)">
+    <circle cx="22" cy="19" r="20" fill="none" stroke="#FF6B35" stroke-width="1.3" opacity="0.85"/>
+    <text x="22" y="16" text-anchor="middle" font-family="Inter,Arial" font-size="8" font-weight="700" fill="#FF6B35">COP</text>
+    <path d="M12,24 Q17,20 22,24 Q27,28 32,24" fill="none" stroke="#FF6B35" stroke-width="1.2" opacity="0.7"/>
+    <ellipse cx="22" cy="43" rx="11" ry="2.5" fill="#FF6B35" opacity="0.5" filter="url(#dotGlow)"/>
+  </g>
+  <!-- HDD/Temperature -->
+  <g transform="translate(1040, 12)">
+    <circle cx="22" cy="19" r="20" fill="none" stroke="#FFC107" stroke-width="1.3" opacity="0.85"/>
+    <!-- thermometer -->
+    <rect x="19" y="9" width="6" height="18" rx="3" fill="none" stroke="#FFC107" stroke-width="1.1" opacity="0.8"/>
+    <rect x="20" y="16" width="4" height="11" rx="2" fill="#FFC107" opacity="0.5"/>
+    <circle cx="22" cy="28" r="4" fill="#FFC107" opacity="0.6"/>
+    <ellipse cx="22" cy="43" rx="11" ry="2.5" fill="#FFC107" opacity="0.45" filter="url(#dotGlow)"/>
+  </g>
+  <!-- Insulation layers -->
+  <g transform="translate(1120, 12)">
+    <circle cx="22" cy="19" r="20" fill="none" stroke="#1D9E75" stroke-width="1.3" opacity="0.85"/>
+    <!-- layers symbol -->
+    <g stroke="#1D9E75" stroke-width="1.1" opacity="0.8">
+      <line x1="11" y1="14" x2="33" y2="14"/>
+      <line x1="11" y1="19" x2="33" y2="19"/>
+      <line x1="11" y1="24" x2="33" y2="24"/>
+    </g>
+    <!-- zigzag insulation -->
+    <path d="M11,16 L14,13 L17,16 L20,13 L23,16 L26,13 L29,16 L32,13" fill="none" stroke="#1D9E75" stroke-width="1" opacity="0.6"/>
+    <ellipse cx="22" cy="43" rx="11" ry="2.5" fill="#1D9E75" opacity="0.5" filter="url(#dotGlow)"/>
+  </g>
+  <!-- CO₂ -->
+  <g transform="translate(1200, 12)">
+    <circle cx="22" cy="19" r="20" fill="none" stroke="#9B59B6" stroke-width="1.3" opacity="0.85"/>
+    <text x="22" y="23" text-anchor="middle" font-family="Inter,Arial" font-size="10" font-weight="700" fill="#9B59B6">CO₂</text>
+    <ellipse cx="22" cy="43" rx="11" ry="2.5" fill="#9B59B6" opacity="0.5" filter="url(#dotGlow)"/>
+  </g>
+
+  <!-- Header divider (content area) -->
+  <line x1="215" y1="66" x2="1270" y2="66" stroke="#00D4FF" stroke-width="0.4" opacity="0.18"/>
+
+  <!-- ═══════════════════════════════════════════════ ROW 1: 6 KPI CARDS -->
+  <!-- y=78 to y=168 · h=90 · cards: 169px wide, 8px gap -->
+  <!-- x positions: 215, 392, 569, 746, 923, 1100 -->
+
+  <!-- C1 — HVAC SHARE %  · ORANGE -->
+  <use href="#dotOrange" x="299" y="73"/>
+  <rect x="215" y="78" width="169" height="90" rx="10" fill="url(#panelFill)" stroke="#FF6B35" stroke-width="1.4" filter="url(#softGlow)" opacity="0.95"/>
+
+  <!-- C2 — HVAC EFFICIENCY  · AMBER -->
+  <use href="#dotAmber" x="476" y="73"/>
+  <rect x="392" y="78" width="169" height="90" rx="10" fill="url(#panelFill)" stroke="#FFC107" stroke-width="1.4" filter="url(#softGlow)" opacity="0.95"/>
+
+  <!-- C3 — AVG INSULATION  · GREEN -->
+  <use href="#dotGreen" x="653" y="73"/>
+  <rect x="569" y="78" width="169" height="90" rx="10" fill="url(#panelFill)" stroke="#1D9E75" stroke-width="1.4" filter="url(#softGlow)" opacity="0.95"/>
+
+  <!-- C4 — HEAT LOSS kWh/m²  · BLUE -->
+  <use href="#dotBlue" x="830" y="73"/>
+  <rect x="746" y="78" width="169" height="90" rx="10" fill="url(#panelFill)" stroke="#00D4FF" stroke-width="1.4" filter="url(#softGlow)" opacity="0.95"/>
+
+  <!-- C5 — RETROFIT NEEDED  · RED -->
+  <use href="#dotRed" x="1007" y="73"/>
+  <rect x="923" y="78" width="169" height="90" rx="10" fill="url(#panelFill)" stroke="#E24B4A" stroke-width="1.4" filter="url(#softGlow)" opacity="0.95"/>
+
+  <!-- C6 — HVAC CO₂ tCO₂/yr  · PURPLE (NEW) -->
+  <use href="#dotPurple" x="1184" y="73"/>
+  <rect x="1100" y="78" width="169" height="90" rx="10" fill="url(#panelFill)" stroke="#9B59B6" stroke-width="1.4" filter="url(#softGlow)" opacity="0.95"/>
+
+  <!-- ═══════════════════════════════════════════════ ROW 2: 2 WIDE VISUALS -->
+  <!-- y=182 to y=393 · h=211 -->
+  <!-- V1: x=215 w=519  |  V2: x=742 w=528 -->
+
+  <!-- V1 — HVAC ENERGY BREAKDOWN  · ORANGE -->
+  <use href="#dotOrange" x="474" y="177"/>
+  <rect x="215" y="182" width="519" height="211" rx="12" fill="url(#panelFill)" stroke="#FF6B35" stroke-width="1.4" filter="url(#softGlow)" opacity="0.95"/>
+  <!-- subtle bar chart ghost (decorative) -->
+  <g opacity="0.07" fill="#FF6B35">
+    <rect x="268" y="315" width="18" height="60"/>
+    <rect x="298" y="295" width="18" height="80"/>
+    <rect x="328" y="280" width="18" height="95"/>
+    <rect x="358" y="265" width="18" height="110"/>
+    <rect x="388" y="275" width="18" height="100"/>
+    <rect x="418" y="300" width="18" height="75"/>
+    <rect x="448" y="330" width="18" height="45"/>
+    <rect x="478" y="340" width="18" height="35"/>
+    <rect x="508" y="345" width="18" height="30"/>
+    <rect x="538" y="335" width="18" height="40"/>
+    <rect x="568" y="315" width="18" height="60"/>
+    <rect x="598" y="295" width="18" height="80"/>
+  </g>
+  <!-- cooling ghost (blue) -->
+  <g opacity="0.06" fill="#00D4FF">
+    <rect x="268" y="355" width="18" height="20"/>
+    <rect x="298" y="355" width="18" height="20"/>
+    <rect x="328" y="355" width="18" height="20"/>
+    <rect x="358" y="355" width="18" height="20"/>
+    <rect x="388" y="335" width="18" height="40"/>
+    <rect x="418" y="325" width="18" height="50"/>
+    <rect x="448" y="320" width="18" height="55"/>
+    <rect x="478" y="330" width="18" height="45"/>
+    <rect x="508" y="345" width="18" height="30"/>
+    <rect x="538" y="350" width="18" height="25"/>
+    <rect x="568" y="355" width="18" height="20"/>
+    <rect x="598" y="355" width="18" height="20"/>
+  </g>
+
+  <!-- V2 — BUILDING HVAC SYSTEM SUMMARY TABLE  · GREEN -->
+  <use href="#dotGreen" x="1006" y="177"/>
+  <rect x="742" y="182" width="528" height="211" rx="12" fill="url(#panelFill)" stroke="#1D9E75" stroke-width="1.4" filter="url(#softGlow)" opacity="0.95"/>
+  <!-- Table row ghosts -->
+  <g opacity="0.04" fill="#1D9E75">
+    <rect x="755" y="212" width="502" height="26" rx="2"/>
+    <rect x="755" y="248" width="502" height="26" rx="2"/>
+    <rect x="755" y="284" width="502" height="26" rx="2"/>
+    <rect x="755" y="320" width="502" height="26" rx="2"/>
+    <rect x="755" y="356" width="502" height="26" rx="2"/>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════ ROW 3: 3 DETAIL VISUALS -->
+  <!-- y=405 to y=712 · h=307 -->
+  <!-- V3: x=215 w=346 | V4: x=569 w=346 | V5: x=923 w=347 -->
+
+  <!-- V3 — ENVELOPE U-VALUES (bar chart)  · BLUE -->
+  <use href="#dotBlue" x="388" y="400"/>
+  <rect x="215" y="405" width="346" height="307" rx="12" fill="url(#panelFill)" stroke="#00D4FF" stroke-width="1.4" filter="url(#softGlow)" opacity="0.95"/>
+  <!-- horizontal bar ghosts -->
+  <g opacity="0.07" fill="#00D4FF">
+    <rect x="280" y="450" width="200" height="20" rx="3"/>
+    <rect x="280" y="490" width="145" height="20" rx="3"/>
+    <rect x="280" y="530" width="220" height="20" rx="3"/>
+    <rect x="280" y="570" width="280" height="20" rx="3"/>
+  </g>
+
+  <!-- V4 — INSULATION SCORE BY BUILDING (horizontal bar)  · AMBER -->
+  <use href="#dotAmber" x="742" y="400"/>
+  <rect x="569" y="405" width="346" height="307" rx="12" fill="url(#panelFill)" stroke="#FFC107" stroke-width="1.4" filter="url(#softGlow)" opacity="0.95"/>
+  <!-- bar ghosts (6 buildings) -->
+  <g opacity="0.06" fill="#FFC107">
+    <rect x="630" y="440" width="230" height="22" rx="3"/>
+    <rect x="630" y="472" width="200" height="22" rx="3"/>
+    <rect x="630" y="504" width="185" height="22" rx="3"/>
+    <rect x="630" y="536" width="165" height="22" rx="3"/>
+    <rect x="630" y="568" width="140" height="22" rx="3"/>
+    <rect x="630" y="600" width="110" height="22" rx="3"/>
+  </g>
+
+  <!-- V5 — RENOVATION PRIORITY MATRIX (scatter)  · RED -->
+  <use href="#dotRed" x="1096" y="400"/>
+  <rect x="923" y="405" width="347" height="307" rx="12" fill="url(#panelFill)" stroke="#E24B4A" stroke-width="1.4" filter="url(#softGlow)" opacity="0.95"/>
+  <!-- Quadrant ghost lines -->
+  <line x1="1096" y1="405" x2="1096" y2="712" stroke="#E24B4A" stroke-width="0.6" stroke-dasharray="4,4" opacity="0.12"/>
+  <line x1="923"  y1="558" x2="1270" y2="558" stroke="#E24B4A" stroke-width="0.6" stroke-dasharray="4,4" opacity="0.12"/>
+  <!-- Bubble ghosts (6 buildings) -->
+  <g opacity="0.08">
+    <circle cx="1210" cy="450" r="22" fill="#1D9E75"/>
+    <circle cx="960"  cy="655" r="18" fill="#E24B4A"/>
+    <circle cx="980"  cy="645" r="15" fill="#E24B4A"/>
+    <circle cx="1060" cy="530" r="16" fill="#FFC107"/>
+    <circle cx="1090" cy="520" r="14" fill="#FFC107"/>
+    <circle cx="1110" cy="495" r="13" fill="#FFC107"/>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════ BOTTOM ACCENT -->
+  <line x1="215" y1="717" x2="1270" y2="717" stroke="#1D9E75" stroke-width="0.5" opacity="0.2"/>
+
+</svg>

@@ -1,0 +1,19 @@
+{
+  "_comment": "Per-site Modbus TCP gateway config. Copy to config.modbus.<site>.json and edit. Run: python modbus_gateway.py --config config.modbus.<site>.json. Secrets (sink.connection_env) come from env vars, never inline. point.register = Modbus holding-register address; verify against the device manual.",
+  "poll_seconds": 5,
+  "batch": 100,
+  "max_retries": 0,
+  "sink": { "type": "eventhub", "eventhub_name": "iot-raw", "connection_env": "EVENTHUB_CONN" },
+  "devices": [
+    {
+      "name": "Main meter (PM5560)",
+      "host": "192.168.1.50",
+      "port": 502,
+      "unit_id": 1,
+      "points": [
+        { "register": 3060, "sensor_type": "building_kwh",        "unit": "kW",  "scale": 1.0,  "building_id": "B005", "device_id": "B005_MAIN", "zone": "Main DB" },
+        { "register": 3204, "sensor_type": "building_energy_kwh", "unit": "kWh", "scale": 0.01, "building_id": "B005", "device_id": "B005_MAIN", "zone": "Main DB" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "name": "07_forecast_pipeline",
+  "description": "Runs 07_consumption_forecast notebook. Generates gold_consumption_forecast — 7-day Prophet forecast per building with HDD/CDD + occupancy regressors. Called by 04_master_orchestrator as Stage_5_Forecast. Requires gold_kpi_daily (Stage_4) to exist.",
+  "properties": {
+    "activities": [
+      {
+        "name": "Run_Consumption_Forecast",
+        "type": "TridentNotebook",
+        "description": "07_consumption_forecast: Prophet time-series model per building via Pandas UDF. Regressors: hdd_day, cdd_day (weather), avg_occ_biz_hours (occupancy). Fallback to neutral 0.5 occupancy if gold_occupancy_profile unavailable. Output: gold_consumption_forecast (7 rows per building).",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "02:00:00",
+          "retry": 1,
+          "retryIntervalInSeconds": 180,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "typeProperties": {
+          "notebookId": "07_consumption_forecast",
+          "workspaceId": "your-workspace-id",
+          "parameters": {}
+        }
+      }
+    ],
+    "parameters": {},
+    "annotations": [
+      "layer:gold",
+      "notebook:07_consumption_forecast",
+      "output:gold_consumption_forecast",
+      "dependency:gold_kpi_daily,gold_occupancy_profile",
+      "ml:prophet-pandas-udf",
+      "pip_required:prophet"
+    ]
+  }
+}

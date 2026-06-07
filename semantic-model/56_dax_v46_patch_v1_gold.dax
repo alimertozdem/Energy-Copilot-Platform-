@@ -1,0 +1,79 @@
+// =============================================================================
+// DAX v46 Patch — V1 Measures using gold_iot_realtime (DirectLake)
+// =============================================================================
+// WHY THIS FILE EXISTS:
+//   iot_hot_readings is KQL DirectQuery — timestamp is treated as a string by
+//   Power BI, so no date hierarchy is available for the V1 line chart X-axis.
+//
+//   gold_iot_realtime is a Delta table on the Lakehouse — Power BI reads it via
+//   DirectLake and correctly recognises the timestamp column as DateTime.
+//   The hour_bucket column (added in notebook 11b v2.1) gives clean "MM-dd HH:00"
+//   string labels that render perfectly as a categorical X-axis.
+//
+// HOW TO USE:
+//   1. Add gold_iot_realtime to the Power BI semantic model as a DirectLake table
+//      (Get data → OneLake data hub → Lakehouse → gold_iot_realtime)
+//   2. Home table for all measures below: gold_iot_realtime
+//   3. For V1 line chart: X-axis = gold_iot_realtime[hour_bucket] (categorical)
+//   4. No relationship needed between gold_iot_realtime and iot_hot_readings —
+//      they are independent tables on the same page
+//
+// NOTE: These measures REPLACE V1_Building_kW, V1_HVAC_kW, V1_Baseline_kW
+//       for the V1 chart ONLY. All C1–C4 cards still use iot_hot_readings.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// V1_Gold_Building_kW
+// Average building power for the current hour_bucket filter context
+// Source: gold_iot_realtime[reading_value_avg] where sensor_type = building_kwh
+// Fallback: "power" sensor type for older simulator data
+// -----------------------------------------------------------------------------
+V1_Gold_Building_kW =
+VAR primary =
+    CALCULATE(
+        AVERAGE(gold_iot_realtime[reading_value_avg]),
+        gold_iot_realtime[sensor_type] = "building_kwh"
+    )
+VAR fallback =
+    CALCULATE(
+        AVERAGE(gold_iot_realtime[reading_value_avg]),
+        gold_iot_realtime[sensor_type] = "power"
+    )
+RETURN
+    IF(NOT ISBLANK(primary), primary, fallback)
+
+// -----------------------------------------------------------------------------
+// V1_Gold_HVAC_kW
+// Average HVAC power demand for the current hour_bucket filter context
+// -----------------------------------------------------------------------------
+V1_Gold_HVAC_kW =
+CALCULATE(
+    AVERAGE(gold_iot_realtime[reading_value_avg]),
+    gold_iot_realtime[sensor_type] = "hvac_kwh"
+)
+
+// -----------------------------------------------------------------------------
+// V1_Gold_Baseline_kW
+// Average expected (baseline) building power — flat reference line on chart
+// Uses baseline_value column populated by the simulator / sensor master
+// -----------------------------------------------------------------------------
+V1_Gold_Baseline_kW =
+CALCULATE(
+    AVERAGE(gold_iot_realtime[baseline_value]),
+    gold_iot_realtime[sensor_type] = "building_kwh"
+)
+
+// -----------------------------------------------------------------------------
+// V1_Gold_HVAC_Share_Pct
+// HVAC share of total building power — shown in tooltip
+// Format: percentage, 1 decimal (e.g. 38.4%)
+// -----------------------------------------------------------------------------
+V1_Gold_HVAC_Share_Pct =
+VAR bldg = [V1_Gold_Building_kW]
+VAR hvac = [V1_Gold_HVAC_kW]
+RETURN
+    IF(
+        NOT ISBLANK(bldg) && bldg <> 0,
+        DIVIDE(hvac, bldg),
+        BLANK()
+    )

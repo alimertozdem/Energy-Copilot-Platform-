@@ -1,0 +1,162 @@
+// =============================================================================
+// EnergyLens — DAX v58 — HOURLY GRANULARITY + TIME-GRAIN TOGGLE (2026-05-30)
+// Audit/feature: gold_kpi_hourly ÖKSÜZDÜ (0 DAX referansı) → devreye alınıyor.
+// -----------------------------------------------------------------------------
+// AMAÇ:
+//   Sayfa 1-4 + 7'deki zaman-serisi görsellerine Saatlik/Günlük/Aylık toggle.
+//   Mekanizma: (1) gold_kpi_hourly modele bağlanır, (2) ölçüler saatlik
+//   fact'ten gelir, (3) bir "Time Grain" field parameter görselin X-eksenini
+//   değiştirir → ölçüler eksen grain'ine göre doğal toplanır.
+//
+// NEDEN saatlik fact'ten ölçü?
+//   Saatlik fact'te HER saat var → SUM(hour)=gün, SUM(gün)=ay otomatik.
+//   gold_kpi_hourly[date] → Date[Date] ilişkisi sayesinde eksen Date[Date]
+//   veya Date[Month] olunca da aynı ölçü doğru toplar. Tek kaynak, üç grain.
+//
+// ÖN KOŞUL (Power BI Desktop'ta — rehbere bakın):
+//   R1: gold_kpi_hourly modele yüklü (değilse Lakehouse'tan ekle).
+//   R2: İlişki: gold_kpi_hourly[date] → 'Date'[Date]  (Many-to-One, single).
+//   R3: Field parameter "Time Grain" oluşturulmuş (aşağıda tanım).
+//
+// KAPSAM (saatlik veri mevcudiyeti — DÜRÜST):
+//   ✅ Sayfa 1/2/3: enerji, talep, solar, net-grid, CO₂, sıcaklık → tam saatlik.
+//   ◑ Sayfa 4: GERÇEKLEŞEN saatlik; FORECAST günlük (Prophet) → toggle sadece actuals.
+//   ◑ Sayfa 7: enerji + sıcaklık saatlik; COP/HVAC-split AYLIK (gold_hvac_analytics)
+//             → o görseller günlük/aylık kalır; saatlik COP = Sayfa 8 IoT işi.
+// =============================================================================
+
+
+// =============================================================================
+// BÖLÜM 0 — FIELD PARAMETER TANIMI (Power BI'da Modeling → New Parameter → Fields)
+// -----------------------------------------------------------------------------
+// Power BI UI'da oluşturulur; aşağıdaki ifade onun ÜRETTİĞİ tablodur (referans).
+// "Saatlik" ekseni = gold_kpi_hourly[hour_utc] (sürekli datetime).
+// "Günlük"/"Aylık" = Date boyutu (time-intelligence ile uyumlu).
+//
+//   Time Grain =
+//   {
+//       ("⏱ Saatlik", NAMEOF('gold_kpi_hourly'[hour_utc]), 0),
+//       ("📅 Günlük",  NAMEOF('Date'[Date]),               1),
+//       ("🗓 Aylık",   NAMEOF('Date'[YearMonth]),          2)
+//   }
+//   ⚠ AYLIK = Date[YearMonth] ("2024-01"), Date[Month] DEĞİL!
+//     Date[Month] sayısal ay (1-12) → tüm yılların Ocak'ını birleştirir (yanlış).
+//     YearMonth metni YYYY-MM olduğu için kronolojik sıralanır (ek sort gerekmez).
+//
+// Görselde: X-axis = [Time Grain] (parameter). Değerler = aşağıdaki TS ölçüleri.
+// Slicer: [Time Grain] alanını bir slicer'a koy (single-select, default Günlük).
+// =============================================================================
+
+
+// =============================================================================
+// BÖLÜM 1 — TIME-SERIES (TS) ÖLÇÜLERİ — saatlik fact'ten, her grain'de çalışır
+// =============================================================================
+
+// Enerji tüketimi — SUM her grain'de doğru (saat→gün→ay).
+// Format: #,##0 "kWh"
+TS Consumption kWh =
+SUM( gold_kpi_hourly[total_consumption_kwh] )
+
+// Ortalama talep (yük profili şekli) — 24h profilde ve grain toggle'da AVG.
+// Format: #,##0.0 "kW"
+TS Avg Demand kW =
+AVERAGE( gold_kpi_hourly[peak_demand_kw] )
+
+// Peak talep (dönem içi en yüksek) — demand-charge mantığı: MAX her grain'de.
+// Saatlik eksende = o saatin peak'i; günlük eksende = günün peak'i; aylık = ayın peak'i.
+// Format: #,##0.0 "kW"
+TS Peak Demand kW =
+MAX( gold_kpi_hourly[peak_demand_kw] )
+
+// Solar üretim
+// Format: #,##0 "kWh"
+TS Solar Generated kWh =
+SUM( gold_kpi_hourly[solar_generated_kwh] )
+
+// Öz-tüketilen solar
+// Format: #,##0 "kWh"
+TS Solar Self-Consumed kWh =
+SUM( gold_kpi_hourly[solar_self_consumed_kwh] )
+
+// Net şebeke tüketimi (solar/batarya sonrası)
+// Format: #,##0 "kWh"
+TS Net Grid kWh =
+SUM( gold_kpi_hourly[net_grid_consumption_kwh] )
+
+// CO₂ (Scope 2, kg) — saatlik
+// Format: #,##0 "kg"
+TS CO2 kg =
+SUM( gold_kpi_hourly[co2_emissions_kg] )
+
+// Dış sıcaklık (ortalama) — HVAC bağlamı (Sayfa 7)
+// Format: #,##0.0 "°C"
+TS Avg Temperature C =
+AVERAGE( gold_kpi_hourly[avg_temperature_c] )
+
+// Batarya SoC ortalama (saatlik) — Sayfa 2/7 batarya bağlamı
+// Format: #,##0 "%"
+TS Battery SoC Pct =
+AVERAGE( gold_kpi_hourly[battery_soc_avg_pct] )
+
+
+// =============================================================================
+// BÖLÜM 2 — TİPİK 24-SAAT PROFİLİ (hour-of-day 0..23, günler arası ortalama)
+// -----------------------------------------------------------------------------
+// "Klasik yük eğrisi" görseli — kullanıcının eksik bulduğu asıl saatlik görsel.
+// Eksen: gold_kpi_hourly[hour] (0..23 tamsayı, doğal sıralı).
+// Bu Time Grain toggle'ından AYRI bir görseldir (her zaman saat-of-day).
+// =============================================================================
+
+// Ortalama yük profili: seçili dönem/bina için saat-başına ORTALAMA talep.
+// 24 nokta üretir (eksen = hour). Sabah rampası, öğle, akşam tepesi görünür.
+// Format: #,##0.0 "kW"
+Profile Avg Demand by Hour kW =
+AVERAGE( gold_kpi_hourly[peak_demand_kw] )
+
+// Ortalama saatlik tüketim (gün-içi dağılım)
+// Format: #,##0.0 "kWh"
+Profile Avg Consumption by Hour kWh =
+AVERAGE( gold_kpi_hourly[total_consumption_kwh] )
+
+// Ortalama saatlik solar (gün-içi: gündüz kamburu)
+// Format: #,##0.0 "kWh"
+Profile Avg Solar by Hour kWh =
+AVERAGE( gold_kpi_hourly[solar_generated_kwh] )
+
+// Base load göstergesi: gece (02:00-04:00) min vs gündüz peak — A2 anomali bağlamı
+// Tek sayı: gece dip / gündüz peak oranı (yüksekse "uyumayan bina").
+// Format: 0.0%
+Base Load Ratio Pct =
+VAR _night =
+    CALCULATE( AVERAGE(gold_kpi_hourly[peak_demand_kw]),
+        gold_kpi_hourly[hour] IN {2,3,4} )
+VAR _peak =
+    CALCULATE( MAX(gold_kpi_hourly[peak_demand_kw]),
+        gold_kpi_hourly[hour] IN {9,10,11,12,13,14,15,16,17} )
+RETURN
+    DIVIDE( _night, _peak )
+
+
+// =============================================================================
+// BÖLÜM 3 — GRAIN-FARKINDA YARDIMCI ETİKET (görsel başlığı / tooltip için)
+// -----------------------------------------------------------------------------
+// Seçili grain'i metin olarak döndürür (dinamik başlık: "Hourly view" vb.)
+// =============================================================================
+
+Selected Grain Label =
+VAR _g = SELECTEDVALUE( 'Time Grain'[Time Grain Order], 1 )
+RETURN
+    SWITCH( _g,
+        0, "Hourly (saat-saat)",
+        1, "Daily (gün-gün)",
+        2, "Monthly (ay-ay)",
+        "Daily"
+    )
+// NOT: 'Time Grain'[Time Grain Order] = field parameter'ın 3. sütunu (sıra).
+// İsim Power BI'ın ürettiğine göre değişebilir → New Parameter sonrası kontrol et.
+
+
+// =============================================================================
+// SONRAKI: bu ölçüler `report-design/hourly-granularity-build-guide.md`
+// rehberindeki adımlarla Sayfa 1/2/3/4/7'ye bağlanır.
+// =============================================================================

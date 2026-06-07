@@ -1,0 +1,32 @@
+{
+  "name": "02_silver_transform_pipeline",
+  "description": "Silver layer transformation: cleans, validates, and models Bronze data into Silver tables. Must run after 01_bronze_batch_pipeline completes successfully.",
+  "properties": {
+    "activities": [
+      {
+        "name": "Transform_Bronze_To_Silver",
+        "type": "TridentNotebook",
+        "description": "Run 02_silver_transformation — validates sensor data, applies unit conversions, fills weather context, writes silver_sensor_readings_clean and silver_building_master.",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.01:30:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "notebookId": "02_silver_transformation",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      }
+    ],
+    "parameters": {},
+    "annotations": [
+      "layer:silver",
+      "schedule:daily",
+      "tier:insight"
+    ]
+  }
+}

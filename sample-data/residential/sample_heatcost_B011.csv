@@ -1,0 +1,7 @@
+fabric_building_id,fabric_unit_id,period_start,period_end,energy_type,consumption_kwh,cost_eur,allocation_basis
+B011,B011-U0101,2026-01-01,2026-01-31,heating,820.0,68.40,consumption
+B011,B011-U0102,2026-01-01,2026-01-31,heating,1150.0,95.90,consumption
+B011,B011-U0201,2026-01-01,2026-01-31,heating,690.0,57.50,consumption
+B011,B011-U0202,2026-01-01,2026-01-31,heating,1040.0,86.70,consumption
+B011,B011-U0101,2026-01-01,2026-01-31,dhw,210.0,17.50,consumption
+B011,B011-U0102,2026-01-01,2026-01-31,dhw,265.0,22.10,consumption

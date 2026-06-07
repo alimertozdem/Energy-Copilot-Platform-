@@ -1,0 +1,163 @@
+<svg viewBox="0 0 1280 620" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, system-ui, sans-serif">
+  <rect x="0" y="0" width="1280" height="620" fill="#eef3f1"/>
+
+  <!-- Header -->
+  <text x="24" y="30" font-size="20" font-weight="700" fill="#0f2a22">PAGE 6 — Sustainability / ESG · Visual Binding Map</text>
+  <text x="24" y="50" font-size="12" fill="#5b6b65">CSRD · ESRS E1 · EU Taxonomy — bind each visual to the measure(s) shown. Left bar &amp; pill = status.</text>
+
+  <!-- Legend -->
+  <g font-size="11" fill="#334039">
+    <rect x="892" y="20" width="14" height="14" rx="3" fill="#16a34a"/><text x="911" y="31">DONE</text>
+    <rect x="966" y="20" width="14" height="14" rx="3" fill="#d97706"/><text x="985" y="31">TO-DO</text>
+    <rect x="1052" y="20" width="14" height="14" rx="3" fill="#2563eb"/><text x="1071" y="31">NEW</text>
+  </g>
+
+  <!-- ============ ROW 1 (y=70) ============ -->
+
+  <!-- C1 GHG Intensity -->
+  <g>
+    <rect x="24" y="70" width="296" height="155" rx="10" fill="#ffffff" stroke="#d8e0dc"/>
+    <rect x="24" y="70" width="6" height="155" rx="3" fill="#15803d"/>
+    <rect x="246" y="80" width="62" height="20" rx="10" fill="#16a34a"/><text x="277" y="94" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+    <text x="42" y="98" font-size="13" font-weight="700" fill="#0f2a22">GHG Intensity (kgCO₂/m²/yr)</text>
+    <text x="42" y="118" font-size="11" font-style="italic" fill="#5b6b65">KPI card · ESRS E1-6</text>
+    <text x="42" y="146" font-size="11" font-family="Consolas, monospace" fill="#14532d">[Carbon Intensity S1S2 kgCO2 m2 yr]</text>
+    <text x="42" y="210" font-size="10" font-style="italic" fill="#7a8a83">Scope 1+2 — not Scope-2-only</text>
+  </g>
+
+  <!-- C2 EPC Grade -->
+  <g>
+    <rect x="332" y="70" width="296" height="155" rx="10" fill="#ffffff" stroke="#d8e0dc"/>
+    <rect x="332" y="70" width="6" height="155" rx="3" fill="#15803d"/>
+    <rect x="554" y="80" width="62" height="20" rx="10" fill="#16a34a"/><text x="585" y="94" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+    <text x="350" y="98" font-size="13" font-weight="700" fill="#0f2a22">EPC Portfolio Grade</text>
+    <text x="350" y="118" font-size="11" font-style="italic" fill="#5b6b65">KPI card · EU Taxonomy</text>
+    <text x="350" y="146" font-size="11" font-family="Consolas, monospace" fill="#14532d">[EPC Class Area-Weighted]</text>
+    <text x="350" y="164" font-size="11" font-family="Consolas, monospace" fill="#3a5249">sub: [EPC Score Area-Weighted kWh m2]</text>
+    <text x="350" y="210" font-size="10" font-style="italic" fill="#7a8a83">area-weighted, not building-count</text>
+  </g>
+
+  <!-- C3 Solar PV Share -->
+  <g>
+    <rect x="640" y="70" width="296" height="155" rx="10" fill="#ffffff" stroke="#d8e0dc"/>
+    <rect x="640" y="70" width="6" height="155" rx="3" fill="#15803d"/>
+    <rect x="862" y="80" width="62" height="20" rx="10" fill="#16a34a"/><text x="893" y="94" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+    <text x="658" y="98" font-size="13" font-weight="700" fill="#0f2a22">Solar PV Share %</text>
+    <text x="658" y="118" font-size="11" font-style="italic" fill="#5b6b65">KPI card · ESRS E1-5</text>
+    <text x="658" y="146" font-size="11" font-family="Consolas, monospace" fill="#14532d">[Solar PV Share Pct]</text>
+    <text x="658" y="210" font-size="10" font-style="italic" fill="#7a8a83">renewable share · keep goal line</text>
+  </g>
+
+  <!-- C4 Carbon Levy -->
+  <g>
+    <rect x="948" y="70" width="296" height="155" rx="10" fill="#ffffff" stroke="#d8e0dc"/>
+    <rect x="948" y="70" width="6" height="155" rx="3" fill="#15803d"/>
+    <rect x="1170" y="80" width="62" height="20" rx="10" fill="#16a34a"/><text x="1201" y="94" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+    <text x="966" y="98" font-size="13" font-weight="700" fill="#0f2a22">CO₂ Carbon Levy €</text>
+    <text x="966" y="118" font-size="11" font-style="italic" fill="#5b6b65">KPI card · ESRS E1-8</text>
+    <text x="966" y="146" font-size="11" font-family="Consolas, monospace" fill="#14532d">keep existing measure</text>
+    <text x="966" y="210" font-size="10" font-style="italic" fill="#7a8a83">carbon pricing · ETS2 / BEHG</text>
+  </g>
+
+  <!-- ============ ROW 2 (y=247) ============ -->
+
+  <!-- C5 CRREM Stranding Year -->
+  <g>
+    <rect x="24" y="247" width="296" height="155" rx="10" fill="#ffffff" stroke="#d8e0dc"/>
+    <rect x="24" y="247" width="6" height="155" rx="3" fill="#15803d"/>
+    <rect x="246" y="257" width="62" height="20" rx="10" fill="#16a34a"/><text x="277" y="271" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+    <text x="42" y="275" font-size="13" font-weight="700" fill="#0f2a22">CRREM Stranding Year</text>
+    <text x="42" y="295" font-size="11" font-style="italic" fill="#5b6b65">KPI card · ESRS E1-9</text>
+    <text x="42" y="323" font-size="11" font-family="Consolas, monospace" fill="#14532d">+ chip: [CRREM Stranding Status]</text>
+    <text x="42" y="387" font-size="10" font-style="italic" fill="#7a8a83">transition risk</text>
+  </g>
+
+  <!-- C6 CSRD Disclosure Readiness -->
+  <g>
+    <rect x="332" y="247" width="296" height="155" rx="10" fill="#ffffff" stroke="#bcd0f5"/>
+    <rect x="332" y="247" width="6" height="155" rx="3" fill="#1d4ed8"/>
+    <rect x="554" y="257" width="62" height="20" rx="10" fill="#2563eb"/><text x="585" y="271" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">NEW</text>
+    <text x="350" y="275" font-size="13" font-weight="700" fill="#0f2a22">CSRD Disclosure Readiness %</text>
+    <text x="350" y="295" font-size="11" font-style="italic" fill="#5b6b65">KPI card · self-audit headline</text>
+    <text x="350" y="323" font-size="11" font-family="Consolas, monospace" fill="#14532d">[CSRD Disclosure Readiness Pct]</text>
+    <text x="350" y="387" font-size="10" font-style="italic" fill="#7a8a83">the single biggest differentiator</text>
+  </g>
+
+  <!-- C7 Scope 1/2/3 by Building -->
+  <g>
+    <rect x="640" y="247" width="296" height="155" rx="10" fill="#ffffff" stroke="#d8e0dc"/>
+    <rect x="640" y="247" width="6" height="155" rx="3" fill="#15803d"/>
+    <rect x="862" y="257" width="62" height="20" rx="10" fill="#16a34a"/><text x="893" y="271" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+    <text x="658" y="275" font-size="13" font-weight="700" fill="#0f2a22">Scope 1/2/3 by Building</text>
+    <text x="658" y="293" font-size="11" font-style="italic" fill="#5b6b65">Stacked bar · ESRS E1-6</text>
+    <text x="658" y="317" font-size="11" font-family="Consolas, monospace" fill="#14532d">scope1_total_tco2</text>
+    <text x="658" y="333" font-size="11" font-family="Consolas, monospace" fill="#14532d">scope2_location_tco2</text>
+    <text x="658" y="349" font-size="11" font-family="Consolas, monospace" fill="#14532d">scope3_estimated_tco2</text>
+    <text x="658" y="389" font-size="10" font-style="italic" fill="#7a8a83">Scope 2 = location-based here</text>
+  </g>
+
+  <!-- C8 Portfolio Scope Mix -->
+  <g>
+    <rect x="948" y="247" width="296" height="155" rx="10" fill="#ffffff" stroke="#f0d9b5"/>
+    <rect x="948" y="247" width="6" height="155" rx="3" fill="#b45309"/>
+    <rect x="1170" y="257" width="62" height="20" rx="10" fill="#d97706"/><text x="1201" y="271" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">TO-DO</text>
+    <text x="966" y="275" font-size="13" font-weight="700" fill="#0f2a22">Portfolio Scope Mix</text>
+    <text x="966" y="295" font-size="11" font-style="italic" fill="#5b6b65">Donut · ESRS E1-6</text>
+    <text x="966" y="321" font-size="11" font-family="Consolas, monospace" fill="#14532d">3 slices (S1 / S2 / S3)</text>
+    <text x="966" y="343" font-size="11" font-weight="700" fill="#b45309">label S3: "est. (screening, 8%)"</text>
+    <text x="966" y="389" font-size="10" font-style="italic" fill="#7a8a83">honesty = the expertise signal</text>
+  </g>
+
+  <!-- ============ ROW 3 (y=424) ============ -->
+
+  <!-- C9 Scope 2 Location vs Market -->
+  <g>
+    <rect x="24" y="424" width="296" height="155" rx="10" fill="#ffffff" stroke="#bcd0f5"/>
+    <rect x="24" y="424" width="6" height="155" rx="3" fill="#1d4ed8"/>
+    <rect x="246" y="434" width="62" height="20" rx="10" fill="#2563eb"/><text x="277" y="448" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">NEW</text>
+    <text x="42" y="452" font-size="13" font-weight="700" fill="#0f2a22">Scope 2 — Location vs Market</text>
+    <text x="42" y="472" font-size="11" font-style="italic" fill="#5b6b65">Clustered bar · ESRS E1-6 ⭐</text>
+    <text x="42" y="498" font-size="11" font-family="Consolas, monospace" fill="#14532d">SUM(scope2_location_tco2)</text>
+    <text x="42" y="514" font-size="11" font-family="Consolas, monospace" fill="#14532d">vs SUM(scope2_market_tco2)</text>
+    <text x="42" y="566" font-size="10" font-style="italic" fill="#7a8a83">dual-method — auditable requirement</text>
+  </g>
+
+  <!-- C10 CO2 Emission Trend -->
+  <g>
+    <rect x="332" y="424" width="296" height="155" rx="10" fill="#ffffff" stroke="#f0d9b5"/>
+    <rect x="332" y="424" width="6" height="155" rx="3" fill="#b45309"/>
+    <rect x="554" y="434" width="62" height="20" rx="10" fill="#d97706"/><text x="585" y="448" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">TO-DO</text>
+    <text x="350" y="452" font-size="13" font-weight="700" fill="#0f2a22">CO₂ Emission Trend (annual)</text>
+    <text x="350" y="472" font-size="11" font-style="italic" fill="#5b6b65">Line · ESRS E1-4</text>
+    <text x="350" y="498" font-size="11" font-family="Consolas, monospace" fill="#14532d">Total / Net / Savings</text>
+    <text x="350" y="520" font-size="11" font-weight="700" fill="#b45309">+ overlay target / CRREM line</text>
+    <text x="350" y="566" font-size="10" font-style="italic" fill="#7a8a83">trend must read against a target</text>
+  </g>
+
+  <!-- C11 CRREM Status by Building -->
+  <g>
+    <rect x="640" y="424" width="296" height="155" rx="10" fill="#ffffff" stroke="#f0d9b5"/>
+    <rect x="640" y="424" width="6" height="155" rx="3" fill="#b45309"/>
+    <rect x="862" y="434" width="62" height="20" rx="10" fill="#d97706"/><text x="893" y="448" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">TO-DO</text>
+    <text x="658" y="450" font-size="13" font-weight="700" fill="#0f2a22">CRREM Status by Building</text>
+    <text x="658" y="468" font-size="11" font-style="italic" fill="#5b6b65">Table · ESRS E1-9 (rebind)</text>
+    <text x="658" y="490" font-size="11" font-family="Consolas, monospace" fill="#14532d">[Carbon Intensity S1S2 kgCO2 m2 yr]</text>
+    <text x="658" y="506" font-size="11" font-family="Consolas, monospace" fill="#14532d">[CRREM Pathway 2C kgCO2 m2 yr]</text>
+    <text x="658" y="522" font-size="11" font-family="Consolas, monospace" fill="#14532d">[CRREM Stranding Status]</text>
+    <text x="658" y="566" font-size="10" font-style="italic" fill="#b45309">rebind AFTER re-running 10_crrem</text>
+  </g>
+
+  <!-- C12 Priority Actions -->
+  <g>
+    <rect x="948" y="424" width="296" height="155" rx="10" fill="#ffffff" stroke="#d8e0dc"/>
+    <rect x="948" y="424" width="6" height="155" rx="3" fill="#15803d"/>
+    <rect x="1170" y="434" width="62" height="20" rx="10" fill="#16a34a"/><text x="1201" y="448" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">DONE</text>
+    <text x="966" y="452" font-size="13" font-weight="700" fill="#0f2a22">Priority Actions &amp; Incentives</text>
+    <text x="966" y="472" font-size="11" font-style="italic" fill="#5b6b65">Strip · ESRS E1-3</text>
+    <text x="966" y="498" font-size="11" font-family="Consolas, monospace" fill="#14532d">gold_recommendations</text>
+    <text x="966" y="566" font-size="10" font-style="italic" fill="#7a8a83">grants: KfW / BAFA / YEKA…</text>
+  </g>
+
+  <!-- Footer note -->
+  <text x="24" y="606" font-size="11" font-style="italic" fill="#5b6b65">4 cards + Scope 1/2/3 bar + Actions strip already bound (green). Remaining: Scope-3 label, trend target line, CRREM table rebind. Scope 2 Loc-vs-Market = new visual to place.</text>
+</svg>

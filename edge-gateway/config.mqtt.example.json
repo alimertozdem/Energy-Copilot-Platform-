@@ -1,0 +1,21 @@
+{
+  "_comment": "Per-site MQTT gateway config. point_ref = a JSON key in the published payload. Secrets via env (password_env, sink.connection_env), never inline.",
+  "batch": 100,
+  "max_retries": 0,
+  "sink": { "type": "eventhub", "eventhub_name": "iot-raw", "connection_env": "EVENTHUB_CONN" },
+  "devices": [
+    {
+      "name": "Zone climate sensors",
+      "broker": "mqtt.example.local",
+      "port": 1883,
+      "base_topic": "building/B003/climate/#",
+      "username": "energylens",
+      "password_env": "MQTT_PASSWORD",
+      "points": [
+        { "point_ref": "temperature", "sensor_type": "HVAC_temp", "unit": "degC",    "building_id": "B003", "device_id": "B003_CLIMATE", "zone": "Floor 2" },
+        { "point_ref": "humidity",    "sensor_type": "humidity",  "unit": "percent", "building_id": "B003", "device_id": "B003_CLIMATE", "zone": "Floor 2" },
+        { "point_ref": "co2",         "sensor_type": "CO2",       "unit": "ppm",     "building_id": "B003", "device_id": "B003_CLIMATE", "zone": "Floor 2" }
+      ]
+    }
+  ]
+}

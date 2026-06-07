@@ -1,0 +1,854 @@
+######## 1. TABLES + COLUMNS ########
+
+TABLE: 'Date'   (24 cols, 34 measures)
+   col | Column | Int64
+   col | Date | DateTime
+   col | DayName | String
+   col | DayOfWeek | Int64
+   col | DayOfWeekIndex | Int64
+   col | DayOfWeekLabel | String
+   col | IsCurrentMonth | Boolean
+   col | IsCurrentWeek | Boolean
+   col | IsLastMonth | Boolean
+   col | IsLastWeek | Boolean
+   col | IsWeekend | Boolean
+   col | Month | Int64
+   col | Month index | Int64
+   col | MonthIndex | Int64
+   col | MonthName | String
+   col | MonthShort | String
+   col | Quarter | String
+   col | WeekNumber | Int64
+   col | WeekStart | DateTime
+   col | Year | Int64
+   col | YearMonth | String
+   col | YearQuarter | String
+   col | YearWeek | String
+   col | YearWeekIndex | Int64
+
+TABLE: DayOfWeek_Dim   (3 cols, 0 measures)
+   col | day_of_week | Int64
+   col | DayName | String
+   col | DayOrder | Int64
+
+TABLE: gold_anomaly_log   (13 cols, 27 measures)
+   col | anomaly_id | String
+   col | anomaly_type | String
+   col | building_id | String
+   col | description_de | String
+   col | description_en | String
+   col | description_tr | String
+   col | detected_at | DateTime
+   col | detected_date | DateTime
+   col | is_resolved | Boolean
+   col | metric_value | Double
+   col | recommended_action_en | String
+   col | severity | String
+   col | threshold_value | Double
+
+TABLE: gold_battery_daily_summary   (20 cols, 0 measures)
+   col | avg_soc_end_percent | Double
+   col | avg_soc_start_percent | Double
+   col | battery_type | String
+   col | building_id | String
+   col | building_name | String
+   col | charge_kwh | Double
+   col | country | String
+   col | daily_co2_avoided_kg | Double
+   col | daily_net_savings_eur | Double
+   col | date | DateTime
+   col | discharge_kwh | Double
+   col | eu_compliant | Boolean
+   col | is_simulated | Boolean
+   col | processed_at | DateTime
+   col | pv_generation_kwh | Double
+   col | round_trip_efficiency | Double
+   col | strategy | String
+   col | total_co2_avoided_kg | Double
+   col | total_cost_avoided_eur | Double
+   col | total_cycles_cumulative | Double
+
+TABLE: gold_battery_dispatch   (30 cols, 15 measures)
+   col | battery_id | String
+   col | battery_type | String
+   col | building_id | String
+   col | building_name | String
+   col | capacity_kwh | Double
+   col | charge_kwh | Double
+   col | co2_avoided_kg | Double
+   col | cost_avoided_eur | Double
+   col | country | String
+   col | cycle_depth_pct | Double
+   col | date | DateTime
+   col | demand_reduction_eur | Double
+   col | discharge_kwh | Double
+   col | eu_compliant | Boolean
+   col | grid_charge_cost_eur | Double
+   col | grid_charge_kwh | Double
+   col | grid_co2_intensity_g_kwh | Double
+   col | grid_price_offpeak_eur_kwh | Double
+   col | grid_price_peak_eur_kwh | Double
+   col | is_simulated | Boolean
+   col | net_savings_eur | Double
+   col | processed_at | DateTime
+   col | pv_capacity_kwp | Double
+   col | pv_charge_kwh | Double
+   col | pv_generation_kwh | Double
+   col | pv_to_load_kwh | Double
+   col | round_trip_efficiency | Double
+   col | soc_end_pct | Double
+   col | soc_start_pct | Double
+   col | strategy | String
+
+TABLE: gold_battery_hourly_dispatch   (15 cols, 0 measures)
+   col | battery_capacity_kwh | Double
+   col | building_id | String
+   col | building_name | String
+   col | charge_kwh | Double
+   col | discharge_kwh | Double
+   col | grid_price_eur_mwh | Double
+   col | grid_price_index | Double
+   col | hour_label | String
+   col | hour_of_day | Int64
+   col | is_active_strategy | String
+   col | is_cheap_hour | String
+   col | is_peak_price_hour | String
+   col | soc_percent | Double
+   col | strategy | String
+   col | strategy_label | String
+
+TABLE: gold_battery_simulation   (20 cols, 2 measures)
+   col | annual_co2_avoided_kg | Double
+   col | annual_savings_eur | Double
+   col | avg_round_trip_efficiency_pct | Double
+   col | battery_capacity_kwh | Double
+   col | battery_cost_eur | Double
+   col | battery_type | String
+   col | building_id | String
+   col | building_name | String
+   col | comparison_score | Double
+   col | country_code | String
+   col | eu_compliant | Boolean
+   col | irr_percent | Double
+   col | npv_10yr_eur | Double
+   col | payback_years | Double
+   col | processed_at | DateTime
+   col | pv_capacity_kwp | Double
+   col | scenario_id | String
+   col | strategy | String
+   col | strategy_label | String
+   col | total_capex_eur | Double
+
+TABLE: gold_battery_technologies   (16 cols, 0 measures)
+   col | battery_id | String
+   col | battery_power_kw | Double
+   col | battery_type | String
+   col | capacity_kwh | Double
+   col | carbon_footprint_kg_co2_per_kwh | Double
+   col | cost_eur_per_kwh | Double
+   col | degradation_rate_pct_per_1000_cycles | Double
+   col | design_cycles | Int64
+   col | eu_compliant | Boolean
+   col | expected_lifespan_years | Int64
+   col | manufacturer | String
+   col | recycled_content_percent | Double
+   col | regions_approved | String
+   col | round_trip_efficiency_percent | Double
+   col | suitable_strategies | String
+   col | warranty_cycles | Int64
+
+TABLE: gold_compliance_results   (55 cols, 1 measures)
+   col | annual_carbon_intensity_kg_m2 | Double
+   col | annual_eui_kwh_m2 | Double
+   col | assessed_at | DateTime
+   col | at_incentives_applicable | String
+   col | bafa_programs_applicable | String
+   col | beptr_energy_class | String
+   col | beptr_score | Double
+   col | beptr_status | String
+   col | building_id | String
+   col | building_name | String
+   col | building_type | String
+   col | city | String
+   col | co2_levy_cost_2026_eur | Double
+   col | co2_levy_cost_2027_ets2_eur | Double
+   col | country_code | String
+   col | csrd_score | Double
+   col | csrd_status | String
+   col | eeg_score | Double
+   col | eeg_status | String
+   col | enefg_audit_required | Boolean
+   col | enefg_is_large_consumer | Boolean
+   col | enefg_score | Double
+   col | enefg_status | String
+   col | epbd_class_d_compliant | Boolean
+   col | epbd_class_e_compliant | Boolean
+   col | epbd_nzeb_gap_kwh_m2 | Double
+   col | epbd_score | Double
+   col | epbd_status | String
+   col | est_gas_co2_tonnes | Double
+   col | geg_heating_compliant | Boolean
+   col | geg_roof_compliant | Boolean
+   col | geg_score | Double
+   col | geg_status | String
+   col | geg_wall_compliant | Boolean
+   col | geg_window_compliant | Boolean
+   col | kfw_programs_applicable | String
+   col | nl_energielabel_class | String
+   col | nl_incentives_applicable | String
+   col | nl_label_score | Double
+   col | nl_label_status | String
+   col | oib_roof_compliant | Boolean
+   col | oib_score | Double
+   col | oib_status | String
+   col | oib_wall_compliant | Boolean
+   col | oib_window_compliant | Boolean
+   col | overall_score | Double
+   col | overall_status | String
+   col | priority_action | String
+   col | roof_u_value_current | Double
+   col | solar_self_consumption_pct | Double
+   col | subscription_tier | String
+   col | wall_u_value_current | Double
+   col | window_u_value_current | Double
+   col | year_built | Int64
+   col | yeka_programs_applicable | String
+
+TABLE: gold_consumption_forecast   (10 cols, 0 measures)
+   col | building_id | String
+   col | confidence_pct | Double
+   col | forecast_date | DateTime
+   col | forecasted_at | DateTime
+   col | lower_bound_kwh | Double
+   col | model_mape_pct | Double
+   col | model_version | String
+   col | predicted_kwh | Double
+   col | trained_on_days | Int64
+   col | upper_bound_kwh | Double
+
+TABLE: gold_country_regulations   (26 cols, 4 measures)
+   col | capacity_market_eligible | Boolean
+   col | co2_intensity_grid_g_per_kwh | Int64
+   col | country_code | String
+   col | country_name | String
+   col | demand_charge_eur_per_kw_month | Double
+   col | digital_passport_required_from | String
+   col | feed_in_tariff_eur_per_kwh | Double
+   col | frequency_market_eligible | Boolean
+   col | grid_price_offpeak_eur_per_kwh | Double
+   col | grid_price_peak_eur_per_kwh | Double
+   col | is_eu_member | Boolean
+   col | last_updated_date | DateTime
+   col | lfp_allowed | Boolean
+   col | min_carbon_threshold_kg_co2_per_kwh | Int64
+   col | min_recycled_content_pct | Int64
+   col | nca_allowed | Boolean
+   col | nmc_allowed_new_2025 | Boolean
+   col | notes | String
+   col | primary_regulator | String
+   col | region_group | String
+   col | regulation_short_name | String
+   col | regulation_url | String
+   col | sodium_ion_approved | Boolean
+   col | solid_state_pilot | Boolean
+   col | sub_metering_required | Boolean
+   col | v2g_grid_code_ready | Boolean
+
+TABLE: gold_crrem_pathway   (9 cols, 3 measures)
+   col | building_type | String
+   col | country_code | String
+   col | data_source | String
+   col | pathway_15c_kgco2_m2_yr | Double
+   col | pathway_2c_kgco2_m2_yr | Double
+   col | pathway_year | Int64
+   col | sector_benchmark_2020 | Double
+   col | updated_at | DateTime
+   col | year_month | DateTime
+
+TABLE: gold_ghg_scope   (19 cols, 8 measures)
+   col | building_id | String
+   col | data_quality_flag | String
+   col | emission_factor_grid | Double
+   col | emission_factor_source | String
+   col | reporting_month | Int64
+   col | reporting_year | Int64
+   col | scope1_diesel_tco2 | Double
+   col | scope1_gas_tco2 | Double
+   col | scope1_total_tco2 | Double
+   col | scope2_location_tco2 | Double
+   col | scope2_market_tco2 | Double
+   col | scope2_method | String
+   col | scope3_disclosure_grade | Boolean
+   col | scope3_estimated_tco2 | Double
+   col | scope3_method | String
+   col | total_ghg_location_tco2 | Double
+   col | total_ghg_market_tco2 | Double
+   col | updated_at | DateTime
+   col | year_month | DateTime
+
+TABLE: gold_hvac_analytics   (27 cols, 0 measures)
+   col | building_id | String
+   col | cdd_monthly | Double
+   col | cooling_energy_kwh | Double
+   col | cooling_share_pct | Double
+   col | cop_actual_avg | Double
+   col | hdd_monthly | Double
+   col | heat_loss_kwh | Double
+   col | heat_loss_kwh_m2 | Double
+   col | heating_energy_kwh | Double
+   col | heating_share_pct | Double
+   col | hvac_efficiency_score | Double
+   col | hvac_share_pct | Double
+   col | hvac_total_kwh | Double
+   col | insulation_score | Double
+   col | non_hvac_kwh | Double
+   col | renovation_priority | String
+   col | renovation_reason | String
+   col | reporting_month | Int64
+   col | reporting_year | Int64
+   col | scop_rolling | Double
+   col | system_label | String
+   col | system_type | String
+   col | total_consumption_kwh | Double
+   col | u_composite | Double
+   col | updated_at | DateTime
+   col | ventilation_kwh | Double
+   col | year_month | DateTime
+
+TABLE: gold_iot_daily_summary   (15 cols, 0 measures)
+   col | active_sensors | Int64
+   col | anomaly_count | Int64
+   col | anomaly_rate_pct | Double
+   col | avg_reading_quality | Double
+   col | avg_reading_value | Double
+   col | building_id | String
+   col | compliance_pct | Double
+   col | event_date | DateTime
+   col | high_severity_count | Int64
+   col | max_reading_value | Double
+   col | min_reading_value | Double
+   col | sensor_type | String
+   col | sensor_uptime_pct | Double
+   col | total_cost_eur_estimate | Double
+   col | total_readings | Int64
+
+TABLE: gold_iot_fdd   (23 cols, 19 measures)
+   col | building_id | String
+   col | building_type | String
+   col | confidence | Double
+   col | cost_eur_estimate | Double
+   col | description | String
+   col | detected_at | DateTime
+   col | energy_impact_kwh | Double
+   col | equipment | String
+   col | equipment_type | String
+   col | event_date | DateTime
+   col | fault_code | String
+   col | fdd_rule | String
+   col | first_seen | DateTime
+   col | grid_price | Double
+   col | last_seen | DateTime
+   col | occurrence_count | Int64
+   col | point_group | String
+   col | power_waste_kw | Double
+   col | priority_score | Int64
+   col | probable_cause | String
+   col | recommended_action | String
+   col | severity | String
+   col | timestamp | DateTime
+
+TABLE: gold_iot_realtime   (25 cols, 3 measures)
+   col | action_recommended | String
+   col | anomaly_count | Int64
+   col | anomaly_severity_window | String
+   col | baseline_value | Double
+   col | building_id | String
+   col | cost_eur_window | Double
+   col | event_date | DateTime
+   col | high_severity_count | Int64
+   col | hour_bucket | String
+   col | hour_of_day | Int64
+   col | in_setpoint_pct | Double
+   col | is_anomaly_window | Boolean
+   col | medium_severity_count | Int64
+   col | reading_count | Int64
+   col | reading_quality_avg | Double
+   col | reading_unit | String
+   col | reading_value_avg | Double
+   col | reading_value_max | Double
+   col | reading_value_min | Double
+   col | sensor_location | String
+   col | sensor_type | String
+   col | setpoint_max | Double
+   col | setpoint_min | Double
+   col | source_protocol | String
+   col | timestamp | DateTime
+
+TABLE: gold_kpi_daily   (41 cols, 46 measures)
+   col | _tariff_eur_kwh | Double
+   col | avg_load_factor | Double
+   col | avg_self_consumption_rate | Double
+   col | avg_self_sufficiency_rate | Double
+   col | avg_solar_pr | Double
+   col | avg_temperature_c | Double
+   col | battery_capacity_kwh | Double
+   col | battery_charged_kwh | Double
+   col | battery_cycles_day | Double
+   col | battery_discharged_kwh | Double
+   col | battery_soc_max_pct | Double
+   col | battery_soc_min_pct | Double
+   col | building_id | String
+   col | carbon_intensity_kg_m2 | Double
+   col | cdd_day | Double
+   col | climate_adjusted_eui | Double
+   col | co2_emissions_kg | Double
+   col | co2_savings_from_solar_kg | Double
+   col | country_code | String
+   col | date | DateTime
+   col | emission_factor_kg_kwh | Double
+   col | estimated_cost_eur | Double
+   col | estimated_savings_eur | Double
+   col | eui_kwh_m2 | Double
+   col | floor_area_m2 | Double
+   col | has_battery | Boolean
+   col | has_heat_pump | Boolean
+   col | has_pv | Boolean
+   col | hdd_day | Double
+   col | month | Int64
+   col | net_grid_consumption_kwh | Double
+   col | peak_demand_kw | Double
+   col | processed_at | DateTime
+   col | pv_capacity_kwp | Double
+   col | solar_exported_kwh | Double
+   col | solar_generated_kwh | Double
+   col | solar_self_consumed_kwh | Double
+   col | subscription_tier | String
+   col | total_consumption_kwh | Double
+   col | total_dd_day | Double
+   col | year | Int64
+
+TABLE: gold_kpi_hourly   (43 cols, 13 measures)
+   col | avg_irradiance_wm2 | Double
+   col | avg_temperature_c | Double
+   col | battery_capacity_kwh | Double
+   col | battery_charged_kwh | Double
+   col | battery_cycle_fraction | Double
+   col | battery_discharged_kwh | Double
+   col | battery_soc_avg_pct | Double
+   col | battery_soc_max_pct | Double
+   col | battery_soc_min_pct | Double
+   col | building_id | String
+   col | cdd_hour | Double
+   col | co2_emissions_kg | Double
+   col | co2_savings_from_solar_kg | Double
+   col | country_code | String
+   col | date | DateTime
+   col | day | Int64
+   col | eff_emission_factor | Double
+   col | emission_factor_kg_kwh | Double
+   col | floor_area_m2 | Double
+   col | has_battery | Boolean
+   col | has_heat_pump | Boolean
+   col | has_pv | Boolean
+   col | hdd_hour | Double
+   col | hour | Int64
+   col | hour_utc | DateTime
+   col | is_night_hour | Boolean
+   col | load_factor | Double
+   col | month | Int64
+   col | net_grid_consumption_kwh | Double
+   col | peak_demand_kw | Double
+   col | processed_at | DateTime
+   col | pv_capacity_kwp | Double
+   col | reading_count | Int64
+   col | roundtrip_efficiency | Double
+   col | self_consumption_rate | Double
+   col | self_sufficiency_rate | Double
+   col | solar_exported_kwh | Double
+   col | solar_generated_kwh | Double
+   col | solar_performance_ratio | Double
+   col | solar_self_consumed_kwh | Double
+   col | subscription_tier | String
+   col | total_consumption_kwh | Double
+   col | year | Int64
+
+TABLE: gold_occupancy_profile   (9 cols, 16 measures)
+   col | building_id | String
+   col | calibration_weeks | Int64
+   col | computed_at | DateTime
+   col | confidence_score | Double
+   col | day_of_week | Int64
+   col | hour_of_day | Int64
+   col | model_version | String
+   col | occupancy_probability | Double
+   col | profile_source | String
+
+TABLE: gold_recommendations   (26 cols, 14 measures)
+   col | action_type | String
+   col | annual_saving_eur | Double
+   col | assessed_at | DateTime
+   col | building_id | String
+   col | building_name | String
+   col | building_type | String
+   col | capex_eur | Double
+   col | co2_saving_kg | Double
+   col | compliance_driver | String
+   col | country_code | String
+   col | description_de | String
+   col | description_en | String
+   col | description_tr | String
+   col | grant_eur | Double
+   col | grant_programs | String
+   col | net_capex_eur | Double
+   col | npv_eur | Double
+   col | payback_years | Double
+   col | priority_label | String
+   col | priority_score | Double
+   col | priority_sort_order | Int64
+   col | rank | Int64
+   col | subscription_tier | String
+   col | title_de | String
+   col | title_en | String
+   col | title_tr | String
+
+TABLE: gold_strategy_fitness   (9 cols, 3 measures)
+   col | building_type | String
+   col | energy_logic_rationale | String
+   col | fitness_score | Int64
+   col | is_primary | Boolean
+   col | is_secondary | Boolean
+   col | risk_or_caveat | String
+   col | strategy | String
+   col | strategy_label | String
+   col | typical_annual_savings_eur_per_kwh | Int64
+
+TABLE: Scope_Category   (1 cols, 1 measures)
+   col | Scope | String
+
+TABLE: sensor_labels   (2 cols, 0 measures)
+   col | sensor_label | String
+   col | sensor_type | String
+
+TABLE: silver_building_master   (47 cols, 2 measures)
+   col | air_tightness_ach | Double
+   col | battery_capacity_kwh | Double
+   col | battery_strategy | String
+   col | battery_technology | String
+   col | building_id | String
+   col | building_name | String
+   col | building_type | String
+   col | city | String
+   col | climate_zone | String
+   col | conditioned_area_m2 | Double
+   col | country_code | String
+   col | emission_factor_kg_kwh | Double
+   col | energy_certificate | String
+   col | energy_certificate_year | Double
+   col | floor_u_value | Double
+   col | gross_floor_area_m2 | Double
+   col | has_battery | Boolean
+   col | has_diesel_generator | Boolean
+   col | has_ev_charging | Boolean
+   col | has_gas_heating | Boolean
+   col | has_heat_pump | Boolean
+   col | has_hvac_traditional | Boolean
+   col | has_led_lighting | Boolean
+   col | has_pv | Boolean
+   col | has_thermal_bridge | Boolean
+   col | heat_pump_capacity_kw | Double
+   col | heat_pump_cop_rated | Double
+   col | insulation_year | Double
+   col | iso50001_certified | Boolean
+   col | load_timestamp | DateTime
+   col | max_occupants | Int64
+   col | organization_id | String
+   col | primary_hvac_system | String
+   col | pv_capacity_kwp | Double
+   col | regulatory_profile_id | String
+   col | roof_area_m2 | Double
+   col | roof_orientation | String
+   col | roof_tilt_deg | Double
+   col | roof_u_value | Double
+   col | subscription_tier | String
+   col | thermal_mass_level | String
+   col | updated_at | DateTime
+   col | utc_offset_hours | Int64
+   col | wall_u_value | Double
+   col | window_to_wall_ratio | Double
+   col | window_u_value | Double
+   col | year_built | Int64
+
+TABLE: silver_data_quality   (12 cols, 0 measures)
+   col | anomaly_readings | Int64
+   col | building_id | String
+   col | completeness_pct | Double
+   col | interpolated_readings | Int64
+   col | interpolation_pct | Double
+   col | missing_readings | Int64
+   col | ok_readings | Int64
+   col | quality_grade | String
+   col | quality_score_pct | Double
+   col | report_month | DateTime
+   col | total_readings | Int64
+   col | updated_at | DateTime
+
+TABLE: silver_epc_ratings   (11 cols, 2 measures)
+   col | assessment_year | Int64
+   col | building_id | String
+   col | certifying_body | String
+   col | co2_kg_m2_year | Double
+   col | country | String
+   col | epc_class | String
+   col | epc_score_kwh_m2 | Double
+   col | methodology | String
+   col | updated_at | DateTime
+   col | valid_from | DateTime
+   col | valid_to | DateTime
+
+TABLE: U-Value Categories   (3 cols, 0 measures)
+   col | Component | String
+   col | Reference_GEG | Double
+   col | SortIdx | Int64
+
+######## 2. MEASURES (home table | measure name) ########
+MEASURE | 'Date' | Card: Last Month vs Previous Month Pct
+MEASURE | 'Date' | Card: Last Week vs Previous Week Pct
+MEASURE | 'Date' | Card: Weekly Avg Consumption kWh
+MEASURE | 'Date' | Consumption Change Pct
+MEASURE | 'Date' | Cost Change Pct
+MEASURE | 'Date' | Current Month kWh v14
+MEASURE | 'Date' | Current Week kWh v14
+MEASURE | 'Date' | Last 30 Days CO2 tCO2
+MEASURE | 'Date' | Last 30 Days Consumption kWh
+MEASURE | 'Date' | Last 30 Days Cost EUR
+MEASURE | 'Date' | Last 7 Days CO2 tCO2
+MEASURE | 'Date' | Last 7 Days Consumption kWh
+MEASURE | 'Date' | Last 7 Days Cost EUR
+MEASURE | 'Date' | Last Month CO2 Emissions tCO2
+MEASURE | 'Date' | Last Month Cost EUR
+MEASURE | 'Date' | Last Month kWh v14
+MEASURE | 'Date' | Last Month Peak Demand kW
+MEASURE | 'Date' | Last Month Solar Generated kWh
+MEASURE | 'Date' | Last Week CO2 Emissions tCO2
+MEASURE | 'Date' | Last Week Cost EUR
+MEASURE | 'Date' | Last Week kWh v14
+MEASURE | 'Date' | Last Week Peak Demand kW
+MEASURE | 'Date' | Last Week Solar Generated kWh
+MEASURE | 'Date' | MoM CO2 Change Pct
+MEASURE | 'Date' | MoM Cost Change Pct
+MEASURE | 'Date' | Month over Month Arrow v14
+MEASURE | 'Date' | Month over Month Consumption Pct
+MEASURE | 'Date' | Previous Period Consumption kWh
+MEASURE | 'Date' | Previous Period Cost EUR
+MEASURE | 'Date' | Week over Week Arrow v14
+MEASURE | 'Date' | Week over Week Consumption Pct
+MEASURE | 'Date' | WoW Solar Change Pct
+MEASURE | 'Date' | YTD CO2 Emissions tCO2
+MEASURE | 'Date' | YTD Consumption kWh
+MEASURE | gold_anomaly_log | Critical Anomaly Count v14
+MEASURE | gold_anomaly_log | High Anomaly Count v14
+MEASURE | gold_anomaly_log | Low Anomaly Count v14
+MEASURE | gold_anomaly_log | Medium Anomaly Count v14
+MEASURE | gold_anomaly_log | P3 Active Anomaly Rate Pct
+MEASURE | gold_anomaly_log | P3 After Hours Waste Rate Pct
+MEASURE | gold_anomaly_log | P3 Anomaly Deviation Pct
+MEASURE | gold_anomaly_log | P3 Anomaly Status
+MEASURE | gold_anomaly_log | P3 Avg Days Open
+MEASURE | gold_anomaly_log | P3 Building Anomaly Share Pct
+MEASURE | gold_anomaly_log | P3 Critical Anomaly Count
+MEASURE | gold_anomaly_log | P3 Critical Open Count
+MEASURE | gold_anomaly_log | P3 Data Quality Score
+MEASURE | gold_anomaly_log | P3 Data Quality Target
+MEASURE | gold_anomaly_log | P3 High Anomaly Count
+MEASURE | gold_anomaly_log | P3 High Anomaly Previous Month
+MEASURE | gold_anomaly_log | P3 High Priority Open Count
+MEASURE | gold_anomaly_log | P3 Low Anomaly Count
+MEASURE | gold_anomaly_log | P3 Medium Anomaly Count
+MEASURE | gold_anomaly_log | P3 Resolution Rate Pct
+MEASURE | gold_anomaly_log | P3 Resolution Rate Pct PY
+MEASURE | gold_anomaly_log | P3 Top Risk Building Name
+MEASURE | gold_anomaly_log | P3 Top Risk Building Score
+MEASURE | gold_anomaly_log | P3 Total Anomaly Count
+MEASURE | gold_anomaly_log | P3 Total Anomaly PY
+MEASURE | gold_anomaly_log | P3 Unresolved Count
+MEASURE | gold_anomaly_log | P3 Unresolved YoY
+MEASURE | gold_battery_dispatch | Active Battery Label
+MEASURE | gold_battery_dispatch | Active Strategy Short Label
+MEASURE | gold_battery_dispatch | C1 Annual Savings EUR
+MEASURE | gold_battery_dispatch | C3 CO2 Avoided Tonnes Annual
+MEASURE | gold_battery_dispatch | C4 Round Trip Efficiency Pct
+MEASURE | gold_battery_dispatch | I1 Strategy Recommendation Text
+MEASURE | gold_battery_dispatch | I1 Type Check
+MEASURE | gold_battery_dispatch | I4 Next Action Text
+MEASURE | gold_battery_dispatch | Page9 Data As Of
+MEASURE | gold_battery_dispatch | V4 Monthly CO2 Avoided Kg
+MEASURE | gold_battery_dispatch | V4 Monthly Net Savings EUR
+MEASURE | gold_battery_dispatch | V7 Current SoH Pct
+MEASURE | gold_battery_dispatch | V7 Cycles Used Pct
+MEASURE | gold_battery_dispatch | V7 Debug Battery ID
+MEASURE | gold_battery_dispatch | V7 Years Until Replacement
+MEASURE | gold_battery_simulation | C2 Payback Years
+MEASURE | gold_battery_simulation | C5 EU Compliance Status Text
+MEASURE | gold_compliance_results | EU Taxonomy Carbon Score
+MEASURE | gold_country_regulations | I2 Chemistry Recommendation Text
+MEASURE | gold_country_regulations | I3 Compliance Flag Text
+MEASURE | gold_country_regulations | V5 Country Chemistry Flag
+MEASURE | gold_country_regulations | V5 Country Chemistry Symbol
+MEASURE | gold_crrem_pathway | CRREM Pathway 2C kgCO2 m2 yr
+MEASURE | gold_crrem_pathway | CRREM Stranding Gap S1S2 kgCO2 m2 yr
+MEASURE | gold_crrem_pathway | CRREM Stranding Status
+MEASURE | gold_ghg_scope | Carbon Intensity S1S2 kgCO2 m2 yr
+MEASURE | gold_ghg_scope | CSRD Disclosure Readiness Pct
+MEASURE | gold_ghg_scope | Scope 1 Share Pct
+MEASURE | gold_ghg_scope | Scope 1 tCO2
+MEASURE | gold_ghg_scope | Scope 2 Location Share Pct
+MEASURE | gold_ghg_scope | Scope 2 Location tCO2
+MEASURE | gold_ghg_scope | Scope 3 Est tCO2
+MEASURE | gold_ghg_scope | Scope 3 Share Pct
+MEASURE | gold_iot_fdd | IoT C4 Color v59
+MEASURE | gold_iot_fdd | IoT C4 Label v59
+MEASURE | gold_iot_fdd | IoT FDD Avg Confidence
+MEASURE | gold_iot_fdd | IoT FDD Avg Confidence Pct
+MEASURE | gold_iot_fdd | IoT FDD Cost Label
+MEASURE | gold_iot_fdd | IoT FDD Cost Today EUR
+MEASURE | gold_iot_fdd | IoT FDD Count by Rule
+MEASURE | gold_iot_fdd | IoT FDD Diagnoses Today
+MEASURE | gold_iot_fdd | IoT FDD Energy Impact kWh Today
+MEASURE | gold_iot_fdd | IoT FDD Findings Today
+MEASURE | gold_iot_fdd | IoT FDD High Today
+MEASURE | gold_iot_fdd | IoT FDD Max Priority
+MEASURE | gold_iot_fdd | IoT FDD Priority Band
+MEASURE | gold_iot_fdd | IoT FDD Priority Color
+MEASURE | gold_iot_fdd | IoT FDD Row Confidence
+MEASURE | gold_iot_fdd | IoT FDD Row Cost Label
+MEASURE | gold_iot_fdd | IoT FDD Severity Sort
+MEASURE | gold_iot_fdd | IoT FDD Top Diagnosis
+MEASURE | gold_iot_fdd | IoT Total Cost Today EUR
+MEASURE | gold_iot_realtime | IoT Zone Compliance Color
+MEASURE | gold_iot_realtime | IoT Zone Compliance Display
+MEASURE | gold_iot_realtime | IoT Zone Setpoint Compliance Pct
+MEASURE | gold_kpi_daily | Avg Battery Cycles Day
+MEASURE | gold_kpi_daily | Avg Battery SoC Pct
+MEASURE | gold_kpi_daily | Avg Carbon Intensity kg m2
+MEASURE | gold_kpi_daily | Avg Carbon Intensity kg m2 KPI
+MEASURE | gold_kpi_daily | Avg Daily Consumption kWh
+MEASURE | gold_kpi_daily | Avg Daily Consumption kWh KPI
+MEASURE | gold_kpi_daily | Avg EUI kWh m2
+MEASURE | gold_kpi_daily | Avg EUI kWh max
+MEASURE | gold_kpi_daily | Avg HDD Normalized EUI
+MEASURE | gold_kpi_daily | Avg Self Consumption Rate Pct
+MEASURE | gold_kpi_daily | Avg Self Sufficiency Rate Pct
+MEASURE | gold_kpi_daily | Avg Solar PR Pct
+MEASURE | gold_kpi_daily | Avg Temperature C
+MEASURE | gold_kpi_daily | Battery Net kWh
+MEASURE | gold_kpi_daily | Buildings Count
+MEASURE | gold_kpi_daily | Carbon Intensity Target
+MEASURE | gold_kpi_daily | Carbon Reduction from Solar Pct
+MEASURE | gold_kpi_daily | Daily Consumption Target
+MEASURE | gold_kpi_daily | EUI Target Numeric
+MEASURE | gold_kpi_daily | Ghost Load Annual Cost EUR
+MEASURE | gold_kpi_daily | Monthly Actual Cost EUR
+MEASURE | gold_kpi_daily | Monthly Actual kWh
+MEASURE | gold_kpi_daily | Monthly Forecast kWh
+MEASURE | gold_kpi_daily | Monthly Forecast vs PY Pct
+MEASURE | gold_kpi_daily | Monthly PY kWh
+MEASURE | gold_kpi_daily | Monthly YoY Change Pct
+MEASURE | gold_kpi_daily | Net Carbon Footprint tCO2
+MEASURE | gold_kpi_daily | Peak Demand kW
+MEASURE | gold_kpi_daily | Peak Demand kW KPI
+MEASURE | gold_kpi_daily | Peak Demand Target
+MEASURE | gold_kpi_daily | Solar Coverage Pct
+MEASURE | gold_kpi_daily | Solar Generation Target
+MEASURE | gold_kpi_daily | Solar Self Consumed kWh
+MEASURE | gold_kpi_daily | Total CDD
+MEASURE | gold_kpi_daily | Total CO2 Emissions kg
+MEASURE | gold_kpi_daily | Total CO2 Emissions tCO2
+MEASURE | gold_kpi_daily | Total CO2 Savings from Solar kg
+MEASURE | gold_kpi_daily | Total CO2 Savings from Solar tCO2
+MEASURE | gold_kpi_daily | Total Consumption kWh
+MEASURE | gold_kpi_daily | Total Energy Cost EUR
+MEASURE | gold_kpi_daily | Total Grid Consumption kWh
+MEASURE | gold_kpi_daily | Total HDD
+MEASURE | gold_kpi_daily | Total Solar Exported kWh
+MEASURE | gold_kpi_daily | Total Solar Generated kWh
+MEASURE | gold_kpi_daily | Total Solar Generated kWh KPI
+MEASURE | gold_kpi_daily | Total Solar Savings EUR
+MEASURE | gold_kpi_hourly | Base Load Ratio Pct
+MEASURE | gold_kpi_hourly | Profile Avg Consumption by Hour kWh
+MEASURE | gold_kpi_hourly | Profile Avg Demand by Hour kW
+MEASURE | gold_kpi_hourly | Profile Avg Solar by Hour kWh
+MEASURE | gold_kpi_hourly | TS Avg Demand kW
+MEASURE | gold_kpi_hourly | TS Avg Temperature C
+MEASURE | gold_kpi_hourly | TS Battery SoC Pct
+MEASURE | gold_kpi_hourly | TS CO2 kg
+MEASURE | gold_kpi_hourly | TS Consumption kWh
+MEASURE | gold_kpi_hourly | TS Net Grid kWh
+MEASURE | gold_kpi_hourly | TS Peak Demand kW
+MEASURE | gold_kpi_hourly | TS Solar Generated kWh
+MEASURE | gold_kpi_hourly | TS Solar Self-Consumed kWh
+MEASURE | gold_occupancy_profile | Avg After Hours Occupancy Pct
+MEASURE | gold_occupancy_profile | Avg Business Hours Occupancy Pct
+MEASURE | gold_occupancy_profile | Avg Profile Confidence
+MEASURE | gold_occupancy_profile | Avg Weekday Occupancy Pct
+MEASURE | gold_occupancy_profile | Avg Weekend Occupancy Pct
+MEASURE | gold_occupancy_profile | Building Avg Headcount Business Hours
+MEASURE | gold_occupancy_profile | Building Avg Headcount Calc
+MEASURE | gold_occupancy_profile | Building Peak Headcount
+MEASURE | gold_occupancy_profile | Building Peak Headcount Calc
+MEASURE | gold_occupancy_profile | Calibrated Buildings Count
+MEASURE | gold_occupancy_profile | Energy per Occupant Goal kWh
+MEASURE | gold_occupancy_profile | Ghost Load Risk Pct
+MEASURE | gold_occupancy_profile | Ghost Load Risk Status
+MEASURE | gold_occupancy_profile | Measure
+MEASURE | gold_occupancy_profile | Occupancy Top Insight
+MEASURE | gold_occupancy_profile | Occupied Hours Variance Hours
+MEASURE | gold_recommendations | Avg Payback Years
+MEASURE | gold_recommendations | Critical Recommendations
+MEASURE | gold_recommendations | High Priority Recommendations
+MEASURE | gold_recommendations | Priority Sort Order
+MEASURE | gold_recommendations | Savings Achievement Pct
+MEASURE | gold_recommendations | Savings Annual Target EUR
+MEASURE | gold_recommendations | Savings Potential EUR CRITICAL
+MEASURE | gold_recommendations | Total Annual Saving EUR
+MEASURE | gold_recommendations | Total Capex EUR
+MEASURE | gold_recommendations | Total CO2 Saving kg
+MEASURE | gold_recommendations | Total CO2 Saving tCO2
+MEASURE | gold_recommendations | Total Grant EUR
+MEASURE | gold_recommendations | Total Net Capex EUR
+MEASURE | gold_recommendations | Total Recommendations
+MEASURE | gold_strategy_fitness | I1 Debug
+MEASURE | gold_strategy_fitness | I1 Diagnostic Selection
+MEASURE | gold_strategy_fitness | V1 Best Strategy For Building Type
+MEASURE | Scope_Category | Selected Scope tCO2
+MEASURE | silver_building_master | Avg EPC Class Numeric
+MEASURE | silver_building_master | Avg EPC Class Text
+MEASURE | silver_epc_ratings | EPC Class Area-Weighted
+MEASURE | silver_epc_ratings | EPC Score Area-Weighted kWh m2
+TOTAL MEASURES: 213
+
+######## 3. RELATIONSHIPS ########
+REL | gold_recommendations[building_id] -> silver_building_master[building_id]  active=True  xfilter=OneDirection
+REL | gold_occupancy_profile[building_id] -> silver_building_master[building_id]  active=True  xfilter=OneDirection
+REL | gold_anomaly_log[building_id] -> silver_building_master[building_id]  active=True  xfilter=OneDirection
+REL | gold_hvac_analytics[building_id] -> silver_building_master[building_id]  active=True  xfilter=OneDirection
+REL | gold_crrem_pathway[building_type] -> silver_building_master[building_type]  active=True  xfilter=OneDirection
+REL | gold_anomaly_log[detected_date] -> 'Date'[Date]  active=True  xfilter=OneDirection
+REL | gold_hvac_analytics[year_month] -> 'Date'[Date]  active=True  xfilter=OneDirection
+REL | gold_crrem_pathway[year_month] -> 'Date'[Date]  active=True  xfilter=OneDirection
+REL | silver_epc_ratings[building_id] -> silver_building_master[building_id]  active=True  xfilter=OneDirection
+REL | gold_occupancy_profile[day_of_week] -> DayOfWeek_Dim[day_of_week]  active=True  xfilter=OneDirection
+REL | silver_data_quality[building_id] -> silver_building_master[building_id]  active=True  xfilter=OneDirection
+REL | gold_compliance_results[building_id] -> silver_building_master[building_id]  active=True  xfilter=OneDirection
+REL | gold_battery_hourly_dispatch[building_id] -> silver_building_master[building_id]  active=True  xfilter=OneDirection
+REL | gold_kpi_daily[building_id] -> silver_building_master[building_id]  active=True  xfilter=OneDirection
+REL | gold_kpi_daily[date] -> 'Date'[Date]  active=True  xfilter=OneDirection
+REL | gold_consumption_forecast[building_id] -> silver_building_master[building_id]  active=True  xfilter=OneDirection
+REL | gold_consumption_forecast[forecast_date] -> 'Date'[Date]  active=True  xfilter=OneDirection
+REL | gold_ghg_scope[building_id] -> silver_building_master[building_id]  active=True  xfilter=OneDirection
+REL | gold_ghg_scope[year_month] -> 'Date'[Date]  active=True  xfilter=OneDirection
+REL | gold_kpi_hourly[date] -> 'Date'[Date]  active=True  xfilter=OneDirection
+REL | gold_iot_realtime[event_date] -> 'Date'[Date]  active=True  xfilter=OneDirection
+REL | gold_iot_fdd[building_id] -> silver_building_master[building_id]  active=True  xfilter=OneDirection
+REL | gold_iot_fdd[event_date] -> 'Date'[Date]  active=True  xfilter=OneDirection
+REL | gold_iot_daily_summary[building_id] -> silver_building_master[building_id]  active=True  xfilter=OneDirection
+REL | gold_iot_daily_summary[event_date] -> 'Date'[Date]  active=True  xfilter=OneDirection

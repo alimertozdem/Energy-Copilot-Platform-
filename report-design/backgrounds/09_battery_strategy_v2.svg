@@ -1,0 +1,210 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <!--
+    Energy Copilot Platform — Page 9 Battery Dispatch & Financial Simulation
+    Background v2 — REVISED LAYOUT (2026-05-08)
+    Canvas: 1280 x 720
+    Left panel:  x 0-205  (slicers + status cards)
+    Content:     x 215-1270
+    Rows:
+      Header:      y 0-65
+      KPI cards:   y 72-180   (C1-C4, four equal slots)
+      Middle row:  y 188-413  (V1 SoC wide 635px | V4 Gauge 409px top | V2 Daily 409px bottom)
+      Bottom row:  y 423-710  (V5 Scatter 370px | V3 Table wide 674px)
+  -->
+
+  <defs>
+    <radialGradient id="bgBase" cx="40%" cy="45%" r="75%">
+      <stop offset="0%"   stop-color="#0C1C10"/>
+      <stop offset="50%"  stop-color="#06100A"/>
+      <stop offset="100%" stop-color="#030A06"/>
+    </radialGradient>
+    <radialGradient id="auroraAmber" cx="15%" cy="20%" r="55%">
+      <stop offset="0%"   stop-color="#F4A62A" stop-opacity="0.10"/>
+      <stop offset="55%"  stop-color="#F4A62A" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#F4A62A" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="auroraBlue" cx="60%" cy="55%" r="45%">
+      <stop offset="0%"   stop-color="#2980B9" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#2980B9" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="auroraGreen" cx="92%" cy="88%" r="40%">
+      <stop offset="0%"   stop-color="#27AE60" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#27AE60" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="panelFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#0D2015" stop-opacity="0.90"/>
+      <stop offset="100%" stop-color="#071510" stop-opacity="0.86"/>
+    </linearGradient>
+    <linearGradient id="leftFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#050D07"/>
+      <stop offset="100%" stop-color="#071510"/>
+    </linearGradient>
+    <linearGradient id="slicerFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#0E2518" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#091A10" stop-opacity="0.95"/>
+    </linearGradient>
+    <filter id="dotGlow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="3.2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="titleGlow" x="-5%" y="-30%" width="110%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <symbol id="dotAmber" overflow="visible">
+      <ellipse rx="18" ry="4" fill="#F4A62A" opacity="0.55" filter="url(#dotGlow)"/>
+      <ellipse rx="7"  ry="1.8" fill="#FFD580" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotBlue" overflow="visible">
+      <ellipse rx="18" ry="4" fill="#2980B9" opacity="0.5" filter="url(#dotGlow)"/>
+      <ellipse rx="7"  ry="1.8" fill="#9EEDFF" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotGreen" overflow="visible">
+      <ellipse rx="18" ry="4" fill="#27AE60" opacity="0.5" filter="url(#dotGlow)"/>
+      <ellipse rx="7"  ry="1.8" fill="#A0FFAC" opacity="0.95"/>
+    </symbol>
+    <symbol id="dotPurple" overflow="visible">
+      <ellipse rx="18" ry="4" fill="#9B59B6" opacity="0.5" filter="url(#dotGlow)"/>
+      <ellipse rx="7"  ry="1.8" fill="#D7A0FF" opacity="0.95"/>
+    </symbol>
+  </defs>
+
+  <!-- BASE -->
+  <rect width="1280" height="720" fill="url(#bgBase)"/>
+  <rect width="1280" height="720" fill="url(#auroraAmber)"/>
+  <rect width="1280" height="720" fill="url(#auroraBlue)"/>
+  <rect width="1280" height="720" fill="url(#auroraGreen)"/>
+
+  <!-- Subtle particles -->
+  <g fill="#F4C060" opacity="0.35">
+    <circle cx="340"  cy="38"  r="0.7"/>
+    <circle cx="540"  cy="20"  r="0.5"/>
+    <circle cx="740"  cy="50"  r="0.8"/>
+    <circle cx="940"  cy="28"  r="0.6"/>
+    <circle cx="1120" cy="42"  r="0.7"/>
+    <circle cx="1210" cy="58"  r="0.5"/>
+    <circle cx="420"  cy="712" r="0.6"/>
+    <circle cx="780"  cy="716" r="0.5"/>
+    <circle cx="1060" cy="708" r="0.7"/>
+  </g>
+
+  <!-- LEFT PANEL -->
+  <rect x="0" y="0" width="206" height="720" fill="url(#leftFill)"/>
+  <line x1="206" y1="0" x2="206" y2="720" stroke="#F4A62A" stroke-width="1.2" opacity="0.35"/>
+
+  <!-- Battery icon (logo) -->
+  <rect x="14" y="18" width="26" height="14" rx="2" fill="none" stroke="#F4A62A" stroke-width="1.5" opacity="0.80"/>
+  <rect x="40" y="22" width="4" height="6" rx="1" fill="#F4A62A" opacity="0.70"/>
+  <rect x="17" y="21" width="16" height="8" rx="1" fill="#F4A62A" opacity="0.55"/>
+  <line x1="25" y1="18" x2="25" y2="32" stroke="#FFD580" stroke-width="1.2" opacity="0.90"/>
+
+  <text x="52" y="28" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#FFFFFF" letter-spacing="1.5">ENERGY</text>
+  <text x="52" y="42" font-family="Arial, sans-serif" font-size="14" font-weight="900" fill="#F4A62A" letter-spacing="2">LENS</text>
+  <text x="52" y="54" font-family="Arial, sans-serif" font-size="8" fill="#3A6A3A" letter-spacing="1">Page 09</text>
+
+  <!-- Separator -->
+  <line x1="14" y1="64" x2="192" y2="64" stroke="#F4A62A" stroke-width="0.5" opacity="0.25"/>
+
+  <!-- SLICER LABELS + BOXES -->
+  <text x="14" y="84" font-family="Arial, sans-serif" font-size="9" fill="#4A8A5A" letter-spacing="1.2">BUILDING</text>
+  <rect x="12" y="88" width="181" height="26" rx="3" fill="url(#slicerFill)" stroke="#1A4A2A" stroke-width="0.8"/>
+
+  <text x="14" y="130" font-family="Arial, sans-serif" font-size="9" fill="#4A8A5A" letter-spacing="1.2">STRATEGY</text>
+  <rect x="12" y="134" width="181" height="26" rx="3" fill="url(#slicerFill)" stroke="#C4820A" stroke-width="0.8"/>
+
+  <text x="14" y="176" font-family="Arial, sans-serif" font-size="9" fill="#4A8A5A" letter-spacing="1.2">DATE RANGE</text>
+  <rect x="12" y="180" width="181" height="26" rx="3" fill="url(#slicerFill)" stroke="#1A4A2A" stroke-width="0.8"/>
+
+  <!-- ACTIVE STRATEGY CARD (sidebar) -->
+  <line x1="12" y1="220" x2="193" y2="220" stroke="#F4A62A" stroke-width="0.4" opacity="0.20"/>
+  <text x="14" y="238" font-family="Arial, sans-serif" font-size="8" fill="#C4820A" letter-spacing="1.2">ACTIVE STRATEGY</text>
+  <rect x="12" y="242" width="181" height="58" rx="3" fill="url(#slicerFill)" stroke="#F4A62A" stroke-width="0.9"/>
+  <line x1="12" y1="242" x2="193" y2="242" stroke="#F4A62A" stroke-width="1.6" opacity="0.70"/>
+  <text x="18" y="259" font-family="Arial, sans-serif" font-size="9" fill="#9CC8A0" letter-spacing="0.8">Building</text>
+  <text x="18" y="273" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">Strategy Label</text>
+  <text x="18" y="288" font-family="Arial, sans-serif" font-size="8" fill="#6A9A6A">data as of date</text>
+
+  <!-- EU COMPLIANCE CARD (sidebar) -->
+  <text x="14" y="318" font-family="Arial, sans-serif" font-size="8" fill="#4A8A5A" letter-spacing="1.2">EU 2023/1542</text>
+  <rect x="12" y="322" width="181" height="46" rx="3" fill="url(#slicerFill)" stroke="#27AE60" stroke-width="0.9"/>
+  <line x1="12" y1="322" x2="193" y2="322" stroke="#27AE60" stroke-width="1.6" opacity="0.70"/>
+  <text x="18" y="339" font-family="Arial, sans-serif" font-size="9" fill="#9CC8A0">Portfolio compliance</text>
+  <rect x="18" y="346" width="60" height="13" rx="2" fill="#0A2A12"/>
+  <text x="24" y="356" font-family="Arial, sans-serif" font-size="8" fill="#27AE60">EU OK label</text>
+  <rect x="84" y="346" width="100" height="13" rx="2" fill="#2A0A0A"/>
+  <text x="90" y="356" font-family="Arial, sans-serif" font-size="8" fill="#E74C3C">NON-COMPLIANT</text>
+
+  <!-- HEADER -->
+  <text x="222" y="40" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#FFFFFF" letter-spacing="0.5">Battery Dispatch &amp;</text>
+  <text x="222" y="40" font-family="Arial, sans-serif" font-size="26" font-weight="900" fill="#F4A62A" letter-spacing="0.5" filter="url(#titleGlow)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;Financial Simulation</text>
+  <text x="222" y="57" font-family="Arial, sans-serif" font-size="9" fill="#2A6A3A" letter-spacing="2.5">STRATEGY COMPARISON &#183; EU 2023/1542 COMPLIANCE &#183; NPV / IRR / PAYBACK</text>
+  <line x1="215" y1="65" x2="1270" y2="65" stroke="#F4A62A" stroke-width="0.8" opacity="0.30"/>
+
+  <!-- KPI CARDS ROW y:72 h:108 -->
+  <!-- C1: Annual Savings (x:215 w:260) -->
+  <rect x="215" y="72" width="260" height="108" rx="4" fill="url(#panelFill)" stroke="#F4A62A" stroke-width="1.0" opacity="0.85"/>
+  <line x1="215" y1="72" x2="475" y2="72" stroke="#F4A62A" stroke-width="1.8" opacity="0.75"/>
+  <text x="228" y="91" font-family="Arial, sans-serif" font-size="9" fill="#F4A62A" letter-spacing="1.5" opacity="0.75">ANNUAL SAVINGS</text>
+
+  <!-- C2: Payback Period (x:483 w:260) -->
+  <rect x="483" y="72" width="260" height="108" rx="4" fill="url(#panelFill)" stroke="#F4A62A" stroke-width="1.0" opacity="0.85"/>
+  <line x1="483" y1="72" x2="743" y2="72" stroke="#F4A62A" stroke-width="1.8" opacity="0.75"/>
+  <text x="496" y="91" font-family="Arial, sans-serif" font-size="9" fill="#F4A62A" letter-spacing="1.5" opacity="0.75">PAYBACK PERIOD</text>
+
+  <!-- C3: CO2 (x:751 w:260) -->
+  <rect x="751" y="72" width="260" height="108" rx="4" fill="url(#panelFill)" stroke="#27AE60" stroke-width="1.0" opacity="0.85"/>
+  <line x1="751" y1="72" x2="1011" y2="72" stroke="#27AE60" stroke-width="1.8" opacity="0.75"/>
+  <text x="764" y="91" font-family="Arial, sans-serif" font-size="9" fill="#27AE60" letter-spacing="1.5" opacity="0.75">CO&#8322; AVOIDED</text>
+
+  <!-- C4: Efficiency + EU (x:1019 w:248) -->
+  <rect x="1019" y="72" width="248" height="108" rx="4" fill="url(#panelFill)" stroke="#27AE60" stroke-width="1.0" opacity="0.85"/>
+  <line x1="1019" y1="72" x2="1267" y2="72" stroke="#27AE60" stroke-width="1.8" opacity="0.75"/>
+  <text x="1032" y="91" font-family="Arial, sans-serif" font-size="9" fill="#27AE60" letter-spacing="1.5" opacity="0.75">EFFICIENCY + EU STATUS</text>
+
+  <!-- Connector dots — card tops -->
+  <use href="#dotAmber" transform="translate(345,72)"/>
+  <use href="#dotAmber" transform="translate(613,72)"/>
+  <use href="#dotGreen" transform="translate(881,72)"/>
+  <use href="#dotGreen" transform="translate(1143,72)"/>
+
+  <!-- MIDDLE ROW y:188 h:225 -->
+  <!-- V1: SoC Trend (x:215 w:635 h:225) -->
+  <rect x="215" y="188" width="635" height="225" rx="4" fill="url(#panelFill)" stroke="#F4A62A" stroke-width="1.0" opacity="0.80"/>
+  <line x1="215" y1="188" x2="850" y2="188" stroke="#F4A62A" stroke-width="1.6" opacity="0.65"/>
+  <text x="228" y="206" font-family="Arial, sans-serif" font-size="9" fill="#F4A62A" letter-spacing="1.5" opacity="0.70">V1 &#183; STATE OF CHARGE TREND &#8212; strategies x buildings</text>
+
+  <!-- V4: ROI Gauge (x:858 y:188 w:409 h:108) -->
+  <rect x="858" y="188" width="409" height="108" rx="4" fill="url(#panelFill)" stroke="#F4A62A" stroke-width="1.0" opacity="0.80"/>
+  <line x1="858" y1="188" x2="1267" y2="188" stroke="#F4A62A" stroke-width="1.6" opacity="0.65"/>
+  <text x="871" y="206" font-family="Arial, sans-serif" font-size="9" fill="#F4A62A" letter-spacing="1.5" opacity="0.70">V4 &#183; ROI GAUGE</text>
+
+  <!-- V2: Daily Charge/Discharge (x:858 y:304 w:409 h:109) -->
+  <rect x="858" y="304" width="409" height="109" rx="4" fill="url(#panelFill)" stroke="#2980B9" stroke-width="1.0" opacity="0.80"/>
+  <line x1="858" y1="304" x2="1267" y2="304" stroke="#2980B9" stroke-width="1.6" opacity="0.65"/>
+  <text x="871" y="322" font-family="Arial, sans-serif" font-size="9" fill="#2980B9" letter-spacing="1.5" opacity="0.70">V2 &#183; DAILY CHARGE / DISCHARGE + PV</text>
+
+  <!-- Connector dots — middle row -->
+  <use href="#dotAmber" transform="translate(532,188)"/>
+  <use href="#dotAmber" transform="translate(1062,188)"/>
+  <use href="#dotBlue"  transform="translate(1062,304)"/>
+
+  <!-- BOTTOM ROW y:423 h:287 -->
+  <!-- V5: Cost vs Payback Scatter (x:215 w:370 h:287) -->
+  <rect x="215" y="423" width="370" height="287" rx="4" fill="url(#panelFill)" stroke="#9B59B6" stroke-width="1.0" opacity="0.80"/>
+  <line x1="215" y1="423" x2="585" y2="423" stroke="#9B59B6" stroke-width="1.6" opacity="0.65"/>
+  <text x="228" y="441" font-family="Arial, sans-serif" font-size="9" fill="#9B59B6" letter-spacing="1.5" opacity="0.75">V5 &#183; CAPEX vs PAYBACK &#8212; investment map</text>
+
+  <!-- V3: Scenario Comparison Table (x:593 w:674 h:287) -->
+  <rect x="593" y="423" width="674" height="287" rx="4" fill="url(#panelFill)" stroke="#2980B9" stroke-width="1.0" opacity="0.80"/>
+  <line x1="593" y1="423" x2="1267" y2="423" stroke="#2980B9" stroke-width="1.6" opacity="0.65"/>
+  <text x="606" y="441" font-family="Arial, sans-serif" font-size="9" fill="#2980B9" letter-spacing="1.5" opacity="0.75">V3 &#183; SCENARIO COMPARISON TABLE &#8212; all buildings &#215; strategies</text>
+
+  <!-- Connector dots — bottom row -->
+  <use href="#dotPurple" transform="translate(400,423)"/>
+  <use href="#dotBlue"   transform="translate(930,423)"/>
+
+  <!-- Bottom pulse bar -->
+  <rect x="215" y="713" width="1052" height="2" rx="1" fill="#F4A62A" opacity="0.15"/>
+  <rect x="215" y="713" width="310" height="2" rx="1" fill="#F4A62A" opacity="0.55"/>
+
+</svg>

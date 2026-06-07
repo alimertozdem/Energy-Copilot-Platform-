@@ -1,0 +1,1260 @@
+// ============================================================
+// Energy Copilot Platform — DAX Measures  (v3 — English / Bug Fixed)
+// Semantic Model : EnergycopilotModel
+// Last updated   : 2026-04-15
+// ============================================================
+//
+// ⚠️  CRITICAL FORMAT RULE — READ BEFORE BINDING ANY CARD OR CHART:
+//
+//   All measures whose name ends in "Pct" already return a
+//   0–100 value (e.g. 25.87 means 25.87 %).
+//   Use format string  "0.0"  or  "#,##0.0"  on cards / chart axes.
+//   NEVER use  "0%"  — Power BI multiplies the value by 100 again
+//   and produces values like 2587 %.
+//
+//   ✅  Correct card format : "0.0"   or   "#,##0.0"
+//   ❌  Wrong  card format  : "0%"    or   "0.00%"
+//
+// HOW TO USE:
+//   In the Fabric semantic model editor:
+//   New Measure → type name → paste formula → Enter
+//
+// MEASURE GROUPS:
+//   ★ NEW       Section 0  — New measures added in v3
+//   📊 KPI      Section 1  — Core energy KPIs (gold_kpi_daily)
+//   ☀️  Solar    Section 2  — Solar & Battery
+//   🚨 Anomaly  Section 3  — Anomalies & Alerts (gold_anomaly_log)
+//   🔮 Forecast Section 4  — Consumption Forecast (gold_consumption_forecast)
+//   💡 Rec      Section 5  — Recommendations (gold_recommendations)
+//   🏢 Occ      Section 6  — Occupancy Analysis (gold_occupancy_profile)
+//   🌱 Carbon   Section 7  — Sustainability & Carbon
+//   ⏱️  Time     Section 8  — Time Intelligence
+//   🧭 Status   Section 9  — Status badges & labels
+// ============================================================
+
+
+// ============================================================
+// ★ SECTION 0 — NEW MEASURES  (added in v3, not in previous versions)
+// ============================================================
+
+// ★ NEW — Solar energy consumed on-site (for stacked bar on Page 2)
+// Source: gold_kpi_daily[solar_self_consumed_kwh]
+// FORMAT: "#,##0.0 kWh"
+Solar Self Consumed kWh =
+SUM(gold_kpi_daily[solar_self_consumed_kwh])
+
+// ★ NEW — Total battery cycles across selected period (sum, not average)
+// Use for: Page 2 KPI card. Avg daily cycles are in [Avg Battery Cycles Day].
+Battery Cycles Total =
+SUM(gold_kpi_daily[battery_cycles_day])
+
+// ★ NEW — Predicted consumption (sum) for the forecast line chart
+// Bind to the "Forecast" series in the Page 4 Line + CI Band visual.
+// FORMAT: "#,##0.0 kWh"
+Predicted Consumption kWh =
+SUM(gold_consumption_forecast[predicted_kwh])
+
+// ★ NEW — Lower confidence bound for the forecast CI band (Page 4)
+// Plot as a secondary area or error-bar series below the forecast line.
+Forecast Lower Bound kWh =
+AVERAGE(gold_consumption_forecast[lower_bound_kwh])
+
+// ★ NEW — Upper confidence bound for the forecast CI band (Page 4)
+// Plot as a secondary area or error-bar series above the forecast line.
+Forecast Upper Bound kWh =
+AVERAGE(gold_consumption_forecast[upper_bound_kwh])
+
+// ★ NEW — Renewable energy rate: share of consumption covered by solar
+// FIX: Previous version was bound to a non-existent column → showed %2016.
+// This is the corrected formula, identical in logic to Solar Coverage Pct.
+// Returns 0–100. FORMAT: "0.0"  — NEVER "0%"
+Renewable Energy Rate Pct =
+DIVIDE(
+    [Total Solar Generated kWh],
+    [Total Consumption kWh],
+    0
+) * 100
+
+// ★ NEW — Share of anomalies that are still active
+// Replaces the broken "Avg Resolution Time" card on Page 3 (card #5).
+// Returns 0–100. FORMAT: "0.0"  — NEVER "0%"
+Active Anomaly Rate Pct =
+DIVIDE([Active Anomaly Count], [Total Anomaly Count], 0) * 100
+
+// ★ NEW — Solar carbon offset as a share of total gross emissions
+// Returns 0–100. FORMAT: "0.0"  — NEVER "0%"
+Carbon Reduction from Solar Pct =
+DIVIDE(
+    [Total CO2 Savings from Solar kg],
+    [Total CO2 Emissions kg] + [Total CO2 Savings from Solar kg],
+    0
+) * 100
+
+// ★ NEW — Average weekday occupancy (Mon–Fri, day_of_week 0–4)
+// Used as the "Weekday" series in the hourly occupancy line chart (Page 5).
+// Returns 0–100. FORMAT: "0.0"
+Avg Weekday Occupancy Pct =
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+    gold_occupancy_profile[day_of_week] < 5
+) * 100
+
+// ★ NEW — Average weekend occupancy (Sat–Sun, day_of_week 5–6)
+// Used as the "Weekend" series in the hourly occupancy line chart (Page 5).
+// Returns 0–100. FORMAT: "0.0"
+Avg Weekend Occupancy Pct =
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+    gold_occupancy_profile[day_of_week] >= 5
+) * 100
+
+// ★ NEW — Ghost-load risk: ratio of after-hours to business-hours occupancy
+// High value = building running at near-full power when mostly empty.
+// Returns 0–100. FORMAT: "0.0"
+Phantom Load Risk Pct =
+VAR _after = [Avg After Hours Occupancy Pct]
+VAR _biz   = [Avg Business Hours Occupancy Pct]
+RETURN
+    DIVIDE(_after, _biz, 0) * 100
+
+// ★ NEW — Ghost-load text label for card subtitles
+Phantom Load Label =
+VAR _risk = [Phantom Load Risk Pct]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_risk), "—",
+        _risk < 15,     "🟢 Normal",
+        _risk < 30,     "🟡 Rising",
+                        "🔴 High Ghost Load"
+    )
+
+// ★ NEW — Model accuracy badge (text) for MAPE value
+// FIX: model_mape_pct is stored as 0–100 (e.g. 5.0 = 5 % MAPE).
+// Thresholds are adjusted accordingly. Do NOT format MAPE axis as "0%".
+MAPE Bucket =
+VAR _mape = [Avg Model MAPE Pct]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_mape), "— No data",
+        _mape < 10,     "🟢 Excellent (<10%)",
+        _mape < 20,     "🟡 Good (10–20%)",
+        _mape < 30,     "🟠 Acceptable (20–30%)",
+                        "🔴 Poor Data (>30%)"
+    )
+
+// ★ NEW — Count of buildings with an active energy certification
+// FIX: Previous version referenced DimBuilding which does not exist.
+//      silver_building_master[energy_certificate] stores the label (A, B, C …).
+//      We count buildings that have a non-blank certificate as a proxy.
+Active Certificate Count =
+CALCULATE(
+    DISTINCTCOUNT(silver_building_master[building_id]),
+    silver_building_master[energy_certificate] <> BLANK()
+)
+
+// ★ NEW — Count of high-priority (Critical + High) recommendations
+High Priority Recommendations =
+CALCULATE(
+    COUNTROWS(gold_recommendations),
+    UPPER(gold_recommendations[priority_label]) IN {"CRITICAL", "HIGH"}
+)
+
+// ★ NEW — Net investment after grants (alias for layout planner)
+Total Net Investment EUR =
+[Total Net Capex EUR]
+
+
+// ============================================================
+// 📊 SECTION 1 — CORE ENERGY KPIs
+// Pages: Portfolio Overview · Building Detail
+// ★ CHANGED: All Turkish comments replaced with English.
+// ============================================================
+
+// Primary energy consumption KPI
+Total Consumption kWh =
+SUM(gold_kpi_daily[total_consumption_kwh])
+
+// Alias used in some chart series labels
+Total Energy kWh =
+[Total Consumption kWh]
+
+// Average daily consumption over the selected period
+Avg Daily Consumption kWh =
+AVERAGE(gold_kpi_daily[total_consumption_kwh])
+
+// Peak power demand
+Peak Demand kW =
+MAX(gold_kpi_daily[peak_demand_kw])
+
+// Energy Use Intensity (kWh / m² / day)
+// ★ CHANGED: Benchmark note updated — daily 0.27 kWh/m²/day ≈ 100 kWh/m²/year (good office)
+// FORMAT: "0.00"
+Avg EUI kWh m2 =
+AVERAGEX(
+    FILTER(gold_kpi_daily, gold_kpi_daily[eui_kwh_m2] <> BLANK()),
+    gold_kpi_daily[eui_kwh_m2]
+)
+
+// Climate-normalised EUI for cross-climate building comparisons
+// FORMAT: "0.000"
+Avg HDD Normalized EUI =
+AVERAGEX(
+    FILTER(gold_kpi_daily, gold_kpi_daily[hdd_normalized_eui] <> BLANK()),
+    gold_kpi_daily[hdd_normalized_eui]
+)
+
+// Net grid consumption after solar offset
+Total Grid Consumption kWh =
+SUM(gold_kpi_daily[net_grid_consumption_kwh])
+
+// Estimated energy cost in EUR
+// FORMAT: "€ #,##0.0"
+Total Energy Cost EUR =
+SUM(gold_kpi_daily[estimated_cost_eur])
+
+// Estimated solar savings in EUR
+// FORMAT: "€ #,##0.0"
+Total Solar Savings EUR =
+SUM(gold_kpi_daily[estimated_savings_eur])
+
+// Average outdoor temperature
+// FORMAT: "0.0"
+Avg Temperature C =
+AVERAGE(gold_kpi_daily[avg_temperature_c])
+
+// Count of distinct buildings in the current filter context
+Buildings Count =
+DISTINCTCOUNT(gold_kpi_daily[building_id])
+
+
+// ============================================================
+// ☀️ SECTION 2 — SOLAR ENERGY & BATTERY
+// Pages: Building Detail
+// ★ CHANGED: All Turkish comments replaced with English.
+// ============================================================
+
+// Total solar generation
+// FORMAT: "#,##0.0 kWh"
+Total Solar Generated kWh =
+SUM(gold_kpi_daily[solar_generated_kwh])
+
+// Chart alias
+Total Solar Generation kWh =
+[Total Solar Generated kWh]
+
+// Solar coverage ratio: share of consumption met by solar
+// Returns 0–100. FORMAT: "0.0"  — NEVER "0%"
+Solar Coverage Pct =
+DIVIDE(
+    [Total Solar Generated kWh],
+    [Total Consumption kWh],
+    0
+) * 100
+
+// Self-consumption rate: share of solar generation consumed on-site
+// Returns 0–100. FORMAT: "0.0"  — NEVER "0%"
+Avg Self Consumption Rate Pct =
+AVERAGE(gold_kpi_daily[avg_self_consumption_rate]) * 100
+
+// Self-sufficiency rate: share of consumption from own sources
+// Returns 0–100. FORMAT: "0.0"  — NEVER "0%"
+Avg Self Sufficiency Rate Pct =
+AVERAGE(gold_kpi_daily[avg_self_sufficiency_rate]) * 100
+
+// Solar Performance Ratio (PR). PR < 0.75 signals soiling, shading, or fault.
+// Returns 0–100. FORMAT: "0.0"  — NEVER "0%"
+Avg Solar PR Pct =
+AVERAGEX(
+    FILTER(gold_kpi_daily, gold_kpi_daily[avg_solar_pr] <> BLANK()),
+    gold_kpi_daily[avg_solar_pr]
+) * 100
+
+// Solar energy exported to the grid
+Total Solar Exported kWh =
+SUM(gold_kpi_daily[solar_exported_kwh])
+
+// Battery net operation (charged minus discharged)
+Battery Net kWh =
+SUM(gold_kpi_daily[battery_charged_kwh]) - SUM(gold_kpi_daily[battery_discharged_kwh])
+
+// Average daily battery cycles
+Avg Battery Cycles Day =
+AVERAGE(gold_kpi_daily[battery_cycles_day])
+
+// Average battery state of charge (midpoint of min/max daily range)
+// Only valid for buildings with has_pv = TRUE. FORMAT: "0.0"
+Avg Battery SoC Pct =
+AVERAGEX(
+    FILTER(
+        gold_kpi_daily,
+        gold_kpi_daily[battery_soc_min_pct] <> BLANK() &&
+        gold_kpi_daily[battery_soc_max_pct] <> BLANK()
+    ),
+    (gold_kpi_daily[battery_soc_min_pct] + gold_kpi_daily[battery_soc_max_pct]) / 2
+)
+
+
+// ============================================================
+// 🚨 SECTION 3 — ANOMALIES & ALERTS
+// Pages: Anomalies & Alerts
+// Source table: gold_anomaly_log
+// ★ CHANGED: All Turkish comments replaced with English.
+// ============================================================
+
+// Total anomaly row count
+Total Anomaly Count =
+COUNTROWS(gold_anomaly_log)
+
+// Active (unresolved) anomalies — primary KPI card
+Active Anomaly Count =
+CALCULATE(
+    COUNTROWS(gold_anomaly_log),
+    gold_anomaly_log[is_resolved] = FALSE
+)
+
+// Alias
+Unresolved Count =
+[Active Anomaly Count]
+
+// Critical-severity anomalies
+Critical Anomaly Count =
+CALCULATE(
+    COUNTROWS(gold_anomaly_log),
+    gold_anomaly_log[severity] = "critical"
+)
+
+// High-severity anomalies
+High Anomaly Count =
+CALCULATE(
+    COUNTROWS(gold_anomaly_log),
+    gold_anomaly_log[severity] = "high"
+)
+
+// Medium-severity anomalies
+Medium Anomaly Count =
+CALCULATE(
+    COUNTROWS(gold_anomaly_log),
+    gold_anomaly_log[severity] = "medium"
+)
+
+// Low-severity anomalies
+Low Anomaly Count =
+CALCULATE(
+    COUNTROWS(gold_anomaly_log),
+    gold_anomaly_log[severity] = "low"
+)
+
+// Resolved anomalies
+Resolved Anomaly Count =
+CALCULATE(
+    COUNTROWS(gold_anomaly_log),
+    gold_anomaly_log[is_resolved] = TRUE
+)
+
+// Critical + High combined (badge / alert indicator)
+High Priority Anomaly Count =
+[Critical Anomaly Count] + [High Anomaly Count]
+
+// ★ CHANGED: Resolution time is a placeholder — resolved_at column does not
+// exist in the current gold_anomaly_log schema. Card shows "—" until added.
+//
+// When resolved_at is available, replace BLANK() with:
+// AVERAGEX(
+//     FILTER(gold_anomaly_log, gold_anomaly_log[is_resolved] = TRUE),
+//     DATEDIFF(gold_anomaly_log[detected_date], gold_anomaly_log[resolved_at], HOUR)
+// )
+Avg Resolution Hours =
+BLANK()
+
+// ★ CHANGED: English label
+Resolution Status Label =
+"— Resolution data not yet available"
+
+
+// ============================================================
+// 🔮 SECTION 4 — CONSUMPTION FORECAST
+// Pages: Forecast & Recommendations
+// Source table: gold_consumption_forecast
+// ★ CHANGED: Both window measures fixed — previous version used TODAY()
+//   which returns 2026 while data is from 2024, causing BLANK results.
+//   Fix: use MAXX(ALL(...)) to anchor on the last available forecast date.
+// ============================================================
+
+// 7-day forecast total — anchored to last available forecast date
+// FORMAT: "#,##0.0 kWh"
+Forecast 7Day kWh =
+VAR _last  = MAXX(ALL(gold_consumption_forecast), gold_consumption_forecast[forecast_date])
+VAR _start = _last - 6
+RETURN
+CALCULATE(
+    SUM(gold_consumption_forecast[predicted_kwh]),
+    gold_consumption_forecast[forecast_date] >= _start,
+    gold_consumption_forecast[forecast_date] <= _last
+)
+
+// 30-day forecast total — anchored to last available forecast date
+// FORMAT: "#,##0.0 kWh"
+Forecast 30Day kWh =
+VAR _last  = MAXX(ALL(gold_consumption_forecast), gold_consumption_forecast[forecast_date])
+VAR _start = _last - 29
+RETURN
+CALCULATE(
+    SUM(gold_consumption_forecast[predicted_kwh]),
+    gold_consumption_forecast[forecast_date] >= _start,
+    gold_consumption_forecast[forecast_date] <= _last
+)
+
+// Average daily forecast value
+// FORMAT: "#,##0.0 kWh"
+Avg Daily Forecast kWh =
+AVERAGE(gold_consumption_forecast[predicted_kwh])
+
+// Model error (MAPE). Lower is better.
+// ★ CHANGED: model_mape_pct is stored as a 0–100 value (e.g. 5.0 = 5 % error).
+//   The chart Y-axis format MUST be "0.0", NEVER "0%" — using "0%" multiplies
+//   by 100 again and shows 500 % instead of 5 %.
+// Thresholds: < 10 Excellent | 10–20 Good | 20–30 Acceptable | > 30 Poor
+// FORMAT: "0.0"
+Avg Model MAPE Pct =
+AVERAGE(gold_consumption_forecast[model_mape_pct])
+
+// Confidence interval width (uncertainty indicator)
+// Narrow = reliable | Wide = uncertain
+Avg Forecast Confidence Width kWh =
+AVERAGE(gold_consumption_forecast[upper_bound_kwh]) -
+AVERAGE(gold_consumption_forecast[lower_bound_kwh])
+
+// Number of training days used by the model
+Avg Trained On Days =
+AVERAGE(gold_consumption_forecast[trained_on_days])
+
+
+// ============================================================
+// 💡 SECTION 5 — RECOMMENDATIONS
+// Pages: Forecast & Recommendations
+// Source table: gold_recommendations
+// ★ CHANGED: Critical count fixed (UPPER + zero instead of BLANK).
+//            All Turkish comments replaced with English.
+// ============================================================
+
+// Total estimated annual savings across all recommendations
+// FORMAT: "€ #,##0.0"
+Total Annual Saving EUR =
+SUM(gold_recommendations[annual_saving_eur])
+
+// Aliases used in layout planner
+Expected Annual Savings EUR =
+[Total Annual Saving EUR]
+
+Total Savings Potential EUR =
+[Total Annual Saving EUR]
+
+// Total CO₂ reduction potential (kg)
+Total CO2 Saving kg =
+SUM(gold_recommendations[co2_saving_kg])
+
+// Total CO₂ reduction potential (metric tonnes)
+// FORMAT: "#,##0.0 tCO₂"
+Total CO2 Saving tCO2 =
+[Total CO2 Saving kg] / 1000
+
+// Total gross CAPEX required
+// FORMAT: "€ #,##0.0"
+Total Capex EUR =
+SUM(gold_recommendations[capex_eur])
+
+// Total grant / subsidy amount
+Total Grant EUR =
+SUM(gold_recommendations[grant_eur])
+
+// Net investment after grants
+// FORMAT: "€ #,##0.0"
+Total Net Capex EUR =
+SUM(gold_recommendations[net_capex_eur])
+
+// Average payback period (years)
+// FORMAT: "0.0"
+Avg Payback Years =
+AVERAGEX(
+    FILTER(gold_recommendations, gold_recommendations[payback_years] <> BLANK()),
+    gold_recommendations[payback_years]
+)
+
+// ★ CHANGED: Fixed — data uses "MEDIUM" / "LOW" labels; "CRITICAL" may be absent.
+//   UPPER() normalises case, and IF(ISBLANK, 0) ensures the card shows 0 not blank.
+Critical Recommendation Count =
+VAR _count =
+    CALCULATE(
+        COUNTROWS(gold_recommendations),
+        UPPER(gold_recommendations[priority_label]) = "CRITICAL"
+    )
+RETURN
+    IF(ISBLANK(_count), 0, _count)
+
+// Total recommendation count
+Total Recommendation Count =
+COUNTROWS(gold_recommendations)
+
+// Alias
+Active Recommendation Count =
+[Total Recommendation Count]
+
+
+// ============================================================
+// 🏢 SECTION 6 — OCCUPANCY ANALYSIS
+// Pages: Occupancy Analysis
+// Source table: gold_occupancy_profile
+//
+// ★ CHANGED: occupancy_probability is stored as 0.0–1.0 (fraction).
+//   All measures multiply by 100 to return a 0–100 value.
+//   FORMAT for all cards / chart axes: "0.0"  — NEVER "0%"
+//   Using "0%" format multiplies by 100 again → shows 2587% instead of 25.87%.
+// ============================================================
+
+// Overall average occupancy
+// Returns 0–100. FORMAT: "0.0"
+Avg Occupancy Rate Pct =
+AVERAGE(gold_occupancy_profile[occupancy_probability]) * 100
+
+// Business-hours occupancy (09:00–18:00)
+// Returns 0–100. FORMAT: "0.0"
+Avg Business Hours Occupancy Pct =
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+    gold_occupancy_profile[hour_of_day] >= 9,
+    gold_occupancy_profile[hour_of_day] <= 18
+) * 100
+
+// After-hours occupancy (20:00–07:00)
+// High value signals unnecessary energy waste outside working hours.
+// Returns 0–100. FORMAT: "0.0"
+Avg After Hours Occupancy Pct =
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+    gold_occupancy_profile[hour_of_day] >= 20 ||
+    gold_occupancy_profile[hour_of_day] <= 7
+) * 100
+
+// Vacancy rate (inverse of business-hours occupancy)
+// Returns 0–100. FORMAT: "0.0"
+Vacancy Rate Pct =
+100 - [Avg Business Hours Occupancy Pct]
+
+// Peak occupancy hour (hour of day with highest average occupancy)
+// FORMAT: "0" (integer hour, e.g. 10 = 10:00)
+Peak Occupancy Hour =
+VAR _Summary =
+    SUMMARIZE(
+        gold_occupancy_profile,
+        gold_occupancy_profile[hour_of_day],
+        "_AvgOcc", AVERAGE(gold_occupancy_profile[occupancy_probability])
+    )
+VAR _MaxOcc = MAXX(_Summary, [_AvgOcc])
+RETURN
+    MINX(
+        FILTER(_Summary, [_AvgOcc] = _MaxOcc),
+        gold_occupancy_profile[hour_of_day]
+    )
+
+// ★ CHANGED: Energy per occupant proxy
+// Real headcount data is unavailable; this uses area × occupancy rate as a proxy.
+// FORMAT: "#,##0.0 kWh"
+Energy Per Occupant kWh =
+VAR _occ_ratio = DIVIDE([Avg Business Hours Occupancy Pct], 100, BLANK())
+VAR _area      = SUM(silver_building_master[conditioned_area_m2])
+RETURN
+    DIVIDE(
+        [Total Consumption kWh],
+        _occ_ratio * _area,
+        BLANK()
+    )
+
+// Count of calibrated buildings (using sensor-derived occupancy profile)
+Calibrated Buildings Count =
+CALCULATE(
+    DISTINCTCOUNT(gold_occupancy_profile[building_id]),
+    gold_occupancy_profile[profile_source] = "calibrated"
+)
+
+// Average profile confidence score
+// FORMAT: "0.00"
+Avg Profile Confidence =
+AVERAGE(gold_occupancy_profile[confidence_score])
+
+
+// ============================================================
+// 🌱 SECTION 7 — SUSTAINABILITY & CARBON
+// Pages: Sustainability & Compliance
+// Source table: gold_kpi_daily
+// ★ CHANGED: All Turkish comments replaced with English.
+// ============================================================
+
+// Total CO₂ emissions (kg)
+Total CO2 Emissions kg =
+SUM(gold_kpi_daily[co2_emissions_kg])
+
+// Total CO₂ emissions (metric tonnes — ESG / CSRD reporting)
+// FORMAT: "#,##0.0 tCO₂"
+Total CO2 Emissions tCO2 =
+[Total CO2 Emissions kg] / 1000
+
+// Alias used across all pages
+// FORMAT: "#,##0.0 tCO₂"
+Total CO2 Tons =
+[Total CO2 Emissions tCO2]
+
+// Solar-derived CO₂ savings (kg)
+Total CO2 Savings from Solar kg =
+SUM(gold_kpi_daily[co2_savings_from_solar_kg])
+
+// Solar-derived CO₂ savings (metric tonnes)
+// FORMAT: "#,##0.0 tCO₂"
+Total CO2 Savings from Solar tCO2 =
+[Total CO2 Savings from Solar kg] / 1000
+
+// Alias
+CO2 Savings Tons =
+[Total CO2 Savings from Solar tCO2]
+
+// Net carbon footprint (gross emissions minus solar offset)
+// FORMAT: "#,##0.0 tCO₂"
+Net Carbon Footprint tCO2 =
+[Total CO2 Emissions tCO2] - [Total CO2 Savings from Solar tCO2]
+
+// Average carbon intensity (kg CO₂ / m² / day)
+// FORMAT: "0.000"
+Avg Carbon Intensity kg m2 =
+AVERAGEX(
+    FILTER(gold_kpi_daily, gold_kpi_daily[carbon_intensity_kg_m2] <> BLANK()),
+    gold_kpi_daily[carbon_intensity_kg_m2]
+)
+
+// Total Heating Degree Days (climate severity — heating load)
+Total HDD =
+SUM(gold_kpi_daily[hdd_day])
+
+// Total Cooling Degree Days (climate severity — cooling load)
+Total CDD =
+SUM(gold_kpi_daily[cdd_day])
+
+// ★ CHANGED: Carbon target placeholder in English
+Carbon Target Status =
+"— Baseline year data pending"
+
+
+// ============================================================
+// ⏱️ SECTION 8 — TIME INTELLIGENCE
+// All pages — period-over-period comparison
+// ★ CHANGED: All Turkish comments replaced with English.
+// PREREQUISITE: The Date table must be marked as a Date Table in
+// the semantic model editor (right-click Date table → Mark as date table).
+// ============================================================
+
+// Prior-month consumption for MoM comparison
+Previous Period Consumption kWh =
+CALCULATE(
+    [Total Consumption kWh],
+    PREVIOUSMONTH('Date'[Date])
+)
+
+// Consumption change vs previous month (%)
+// Returns 0–100 range. FORMAT: "0.0"
+Consumption Change Pct =
+DIVIDE(
+    [Total Consumption kWh] - [Previous Period Consumption kWh],
+    [Previous Period Consumption kWh],
+    0
+) * 100
+
+// Prior-month cost
+Previous Period Cost EUR =
+CALCULATE(
+    [Total Energy Cost EUR],
+    PREVIOUSMONTH('Date'[Date])
+)
+
+// Cost change vs previous month (%)
+// FORMAT: "0.0"
+Cost Change Pct =
+DIVIDE(
+    [Total Energy Cost EUR] - [Previous Period Cost EUR],
+    [Previous Period Cost EUR],
+    0
+) * 100
+
+// Year-to-date consumption
+YTD Consumption kWh =
+CALCULATE(
+    [Total Consumption kWh],
+    DATESYTD('Date'[Date])
+)
+
+// Year-to-date CO₂ emissions (metric tonnes)
+YTD CO2 Emissions tCO2 =
+CALCULATE(
+    [Total CO2 Emissions tCO2],
+    DATESYTD('Date'[Date])
+)
+
+// Same period last year — consumption (for YoY trend line)
+Previous Year Consumption kWh =
+CALCULATE(
+    [Total Consumption kWh],
+    DATEADD(gold_kpi_daily[date], -1, YEAR)
+)
+
+// Year-on-year consumption change (%)
+// FORMAT: "0.0"
+Consumption YoY Pct =
+VAR _prev = [Previous Year Consumption kWh]
+RETURN
+    DIVIDE(
+        [Total Consumption kWh] - _prev,
+        _prev,
+        BLANK()
+    ) * 100
+
+// ★ CHANGED: English label for YoY trend arrow
+Consumption YoY Label =
+VAR _pct = [Consumption YoY Pct]
+RETURN
+    IF(
+        ISBLANK(_pct),
+        "—",
+        IF(_pct > 0, "▲ ", "▼ ") & FORMAT(ABS(_pct), "#,##0.0") & "% vs Last Year"
+    )
+
+// Same period last year — CO₂ emissions
+Previous Year CO2 Emissions tCO2 =
+CALCULATE(
+    [Total CO2 Emissions tCO2],
+    DATEADD(gold_kpi_daily[date], -1, YEAR)
+)
+
+// Year-on-year CO₂ change (%)
+// FORMAT: "0.0"
+CO2 YoY Pct =
+VAR _prev = [Previous Year CO2 Emissions tCO2]
+RETURN
+    DIVIDE(
+        [Total CO2 Emissions tCO2] - _prev,
+        _prev,
+        BLANK()
+    ) * 100
+
+
+// ============================================================
+// 🧭 SECTION 9 — STATUS MEASURES
+// Card subtitles, badges, instant KPI flags
+// ★ CHANGED: All text labels changed from Turkish to English.
+//            EUI thresholds corrected from annual to daily values.
+// ============================================================
+
+// EUI benchmark status badge (ASHRAE-aligned office tiers — daily kWh/m²/day)
+// ★ CHANGED: Thresholds corrected to daily values (÷ 365 from annual).
+//   ≤ 0.27 → Excellent (≈ 100 kWh/m²/year)
+//   ≤ 0.41 → Good      (≈ 150 kWh/m²/year)
+//   ≤ 0.55 → Fair      (≈ 200 kWh/m²/year)
+//   > 0.55 → Poor
+EUI Benchmark Status =
+VAR _eui = [Avg EUI kWh m2]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_eui), "— No data",
+        _eui <= 0.27,  "🟢 Excellent",
+        _eui <= 0.41,  "🟡 Good",
+        _eui <= 0.55,  "🟠 Fair",
+                       "🔴 Poor"
+    )
+
+// Numeric EUI tier for conditional formatting rules (1 = best, 4 = worst)
+// ★ CHANGED: Thresholds corrected to daily values.
+EUI Benchmark Tier =
+VAR _eui = [Avg EUI kWh m2]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_eui), BLANK(),
+        _eui <= 0.27,  1,
+        _eui <= 0.41,  2,
+        _eui <= 0.55,  3,
+                       4
+    )
+
+// Building with the highest consumption in current filter context
+Top Consumer Building =
+VAR _ranked =
+    ADDCOLUMNS(
+        VALUES(silver_building_master[building_name]),
+        "_cons", [Total Consumption kWh]
+    )
+VAR _max = MAXX(_ranked, [_cons])
+RETURN
+    CONCATENATEX(
+        FILTER(_ranked, [_cons] = _max),
+        silver_building_master[building_name],
+        ", "
+    )
+
+// Top consumer's share of portfolio consumption (%)
+// FORMAT: "0.0"
+Top Consumer Share Pct =
+VAR _top =
+    MAXX(
+        ADDCOLUMNS(
+            VALUES(silver_building_master[building_name]),
+            "_cons", [Total Consumption kWh]
+        ),
+        [_cons]
+    )
+VAR _total = [Total Consumption kWh]
+RETURN
+    DIVIDE(_top, _total, 0) * 100
+
+// Average load factor — peak efficiency indicator
+// Low load factor (< 0.4) = demand spikes = high demand charge risk
+// FORMAT: "0.00"
+Avg Load Factor Pct =
+AVERAGE(gold_kpi_daily[avg_load_factor]) * 100
+
+// ============================================================
+// SECTION 10 — v5 KPI INDICATOR TARGET & OVERLAY MEASURES
+// Added: 2026-04-16
+// Purpose: Support KPI Indicator "Target goals" fields and
+//          chart overlay series defined in layout-planner v5
+// Tables required: gold_kpi_daily, gold_kpi_monthly,
+//                  gold_crrem_pathway (*), silver_epc_ratings (*)
+// (*) = must be ingested before these measures return non-BLANK
+// ============================================================
+
+// ────────────────────────────────────────────────────────────
+// TIER 1 — KPI INDICATOR TARGET GOALS (Page 1, 2, 4, 6)
+// These feed the "Target goals" field of KPI Indicator visuals
+// ────────────────────────────────────────────────────────────
+
+// Alias for Previous Year Consumption — used as KPI Indicator
+// "Target goals" on Page 1 Card 1 and Page 2 Card 1
+// Keeps naming consistent with the layout spec
+// FORMAT: "#,##0"
+Total Energy PY kWh =
+CALCULATE(
+    [Total Consumption kWh],
+    DATEADD(gold_kpi_daily[date], -1, YEAR)
+)
+
+// EUI daily target — ASHRAE "excellent" threshold = 0.27 kWh/m²/day
+// Used as KPI Indicator "Target goals" on Page 1 Card 2
+// Direction: Low is Good
+// FORMAT: "0.00"
+EUI Target Daily =
+0.27
+
+// Anomaly count for same period last year
+// Used as KPI Indicator "Target goals" on Page 3 Card 2
+// Direction: Low is Good
+// FORMAT: "#,##0"
+Anomaly Count PY Same Period =
+CALCULATE(
+    [Active Anomaly Count],
+    DATEADD(gold_kpi_daily[date], -1, YEAR)
+)
+
+// Year-over-year cost target — actual cost same period last year
+// IMPORTANT: existing [Previous Period Cost EUR] = MoM (PREVIOUSMONTH)
+// This measure gives YoY comparison for Page 4 KPI Indicator
+// Direction: Low is Good
+// FORMAT: "#,##0 €"
+Previous Year Cost EUR =
+CALCULATE(
+    [Total Energy Cost EUR],
+    DATEADD(gold_kpi_daily[date], -1, YEAR)
+)
+
+// CRREM 1.5°C pathway target for portfolio (tCO₂/yr)
+// Requires gold_crrem_pathway table with columns:
+//   [year] INT, [building_type] TEXT, [pathway_kgco2_m2_yr] FLOAT
+// Returns BLANK until table is ingested
+// Used as KPI Indicator "Target goals" on Page 6 Card 1
+// FORMAT: "#,##0.0"
+CRREM Pathway Target tCO2 Yr =
+VAR _currentYear = YEAR(TODAY())
+VAR _pathwayKg =
+    CALCULATE(
+        AVERAGE(gold_crrem_pathway[pathway_kgco2_m2_yr]),
+        gold_crrem_pathway[year] = _currentYear
+    )
+VAR _totalArea =
+    SUMX(silver_building_master, silver_building_master[floor_area_m2])
+RETURN
+    DIVIDE(_pathwayKg * _totalArea, 1000, BLANK())
+
+// EED energy reduction target — 5% reduction from previous year
+// Per EED 2023/1791 Article 5: public sector annual savings target
+// Used as KPI Indicator "Target goals" on Page 4 Card 2
+// Direction: Low is Good
+// FORMAT: "#,##0"
+Energy Reduction Target kWh =
+VAR _pyConsumption =
+    CALCULATE(
+        [Total Consumption kWh],
+        DATEADD(gold_kpi_daily[date], -1, YEAR)
+    )
+RETURN
+    _pyConsumption * 0.95   // Target = 5% below prior year
+
+// ────────────────────────────────────────────────────────────
+// TIER 2 — CHART OVERLAY SERIES (rolling averages & bands)
+// ────────────────────────────────────────────────────────────
+
+// 7-day rolling average energy consumption
+// Used on Page 2 dual-axis chart as dashed overlay series
+// Requires at least 7 rows in context; returns BLANK otherwise
+// FORMAT: "#,##0"
+Energy 7Day Rolling Avg kWh =
+VAR _lastDate = MAX(gold_kpi_daily[date])
+VAR _firstDate = _lastDate - 6
+RETURN
+    CALCULATE(
+        AVERAGE(gold_kpi_daily[total_consumption_kwh]),
+        DATESINPERIOD(gold_kpi_daily[date], _lastDate, -7, DAY)
+    )
+
+// 30-day rolling average daily consumption
+// Used on Page 2 as reference band for demand pattern analysis
+// FORMAT: "#,##0"
+Avg Daily Consumption 30Day Rolling =
+VAR _lastDate = MAX(gold_kpi_daily[date])
+RETURN
+    CALCULATE(
+        AVERAGE(gold_kpi_daily[total_consumption_kwh]),
+        DATESINPERIOD(gold_kpi_daily[date], _lastDate, -30, DAY)
+    )
+
+// 30-day rolling average peak demand
+// Used on Page 2 KPI Indicator Card 2 target — smoothed peak reference
+// FORMAT: "#,##0.0"
+Avg Peak Demand 30Day kW =
+VAR _lastDate = MAX(gold_kpi_daily[date])
+RETURN
+    CALCULATE(
+        AVERAGE(gold_kpi_daily[peak_demand_kw]),
+        DATESINPERIOD(gold_kpi_daily[date], _lastDate, -30, DAY)
+    )
+
+// ────────────────────────────────────────────────────────────
+// TIER 3 — PAGE 3 DATA QUALITY & ANOMALY KPIs
+// ────────────────────────────────────────────────────────────
+
+// Percentage of rows failing validation rules R1–R11
+// Requires silver_data_quality table with columns:
+//   [date] DATE, [building_id] TEXT,
+//   [total_rows] INT, [invalid_rows] INT
+// Returns 0 if table absent (safe fallback)
+// FORMAT: "0.0%"
+Invalid Rows Pct =
+VAR _total = SUM(silver_data_quality[total_rows])
+VAR _invalid = SUM(silver_data_quality[invalid_rows])
+RETURN
+    DIVIDE(_invalid, _total, 0) * 100
+
+// Percentage of expected hourly readings that are missing (gaps)
+// Same source table: silver_data_quality[gap_rows]
+// FORMAT: "0.0%"
+Data Gaps Pct =
+VAR _total = SUM(silver_data_quality[total_rows])
+VAR _gaps = SUM(silver_data_quality[gap_rows])
+RETURN
+    DIVIDE(_gaps, _total, 0) * 100
+
+// Composite data quality score — higher is better
+// Formula: 100 minus invalid% minus gap% (floor at 0)
+// Used as KPI Indicator Card 5 on Page 3
+// Direction: High is Good | Target: 95
+// FORMAT: "0.0"
+Data Quality Score Pct =
+VAR _score = 100 - [Invalid Rows Pct] - [Data Gaps Pct]
+RETURN
+    MAX(_score, 0)
+
+// Hours since the most recent meter reading ingested
+// Used as a data freshness SLA indicator on Page 3
+// Requires silver_data_quality[last_received_utc] DATETIME column
+// FORMAT: "0.0"
+Data Freshness Hours =
+VAR _latest =
+    CALCULATE(
+        MAX(silver_data_quality[last_received_utc]),
+        ALLSELECTED()
+    )
+RETURN
+    IF(
+        ISBLANK(_latest),
+        BLANK(),
+        DATEDIFF(_latest, NOW(), HOUR)
+    )
+
+// Critical anomalies with status = 'open' (unresolved)
+// Supplements existing [Critical Anomaly Count] which counts all statuses
+// FORMAT: "#,##0"
+Critical Anomaly Open Count =
+CALCULATE(
+    COUNTROWS(gold_anomaly_log),
+    gold_anomaly_log[severity] = "critical",
+    gold_anomaly_log[is_resolved] = FALSE
+)
+
+// High-severity anomaly count from the prior week
+// Used as KPI Indicator "Target goals" on Page 3 Card 3
+// FORMAT: "#,##0"
+High Anomaly Count Previous Week =
+CALCULATE(
+    [High Anomaly Count],
+    DATESINPERIOD(
+        gold_kpi_daily[date],
+        MAX(gold_kpi_daily[date]) - 7,
+        -7, DAY
+    )
+)
+
+// Unresolved anomaly count from the prior week (trend target)
+// FORMAT: "#,##0"
+Unresolved Count Previous Week =
+CALCULATE(
+    [Unresolved Count],
+    DATESINPERIOD(
+        gold_kpi_daily[date],
+        MAX(gold_kpi_daily[date]) - 7,
+        -7, DAY
+    )
+)
+
+// ────────────────────────────────────────────────────────────
+// TIER 4 — PAGE 5 OCCUPANCY ENHANCEMENTS
+// ────────────────────────────────────────────────────────────
+
+// 30-day rolling average occupancy rate
+// Used as KPI Indicator "Target goals" on Page 5 Card 1
+// FORMAT: "0.0%"
+Avg Occupancy Rate 30Day Rolling =
+VAR _lastDate = MAX(gold_kpi_daily[date])
+RETURN
+    CALCULATE(
+        AVERAGE(gold_kpi_daily[avg_occupancy_rate]),
+        DATESINPERIOD(gold_kpi_daily[date], _lastDate, -30, DAY)
+    ) * 100
+
+// Occupancy rate at the building's identified peak hour
+// Peak hour band: 14:00–18:00 (configurable per ASHRAE 90.1)
+// FORMAT: "0.0%"
+Peak Occupancy Rate At Peak Hour Pct =
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[avg_occupancy_rate]),
+    gold_occupancy_profile[hour_of_day] >= 14,
+    gold_occupancy_profile[hour_of_day] <= 18
+) * 100
+
+// Vacancy rate for same period last year (trend target)
+// FORMAT: "0.0%"
+Vacancy Rate PY Pct =
+CALCULATE(
+    [Vacancy Rate Pct],
+    DATEADD(gold_kpi_daily[date], -1, YEAR)
+)
+
+// Energy per occupied person — prior year baseline (target)
+// FORMAT: "#,##0.0"
+Energy Per Occupant PY kWh =
+CALCULATE(
+    [Energy Per Occupant kWh],
+    DATEADD(gold_kpi_daily[date], -1, YEAR)
+)
+
+// Estimated cost of unoccupied energy waste
+// Logic: if building is vacant, energy spend is pure waste
+// Formula: Vacancy Rate × Total Cost (proportional proxy)
+// This is a conservative lower-bound estimate
+// FORMAT: "#,##0 €"
+Vacancy Cost Proxy EUR =
+    DIVIDE([Vacancy Rate Pct], 100, 0) * [Total Energy Cost EUR]
+
+// ────────────────────────────────────────────────────────────
+// TIER 5 — PAGE 6 SUSTAINABILITY / CRREM / EPC
+// NOTE: measures marked (*) return BLANK until source tables
+//       gold_crrem_pathway and silver_epc_ratings are ingested
+// ────────────────────────────────────────────────────────────
+
+// Annual carbon intensity — EXISTING daily measure × 365
+// Existing [Avg Carbon Intensity kg m2] = kg CO₂/m²/DAY
+// This converts to the standard annual reporting unit: kgCO₂/m²/yr
+// Required by CRREM, EPBD, and CSRD/ESRS E1 reporting
+// Format: "0.0"
+Carbon Intensity kgCO2 m2 yr =
+    [Avg Carbon Intensity kg m2] * 365
+
+// CRREM 1.5°C Science-based Pathway for current year (*)
+// Lookup from gold_crrem_pathway by year + building_type
+// Returns portfolio-weighted average pathway intensity
+// Format: "0.0"
+CRREM Pathway 1p5C kgCO2 m2 yr =
+VAR _currentYear = YEAR(TODAY())
+RETURN
+    CALCULATE(
+        AVERAGE(gold_crrem_pathway[pathway_kgco2_m2_yr]),
+        gold_crrem_pathway[year] = _currentYear
+    )
+
+// Stranding Year — first year projected emissions exceed CRREM pathway
+// Method: linear extrapolation of current reduction trend vs pathway
+// Returns year as integer (e.g., 2031) or BLANK if already stranded
+// (*) Requires gold_crrem_pathway
+// Format: "0" (no decimal)
+Stranding Year =
+VAR _currentIntensity = [Carbon Intensity kgCO2 m2 yr]
+VAR _currentYear = YEAR(TODAY())
+VAR _pathwayCurrent =
+    CALCULATE(
+        AVERAGE(gold_crrem_pathway[pathway_kgco2_m2_yr]),
+        gold_crrem_pathway[year] = _currentYear
+    )
+VAR _pathwayNext =
+    CALCULATE(
+        AVERAGE(gold_crrem_pathway[pathway_kgco2_m2_yr]),
+        gold_crrem_pathway[year] = _currentYear + 1
+    )
+// Annual pathway decline rate (negative = pathway falling)
+VAR _pathwaySlope = _pathwayNext - _pathwayCurrent
+// Assume portfolio reduces at same rate as CRREM trajectory
+// Stranding = when actual line stays flat / exceeds falling pathway
+VAR _excessNow = _currentIntensity - _pathwayCurrent
+RETURN
+    IF(
+        _excessNow > 0,
+        // Already above pathway → stranded now
+        _currentYear,
+        IF(
+            _pathwaySlope >= 0 OR ISBLANK(_pathwayCurrent),
+            BLANK(),
+            // Years until pathway drops to current intensity
+            _currentYear + INT(DIVIDE(_excessNow, _pathwaySlope * -1, BLANK()))
+        )
+    )
+
+// EPC numeric score — converts letter grade to number for averaging
+// Mapping: A=1, B=2, C=3, D=4, E=5, F=6, G=7 (lower = better)
+// (*) Requires silver_epc_ratings[epc_class] TEXT column
+// Format: "0.0"
+Avg EPC Class Numeric =
+AVERAGEX(
+    silver_epc_ratings,
+    SWITCH(
+        silver_epc_ratings[epc_class],
+        "A", 1,
+        "B", 2,
+        "C", 3,
+        "D", 4,
+        "E", 5,
+        "F", 6,
+        "G", 7,
+        BLANK()
+    )
+)
+
+// EPC portfolio grade — converts average numeric back to letter
+// Used on Page 6 Standard Card (text display)
+// Format: text, no number format needed
+Avg EPC Class Text =
+VAR _num = [Avg EPC Class Numeric]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_num),        "—",
+        _num < 1.5,           "A",
+        _num < 2.5,           "B",
+        _num < 3.5,           "C",
+        _num < 4.5,           "D",
+        _num < 5.5,           "E",
+        _num < 6.5,           "F",
+                              "G"
+    )
+
+// Count of buildings that meet EU Taxonomy technical screening criteria
+// Criteria (simplified): EPC class A or B AND EUI ≤ NZEB threshold
+// NZEB proxy used here: annual EUI ≤ 100 kWh/m²/yr (≈ 0.27/day × 365)
+// (*) Requires silver_epc_ratings joined to silver_building_master
+// Format: "#,##0"
+EU Taxonomy Eligible Count =
+CALCULATE(
+    COUNTROWS(silver_epc_ratings),
+    silver_epc_ratings[epc_class] IN {"A", "B"},
+    silver_epc_ratings[annual_eui_kwh_m2] <= 100
+)
+
+// EU Taxonomy eligible buildings as % of portfolio
+// Format: "0.0%"
+EU Taxonomy Eligible Pct =
+VAR _total = COUNTROWS(silver_epc_ratings)
+RETURN
+    DIVIDE([EU Taxonomy Eligible Count], _total, 0) * 100
+
+// Renewable energy rate same period last year (trend target)
+// Format: "0.0%"
+Renewable Rate PY Pct =
+CALCULATE(
+    [Renewable Energy Rate Pct],
+    DATEADD(gold_kpi_daily[date], -1, YEAR)
+)
+
+// ────────────────────────────────────────────────────────────
+// TIER 6 — FORECAST SUPPORT
+// ────────────────────────────────────────────────────────────
+
+// Actual energy consumed in the last 7 days (sliding window)
+// Used alongside [Forecast 7Day kWh] to compute forecast accuracy
+// Format: "#,##0"
+Actual Last 7Day kWh =
+VAR _lastDate = MAX(gold_kpi_daily[date])
+RETURN
+    CALCULATE(
+        SUM(gold_kpi_daily[total_consumption_kwh]),
+        DATESINPERIOD(gold_kpi_daily[date], _lastDate, -7, DAY)
+    )
+
+// Annual cost savings target — 10% reduction vs prior year cost
+// Assumption: 10% reduction target aligns with typical ESOS/EED programs
+// Modify multiplier to match client's actual contract target
+// Format: "#,##0 €"
+Annual Saving Target EUR =
+VAR _pyCost =
+    CALCULATE(
+        [Total Energy Cost EUR],
+        DATEADD(gold_kpi_daily[date], -1, YEAR)
+    )
+RETURN
+    _pyCost * 0.10   // 10% of PY cost = savings target
+
+// ────────────────────────────────────────────────────────────
+// TIER 7 — DATA QUALITY RULE HELPERS (R10 / R11)
+// Support validation rules enforced in Silver layer
+// ────────────────────────────────────────────────────────────
+
+// R10: Duplicate reading detection count
+// Counts rows where same building + timestamp appears > 1 time
+// Requires silver_data_quality[duplicate_rows] INT column
+// Format: "#,##0"
+Duplicate Reading Count =
+    SUM(silver_data_quality[duplicate_rows])
+
+// R11: Out-of-range sensor reading count
+// Counts rows where reading exceeds physically plausible bounds
+// Bounds defined in Silver validation: e.g. power > 10000 kW
+// Requires silver_data_quality[out_of_range_rows] INT column
+// Format: "#,##0"
+Out Of Range Reading Count =
+    SUM(silver_data_quality[out_of_range_rows])
+
+// ============================================================
+// END SECTION 10 — v5 KPI INDICATOR TARGET & OVERLAY MEASURES
+// ============================================================

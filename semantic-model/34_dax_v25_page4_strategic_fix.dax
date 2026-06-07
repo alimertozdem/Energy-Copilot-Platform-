@@ -1,0 +1,502 @@
+// ==========================================================================
+// Energy Copilot Platform — DAX v25: Page 4 Strategic Fix
+// File: semantic-model/34_dax_v25_page4_strategic_fix.dax
+// Last updated: 2026-04-26
+//
+// AMAÇ: Sayfa 4 (Forecast & Recommendations) production kalitesine çıkarmak.
+//       Bug fix + stratejik KPI eklemeleri birlikte.
+//
+// ROOT CAUSE ANALİZİ:
+//
+//   C1 "7-Day Forecast kWh" → (Blank)
+//     NEDEN: gold_consumption_forecast[forecast_date] → Date[Date] ilişkisi var.
+//            Slicer bitiş tarihi 30.01.2026, forecast tarihleri ~31 Oca–06 Şub 2026.
+//            Date filtresi forecast satırlarını tamamen kesiyor.
+//     FİX: REMOVEFILTERS('Date') ekle → slicer ilişkiyi devre dışı bırakır.
+//
+//   C5 "Avg MAPE %" → (Blank)
+//     NEDEN: Aynı sebep — model_mape_pct sütunu doğru, Date bağlamı yanlış.
+//     FİX: REMOVEFILTERS('Date') ekle.
+//
+//   C2 "30-Day Forecast kWh" → (Blank)
+//     NEDEN: FORECAST_HORIZON = 7 → <20 gün BLANK kontrolü devreye giriyor.
+//     FİX: Notebook'ta 7 → 30 (ayrı task). Bu dosya sadece DAX guard günceller.
+//
+//   C3 "Savings Potential (€)" Goal → 1.210 EUR (anlamsız)
+//     NEDEN: Savings Goal EUR = PY Maliyet × %10 → 7 günlük pencere × geçen yıl
+//            = çok küçük değer. Apples-to-oranges karşılaştırma.
+//     FİX: Goal = CRITICAL+HIGH toplam yıllık tasarruf potansiyeli.
+//
+//   V4 "Forecast + Confidence Interval" — Çift Y-ekseni (UI sorunu)
+//     NEDEN: Predicted Consu... (sol eksen, günlük kWh bina bazı)
+//            ile Total Consumption (sağ eksen, portföy toplam) farklı granülite.
+//     FİX: Sağ ekseni kaldır → yalnızca predicted_kwh + CI bantları (UI adımı).
+//
+// VISUAL İSİMLERİ (menüdeki gibi):
+//   C1: "7-Day Forecast kWh"       → kart
+//   C2: "30-Day Forecast kWh"      → kart
+//   C3: "Savings Potential (€)"    → kart
+//   C4: "CRITICAL Actions"         → kart
+//   C5: "Avg MAPE %"               → kart
+//   V4: "Forecast + Confidence Interval"
+//   V5: "MAPE Accuracy by Building"
+//   V10: Recommendations table
+//   V11: "Payback vs Savings"
+//   V12: "Actions by Priority"
+//
+// KURULUM:
+//   Power BI Desktop → Home → New Measure → her ölçü için adı + formülü yapıştır.
+//   Aynı adlı eski ölçü varsa ÜSTÜNE YAPISTIR (overwrite).
+//   Ardından aşağıdaki "UI ADIMLARI" bölümündeki değişiklikleri uygula.
+//
+// ETKİLENEN SAYFALAR: Sayfa 4 (Forecast & Recommendations)
+// ==========================================================================
+
+
+// ==========================================================================
+// BÖLÜM 1 — REMOVEFILTERS FIX: C1 ve C5 (KRİTİK BUG)
+//
+// SORUN: Slicer → Date tablosu → ilişki → gold_consumption_forecast[forecast_date]
+//        Tahmin tarihleri slicer aralığının dışında → tüm satırlar filtreleniyor.
+//
+// ÇÖZÜM: REMOVEFILTERS('Date') slicer bağlamını izole eder.
+//        Forecast tarihleri daima ALL scope ile değerlendirilir.
+//        Bina/bölge slicerları hâlâ çalışır (sadece Date kaldırılır).
+// ==========================================================================
+
+// C1 kartı — "7-Day Forecast kWh"
+// Mevcut: Forecast 7Day kWh (02_dax_measures.dax) → REMOVEFILTERS eksik
+// Üzerine yaz. Format: "#,##0"
+Forecast 7Day kWh =
+VAR _last  = MAXX ( ALL ( gold_consumption_forecast ), gold_consumption_forecast[forecast_date] )
+VAR _start = _last - 6
+RETURN
+CALCULATE (
+    SUM ( gold_consumption_forecast[predicted_kwh] ),
+    gold_consumption_forecast[forecast_date] >= _start,
+    gold_consumption_forecast[forecast_date] <= _last,
+    REMOVEFILTERS ( 'Date' )
+)
+
+
+// C2 kartı — "30-Day Forecast kWh"
+// Bölüm 5'teki Safe versiyonun date-agnostic hali.
+// NOT: Notebook FORECAST_HORIZON 7→30 olmadan bu hâlâ küçük değer döner.
+// Format: "#,##0"
+Forecast 30Day kWh =
+VAR _last  = MAXX ( ALL ( gold_consumption_forecast ), gold_consumption_forecast[forecast_date] )
+VAR _start = _last - 29
+VAR _days  = CALCULATE (
+    COUNTROWS ( gold_consumption_forecast ),
+    gold_consumption_forecast[forecast_date] >= _start,
+    gold_consumption_forecast[forecast_date] <= _last,
+    REMOVEFILTERS ( 'Date' )
+)
+RETURN
+IF (
+    _days < 5,
+    BLANK (),
+    CALCULATE (
+        SUM ( gold_consumption_forecast[predicted_kwh] ),
+        gold_consumption_forecast[forecast_date] >= _start,
+        gold_consumption_forecast[forecast_date] <= _last,
+        REMOVEFILTERS ( 'Date' )
+    )
+)
+
+
+// C5 kartı — "Avg MAPE %"
+// v24'teki Avg MAPE Pct Safe üzerine yaz — REMOVEFILTERS eklendi.
+// Format: "0.0"
+Avg MAPE Pct Safe =
+VAR _mape = CALCULATE (
+    AVERAGE ( gold_consumption_forecast[model_mape_pct] ),
+    REMOVEFILTERS ( 'Date' )
+)
+RETURN
+    IF ( ISBLANK ( _mape ), BLANK (), ROUND ( _mape, 1 ) )
+
+
+// C5 yardımcı — kaç günlük tahmin verisi var? (diagnostic)
+// Format: "#,##0" | Alt başlık: "days of forecast data"
+Forecast Coverage Days =
+CALCULATE (
+    COUNTROWS ( gold_consumption_forecast ),
+    REMOVEFILTERS ( 'Date' )
+)
+
+
+// ==========================================================================
+// BÖLÜM 2 — COST FORECAST (EUR)
+//
+// Enerji yöneticisi kWh değil, EUR'da düşünür.
+// gold_kpi_daily[estimated_cost_eur] / gold_kpi_daily[total_consumption_kwh]
+// oranından ortalama elektrik tarihi hesaplanır, tahmine uygulanır.
+//
+// Kullanım:
+//   - Yeni kart: "Forecast Cost 7Day EUR" → C2 yanına veya tooltip olarak
+//   - "Forecast Cost 30Day EUR" → 30 günlük maliyet tahmini
+//   - "Forecast Cost vs PY EUR Delta" → YoY maliyet karşılaştırması
+// ==========================================================================
+
+// Ortalama elektrik tarihi (EUR/kWh) — gold_kpi_daily'den hesaplanır
+// Format: "€ 0.000"
+Avg Electricity Rate EUR kWh =
+VAR _cost = CALCULATE (
+    SUM ( gold_kpi_daily[estimated_cost_eur] ),
+    REMOVEFILTERS ( 'Date' )
+)
+VAR _kwh = CALCULATE (
+    SUM ( gold_kpi_daily[total_consumption_kwh] ),
+    REMOVEFILTERS ( 'Date' )
+)
+RETURN
+    IF (
+        NOT ISBLANK ( _kwh ) && _kwh > 0,
+        ROUND ( DIVIDE ( _cost, _kwh ), 4 ),
+        0.25    // Fallback: Avrupa ticari ortalama €0.25/kWh
+    )
+
+
+// 7 günlük tahmin maliyeti (EUR)
+// Format: "€ #,##0"
+Forecast Cost 7Day EUR =
+VAR _kwh  = [Forecast 7Day kWh]
+VAR _rate = [Avg Electricity Rate EUR kWh]
+RETURN
+    IF (
+        NOT ISBLANK ( _kwh ) && _rate > 0,
+        ROUND ( _kwh * _rate, 0 ),
+        BLANK ()
+    )
+
+
+// 30 günlük tahmin maliyeti (EUR)
+// Format: "€ #,##0"
+Forecast Cost 30Day EUR =
+VAR _kwh  = [Forecast 30Day kWh]
+VAR _rate = [Avg Electricity Rate EUR kWh]
+RETURN
+    IF (
+        NOT ISBLANK ( _kwh ) && _rate > 0,
+        ROUND ( _kwh * _rate, 0 ),
+        BLANK ()
+    )
+
+
+// 30 günlük maliyet tahmini — geçen yıl aynı dönem karşılaştırması
+// Format: "€ #,##0"
+Forecast Cost 30Day PY EUR =
+VAR _last    = MAXX ( ALL ( gold_consumption_forecast ), gold_consumption_forecast[forecast_date] )
+VAR _start   = _last - 29
+VAR _pyLast  = DATE ( YEAR ( _last ) - 1, MONTH ( _last ), DAY ( _last ) )
+VAR _pyStart = DATE ( YEAR ( _start ) - 1, MONTH ( _start ), DAY ( _start ) )
+VAR _cost    = CALCULATE (
+    SUM ( gold_kpi_daily[estimated_cost_eur] ),
+    gold_kpi_daily[date] >= _pyStart,
+    gold_kpi_daily[date] <= _pyLast,
+    REMOVEFILTERS ( 'Date' )
+)
+RETURN IF ( ISBLANK ( _cost ), BLANK (), ROUND ( _cost, 0 ) )
+
+
+// Forecast maliyet delta vs geçen yıl (EUR fark)
+// Pozitif = daha pahalı, Negatif = daha ucuz
+// Format: "€ +#,##0;€ -#,##0;—"
+Forecast Cost Delta EUR =
+VAR _this = [Forecast Cost 30Day EUR]
+VAR _py   = [Forecast Cost 30Day PY EUR]
+RETURN
+    IF (
+        NOT ISBLANK ( _this ) && NOT ISBLANK ( _py ),
+        _this - _py,
+        BLANK ()
+    )
+
+
+// ==========================================================================
+// BÖLÜM 3 — SAVINGS GOAL FIX: C3 "Savings Potential (€)"
+//
+// MEVCUT SORUN:
+//   Değer: 102.033 EUR (tüm tavsiyeler toplamı — doğru)
+//   Goal:  1.210 EUR (PY maliyet × %10 → sadece 7 günlük pencere → anlamsız)
+//
+// YENİ MANTIK:
+//   Değer: CRITICAL + HIGH öncelikli tavsiyeler toplamı → "Hemen harekete geç"
+//   Goal:  Sabit yıllık hedef (150.000 EUR) → yönetim onaylı bütçe hedefi
+//
+// NOT: 150.000 EUR değerini kullanıcı/yönetim kararına göre düzenleyebilirsin.
+//      Alternatif: Total Annual Saving EUR (tüm öncelikler) → daha büyük değer.
+// ==========================================================================
+
+// C3 kart değeri — CRITICAL + HIGH tavsiyeler toplam yıllık tasarruf
+// Format: "€ #,##0"
+Total CRITICAL HIGH Savings EUR =
+CALCULATE (
+    SUM ( gold_recommendations[annual_saving_eur] ),
+    gold_recommendations[priority_label] IN { "CRITICAL", "HIGH" }
+)
+
+
+// C3 kart goal — yönetim onaylı yıllık tasarruf hedefi
+// Değiştirmek için bu ölçüdeki sayıyı güncelle
+// Format: "€ #,##0"
+Savings Annual Target EUR =
+VAR _target = 150000
+RETURN _target
+
+
+// Tasarruf hedefine ulaşma oranı (%)
+// C3 kartı subtitle veya tooltip için
+// Format: "0.0%"
+Savings Achievement Pct =
+VAR _actual = [Total CRITICAL HIGH Savings EUR]
+VAR _target = [Savings Annual Target EUR]
+RETURN
+    IF (
+        NOT ISBLANK ( _actual ) && _target > 0,
+        ROUND ( DIVIDE ( _actual, _target ) * 100, 1 ),
+        BLANK ()
+    )
+
+
+// Toplam portföy tasarruf potansiyeli — tüm öncelikler (V10 tablo alt toplam için)
+// Format: "€ #,##0"
+Total Portfolio Savings EUR =
+CALCULATE (
+    SUM ( gold_recommendations[annual_saving_eur] ),
+    NOT ISBLANK ( gold_recommendations[annual_saving_eur] )
+)
+
+
+// ==========================================================================
+// BÖLÜM 4 — FORECAST ACCURACY: TAHMİN vs GERÇEK
+//
+// Enerji yöneticisi modele güvenmeden karar veremez.
+// Bu ölçüler "geçen haftanın tahmin kalitesi"ni ölçer:
+//   → Her iki tabloda da veri olan son 7 güne bakılır
+//   → Örtüşen tarih yoksa BLANK döner (gelecek dönem tahmini yapıldıysa normal)
+//
+// V4 "Forecast + Confidence Interval" grafiğinde overlay olarak kullanılabilir.
+// Ayrıca tooltip veya yeni bir "Model Health" kart olarak eklenebilir.
+// ==========================================================================
+
+// Tahmin vs gerçek delta (%) — her iki tablonun kesişen son 7 günü
+// Pozitif = tahmin gerçeğin üstünde (aşırı tahmin)
+// Negatif = tahmin gerçeğin altında (eksik tahmin)
+// Format: "+0.0%;-0.0%;—"
+Forecast vs Actual 7Day Delta Pct =
+VAR _forecastMax = MAXX ( ALL ( gold_consumption_forecast ), gold_consumption_forecast[forecast_date] )
+VAR _actualMax   = MAXX ( ALL ( gold_kpi_daily ),            gold_kpi_daily[date] )
+VAR _overlapEnd  = MIN ( _forecastMax, _actualMax )
+VAR _overlapStart = _overlapEnd - 6
+VAR _forecast =
+    CALCULATE (
+        SUM ( gold_consumption_forecast[predicted_kwh] ),
+        gold_consumption_forecast[forecast_date] >= _overlapStart,
+        gold_consumption_forecast[forecast_date] <= _overlapEnd,
+        REMOVEFILTERS ( 'Date' )
+    )
+VAR _actual =
+    CALCULATE (
+        SUM ( gold_kpi_daily[total_consumption_kwh] ),
+        gold_kpi_daily[date] >= _overlapStart,
+        gold_kpi_daily[date] <= _overlapEnd,
+        REMOVEFILTERS ( 'Date' )
+    )
+RETURN
+    IF (
+        NOT ISBLANK ( _forecast ) && NOT ISBLANK ( _actual ) && _actual > 0,
+        ROUND ( DIVIDE ( _forecast - _actual, _actual ) * 100, 1 ),
+        BLANK ()
+    )
+
+
+// Tahmin doğruluğu etiketi — kart subtitle veya conditional formatting için
+// Format: metin
+Forecast Accuracy Label =
+VAR _delta = ABS ( [Forecast vs Actual 7Day Delta Pct] )
+RETURN
+    SWITCH (
+        TRUE (),
+        ISBLANK ( _delta ),         "— Overlap data unavailable",
+        _delta <= 5,                "🟢 On Track · Δ " & FORMAT ( _delta, "0.0" ) & "%",
+        _delta <= 15,               "🟡 Minor Drift · Δ " & FORMAT ( _delta, "0.0" ) & "%",
+        _delta <= 30,               "🟠 Review Model · Δ " & FORMAT ( _delta, "0.0" ) & "%",
+                                    "🔴 Model Alert · Δ " & FORMAT ( _delta, "0.0" ) & "%"
+    )
+
+
+// Güven aralığı genişliği ortalaması — dar = güvenilir, geniş = belirsiz
+// V4 grafiği CI bantlarının yorumu için kart olarak kullanılabilir
+// Format: "#,##0 kWh"
+Avg CI Width kWh =
+CALCULATE (
+    AVERAGEX (
+        gold_consumption_forecast,
+        gold_consumption_forecast[upper_bound_kwh] - gold_consumption_forecast[lower_bound_kwh]
+    ),
+    REMOVEFILTERS ( 'Date' )
+)
+
+
+// CI genişliği etiketi
+// Format: metin
+CI Width Label =
+VAR _width = [Avg CI Width kWh]
+VAR _avg   = [Forecast 7Day kWh]
+VAR _pct   = IF ( _avg > 0, DIVIDE ( _width, _avg ) * 100, BLANK () )
+RETURN
+    SWITCH (
+        TRUE (),
+        ISBLANK ( _pct ),   "— No data",
+        _pct <= 10,         "🟢 Narrow CI · ±" & FORMAT ( _pct / 2, "0.0" ) & "%",
+        _pct <= 25,         "🟡 Moderate CI · ±" & FORMAT ( _pct / 2, "0.0" ) & "%",
+                            "🔴 Wide CI · ±" & FORMAT ( _pct / 2, "0.0" ) & "% — low confidence"
+    )
+
+
+// ==========================================================================
+// BÖLÜM 5 — STRATEJİK KPIler
+//
+// Enerji yöneticisi için "hemen harekete geç" sinyalleri:
+//   → En büyük tasarruf fırsatı nerede?
+//   → Ortalama geri ödeme süresi kaç yıl?
+//   → CRITICAL+HIGH eylemlerinin toplam CO2 etkisi nedir?
+//
+// Bu ölçüler V11 "Payback vs Savings" scatter grafiğini
+// ve V12 "Actions by Priority" bar grafiğini zenginleştirir.
+// ==========================================================================
+
+// En yüksek tasarruf potansiyelini sunan CRITICAL tavsiye (EUR)
+// V11 scatter açıklaması veya spotlight kart için
+// Format: "€ #,##0"
+Top CRITICAL Saving EUR =
+CALCULATE (
+    MAX ( gold_recommendations[annual_saving_eur] ),
+    gold_recommendations[priority_label] = "CRITICAL"
+)
+
+
+// En yüksek CRITICAL tavsiyenin bina adı
+// Spotlight kart subtitle için
+// Format: metin
+Top CRITICAL Building =
+VAR _maxSaving = [Top CRITICAL Saving EUR]
+RETURN
+    CALCULATE (
+        FIRSTNONBLANK ( gold_recommendations[building_id], 1 ),
+        gold_recommendations[annual_saving_eur] = _maxSaving,
+        gold_recommendations[priority_label]    = "CRITICAL"
+    )
+
+
+// Ortalama geri ödeme süresi — tüm tavsiyeler portföy ortalaması
+// Format: "0.0 yrs"
+Avg Payback Years =
+CALCULATE (
+    AVERAGE ( gold_recommendations[payback_years] ),
+    NOT ISBLANK ( gold_recommendations[payback_years] )
+)
+
+
+// CRITICAL + HIGH tavsiyelerinin toplam CO2 tasarrufu (tCO2)
+// Format: "#,##0 tCO₂"
+Total CO2 Saving tCO2 CRITICAL HIGH =
+VAR _kg =
+    CALCULATE (
+        SUM ( gold_recommendations[co2_saving_kg] ),
+        gold_recommendations[priority_label] IN { "CRITICAL", "HIGH" }
+    )
+RETURN
+    IF ( NOT ISBLANK ( _kg ) && _kg > 0, ROUND ( _kg / 1000, 1 ), BLANK () )
+
+
+// Ortalama NPV — tüm tavsiyeler (€)
+// Pozitif NPV = finansal olarak karlı
+// Format: "€ #,##0"
+Avg NPV EUR =
+CALCULATE (
+    AVERAGE ( gold_recommendations[npv_eur] ),
+    NOT ISBLANK ( gold_recommendations[npv_eur] )
+)
+
+
+// Toplam grant / hibe potansiyeli (EUR)
+// Format: "€ #,##0"
+Total Grant EUR =
+SUM ( gold_recommendations[grant_eur] )
+
+
+// Tavsiye sayısı — önceliğe göre (V12 "Actions by Priority" bar grafiği için)
+// Bu ölçüler mevcut: Rec Count HIGH / LOW / INFORMATIONAL (v24'ten)
+// Eksik olan opsiyonel: toplam benzersiz bina sayısı
+Rec Unique Buildings =
+CALCULATE (
+    DISTINCTCOUNT ( gold_recommendations[building_id] )
+)
+
+
+// ==========================================================================
+// BÖLÜM 6 — V4 "Forecast + Confidence Interval" GRAFİK DESTEĞİ
+//
+// MEVCUT SORUN: Çift Y-ekseni
+//   Sol eksen: predicted_kwh (günlük, bina bazı) — 6.000-10.000 kWh
+//   Sağ eksen: total_consumption_kwh (portföy toplam) — 0-20.000.000 kWh
+//   Bu iki metrik birbirini anlamsız kılıyor.
+//
+// ÇÖZÜM (UI adımı):
+//   V4 grafiğini seç → Format → Y-Axis → Secondary Y-Axis → OFF
+//   Total Consumption serisini kaldır (sadece Forecast bandı kalsın)
+//   Overlay için: Actual 7Day kWh serisini aynı eksende ekle (bina bazı)
+//
+// Bu bölümdeki ölçüler V4 grafik serilerini destekler.
+// ==========================================================================
+
+// V4 için actual consumption overlay — bina bazı günlük (forecast ile aynı granülite)
+// gold_kpi_daily[total_consumption_kwh] zaten var, bu sadece date-safe wrapper
+// Format: "#,##0"
+Actual Daily kWh =
+CALCULATE (
+    SUM ( gold_kpi_daily[total_consumption_kwh] ),
+    NOT ISBLANK ( gold_kpi_daily[total_consumption_kwh] )
+)
+
+
+// V4 için forecast başlangıç tarihi — reference line olarak kullan
+// Bu ölçü v24'te mevcut (Forecast Start Date) — burada tarihli format versiyonu
+// Format: "DD MMM YYYY"
+Forecast Start Date Label =
+VAR _start = MAXX ( ALL ( gold_consumption_forecast ), gold_consumption_forecast[forecast_date] ) - 6
+RETURN
+    IF ( NOT ISBLANK ( _start ), FORMAT ( _start, "DD MMM YYYY" ), BLANK () )
+
+
+// V4 için forecast bölgesi vurgusu: son actual tarih
+// Reference line: "Forecast Begins Here"
+// Format: DD.MM.YYYY
+Actual Data End Date =
+VAR _end = MAXX ( ALL ( gold_kpi_daily ), gold_kpi_daily[date] )
+RETURN IF ( NOT ISBLANK ( _end ), _end, BLANK () )
+
+
+// ==========================================================================
+// DOĞRULAMA — Tüm değişiklikler uygulandıktan sonra kontrol et
+//
+// ✅ C1 "7-Day Forecast kWh"    → sayısal değer (örn. 58.432 kWh)
+// ✅ C2 "30-Day Forecast kWh"   → notebook fix sonrası sayısal değer
+// ✅ C3 "Savings Potential (€)" Goal → 150.000 EUR (Savings Annual Target EUR)
+// ✅ C5 "Avg MAPE %"            → sayısal değer (örn. 3.7)
+// ✅ Forecast Coverage Days     → 7 (notebook fix öncesi) / 30 (sonrası)
+// ✅ Forecast Cost 7Day EUR     → Forecast 7Day kWh × Avg Electricity Rate
+// ✅ Forecast vs Actual 7Day Delta Pct → BLANK eğer tahmin geleceğe ait
+// ✅ Total CRITICAL HIGH Savings EUR → CRITICAL+HIGH toplam (< Total Annual)
+// ✅ Top CRITICAL Saving EUR    → CRITICAL'daki en yüksek tek tasarruf değeri
+// ✅ V4 grafik: Secondary Y-Axis → OFF (UI adımı)
+//
+// MAPE CHART ("MAPE Accuracy by Building"):
+// ✅ Tüm 6 bina görünüyor (sadece 3 değil) → Building Name slicer = All kontrolü
+// ✅ Y ekseni: 0–15 aralığı → 10% hedef referans çizgisi ekle (Format → Reference line)
+// ==========================================================================
+
+// SON

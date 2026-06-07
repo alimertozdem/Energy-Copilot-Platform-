@@ -1,0 +1,195 @@
+{
+  "name": "03_gold_analytics_pipeline",
+  "description": "Gold layer analytics: computes KPIs, detects anomalies, runs simulations, checks compliance, generates recommendations, calculates GHG scope emissions + CRREM pathway, and runs HVAC envelope analytics. GHG and HVAC engines run after KPI; CRREM pathway loader runs in parallel (static reference data).",
+  "properties": {
+    "activities": [
+      {
+        "name": "Load_CRREM_Pathway",
+        "type": "TridentNotebook",
+        "description": "Run 10_crrem_pathway_loader — loads CRREM 2°C / 1.5°C decarbonization pathway reference data into gold_crrem_pathway. Static reference table: building_type × country_code × pathway_year (2020–2050). No dependency — runs in parallel at pipeline start.",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.00:10:00",
+          "retry": 1,
+          "retryIntervalInSeconds": 30
+        },
+        "typeProperties": {
+          "notebookId": "10_crrem_pathway_loader",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Compute_KPIs",
+        "type": "TridentNotebook",
+        "description": "Run 03_kpi_engine — computes daily and monthly KPIs (EUI, COP, solar yield, battery SoC, carbon intensity) into gold_kpi_daily and gold_kpi_monthly.",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.01:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 60
+        },
+        "typeProperties": {
+          "notebookId": "03_kpi_engine",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Detect_Anomalies",
+        "type": "TridentNotebook",
+        "description": "Run anomaly_detection — rule-based anomaly checks (consumption spikes, COP degradation, solar underperformance, after-hours waste) into gold_anomalies.",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.00:45:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 60
+        },
+        "typeProperties": {
+          "notebookId": "anomaly_detection",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Run_Simulation_Engine",
+        "type": "TridentNotebook",
+        "description": "Run 04_simulation_engine — physics-based what-if simulations (heat pump, solar, battery, insulation) with ROI and grant calculations into gold_simulation_results.",
+        "dependsOn": [
+          {
+            "activity": "Compute_KPIs",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 1,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "04_simulation_engine",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Run_GHG_Scope_Engine",
+        "type": "TridentNotebook",
+        "description": "Run 09_ghg_scope_engine — computes monthly GHG emissions per building into gold_ghg_scope. Scope 1 (gas + diesel), Scope 2 location/market, Scope 3 estimated (8% rule). Depends on gold_kpi_daily (Compute_KPIs output) + silver_building_master. Delta MERGE UPSERT — idempotent.",
+        "dependsOn": [
+          {
+            "activity": "Compute_KPIs",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "policy": {
+          "timeout": "0.00:30:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 60
+        },
+        "typeProperties": {
+          "notebookId": "09_ghg_scope_engine",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Check_Compliance",
+        "type": "TridentNotebook",
+        "description": "Run 05_compliance_checker — scores buildings against EnEfG, GEG, EEG, EPBD, CSRD, BEP-TR regulations (0-100 per regulation, weighted overall) into gold_compliance_results and gold_compliance_issues.",
+        "dependsOn": [
+          {
+            "activity": "Run_Simulation_Engine",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "policy": {
+          "timeout": "0.00:45:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 60
+        },
+        "typeProperties": {
+          "notebookId": "05_compliance_checker",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Generate_Recommendations",
+        "type": "TridentNotebook",
+        "description": "Run 06_recommendation_engine — synthesizes KPI trends, compliance scores, and simulation ROI into ranked, trilingual recommendations (top 8 per building) into gold_recommendations.",
+        "dependsOn": [
+          {
+            "activity": "Check_Compliance",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "policy": {
+          "timeout": "0.00:45:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 60
+        },
+        "typeProperties": {
+          "notebookId": "06_recommendation_engine",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Run_HVAC_Analytics",
+        "type": "TridentNotebook",
+        "description": "Run 11_hvac_analytics_engine — monthly HVAC energy disaggregation (EN ISO 13790 HDD/CDD model), envelope heat loss (EN ISO 13370), insulation score vs GEG 2023 benchmarks, rolling SCOP, HVAC efficiency score (0–100), and renovation priority matrix. Output: gold_hvac_analytics (Delta MERGE UPSERT + Z-ORDER). Depends on gold_kpi_daily (Compute_KPIs) and gold_ghg_scope (Run_GHG_Scope_Engine — used for carbon context, soft dependency).",
+        "dependsOn": [
+          {
+            "activity": "Run_GHG_Scope_Engine",
+            "dependencyConditions": ["Succeeded", "Failed"]
+          }
+        ],
+        "_note": "GHG dependency is soft (Succeeded OR Failed) — gold_hvac_analytics does not require GHG data to run. GHG scope columns are joined as enrichment only. Heat loss and insulation scores use silver_building_master + gold_kpi_daily.",
+        "policy": {
+          "timeout": "0.00:30:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 60
+        },
+        "typeProperties": {
+          "notebookId": "11_hvac_analytics_engine",
+          "workspaceId": "${FABRIC_WORKSPACE_ID}",
+          "parameters": {}
+        }
+      },
+      {
+        "name": "Gold_Completed",
+        "type": "Wait",
+        "description": "All gold analytics finished — anomaly detection, recommendation pipeline, GHG scope engine, CRREM pathway loader, and HVAC analytics all done.",
+        "dependsOn": [
+          {
+            "activity": "Generate_Recommendations",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Detect_Anomalies",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Run_HVAC_Analytics",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Load_CRREM_Pathway",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ],
+        "typeProperties": {
+          "waitTimeInSeconds": 1
+        }
+      }
+    ],
+    "parameters": {},
+    "annotations": [
+      "layer:gold",
+      "schedule:daily",
+      "tier:insight",
+      "version:2.2-with-ghg-crrem-hvac"
+    ]
+  }
+}

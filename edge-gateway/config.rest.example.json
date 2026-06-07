@@ -1,0 +1,18 @@
+{
+  "_comment": "Per-site REST gateway config. point_ref = a field or dotted path in the JSON response (e.g. 'data.power'). Auth header via env (auth_env). Secrets via env.",
+  "poll_seconds": 30,
+  "batch": 100,
+  "max_retries": 0,
+  "sink": { "type": "eventhub", "eventhub_name": "iot-raw", "connection_env": "EVENTHUB_CONN" },
+  "devices": [
+    {
+      "name": "Cloud sub-meter",
+      "endpoint": "https://meter.example.com/api/v1/readings",
+      "auth_env": "METER_API_TOKEN",
+      "points": [
+        { "point_ref": "activePower", "sensor_type": "building_kwh",        "unit": "kW",  "building_id": "B004", "device_id": "B004_MAIN", "zone": "Main DB" },
+        { "point_ref": "totalEnergy", "sensor_type": "building_energy_kwh", "unit": "kWh", "building_id": "B004", "device_id": "B004_MAIN", "zone": "Main DB" }
+      ]
+    }
+  ]
+}

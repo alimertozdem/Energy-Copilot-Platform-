@@ -1,0 +1,307 @@
+// ==========================================================================
+// Energy Copilot Platform — DAX v38: Page 7 KAPSAMLI FIX
+// File: semantic-model/47_dax_v38_page7_fixes.dax
+// Last updated: 2026-05-04
+//
+// === NEDEN v38? ============================================================
+//
+// Ekrandan tespit edilen 4 sorun:
+//
+// 1. C6 HVAC CO₂ HATASI
+//    v37 → gold_hvac_analytics[has_gas] Power BI modelinde görünmüyor
+//    (Direct Lake refresh gecikmesi VEYA schema henüz yayılmadı).
+//    Fix: has_gas yerine system_type kullan — model bağımsız, her zaman çalışır.
+//    system_type="gas_boiler" veya "hybrid" → scope 1 (0.2017 kgCO₂/kWh)
+//    system_type="heat_pump" / "district" / "vrf" → scope 2 (0.350 kgCO₂e/kWh)
+//
+// 2. C2 FORMAT SORUNU
+//    HVAC Efficiency v34 → 84.3999... döndürüyor (floating point artifact).
+//    Fix: ROUND(..., 0) + FORMAT → tam sayı gösterim.
+//
+// 3. V2 TABLO — COP KOLONU HATALI
+//    Tabloya yanlışlıkla "Avg COP Display" eklendi.
+//    Doğrusu: "COP Display v35" (zaten çalışıyor — sadece field well değişimi).
+//    v38 → COP Display v38 (yeni: VRF ve District desteği eklendi).
+//
+// 4. HVAC TEKNOLOJİ KAPSAM GENİŞLEMESİ
+//    Yeni system_type değerleri: "vrf" ve "district" → B004 Wien + B006 Amsterdam
+//    için doğru gösterim. (Notebook 11 + building_master güncellenmeli — aşağıya bak)
+//
+// === BU DOSYADA NELER VAR ===================================================
+//
+//   Yeni/Güncellenen ölçüler:
+//     A1. HVAC CO2 tCO2 v38         → C6 kartı (v37'nin yerini alır)
+//     A2. HVAC CO2 Display v38      → C6 Text fallback (format string yetersizse)
+//     A3. Card: HVAC Efficiency v38 → C2 kartı (format fix)
+//     A4. COP Display v38           → V2 sütun 4 (VRF+District eklendi)
+//     A5. System Type Display v38   → V2 sütun 2 (VRF+District eklendi)
+//     A6. Action Recommendation v38 → V2 sütun 7 (VRF+District eklendi)
+//     A7. Renovation Priority v38   → V2 sütun 3 (VRF+District eklendi)
+//     A8. V1 Title Selector v38     → Başlık dinamik measure (opsiyonel)
+//
+// === UYGULAMA SIRASI =======================================================
+//
+//   1. Bu dosyayı Power BI'da DAX editörüne yapıştır (her ölçü ayrı ayrı)
+//   2. C6 kartını güncelle: v37 ölçüsünü v38 ile değiştir
+//   3. C2 kartını güncelle: v34 ölçüsünü v38 ile değiştir
+//   4. V2 tablo — Sütun 2,3,4,7'yi v38 ölçüleriyle değiştir
+//   5. NOT: Notebook 11 + building_master güncellemesi ayrı adım (aşağıya bak)
+//
+// ==========================================================================
+
+
+// ==========================================================================
+// A1) HVAC CO₂ tCO₂ v38  ← C6 KARTI
+//     DÜZELTME: has_gas yerine system_type kullanıyor
+//     → Power BI model bağımsız, her zaman çalışır
+// ==========================================================================
+
+HVAC CO2 tCO2 v38 =
+VAR _gasF  = 0.2017   // kgCO₂/kWh — doğalgaz scope 1 (BAFA/IPCC 2006)
+VAR _elecF = 0.350    // kgCO₂e/kWh — AB elektrik şebekesi ort. 2024
+
+// Her bina için sistem tipine göre ısıtma emisyonu hesapla
+VAR _heatingKg =
+    SUMX (
+        VALUES ( gold_hvac_analytics[building_id] ),
+        VAR _sys     = CALCULATE ( MAX ( gold_hvac_analytics[system_type] ) )
+        // gas_boiler → direkt gaz yanması   → scope 1 faktörü
+        // hybrid     → kısmen gaz           → scope 1 faktörü (muhafazakâr)
+        // heat_pump  → elektrik             → scope 2 faktörü
+        // district   → bölgesel (varsayım: yenilenebilir) → scope 2
+        // vrf        → elektrik             → scope 2
+        VAR _isGas   = _sys = "gas_boiler" || _sys = "hybrid"
+        VAR _heatKwh = CALCULATE ( SUM ( gold_hvac_analytics[heating_energy_kwh] ) )
+        RETURN IF ( _isGas, _heatKwh * _gasF, _heatKwh * _elecF )
+    )
+
+// Soğutma + havalandırma: her zaman elektrik (tüm sistem tiplerinde)
+VAR _coolingKg = SUM ( gold_hvac_analytics[cooling_energy_kwh] ) * _elecF
+VAR _ventKg    = SUM ( gold_hvac_analytics[ventilation_kwh] )    * _elecF
+
+RETURN
+    DIVIDE ( _heatingKg + _coolingKg + _ventKg, 1000 )
+// Sonuç: tCO₂/seçili dönem
+// Format (Card New → Callout value): 0.0" tCO₂"   Display units: None
+//
+// Beklenen (All binalar, tüm aylar):
+//   Sadece B001 (HP → scope 2): ~15-25 tCO₂
+//   B002-B006 (Gas → scope 1): ~40-70 tCO₂ / bina
+//   Portföy toplam → 230-370 tCO₂ (6 bina)
+//   Sadece 3 bina görünüyorsa → 120-200 tCO₂ (notebook 11 join fix sonrası 6'ya çıkar)
+
+
+// ==========================================================================
+// A2) HVAC CO₂ Display v38  ← C6 TEXT FALLBACK (format string yetmezse)
+//     Card New → "Callout value" yetersizse bu ölçüyü kullan
+// ==========================================================================
+
+HVAC CO2 Display v38 =
+VAR _t = [HVAC CO2 tCO2 v38]
+RETURN
+    IF ( ISBLANK ( _t ) || _t = 0, "—", FORMAT ( _t, "0.0" ) & " tCO₂" )
+
+
+// ==========================================================================
+// A3) Card: HVAC Efficiency v38  ← C2 KARTI FORMAT FIX
+//     DÜZELTME: Floating point artifact → ROUND ile tam sayıya yuvarlıyoruz
+// ==========================================================================
+
+Card: HVAC Efficiency v38 =
+VAR _eff = [HVAC Efficiency v34]
+RETURN
+    IF ( ISBLANK ( _eff ), "—", FORMAT ( ROUND ( _eff, 0 ), "0" ) )
+// Format (Card New → Callout value): General   Display units: None
+// "84.3999..." → "84" olarak görünür
+// Beklenen: Berliner (HP, iyi yalıtım) → 85-95  |  Gas binaları → 35-60
+
+
+// ==========================================================================
+// A4) COP Display v38  ← V2 TABLO SÜTUN 4
+//     DÜZELTME: Artık VRF ve District tipler de doğru gösteriliyor
+//     "Avg COP Display" veya "COP Display v35"in YERİNİ ALIR
+// ==========================================================================
+
+COP Display v38 =
+VAR _sys    = MAX ( gold_hvac_analytics[system_type] )
+VAR _scop   =
+    CALCULATE (
+        AVERAGE ( gold_hvac_analytics[scop_rolling] ),
+        gold_hvac_analytics[scop_rolling] > 0
+    )
+VAR _rated  = AVERAGE ( silver_building_master[heat_pump_cop_rated] )
+VAR _has_hp = MAX ( silver_building_master[has_heat_pump] )
+
+RETURN
+    SWITCH (
+        TRUE (),
+        // Isı pompası: önce gerçek SCOP, yoksa rated
+        _has_hp && NOT ISBLANK ( _scop ) && _scop > 0,
+            FORMAT ( _scop, "0.00" ) & " (SCOP)",
+        _has_hp && NOT ISBLANK ( _rated ) && _rated > 0,
+            FORMAT ( _rated, "0.0" ) & " (rated)",
+        _has_hp,
+            "n/a (HP data missing)",
+        // VRF — COP tipik 3.0–5.5 (sistem bazlı ölçüm gerekir)
+        _sys = "vrf",
+            "3.0–5.5 (VRF Est.)",
+        // Bölgesel ısıtma — COP kavramı uygulanamaz, sistem verimi ağ bazlı
+        _sys = "district",
+            "n/a (District)",
+        // Hibrit — HP bileşeni için COP + gaz mix
+        _sys = "hybrid",
+            "HP part: " & IF ( NOT ISBLANK ( _rated ), FORMAT ( _rated, "0.0" ), "n/a" ),
+        // Gaz kazan — COP yerine mevsimsel verim (AFUE) geçerli
+        _sys = "gas_boiler",
+            "n/a (Gas boiler)",
+        "—"
+    )
+// Beklenen:
+//   B001 Berliner (HP): "3.80 (rated)" veya gerçek SCOP varsa "3.75 (SCOP)"
+//   B002-B005 (Gas):    "n/a (Gas boiler)"
+//   B004 Wien (District, nb11 fix sonrası): "n/a (District)"
+//   B006 Amst. (VRF, nb11 fix sonrası):    "3.0–5.5 (VRF Est.)"
+
+
+// ==========================================================================
+// A5) System Type Display v38  ← V2 TABLO SÜTUN 2
+//     DÜZELTME: VRF + District desteği eklendi
+// ==========================================================================
+
+System Type Display v38 =
+VAR _sys = MAX ( gold_hvac_analytics[system_type] )
+RETURN
+    SWITCH (
+        _sys,
+        "heat_pump",  "🔵  Heat Pump (ASHP)",
+        "hybrid",     "🟣  Hybrid HP + Gas Backup",
+        "gas_boiler", "🟠  Gas Boiler (CSRD risk)",
+        "district",   "🟤  District Heating/Cooling",
+        "vrf",        "🟡  VRF/VRV System",
+        "other",      "⚪  Other / Not specified",
+        "—"
+    )
+// Yeni tipler eklendiğinde bu SWITCH'i genişlet.
+// Örnek: "gshp" → "🔵  Heat Pump (GSHP)"
+//        "biomass" → "🟢  Biomass Boiler"
+//        "electric" → "⚡  Electric Resistance"
+
+
+// ==========================================================================
+// A6) Action Recommendation v38  ← V2 TABLO SÜTUN 7
+//     DÜZELTME: VRF, District ve GSHP önerileri eklendi
+// ==========================================================================
+
+Action Recommendation v38 =
+VAR _sys = MAX ( gold_hvac_analytics[system_type] )
+VAR _ins = AVERAGE ( gold_hvac_analytics[insulation_score] )
+VAR _eff = AVERAGE ( gold_hvac_analytics[hvac_efficiency_score] )
+RETURN
+    SWITCH (
+        TRUE (),
+        ISBLANK ( _sys ),
+            "HVAC audit recommended",
+        // Gas kazan + kötü yalıtım → Acil müdahale
+        _sys = "gas_boiler" && _ins < 50,
+            "🔴 Switch to ASHP + insulate envelope (CSRD risk)",
+        _sys = "gas_boiler" && _ins < 70,
+            "🟡 Plan ASHP retrofit by 2030 + improve insulation",
+        _sys = "gas_boiler" && _eff < 40,
+            "🟡 Replace boiler + plan gas-to-HP transition",
+        _sys = "gas_boiler",
+            "🟢 Envelope ok — plan ASHP transition pre-2035",
+        // Hibrit → gaz payını azalt
+        _sys = "hybrid" && _ins < 60,
+            "🟡 Insulate first, then reduce gas backup share",
+        _sys = "hybrid",
+            "🟢 Reduce gas backup share — increase HP load",
+        // Isı pompası → verim izle
+        _sys = "heat_pump" && _ins < 55,
+            "🟡 Insulate envelope to boost SCOP efficiency",
+        _sys = "heat_pump",
+            "🟢 Monitor SCOP & schedule annual service",
+        // VRF → enerji yönetimi
+        _sys = "vrf" && _ins < 60,
+            "🟡 Improve envelope — VRF efficiency drops with heat loss",
+        _sys = "vrf",
+            "🟢 Optimize VRF zoning & refrigerant check",
+        // Bölgesel ısıtma → kayıp optimizasyonu
+        _sys = "district" && _ins < 60,
+            "🟡 Reduce district heat demand — insulate envelope",
+        _sys = "district",
+            "🟢 Monitor district supply temp & check heat exchangers",
+        "Audit recommended"
+    )
+
+
+// ==========================================================================
+// A7) Renovation Priority Icon v38  ← V2 TABLO SÜTUN 3
+//     DÜZELTME: Tutarlı — v35 ile aynı mantık, yeni tipler eklendi
+// ==========================================================================
+
+Renovation Priority Icon v38 =
+VAR _label = MAX ( gold_hvac_analytics[renovation_priority] )
+RETURN
+    SWITCH (
+        _label,
+        "High",   "🔴  High — Act now",
+        "Medium", "🟡  Medium — Plan in 2 yr",
+        "Low",    "🟢  Low — Monitor",
+        "—"
+    )
+
+
+// ==========================================================================
+// A8) HVAC Efficiency Score v38  ← Renovation Priority Color için de kullanılır
+//     Format fix: INTEGER (floating point artifact önlenir)
+// ==========================================================================
+
+HVAC Efficiency Score v38 =
+VAR _raw = AVERAGE ( gold_hvac_analytics[hvac_efficiency_score] )
+RETURN ROUND ( _raw, 0 )
+// Format: 0
+// Beklenen: 40-55 (gaz ağırlıklı portföy) | 85-95 (HP + iyi yalıtım)
+
+
+// ==========================================================================
+//
+// V2 TABLO — SÜTUN ADLARI NASIL KISALTILIR
+// (Power BI'da DAX değil, UI üzerinden yapılır)
+//
+// Tablo visual'ında → Columns field well'de her alana sağ tıkla → "Rename":
+//
+//   "System Type Display v38"         → "System"
+//   "Renovation Priority Icon v38"    → "Priority"
+//   "COP Display v38"                 → "COP / SCOP"
+//   "Insulation Score v34"            → "Insulation"
+//   "Heat Loss kWh m2 Annual v34"     → "Heat Loss"
+//   "Action Recommendation v38"       → "Action"
+//   silver_building_master[building_name] → "Building"
+//
+// TOPLAM 7 kolon: Building | System | Priority | COP/SCOP | Insulation | Heat Loss | Action
+// Tavsiye sıra: Building (geniş) | System | Priority | COP | Insulation | Heat Loss | Action
+//
+// Kolon genişlikleri:
+//   Building:    ~180px   System:     ~160px   Priority: ~140px
+//   COP/SCOP:   ~110px   Insulation: ~90px    Heat Loss: ~90px   Action: ~200px
+//
+// ==========================================================================
+
+
+// ==========================================================================
+//
+// V2 TABLO — MEVCUT SORUNLAR VE FIX SIRALARI
+//
+// Sorun 1: "Avg COP Display" yanlış ölçü → kaldır, "COP Display v38" ekle
+// Sorun 2: Tüm satırlarda aynı değer (78) → Notebook 11 join fix gerekiyor
+//          (aşağıya bak — 47b_notebook11_join_fix.py)
+// Sorun 3: Heat Loss değerleri özdeş → aynı join fix sonrası düzelir
+//
+// V1 GRAFIK — TAVSİYE DEĞİŞİKLİK
+// Şu an: 100% stacked bar → absolute kWh miktarları gizleniyor
+// Tavsiye: Stacked bar (normal, %100 değil) → mevsimsel büyüklük görünür
+//   Format → Stacking → "Stacked" (100% değil)
+//   Y-axis label: "kWh / ay"
+//   Bu değişiklikle kış aylarında heating yüksekliği net görünür.
+//
+// ==========================================================================

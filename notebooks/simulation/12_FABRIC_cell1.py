@@ -1,0 +1,490 @@
+# ===== NOTEBOOK 12 — CELL 1 of 2 (run FIRST) =====
+# Imports, load, daily aggregation, dispatch compute (incl. V7 SoH cols), write gold_battery_dispatch.
+# ============================================================
+# Energy Copilot Platform – Battery Dispatch & Simulation
+# Notebook : 12_battery_dispatch_and_simulation.py
+# Layer    : Gold (Battery Strategy)
+# Page     : 9 — Battery Dispatch Strategies & Financial Simulation
+# Updated  : 2026-05-08
+# ============================================================
+#
+# PURPOSE
+# -------
+# Processes raw battery + solar + energy data into three gold tables
+# for Page 9 Power BI report:
+#
+#   gold_battery_dispatch       (daily dispatch: SoC, charge/discharge, savings)
+#   gold_battery_simulation     (scenario comparison: NPV, IRR, payback per building)
+#   gold_battery_daily_summary  (best-strategy aggregate + cumulative KPIs)
+#
+# INPUTS (attached Lakehouse)
+# ---------------------------
+#   bronze_battery_status       (15-min SoC, charge/discharge power readings)
+#   bronze_solar_generation     (15-min PV generation + export)
+#   bronze_energy_readings      (15-min building consumption)
+#   silver_building_master      (building metadata: country, battery config, PV capacity)
+#   gold_battery_technologies   (reference: battery specs, EU 2023/1542 compliance)
+#
+# BUILDINGS IN SCOPE
+# ------------------
+#   B001 – Berlin, 200 kWh LFP (CATL), Self-Consumption strategy, 120 kWp PV
+#   B003 – Hamburg, 800 kWh LFP (Fluence), Peak-Shaving strategy, 500 kWp PV
+#   B005 – Frankfurt, 400 kWh NMC (Samsung), Backup strategy, 200 kWp PV
+#   B004 – Vienna, no battery (scenario simulation only), 80 kWp PV
+#   B006 – Amsterdam, no battery (scenario simulation only), 150 kWp PV
+#   B002 – Istanbul: excluded (no PV, no battery)
+#
+# STRATEGY DEFINITIONS
+# --------------------
+#   self_consumption : Charge from PV surplus, discharge evening peak
+#   peak_shaving     : Charge overnight (off-peak grid), discharge demand peak
+#   tou              : Buy cheap hours, discharge expensive hours (price arbitrage)
+#   backup           : Maintain high SoC reserve, opportunistic discharge only
+#
+# PRICING (country-specific, 2026 market rates)
+# -----------------------------------------------
+#   DE: off-peak €0.062, mid €0.182, peak €0.285, demand €13.50/kW/month
+#   AT: off-peak €0.055, mid €0.165, peak €0.248, demand €11.20/kW/month
+#   NL: off-peak €0.071, mid €0.195, peak €0.302, demand €14.80/kW/month
+#
+# EU BATTERY REGULATION (2023/1542)
+# ----------------------------------
+#   All scenarios include only EU-compliant batteries (LFP) as recommended options.
+#   B005's existing NMC battery is flagged as non-compliant in simulation output.
+#   Replacement recommendation: CATL LFP 400 kWh at next maintenance cycle.
+#
+# BMAD PHASE : B2-A3-D4-L4 (Business logic + financial model)
+# DP-600 HINTS: Delta MERGE upsert pattern, broadcast joins on small dims,
+#               AQE enabled, vectorised window functions for cumulative metrics
+# ============================================================
+
+# ── 0. IMPORTS & SPARK CONFIGURATION ────────────────────────────────────────
+
+from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
+from pyspark.sql.window import Window
+from pyspark.sql.types import (
+    StructType, StructField,
+    StringType, DoubleType, BooleanType, DateType, LongType, IntegerType
+)
+from delta.tables import DeltaTable
+import math
+
+spark = SparkSession.builder.getOrCreate()
+spark.conf.set("spark.sql.adaptive.enabled", "true")
+spark.conf.set("spark.sql.shuffle.partitions", "16")
+
+# ── FABRIC LAKEHOUSE TABLE HELPER ─────────────────────────────────────────────
+# In Microsoft Fabric, Lakehouse Delta tables are accessed by name, NOT by path.
+#   READ  → spark.read.table("table_name")
+#   WRITE → df.write.format("delta").mode("overwrite").saveAsTable("table_name")
+#   MERGE → DeltaTable.forName(spark, "table_name")
+#
+# Files in the Files section (CSV, Parquet) are accessed via:
+#   spark.read.format("csv").load("Files/sample-data/filename.csv")
+
+def table_exists(name: str) -> bool:
+    """Check if a table is registered in the attached Lakehouse."""
+    return spark.catalog.tableExists(name)
+
+def read_table_or_csv(table_name: str, csv_path: str, **csv_opts):
+    """
+    Try to read a registered Lakehouse Delta table.
+    If not found, fall back to reading a CSV from the Files section.
+    This makes Notebook 12 self-contained — it does NOT require
+    Notebooks 01/02 to have run first for battery/solar data.
+    """
+    if table_exists(table_name):
+        print(f"  Reading table: {table_name}")
+        return spark.read.table(table_name)
+    else:
+        print(f"  Table '{table_name}' not found — reading CSV: {csv_path}")
+        return (
+            spark.read
+            .format("csv")
+            .option("header", "true")
+            .option("inferSchema", "true")
+            .options(**csv_opts)
+            .load(csv_path)
+        )
+
+# ── 1. LOAD SOURCE TABLES ─────────────────────────────────────────────────────
+# FILES PATH: Upload the following CSVs to your Lakehouse → Files → sample-data/
+#   raw_battery_status.csv
+#   raw_solar_generation.csv
+#   raw_energy_readings.csv
+#   building_master.csv
+#   gold_battery_technologies.csv
+# These files are in your local repo: sample-data/
+
+print("[1/6] Loading source tables...")
+
+# Battery readings — bronze table OR raw CSV
+df_battery_raw = read_table_or_csv(
+    "bronze_battery_status",
+    "Files/sample-data/raw_battery_status.csv"
+)
+
+# Solar generation — bronze table OR raw CSV
+df_solar_raw = read_table_or_csv(
+    "bronze_solar_generation",
+    "Files/sample-data/raw_solar_generation.csv"
+)
+
+# Energy readings — bronze table OR raw CSV
+df_energy_raw = read_table_or_csv(
+    "bronze_energy_readings",
+    "Files/sample-data/raw_energy_readings.csv"
+)
+
+# Building master — silver table OR CSV
+df_building = read_table_or_csv(
+    "silver_building_master",
+    "Files/sample-data/building_master.csv"
+)
+
+# Battery technologies reference — inline data (EU 2023/1542 verified 2026-05-08)
+# Hardcoded so the notebook is self-contained; no CSV upload required.
+# If a registered table already exists it will be used instead.
+if table_exists("gold_battery_technologies"):
+    df_battery_tech = spark.read.table("gold_battery_technologies")
+    print("  Reading table: gold_battery_technologies")
+else:
+    print("  Building gold_battery_technologies from inline reference data...")
+    from pyspark.sql.types import (
+        StructType, StructField, StringType, DoubleType, IntegerType, BooleanType
+    )
+    batt_tech_schema = StructType([
+        StructField("battery_id",                    StringType(),  True),
+        StructField("manufacturer",                  StringType(),  True),
+        StructField("battery_type",                  StringType(),  True),
+        StructField("capacity_kwh",                  DoubleType(),  True),
+        StructField("battery_power_kw",              DoubleType(),  True),
+        StructField("cost_eur_per_kwh",              DoubleType(),  True),
+        StructField("expected_lifespan_years",       IntegerType(), True),
+        StructField("design_cycles",                 IntegerType(), True),
+        StructField("round_trip_efficiency_percent", DoubleType(),  True),
+        StructField("degradation_rate_pct_per_1000_cycles", DoubleType(), True),
+        StructField("carbon_footprint_kg_co2_per_kwh", DoubleType(), True),
+        StructField("recycled_content_percent",      DoubleType(),  True),
+        StructField("warranty_cycles",               IntegerType(), True),
+        StructField("eu_compliant",                  BooleanType(), True),
+        StructField("regions_approved",              StringType(),  True),
+        StructField("suitable_strategies",           StringType(),  True),
+    ])
+    # fmt: off  (battery_id, mfr, type, cap_kwh, pwr_kw, €/kwh, life_yr, cycles,
+    #            rte_%, degrad_%/1000c, co2_kg/kwh, recycled_%, warranty_c, eu_ok,
+    #            regions, strategies)
+    batt_tech_rows = [
+        ("CATL_LFP_100",    "CATL",         "LFP", 100.0, 50.0,  140.0, 12, 6000, 94.5, 1.8, 45.0, 12.0, 6000, True,  "DE,AT,NL,FR,EU_avg", "self_consumption,peak_shaving,tou"),
+        ("CATL_LFP_200",    "CATL",         "LFP", 200.0, 100.0, 138.0, 12, 6000, 94.5, 1.8, 45.0, 12.0, 6000, True,  "DE,AT,NL,FR,EU_avg", "self_consumption,peak_shaving,tou"),
+        ("CATL_LFP_400",    "CATL",         "LFP", 400.0, 200.0, 135.0, 12, 5800, 94.0, 1.9, 46.0, 12.0, 5800, True,  "DE,AT,NL,FR,EU_avg", "peak_shaving,tou"),
+        ("BYD_LFP_100",     "BYD",          "LFP", 100.0, 50.0,  135.0, 12, 5000, 93.0, 2.0, 48.0, 10.0, 5000, True,  "DE,EU_avg",           "self_consumption,peak_shaving"),
+        ("BYD_LFP_200",     "BYD",          "LFP", 200.0, 100.0, 133.0, 12, 5000, 93.0, 2.0, 48.0, 10.0, 5000, True,  "DE,EU_avg",           "self_consumption,peak_shaving"),
+        ("FLUENCE_LFP_800", "Fluence",      "LFP", 800.0, 400.0, 130.0, 15, 7000, 95.0, 1.5, 42.0, 15.0, 7000, True,  "DE,AT,NL,FR,EU_avg", "peak_shaving,tou"),
+        ("SUNGROW_LFP_150", "Sungrow",      "LFP", 150.0, 75.0,  132.0, 12, 5500, 93.5, 2.0, 47.0, 11.0, 5500, True,  "DE,AT,NL,EU_avg",    "self_consumption,tou"),
+        ("TESLA_NCA_100",   "Tesla",        "NCA", 100.0, 50.0,  155.0,  9, 4000, 91.0, 3.0, 60.0, 12.0, 4000, True,  "DE",                  "self_consumption,backup"),
+        ("SAMSUNG_NMC_400", "Samsung SDI",  "NMC", 400.0, 180.0, 125.0,  8, 3000, 90.0, 3.5, 68.0,  8.0, 3000, False, "TR,EU_avg",           "backup,self_consumption"),
+        ("PANASONIC_NCA_75","Panasonic",    "NCA",  75.0, 35.0,  145.0,  8, 3000, 90.0, 3.5, 65.0,  8.0, 3000, False, "EU_avg",              "backup"),
+    ]
+    # fmt: on
+    df_battery_tech = spark.createDataFrame(batt_tech_rows, schema=batt_tech_schema)
+    # Persist as a Lakehouse table for future runs
+    df_battery_tech.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable("gold_battery_technologies")
+    print("  gold_battery_technologies registered as Lakehouse table.")
+
+# building_master.csv uses country_code column
+if "country_code" not in df_building.columns and "country" in df_building.columns:
+    df_building = df_building.withColumnRenamed("country", "country_code")
+
+# Buildings in scope for Page 9 (solar + battery systems)
+# 2026-05-21: B007 (Copenhagen Net-Plus HQ, 450 kWh LFP + 380 kWp PV + GSHP) eklendi
+SCOPE_BUILDINGS = ["B001", "B003", "B004", "B005", "B006", "B007"]
+df_building_p9 = df_building.filter(F.col("building_id").isin(SCOPE_BUILDINGS))
+
+print(f"  Battery raw readings:    {df_battery_raw.count():,}")
+print(f"  Solar raw readings:      {df_solar_raw.count():,}")
+print(f"  Energy raw readings:     {df_energy_raw.count():,}")
+print(f"  Buildings in scope:      {df_building_p9.count()}")
+
+# ── 2. DAILY AGGREGATION ──────────────────────────────────────────────────────
+
+print("[2/6] Aggregating raw data to daily granularity...")
+
+# Battery daily: avg SoC, total charge/discharge
+df_battery_daily = (
+    df_battery_raw
+    .filter(F.col("building_id").isin(SCOPE_BUILDINGS))
+    .withColumn("date", F.to_date("timestamp_utc"))
+    .groupBy("building_id", "date")
+    .agg(
+        F.first("battery_id").alias("battery_id"),
+        F.avg("soc_raw").alias("avg_soc_raw"),
+        F.first("soc_raw").alias("soc_start_raw"),
+        F.last("soc_raw").alias("soc_end_raw"),
+        F.sum(
+            F.when(F.col("charge_power_raw") > 0, F.col("charge_power_raw") * (15.0/60.0))
+            .otherwise(0)
+        ).alias("charge_kwh_raw"),
+        F.sum(
+            F.when(F.col("discharge_power_raw") > 0, F.col("discharge_power_raw") * (15.0/60.0))
+            .otherwise(0)
+        ).alias("discharge_kwh_raw"),
+        F.count("*").alias("readings_count"),
+    )
+)
+
+# Solar daily: total generation and export
+df_solar_daily = (
+    df_solar_raw
+    .filter(F.col("building_id").isin(SCOPE_BUILDINGS))
+    .withColumn("date", F.to_date("timestamp_utc"))
+    .groupBy("building_id", "date")
+    .agg(
+        F.first("inverter_id").alias("inverter_id"),
+        F.sum("generated_raw").alias("pv_generation_kwh"),
+        F.sum("exported_raw").alias("pv_export_kwh"),
+    )
+)
+
+# Energy daily: total building consumption
+df_energy_daily = (
+    df_energy_raw
+    .filter(F.col("building_id").isin(SCOPE_BUILDINGS))
+    .withColumn("date", F.to_date("timestamp_utc"))
+    .groupBy("building_id", "date")
+    .agg(
+        F.sum("raw_value").alias("consumption_kwh"),
+    )
+)
+
+print(f"  Battery daily rows: {df_battery_daily.count():,}")
+print(f"  Solar daily rows:   {df_solar_daily.count():,}")
+print(f"  Energy daily rows:  {df_energy_daily.count():,}")
+
+# ── 3. BUILD DISPATCH TABLE (gold_battery_dispatch) ───────────────────────────
+
+print("[3/6] Computing dispatch metrics and financial KPIs...")
+
+# audit I2 fix: fiyat + grid CO₂ artık ref tablolarından (tek-doğru-kaynak).
+# Inline pricing_data kaldırıldı → battery'nin TR CO₂=450 vs 430 vs 442 sapması biter.
+# Her ülke için son yıl alınır (ref_grid yıl-indeksli; ref_tariffs tek yıl).
+_tar_latest = (
+    spark.table("ref_electricity_tariffs")
+    .withColumn("_rn", F.row_number().over(
+        Window.partitionBy("country_code").orderBy(F.col("year").desc())))
+    .filter(F.col("_rn") == 1)
+)
+_grid_latest = (
+    spark.table("ref_grid_emission_factors")
+    .withColumn("_rn", F.row_number().over(
+        Window.partitionBy("country_code").orderBy(F.col("year").desc())))
+    .filter(F.col("_rn") == 1)
+    .select(F.col("country_code").alias("_gc"),
+            (F.col("emission_factor_kg_kwh") * 1000.0).alias("co2_g_kwh"))
+)
+df_pricing = (
+    _tar_latest.join(_grid_latest, F.col("country_code") == F.col("_gc"), "left")
+    .select(
+        F.col("country_code").alias("country"),
+        F.col("offpeak_eur_kwh"),
+        F.col("mid_eur_kwh").alias("midpeak_eur_kwh"),
+        F.col("peak_eur_kwh"),
+        F.col("demand_charge_eur_kw_month").alias("demand_eur_kw_month"),
+        F.col("feed_in_eur_kwh"),
+        F.coalesce(F.col("co2_g_kwh"), F.lit(280.0)).alias("co2_g_kwh"),
+    )
+)
+
+# Building config: join battery metadata + pricing
+df_bldg_config = (
+    df_building_p9.select(
+        "building_id", "building_name", "country_code",
+        "has_battery", "battery_capacity_kwh", "battery_technology",
+        "battery_strategy", "pv_capacity_kwp",
+    )
+    .join(F.broadcast(df_pricing), df_building_p9["country_code"] == df_pricing["country"], "left")
+)
+
+# Join daily aggregates
+df_joined = (
+    df_solar_daily
+    .join(df_battery_daily, ["building_id", "date"], "left")
+    .join(df_energy_daily,  ["building_id", "date"], "left")
+    .join(df_bldg_config,   "building_id", "left")
+)
+
+# Compute dispatch KPIs
+# --- Round-trip efficiency per battery type ---
+# LFP: 94.5%, NMC: 90.5% (standard datasheet values)
+df_dispatch = (
+    df_joined
+    .withColumn("battery_type_clean",
+        F.when(F.col("battery_technology").isin("LFP"), "LFP")
+         .when(F.col("battery_technology").isin("NMC", "NCA"), F.col("battery_technology"))
+         .otherwise("LFP")
+    )
+    .withColumn("round_trip_efficiency",
+        F.when(F.col("battery_type_clean") == "LFP",  0.945)
+         .when(F.col("battery_type_clean") == "NMC",  0.905)
+         .when(F.col("battery_type_clean") == "NCA",  0.910)
+         .otherwise(0.930)
+    )
+    # Normalize SoC to 0-1 range (input is already %)
+    .withColumn("soc_start_pct", F.coalesce(F.col("soc_start_raw"), F.lit(20.0)))
+    .withColumn("soc_end_pct",   F.coalesce(F.col("soc_end_raw"),   F.lit(20.0)))
+    # Charge/discharge with safety bounds
+    .withColumn("charge_kwh",    F.greatest(F.lit(0.0), F.coalesce(F.col("charge_kwh_raw"),    F.lit(0.0))))
+    .withColumn("discharge_kwh", F.greatest(F.lit(0.0), F.coalesce(F.col("discharge_kwh_raw"), F.lit(0.0))))
+    # PV to load (direct consumption without storage)
+    .withColumn("pv_to_load_kwh",
+        F.least(
+            F.coalesce(F.col("pv_generation_kwh"), F.lit(0.0)),
+            F.coalesce(F.col("consumption_kwh"), F.lit(0.0))
+        )
+    )
+    # Grid charge = total charge - PV charge (estimated)
+    .withColumn("pv_charge_kwh",
+        F.greatest(F.lit(0.0),
+            F.coalesce(F.col("pv_generation_kwh"), F.lit(0.0))
+            - F.col("pv_to_load_kwh")
+        )
+    )
+    .withColumn("grid_charge_kwh",
+        F.greatest(F.lit(0.0), F.col("charge_kwh") - F.col("pv_charge_kwh"))
+    )
+    # Cycle depth: discharge / capacity
+    .withColumn("cycle_depth_pct",
+        F.when(
+            (F.col("battery_capacity_kwh").isNotNull()) & (F.col("battery_capacity_kwh") > 0),
+            F.col("discharge_kwh") / F.col("battery_capacity_kwh") * 100.0
+        ).otherwise(0.0)
+    )
+    # Financial KPIs
+    # audit I3 fix: deşarjı HER ZAMAN peak'le değerleme abartıydı. Strateji-farkında:
+    # peak_shaving/tou peak saatte deşarj eder → peak; diğerleri akşam → midpeak.
+    .withColumn("_displaced_rate",
+        F.when(F.col("battery_strategy").isin("peak_shaving", "tou"), F.col("peak_eur_kwh"))
+         .otherwise(F.col("midpeak_eur_kwh")))
+    .withColumn("cost_avoided_eur",
+        F.col("discharge_kwh") * F.col("_displaced_rate")
+    )
+    .withColumn("grid_charge_cost_eur",
+        F.col("grid_charge_kwh") * F.col("offpeak_eur_kwh")
+    )
+    # audit I3 fix: demand-charge tasarrufu PEAK-kW bazlı. Eski formül
+    # (discharge/cap)×cap = discharge → yanlışlıkla günlük ENERJİ ile orantılıydı.
+    # Yeni: ~0.25C kW shave proxy × aylık demand tarifesi / 30, sadece aktif günlerde.
+    .withColumn("demand_reduction_eur",
+        F.when(
+            (F.col("battery_strategy") == "peak_shaving") & (F.col("discharge_kwh") > 0.1),
+            F.col("battery_capacity_kwh") * 0.25          # ~0.25C peak-kW shave proxy
+            * F.col("demand_eur_kw_month") / 30.0         # aylık → günlük pay
+        ).otherwise(0.0)
+    )
+    .withColumn("net_savings_eur",
+        F.col("cost_avoided_eur") + F.col("demand_reduction_eur") - F.col("grid_charge_cost_eur")
+    )
+    .withColumn("co2_avoided_kg",
+        F.col("discharge_kwh") * F.col("co2_g_kwh") / 1000.0
+    )
+    # EU compliance flag from gold_battery_technologies (join below)
+    .withColumn("is_simulated",
+        F.when(F.col("has_battery") == True, False).otherwise(True)
+    )
+    # Select and rename final columns
+    .select(
+        F.col("date"),
+        F.col("building_id"),
+        F.col("building_name"),
+        F.col("country_code").alias("country"),
+        F.coalesce(F.col("battery_id"), F.concat(F.col("building_id"), F.lit("_BATT_SIM"))).alias("battery_id"),
+        F.col("battery_technology").alias("battery_type"),
+        F.col("battery_strategy").alias("strategy"),
+        F.coalesce(F.col("battery_capacity_kwh"), F.lit(0.0)).alias("capacity_kwh"),
+        F.coalesce(F.col("pv_capacity_kwp"), F.lit(0.0)).alias("pv_capacity_kwp"),
+        F.coalesce(F.col("pv_generation_kwh"), F.lit(0.0)).alias("pv_generation_kwh"),
+        F.col("pv_to_load_kwh"),
+        F.col("pv_charge_kwh"),
+        F.col("grid_charge_kwh"),
+        F.col("charge_kwh"),
+        F.col("discharge_kwh"),
+        F.col("soc_start_pct"),
+        F.col("soc_end_pct"),
+        F.col("round_trip_efficiency"),
+        F.col("cycle_depth_pct"),
+        F.col("cost_avoided_eur"),
+        F.col("grid_charge_cost_eur"),
+        F.col("demand_reduction_eur"),
+        F.col("net_savings_eur"),
+        F.col("co2_avoided_kg"),
+        F.col("peak_eur_kwh").alias("grid_price_peak_eur_kwh"),
+        F.col("offpeak_eur_kwh").alias("grid_price_offpeak_eur_kwh"),
+        F.col("co2_g_kwh").alias("grid_co2_intensity_g_kwh"),
+        F.col("is_simulated"),
+        F.current_timestamp().alias("processed_at"),
+    )
+    .filter(F.col("date").isNotNull())
+)
+
+# Annotate EU compliance from battery tech reference
+df_eu_map = (
+    df_battery_tech
+    .groupBy("battery_type")
+    .agg(F.max("eu_compliant").alias("eu_compliant"))
+)
+df_dispatch = df_dispatch.join(
+    F.broadcast(df_eu_map), "battery_type", "left"
+).withColumn("eu_compliant", F.coalesce(F.col("eu_compliant"), F.lit(False)))
+
+# 2026-06-05: realistic V7 (Page 9) battery-health model — age + cycling + calendar fade.
+# Each building's battery gets a deterministic install date 0.5-5 yr before the latest
+# dispatch date (staggered via building_id hash) so SoH varies across the fleet.
+# SoH = 100 - cycle_fade - calendar_fade ; end-of-life = 80% SoH (stationary-storage std). [Mert-approved]
+CAL_FADE_PCT_PER_YR = 1.5          # Li-ion calendar fade (%/yr)
+EOL_SOH_PCT         = 80.0         # end-of-life threshold
+_max_date = df_dispatch.agg(F.max("date").alias("m")).collect()[0]["m"]
+
+# annual cycling rate per (building, strategy) = mean daily cycle_depth/100 x 365
+_w_b = Window.partitionBy("building_id", "strategy")
+df_dispatch = df_dispatch.withColumn(
+    "annual_cycles", F.round(F.avg(F.col("cycle_depth_pct") / 100.0).over(_w_b) * 365.0, 1))
+
+# deterministic battery age 0.5-5.0 yr (building_id hash) -> install_date + lifetime cycles
+df_dispatch = (df_dispatch
+    .withColumn("_age_yr", F.round(F.lit(0.5) + (F.abs(F.hash(F.col("building_id"))) % 46) / 10.0, 2))
+    .withColumn("install_date", F.date_sub(F.to_date(F.lit(_max_date)), (F.col("_age_yr") * 365).cast("int")))
+    .withColumn("cumulative_cycles", F.round(F.col("_age_yr") * F.col("annual_cycles"), 1)))
+
+# cycle fade (battery_tech degradation) + calendar fade -> SoH + years-until-replacement
+_degr = df_battery_tech.groupBy("battery_type").agg(F.avg("degradation_rate_pct_per_1000_cycles").alias("degradation_rate_pct_per_1000_cycles"))
+df_dispatch = (df_dispatch.join(F.broadcast(_degr), "battery_type", "left")
+    .withColumn("_cycle_fade", F.col("cumulative_cycles")
+        * F.coalesce(F.col("degradation_rate_pct_per_1000_cycles"), F.lit(2.0)) / F.lit(1000.0))
+    .withColumn("_cal_fade", F.col("_age_yr") * F.lit(CAL_FADE_PCT_PER_YR))
+    .withColumn("battery_health_percent",
+        F.round(F.greatest(F.lit(70.0), F.lit(100.0) - F.col("_cycle_fade") - F.col("_cal_fade")), 1))
+    .withColumn("_annual_fade", F.greatest(F.lit(0.1),
+        (F.col("_cycle_fade") + F.col("_cal_fade")) / F.greatest(F.col("_age_yr"), F.lit(0.5))))
+    .withColumn("years_until_replacement",
+        F.round(F.greatest(F.lit(0.0),
+            (F.col("battery_health_percent") - F.lit(EOL_SOH_PCT)) / F.col("_annual_fade")), 1))
+    .drop("degradation_rate_pct_per_1000_cycles", "_cycle_fade", "_cal_fade", "_annual_fade", "_age_yr"))
+
+# 2026-06-05: one row per merge key — battery_type joins can fan out -> prevents
+# DELTA_MULTIPLE_SOURCE_ROW_MATCHING_TARGET_ROW_IN_MERGE.
+df_dispatch = df_dispatch.dropDuplicates(["building_id", "date", "strategy"])
+print(f"  Dispatch rows computed: {df_dispatch.count():,}")
+
+# ── 4. UPSERT → gold_battery_dispatch ────────────────────────────────────────
+
+print("[4/6] Writing gold_battery_dispatch (Delta MERGE upsert)...")
+spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")  # 2026-06-01: allow new V7 columns through MERGE
+
+DISPATCH_TABLE = "gold_battery_dispatch"
+merge_keys = ["building_id", "date", "strategy"]
+
+# 2026-06-06: OVERWRITE (not MERGE) so the V7 SoH columns reliably persist every run.
+df_dispatch.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(DISPATCH_TABLE)
+print("  Dispatch written (overwrite — reliably includes V7 SoH columns).")
+

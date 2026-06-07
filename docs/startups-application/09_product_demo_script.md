@@ -1,57 +1,65 @@
-# Product Demo Video — Script
+# Product Demo Video — Script (v2 — Web App + Copilot Forward)
 
-**Duration target:** 3-5 minutes (sweet spot: 3:30)
+**Duration target:** 3:30–4:00
 **Format:** Loom screen recording + AI voiceover (ElevenLabs)
 **Language:** English
-**Voice:** Professional male voice (ElevenLabs "Adam" or "Antoni" or similar)
+**Voice:** Professional male or female ElevenLabs voice ("Adam" / "Bella")
+
+---
+
+## DEMO ARC — what we are saying with this video
+
+This demo flips the old script. The old version walked through 9 Power BI pages. The new version leads with **the live web application + AI Copilot** — the differentiators Microsoft has not seen from us before — and then uses three carefully-chosen Power BI pages as supporting depth.
+
+Why: the application layer is the "wow factor" that proves we are not just a dashboard project. The AI Copilot reasoning over the Microsoft Fabric Lakehouse via tool use is the strongest single artifact for a Microsoft for Startups reviewer.
 
 ---
 
 ## RECORDING WORKFLOW
 
-### Step 1 — Prepare Power BI Desktop (10 min)
+### Step 1 — Prepare environments (15 min)
 
-- [ ] Open .pbix file in Power BI Desktop
-- [ ] Refresh data (ensure latest)
-- [ ] Set zoom to 100% (consistent for screen capture)
-- [ ] Hide notifications, close other apps
-- [ ] Maximize window
-- [ ] Have all 9 pages ready
+Web app:
+- [ ] `npm run dev` (frontend on http://localhost:3000)
+- [ ] `uvicorn main:app --reload --port 8000` (backend on http://127.0.0.1:8000)
+- [ ] Verify a test account is signed in (smoke@energylens.eu) or use Mert's main account
+- [ ] /portfolio loads with KPIs visible
+- [ ] /copilot loads (new conversation ready)
+- [ ] Mock LLM provider running (no Anthropic credit needed)
 
-### Step 2 — Record screen with Loom (5 min)
+Power BI Desktop:
+- [ ] Open .pbix file
+- [ ] Refresh data
+- [ ] Confirm Page 1 (Portfolio), Page 6 (Sustainability/CRREM), Page 9 (Battery) render correctly
+- [ ] **Skip Page 8 IoT** — capacity still throttled, will be polished post-submission
+- [ ] Zoom 100%, maximize window, hide notifications
 
-- [ ] Open Loom
-- [ ] Start recording, **screen only** (no webcam for demo)
-- [ ] Walk through each page SILENTLY (don't talk)
-- [ ] Move cursor smoothly, hover over key visuals
-- [ ] **Time each page roughly** (see script below)
-- [ ] Stop recording when done
-- [ ] Download MP4
+### Step 2 — Record screen with Loom
 
-### Step 3 — Generate voiceover with ElevenLabs (15 min)
+- [ ] Screen only (no webcam)
+- [ ] Two takes minimum
+- [ ] Walk silently through scenes — voiceover dropped in post
+- [ ] Move cursor deliberately, hover on key visuals
 
-- [ ] Go to elevenlabs.io (free tier OK)
-- [ ] Choose voice: "Adam" (professional male) or "Bella" (professional female)
-- [ ] Paste script paragraph by paragraph
+### Step 3 — Generate voiceover with ElevenLabs
+
+- [ ] Paste each scene paragraph
 - [ ] Generate audio per scene
-- [ ] Download each MP3 (one per scene)
+- [ ] Save each MP3 with scene number
 
-### Step 4 — Sync video + audio in Descript (30 min)
+### Step 4 — Assemble in Descript
 
-- [ ] Open Descript, create new project
-- [ ] Import Loom video
-- [ ] Import all ElevenLabs MP3s
-- [ ] Place audio segments at correct video timestamps (per scene markers)
-- [ ] Add background music (Pixabay free, -20dB volume)
-- [ ] Add intro title card (3 sec): "EnergyLens — Smart Energy for Smart Buildings"
-- [ ] Add outro card (3 sec): "energylens.eu | Microsoft for Startups Candidate"
+- [ ] Import Loom MP4
+- [ ] Align ElevenLabs audio to scene markers
+- [ ] Background music (Pixabay royalty-free, -20 dB)
+- [ ] Title card (3 sec): "EnergyLens — Smart Energy for Smart Buildings"
+- [ ] Outro card (3 sec): "energylens.eu · Microsoft for Startups Candidate"
 - [ ] Export 1080p MP4
 
-### Step 5 — Upload (5 min)
+### Step 5 — Upload
 
-- [ ] Upload to Loom OR YouTube (unlisted)
-- [ ] Get share link
-- [ ] Add to Microsoft Startups application
+- [ ] Loom unlisted or YouTube unlisted
+- [ ] Copy share link → paste into application
 
 ---
 
@@ -59,115 +67,96 @@
 
 ---
 
-### SCENE 1 — Intro (15 seconds, 0:00–0:15)
+### SCENE 1 — Intro & Sign-in (30 seconds, 0:00–0:30)
 
-**[SCREEN:** Title card "EnergyLens — Smart Energy for Smart Buildings" for 3 seconds, then fade into Power BI Desktop showing Page 1: Portfolio Overview]
+**[SCREEN:** Title card "EnergyLens — Smart Energy for Smart Buildings" for 3 seconds. Cut to the EnergyLens landing page showing the sign-in options (Microsoft, Google, Email/Password). Cursor hovers over the three buttons. Click "Sign in with Microsoft", land on `/portfolio`.]
 
 **VOICEOVER:**
-> "EnergyLens is a Microsoft Fabric-native energy intelligence platform that helps European commercial buildings comply with EU regulations while optimizing energy costs and carbon emissions. Let me show you what it does."
+> "EnergyLens is a Microsoft Fabric-native energy intelligence platform for European commercial buildings. It is a live web application with three-provider authentication — Microsoft Entra, Google, and email — talking directly to a production Fabric Lakehouse. In the next few minutes I will show you the application, the AI Copilot, and the regulatory depth that Microsoft for Startups would help us scale."
 
 ---
 
-### SCENE 2 — Portfolio Overview (40 seconds, 0:15–0:55)
+### SCENE 2 — Portfolio Overview (45 seconds, 0:30–1:15)
 
-**[SCREEN:** Page 1 Portfolio Overview. Slowly pan cursor over the KPI cards. Hover over the Portfolio Scorecard table. Hover over EUI Benchmark chart.]
+**[SCREEN:** `/portfolio` page. Pan cursor over the four KPI tiles (Total Energy, EUI, Cost, CO₂). Slowly scroll the buildings table — TanStack Table with sortable columns, EPC badges, EUI tier coloring. Hover on Berliner Bürogebäude Alpha (EPC B), then on Frankfurt Datacenter Iota (EPC B, high consumer).]
 
 **VOICEOVER:**
-> "On the Portfolio Overview, you see your entire commercial real estate portfolio at a glance — total energy consumed, average Energy Use Intensity in kilowatt-hours per square meter per day, active anomalies, total cost in euros, and net carbon footprint in tonnes of CO2.
-
-> Each KPI shows your value against a dynamic goal — for example, a 5% year-over-year reduction target.
-
-> Below, the Portfolio Scorecard ranks every building in your portfolio with traffic-light coloring on EUI, cost, anomalies, and CRREM compliance status. A property manager scans this in 5 seconds and knows which building needs attention.
-
-> The EUI Benchmark chart compares your buildings against a portfolio median and the EU 2030 regulatory target."
-
-**[Cursor over Berliner Bürogebäude row showing green CRREM, then over Frankfurt Klinikum showing 501 kWh/m²/yr]**
+> "This is the portfolio overview, rendered in React, reading directly from the Microsoft Fabric Lakehouse through the SQL Analytics Endpoint. Sub-second response, no embed token round-trip.
+>
+> Four headline KPIs: total energy, Energy Use Intensity, cost in euros, and net carbon — each compared against a prior thirty-day window. Below, every building in the portfolio is listed with EPC badge, EUI tier, anomaly count, and recommendation count. Sortable, filterable, and styled with the EnergyLens design system.
+>
+> This is one of three parallel data paths into the Lakehouse — purely custom React. The next page demonstrates the second path."
 
 ---
 
-### SCENE 3 — Building Detail (30 seconds, 0:55–1:25)
+### SCENE 3 — Building Detail with Embedded Power BI (30 seconds, 1:15–1:45)
 
-**[SCREEN:** Click Page 2: Building-Level Detail. Pan over the daily consumption + temperature trend chart.]
+**[SCREEN:** Click a building row (Berliner Bürogebäude Alpha, B001). Land on `/buildings/B001`. Page shows app chrome on top (logo, breadcrumb, building name) and an embedded Power BI report below. Use Power BI's own page tabs to flip between Page 1 (Portfolio context) and Page 2 (Building Detail).]
 
 **VOICEOVER:**
-> "Drill into any building. The Building Detail page shows daily consumption trends correlated with outdoor temperature — so you can see weather-normalized performance. Solar generation, battery state of charge, peak demand, and a 7-day rolling average put everything in context for the facility manager.
-
-> This is what your operations team checks every morning with their coffee."
+> "Click any building and you land on a per-building page where Microsoft Power BI is embedded through the V2 embed API, using a service principal in app-owns-data mode. This is path two: the customer sees the EnergyLens brand chrome on the outside, and inside it the full nine-page Power BI experience with DirectLake performance and row-level security ready to flip on. Same Fabric Lakehouse, different surface."
 
 ---
 
-### SCENE 4 — Anomalies & Alerts (25 seconds, 1:25–1:50)
+### SCENE 4 ★ — AI Copilot (1 minute 30 seconds, 1:45–3:15)
 
-**[SCREEN:** Page 3: Anomalies & Alerts. Hover over the severity heatmap.]
+**[SCREEN:** Click "Copilot" in primary nav, land on `/copilot` with the violet AI accent. Start a new conversation. Type the first question slowly so the viewer reads it.]
 
-**VOICEOVER:**
-> "EnergyLens automatically detects energy anomalies — Wednesday night equipment left on, HVAC fault during a heat wave, peak shaving failure on a Friday.
+**Type:** `What was B001's energy in the last 30 days?`
 
-> Each anomaly is tagged with severity, root cause hypothesis, recommended action, and estimated euro cost. Your team triages them like incident tickets."
+**[Wait for SSE streaming response. The chat shows: user message, then "tool call: query_kpi", then tool result chip, then final assistant message with the number.]**
 
----
+**VOICEOVER (scene part 1, ~30 sec):**
+> "Path three is the AI Copilot. Behind the chat input is an LLM with tool use — six production tools that talk directly to the Microsoft Fabric Lakehouse and to PostgreSQL. The user asks a question in natural language. The model picks a tool. The backend dispatches it. The tool runs a real query against gold_kpi_daily in the Lakehouse. The result streams back over Server-Sent Events and the model summarises it."
 
-### SCENE 5 — Forecast & Recommendations (25 seconds, 1:50–2:15)
+**[Tool result appears: query_kpi returned 33,294.49 kWh for B001 over the last 30 days, ↓6.4% versus prior period. The model writes: "Berliner Bürogebäude Alpha used 33,294.49 kilowatt hours over the last 30 days — a 6.4 percent reduction compared with the prior period."]**
 
-**[SCREEN:** Page 4: Forecast & Recommendations. Show forecast chart, then scroll to recommendation table.]
+**[Type the second question:]**
 
-**VOICEOVER:**
-> "Our forecasting engine projects consumption 30 days ahead, factoring in weather, occupancy, and historical patterns. This drives budgeting and procurement decisions.
+**Type:** `Compare B001 and B005 on energy.`
 
-> The recommendation engine identifies the highest-ROI improvements — retrofit insulation in Building A, replace the chiller in Building C, optimize HVAC schedules in Building D. Each recommendation has an estimated payback period."
+**[Tool: compare_buildings. Result: Berlin 33K kWh vs Frankfurt 663K kWh — the data center.]**
 
----
+**VOICEOVER (scene part 2, ~25 sec):**
+> "Each question is a real Lakehouse query. No retrieval-augmented hallucination — the answer is the actual number in your Fabric warehouse, summarised in plain English. Multi-building comparisons, anomaly investigations, retrofit recommendations, battery dispatch simulations — six tools, all live, all reasoning over real data."
 
-### SCENE 6 — Sustainability & Compliance (35 seconds, 2:15–2:50)
+**[Type the third question:]**
 
-**[SCREEN:** Page 6: Sustainability & Compliance. Hover over CRREM stranding chart.]
+**Type:** `Show me battery scenarios for B005.`
 
-**VOICEOVER:**
-> "This is the page our enterprise customers care about most: EU regulatory compliance.
+**[Tool: simulate_battery_scenario. Result: SAMSUNG_NMC_400 with time-of-use strategy, 6,132 €/year, 8.8-year payback.]**
 
-> The CRREM pathway analysis shows which buildings are aligned with the 1.5-degree decarbonization trajectory, which are at risk, and which are already stranded. Property managers and asset owners face billions of euros in stranding risk by 2030 — EnergyLens makes it visible.
-
-> We also track EnEfG and GEG compliance in Germany, EPC distribution, ISO 50001 certification status, and Scope 1, 2, and 3 carbon emissions. Everything you need for CSRD sustainability reporting."
+**VOICEOVER (scene part 3, ~30 sec):**
+> "For Microsoft for Startups, the important architectural point is this: the LLM provider is abstracted. We are running on a Mock provider right now because Anthropic credit is exhausted — the tools, the dispatcher, and the Fabric queries are all real. With Azure OpenAI credit from Microsoft for Startups, we flip a single environment variable and the live Copilot becomes a production GPT-4o agent reasoning over the Lakehouse. The infrastructure is already there."
 
 ---
 
-### SCENE 7 — HVAC & Envelope (25 seconds, 2:50–3:15)
+### SCENE 5 — Sustainability & CRREM Compliance (25 seconds, 3:15–3:40)
 
-**[SCREEN:** Page 7: HVAC & Building Envelope. Show heat pump COP and U-value visuals.]
+**[SCREEN:** In the embedded Power BI report, navigate to Page 6: Sustainability & Compliance. Hover over the CRREM stranding chart and the EPC distribution donut. Show the Scope 1/2/3 breakdown.]
 
 **VOICEOVER:**
-> "HVAC is typically 40 to 60 percent of building energy. This page monitors heat pump coefficient of performance, gas boiler efficiency, district heating share, and envelope U-values across your portfolio. It flags which buildings need retrofits and ranks them by urgency."
+> "The regulatory depth that makes this an EU product, not a US import. Page six tracks every building against the CRREM 2030 carbon pathway, the German EnEfG energy efficiency law, EPC distribution, and Scope 1, 2, and 3 emissions in CSRD-ready format. This is the page our enterprise customers care about most: billions of euros in stranding risk made visible at the building level."
 
 ---
 
-### SCENE 8 — IoT Real-Time (25 seconds, 3:15–3:40)
+### SCENE 6 — Battery Strategy & EU 2023/1542 (25 seconds, 3:40–4:05)
 
-**[SCREEN:** Page 8: IoT Monitoring. Show live power KPI, zone compliance, alert table.]
+**[SCREEN:** Navigate to Page 9: Battery Strategy. Show the dispatch simulation chart, then the EU compliance card highlighting carbon footprint and recycled content.]
 
 **VOICEOVER:**
-> "For Tier 2 and 3 customers with IoT sensors, the platform ingests real-time data through BACnet, Modbus, and MQTT protocols. You see live power draw, zone comfort compliance, sensor uptime, and active high-severity alerts — with euro cost estimates per anomaly. This is how facility managers run buildings minute by minute."
+> "And page nine is where Microsoft Fabric power meets EU regulation. Twelve countries, eight battery chemistries, seven dispatch strategies — every scenario checked against EU Regulation 2023/1542 for carbon footprint labels, state of health, and recycled content. The Copilot you just saw can simulate any of these scenarios in plain English. This is what mid-market property managers cannot get anywhere else."
 
 ---
 
-### SCENE 9 — Battery Strategy (30 seconds, 3:40–4:10)
+### SCENE 7 — Closing (10 seconds, 4:05–4:15)
 
-**[SCREEN:** Page 9: Battery Strategy. Show dispatch simulation chart, EU compliance card.]
-
-**VOICEOVER:**
-> "For buildings with batteries, EnergyLens simulates dispatch strategies — self-consumption, peak shaving, time-of-use arbitrage, and backup — with NPV and IRR calculations.
-
-> Every battery is checked against EU Regulation 2023/1670, which mandates carbon footprint labels, state of health tracking, and recycled content disclosure. We help property owners pick the right battery for the right strategy in the right country."
-
----
-
-### SCENE 10 — Closing (15 seconds, 4:10–4:25)
-
-**[SCREEN:** Fade back to Page 1 overview. Outro title card: "energylens.eu | Microsoft for Startups Candidate"]
+**[SCREEN:** Fade back to the EnergyLens logo / landing page. Outro card: "energylens.eu · Microsoft for Startups Candidate"]
 
 **VOICEOVER:**
-> "EnergyLens — built on Microsoft Fabric, designed for European compliance, accessible to mid-market property managers. We're applying to Microsoft for Startups to scale this vision across Europe. Thank you for watching."
+> "EnergyLens — built on Microsoft Fabric, designed for European compliance, accessible to mid-market property managers, and already executing. We are applying to Microsoft for Startups to scale this from a single founder to the default platform for European commercial real estate. Thank you for watching."
 
-**[End card displays for 3 seconds, then video ends.]**
+**[End card holds 3 seconds, then fade to black.]**
 
 ---
 
@@ -175,82 +164,71 @@
 
 | Scene | Duration | Cumulative |
 |---|---|---|
-| 1. Intro | 0:15 | 0:15 |
-| 2. Portfolio Overview | 0:40 | 0:55 |
-| 3. Building Detail | 0:30 | 1:25 |
-| 4. Anomalies | 0:25 | 1:50 |
-| 5. Forecast | 0:25 | 2:15 |
-| 6. Sustainability | 0:35 | 2:50 |
-| 7. HVAC | 0:25 | 3:15 |
-| 8. IoT | 0:25 | 3:40 |
-| 9. Battery | 0:30 | 4:10 |
-| 10. Closing | 0:15 | 4:25 |
-| **Total** | **4:25** | — |
+| 1. Intro & sign-in | 0:30 | 0:30 |
+| 2. Portfolio (custom React) | 0:45 | 1:15 |
+| 3. Building detail (PBI embed) | 0:30 | 1:45 |
+| **4. AI Copilot ★** | **1:30** | **3:15** |
+| 5. Sustainability / CRREM | 0:25 | 3:40 |
+| 6. Battery Strategy / EU 2023/1542 | 0:25 | 4:05 |
+| 7. Closing | 0:10 | 4:15 |
+| **Total** | **4:15** | — |
 
-Trim to ~3:30 by tightening Scenes 2, 6, and 9 if needed.
+Trim 10-20 seconds from Scene 4 if total runs over 4:30.
+
+---
+
+## NOTES FOR THE RECORDER (Mert)
+
+- **Page 8 IoT is deliberately skipped.** Capacity throttle on F4 trial means this page may not render cleanly. Post-Tier 2 approval we will add a brief IoT scene in v3 of this video.
+- **Three Copilot questions are pre-selected** because they exercise three different tools and three different data shapes (single building, comparison, simulation). Do not improvise — these are smoke-tested.
+- **Mock LLM is fine for this demo.** The responses are deterministic and template-driven, but they show the same SSE streaming, tool call lifecycle, and final text rendering as production. A reviewer will see "Mock" only if they read the source — the UX is identical.
+- **If a Copilot question fails on the day**, retake just that segment. The whole video can be assembled in Descript from per-scene takes.
+- **Voiceover dropped in post** — keep the screen recording silent; ElevenLabs handles the narration. This avoids accent self-consciousness and lets you focus on smooth cursor movement.
 
 ---
 
 ## VOICEOVER CONFIGURATION (ElevenLabs)
 
-### Recommended voice settings
-- **Voice:** "Adam" (mature professional male) or "Bella" (clear professional female)
-- **Stability:** 50-60 (balance between expressive and consistent)
+- **Voice:** Adam (professional male) or Bella (clear professional female)
+- **Stability:** 50-60
 - **Clarity + Similarity:** 75
-- **Style Exaggeration:** 0-15 (subtle, professional)
+- **Style Exaggeration:** 0-15
 - **Speaker boost:** ON
+- **Pacing:** ellipses at end of sentences for natural pauses
 
-### Pacing tip
-Add pauses between scenes by including `…` (ellipsis) at end of sentences — ElevenLabs interprets as natural breath.
-
-### Pronunciation check
-- "CRREM" — pronounced "kre-rem"
-- "EnEfG" — pronounced "en-eff-gee" (German law)
-- "GEG" — pronounced "geh-eh-geh" (German law)
-- "CSRD" — pronounced letter by letter
-- "BACnet" — "back-net"
-- "Modbus" — "mod-bus"
-
-If ElevenLabs mispronounces these, use phonetic spelling: "CRREM" → "kre rem", etc.
+### Pronunciation
+- "CRREM" → "kre-rem"
+- "EnEfG" → "en-eff-gee"
+- "DirectLake" → "direct lake" (two words)
+- "Lakehouse" → "lake-house" (two syllables, slight pause)
+- "SSE" → spelled "S-S-E"
 
 ---
 
-## ALTERNATIVE — Single-take recording with your voice
+## ALTERNATIVE — Your own voice
 
-If you prefer your own voice instead of AI:
-
+For a more personal version:
 1. Read the script aloud 2-3 times to get comfortable
 2. Record in Loom with screen + your voice
-3. Pause Loom at scene transitions to read next paragraph
-4. Edit in Descript: remove pauses, polish
+3. Edit in Descript: remove fillers, polish
 
-**Pros:** More authentic, no AI tells
-**Cons:** Takes longer (script practice), Turkish accent vs neutral English
-
-**My recommendation:** AI voiceover for product demo (more polished), your own voice for founder intro video (more personal).
+**Trade-off:** Authenticity vs polish. Recommendation: AI voiceover for product demo (cleaner), your own voice for founder intro (more personal).
 
 ---
 
 ## VISUAL POLISH CHECKLIST
 
 - [ ] Title card at start (3 sec, EnergyLens logo + tagline)
-- [ ] Smooth cursor movement (slow, deliberate)
-- [ ] Hover on key data points (don't click randomly)
-- [ ] Page transitions: cut to next page, no fancy effects
-- [ ] Background music: minimal, ambient (Pixabay royalty-free)
-- [ ] End card with energylens.eu domain
-- [ ] Captions/subtitles (auto-generated in Descript, then proofread)
-- [ ] 1080p export, 30fps, MP4 format
+- [ ] Smooth cursor movement, deliberate hovers
+- [ ] No accidental clicks, no fast scrolling
+- [ ] Copilot scene: let the SSE streaming play out, do not skip ahead
+- [ ] Page transitions: cut, no fancy effects
+- [ ] Background music: Pixabay royalty-free, -20 dB
+- [ ] End card with energylens.eu
+- [ ] Auto-captions in Descript, then proofread (especially "CRREM", "EnEfG", "DirectLake")
+- [ ] 1080p H.264 MP4, 30 fps, target <200 MB
 
 ---
 
-## FILE SIZE TARGET
-
-- Aim for under 200 MB
-- 1080p, H.264 codec, 30fps
-- If over, reduce to 720p (still looks good)
-
----
-
-*Script version 1.0 — May 2026*
+*Script version 2.0 — May 28, 2026 (Web App + Copilot Forward)*
 *Ready for: Ali Mert Özdemir to record + ElevenLabs voiceover*

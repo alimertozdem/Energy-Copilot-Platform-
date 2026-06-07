@@ -1,7 +1,7 @@
 # Founder Profile — Ali Mert Özdemir
 
 **For:** Microsoft for Startups application + future business decisions
-**Last updated:** 2026-05-15
+**Last updated:** 2026-05-28 (v1.1 — web app + AI Copilot accomplishments added)
 
 ---
 
@@ -59,12 +59,27 @@
   - Few solo founders have this — strong differentiator
 
 ### Solo build accomplishments (EnergyLens)
-- Full Microsoft Fabric medallion architecture (Bronze/Silver/Gold)
-- 9-page Power BI dashboard with custom DAX library
+
+**Data & analytics (April-May 2026):**
+- Full Microsoft Fabric medallion architecture (Bronze/Silver/Gold, 57 Lakehouse tables)
+- 9-page Power BI dashboard with custom DAX library (v56, 50+ measures, building-type aware thresholds)
 - Python notebooks for ingestion, transformation, KPIs, anomaly detection, forecasting
 - IoT adapter framework (BACnet/Modbus/MQTT) — Phase 2 design
-- Battery dispatch simulator with EU 2023/1670 compliance
-- Brand identity, web app architecture, RLS design
+- Battery dispatch simulator with EU 2023/1542 compliance (12 countries × 8 chemistries × 7 strategies)
+- CRREM stranding pathway, Scope 1/2/3 GHG accounting
+
+**Web application (May 24-27, 2026):**
+- Live Next.js + FastAPI + Azure PostgreSQL with 10 normalized tables
+- Three-provider authentication: Microsoft Entra ID + Google + Email/Password (bcrypt)
+- `/portfolio` page reading directly from Fabric Lakehouse SQL Analytics Endpoint
+- `/buildings/[id]` with embedded Power BI via service principal (V2 embed API, DirectLake)
+- Brand-aligned design system (Tailwind v4 + shadcn/ui + Emerald Pulse palette)
+
+**AI Copilot (May 28, 2026):**
+- LLM provider abstraction with three implementations (Anthropic / Azure OpenAI / Mock)
+- Six production tools talking directly to Fabric Lakehouse + Postgres
+- SSE streaming orchestrator, conversation persistence, JWT auth, org/building-level RLS
+- Smoke-tested end-to-end with real Fabric SQL queries
 
 ---
 
@@ -92,7 +107,7 @@
 | **Berlin-based, EU market** | DACH = highest-value energy compliance market |
 | **Solo full-stack build** | Execution capability, doesn't need big team to ship |
 | **Microsoft Fabric-native** | Aligned with Microsoft strategic priorities (Fabric is 2024-25 flagship) |
-| **EU regulatory niche** | CRREM, EnEfG, GEG, EU 2023/1670 — Microsoft strategic for EU growth |
+| **EU regulatory niche** | CRREM, EnEfG, GEG, EU 2023/1542 — Microsoft strategic for EU growth |
 | **Prior entrepreneurial exp** | Not first-time founder, knows the grind |
 | **18-month visa runway** | Won't disappear in 6 months |
 

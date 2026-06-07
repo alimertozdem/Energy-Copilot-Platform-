@@ -1,0 +1,20 @@
+{
+  "_comment": "Per-site BACnet/IP gateway config. Copy to config.bacnet.<site>.json. point.object_ref = '<type>:<instance>' (AI:1=analogInput 1, AV:3, BI:2, MSV:1). sensor_type is explicit and OVERRIDES the adapter heuristic. Secrets (sink.connection_env) via env, never inline.",
+  "poll_seconds": 10,
+  "batch": 100,
+  "max_retries": 0,
+  "sink": { "type": "eventhub", "eventhub_name": "iot-raw", "connection_env": "EVENTHUB_CONN" },
+  "devices": [
+    {
+      "name": "AHU-1 controller",
+      "host": "192.168.1.60",
+      "device_instance": 1001,
+      "port": 47808,
+      "points": [
+        { "object_ref": "AI:1", "sensor_type": "HVAC_supply_temp", "unit": "degC", "building_id": "B001", "device_id": "B001_AHU1", "zone": "AHU-1" },
+        { "object_ref": "AI:2", "sensor_type": "HVAC_return_temp", "unit": "degC", "building_id": "B001", "device_id": "B001_AHU1", "zone": "AHU-1" },
+        { "object_ref": "AI:3", "sensor_type": "CO2",              "unit": "ppm",  "building_id": "B001", "device_id": "B001_AHU1", "zone": "Return air" }
+      ]
+    }
+  ]
+}

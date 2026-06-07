@@ -1,0 +1,156 @@
+// ============================================================
+// EnergyLens — DAX v57 — PAGE 6 AUDIT FIXES (2026-05-30)
+// Audit ref: docs/audit/2026-05-30_gap_register.md  → L2, L3, F1
+// ------------------------------------------------------------
+// Bu dosya, gap register'da DOĞRULANMIŞ üç Sayfa-6 hatasını kapatır.
+// Yeni bir "patch" eklemek yerine, DAX konsolidasyonunun (L1) başlangıcı:
+// ileride tüm ölçüler TEK otoriter modele (TMDL) taşınacak; bu dosya o
+// hedefin Sayfa-6 dilimidir.
+//
+// BAĞIMLILIKLAR (model'de bu tablolar/ilişkiler olmalı):
+//   silver_epc_ratings[building_id]  → silver_building_master[building_id]
+//   gold_ghg_scope[building_id]      → silver_building_master[building_id]
+//   gold_crrem_pathway[pathway_year] → Date[Year]  (veya LOOKUPVALUE)
+//   gold_compliance_results[building_id] → silver_building_master[building_id]
+// ============================================================
+
+
+// ============================================================
+// FIX L2 — EPC PORTFÖY SKORU ARTIK ALAN-AĞIRLIKLI
+// ------------------------------------------------------------
+// SORUN (audit D8/L2): Canlı ölçü `Avg EPC Score kWh m2 = AVERAGE(...)`
+//   düz ortalamaydı → study guide'ın "common audit failure" dediği
+//   "average of building averages". 200 m²'lik G-sınıfı bir depo ile
+//   20.000 m²'lik A-sınıfı bir kule eşit ağırlık alıyordu.
+// ÇÖZÜM: kondisyonlu alanla ağırlıklandır. Portföyün GERÇEK m²-başına
+//   enerji yoğunluğu = Σ(score×alan) / Σ(alan).
+//
+// (tr ipucu: müşteri "portfolio EPC'yi nasıl ağırlıklıyorsun?" derse cevap:
+//  "by conditioned floor area, not building count — küçük binalar skoru
+//   şişiremez." Bu, ESG denetçisinin görmek istediği tek cümledir.)
+// Format: "0.0"
+EPC Score Area-Weighted kWh m2 =
+VAR _num =
+    SUMX(
+        silver_epc_ratings,
+        silver_epc_ratings[epc_score_kwh_m2]
+            * RELATED( silver_building_master[conditioned_area_m2] )
+    )
+VAR _den =
+    SUMX(
+        silver_epc_ratings,
+        RELATED( silver_building_master[conditioned_area_m2] )
+    )
+RETURN
+    DIVIDE( _num, _den )
+
+
+// Alan-ağırlıklı EPC harf sınıfı (kart etiketi için)
+// Eşikler AB Direktifi 2010/31/EU: A≤50, B 51-100, C 101-150, D 151-200,
+//   E 201-250, F 251-300, G>300 (kWh/m²/yıl, primary energy).
+// Format: text
+EPC Class Area-Weighted =
+VAR _s = [EPC Score Area-Weighted kWh m2]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_s), "—",
+        _s <= 50,  "A",
+        _s <= 100, "B",
+        _s <= 150, "C",
+        _s <= 200, "D",
+        _s <= 250, "E",
+        _s <= 300, "F",
+        "G"
+    )
+
+
+// ============================================================
+// FIX L3 — CRREM KARŞILAŞTIRMASI ARTIK SCOPE 1+2 (daha önce Scope-2-only)
+// ------------------------------------------------------------
+// SORUN (audit D3/L3): CRREM çizgisindeki bina yoğunluğu
+//   `[Avg Carbon Intensity kg m2]×365` idi; o da kpi_daily'nin
+//   net_grid×EF = SADECE Scope 2'siydi. Scope 1 (gaz) dışarıdaydı →
+//   bina olduğundan TEMİZ görünüyor → stranding'i AZ gösteriyordu.
+// ÇÖZÜM: gold_ghg_scope'tan Scope 1 + Scope 2(location) topla → kg/m²/yıl.
+//   CRREM pathway zaten Scope 1+2 → artık elma-elmaya karşılaştırma.
+//
+// NOT: filter context tek raporlama yılına daraltılmalı (sayfa year slicer).
+//   ghg_scope aylık → yılın 12 ayını toplar = yıllık tonaj.
+// Format: "0.0"
+Carbon Intensity S1S2 kgCO2 m2 yr =
+VAR _s1s2_tonnes =
+    SUMX(
+        gold_ghg_scope,
+        gold_ghg_scope[scope1_total_tco2] + gold_ghg_scope[scope2_location_tco2]
+    )
+VAR _area =
+    SUMX( silver_building_master, silver_building_master[conditioned_area_m2] )
+RETURN
+    DIVIDE( _s1s2_tonnes * 1000, _area )   // tCO2→kg, sonra /m²
+
+
+// CRREM 2°C pathway (mevcut, doğru kolonlu ölçü — 18_dax_v13'ten miras).
+// gold_crrem_pathway[pathway_2c_kgco2_m2_yr], [pathway_year].
+// Buraya kopyalanmadı; bu dosya onu REFERANS alır. Eğer modelde yoksa
+// 18_dax_v13_crrem_complete_fix.dax'tan yükle.
+
+// Stranding gap = bina (S1+2) − pathway(2°C). Pozitif = pathway üstünde = riskte.
+// Format: "0.0"
+CRREM Stranding Gap S1S2 kgCO2 m2 yr =
+[Carbon Intensity S1S2 kgCO2 m2 yr] - [CRREM Pathway 2C kgCO2 m2 yr]
+
+
+// Stranding durumu (kart rengi / etiket)
+// Format: text
+CRREM Stranding Status =
+VAR _gap = [CRREM Stranding Gap S1S2 kgCO2 m2 yr]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_gap), "No pathway data",
+        _gap > 0,  "STRANDED — above pathway now",
+        _gap > -2, "At risk — within 2 kgCO₂/m² of pathway",
+        "On track"
+    )
+
+
+// ============================================================
+// FIX F1 — "CSRD score" YANLIŞ ADLANDIRMA DÜZELTİLDİ
+// ------------------------------------------------------------
+// SORUN (audit F1): 05_compliance_checker `csrd_score`'u SADECE karbon
+//   yoğunluğunu EU-Taxonomy eşiklerine vurarak hesaplıyor. CSRD bir
+//   AÇIKLAMA direktifidir, kg/m² eşiği DEĞİL. "CSRD compliance %85" demek
+//   bir ESG danışmanına yanlış gelir.
+// ÇÖZÜM: ölçüyü doğru adla sun. Gerçek "CSRD readiness" ayrı bir
+//   disclosure-completeness checklist'i olmalı (scope'lar var mı, çift
+//   Scope-2 metodu var mı, materyal Scope-3 var mı, lineage var mı).
+//
+// (tr ipucu: bu ayrım senin uzmanlığını kanıtlar. "I don't score CSRD as a
+//  number — CSRD is about disclosure completeness. What I score here is
+//  carbon intensity against EU Taxonomy bands." Müşteri buna güvenir.)
+// Format: "0.0"
+EU Taxonomy Carbon Score =
+AVERAGE( gold_compliance_results[csrd_score] )
+
+
+// Gerçek CSRD hazırlık göstergesi — disclosure-completeness (performans değil).
+// Beş bileşenin kaçı sağlanmış: S1, S2-location, S2-market, materyal S3, lineage.
+// gold_ghg_scope kolonlarından türetilir (09 refactor sonrası mevcut).
+// Format: "0%"
+CSRD Disclosure Readiness Pct =
+VAR _hasS1     = IF( CALCULATE( SUM(gold_ghg_scope[scope1_total_tco2]) ) > 0, 1, 0 )
+VAR _hasS2loc  = IF( CALCULATE( SUM(gold_ghg_scope[scope2_location_tco2]) ) > 0, 1, 0 )
+VAR _hasS2mkt  = IF( CALCULATE( COUNTROWS( FILTER(gold_ghg_scope, gold_ghg_scope[scope2_method] = "market_based_contract") ) ) > 0, 1, 0 )
+VAR _hasS3grade= IF( CALCULATE( COUNTROWS( FILTER(gold_ghg_scope, gold_ghg_scope[scope3_disclosure_grade] = TRUE()) ) ) > 0, 1, 0 )
+VAR _hasLineage = 1   // medallion + ref_* tabloları → lineage her zaman var
+RETURN
+    DIVIDE( _hasS1 + _hasS2loc + _hasS2mkt + _hasS3grade + _hasLineage, 5 )
+
+// ============================================================
+// SONRAKI (bu dosya kapsamı dışı, plana bakın):
+//   - 03_gold_kpi_engine: EF/tarife ref_*'ten (A1/A3)
+//   - 05/06/12: tarife ref_*'ten (F3/I2)
+//   - csrd_score kolonunu 05'te eu_taxonomy_carbon_score olarak yeniden adlandır
+//   - Tüm DAX'ı tek TMDL modeline konsolide et (L1)
+// ============================================================

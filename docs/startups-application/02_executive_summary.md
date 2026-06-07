@@ -12,7 +12,7 @@ Meanwhile, EU regulation is tightening rapidly:
 - **EU CRREM** (Carbon Risk Real Estate Monitor) pathways require every commercial building to decarbonize by 2030
 - **EnEfG** (Germany, 2023) mandates energy efficiency audits for buildings >7.5 GWh/year
 - **EU CSRD** forces sustainability reporting for all large enterprises (2024+)
-- **EU Battery Regulation 2023/1670** requires battery passports for new installations
+- **EU Battery Regulation 2023/1542** requires battery passports for new installations
 
 Property owners and managers face **€10B+/year in compliance risk** without modern energy intelligence tools.
 
@@ -26,7 +26,7 @@ Property owners and managers face **€10B+/year in compliance risk** without mo
 - **Multi-building portfolio view** — Real-time KPIs across 1 to 1,000+ buildings
 - **EU compliance scoring** — Live CRREM, EnEfG, GEG, EPC tracking per building
 - **HVAC optimization** — Heat pump COP monitoring, envelope retrofit prioritization
-- **Battery dispatch simulation** — EU 2023/1670 compliant ROI scenarios
+- **Battery dispatch simulation** — EU 2023/1542 compliant ROI scenarios
 - **Anomaly detection** — Catches energy waste in real time, estimates € cost
 - **IoT interoperability** — BACnet, Modbus, MQTT, OPC-UA adapters
 
@@ -56,6 +56,8 @@ Built on Microsoft Fabric medallion architecture, the platform scales from a sin
 
 **Unique combination:** Deep domain expertise + Microsoft Fabric mastery + EU market access — rare in the energy SaaS space.
 
+**Demonstrated execution:** In ~5 weeks (April–May 2026) shipped the 9-page Fabric dashboard, the live web application, three-provider authentication, and an AI Copilot with LLM tool use over the Lakehouse — solo, end-to-end.
+
 ---
 
 ## Market & Traction
@@ -78,10 +80,14 @@ Built on Microsoft Fabric medallion architecture, the platform scales from a sin
 **EnergyLens unique angle:** Microsoft Fabric-native + EU regulatory niche + mid-market pricing (€99-€699/building/month).
 
 ### Current Traction
-- **MVP complete** — 9-page Power BI dashboard with sample data from 6 representative buildings (Germany, Turkey, Austria, Netherlands)
-- **Architecture proven** — Bronze/Silver/Gold medallion in Microsoft Fabric, validated with 693K+ data points
+- **MVP complete** — 9-page Power BI dashboard with realistic data from 10 representative buildings (Germany, Turkey, Austria, Netherlands), 3.5 years, 693K+ data points
+- **Architecture proven** — Bronze/Silver/Gold medallion in Microsoft Fabric (57 Lakehouse tables across layers)
+- **Web application live (v1)** — Next.js + FastAPI + Azure PostgreSQL, three-provider authentication (Microsoft Entra ID, Google, Email/Password), embedded Power BI viewer, custom React portfolio and building pages reading directly from Fabric Lakehouse SQL Analytics Endpoint
+- **AI Copilot live** — Conversational analytics over Microsoft Fabric using LLM tool use (six tools spanning gold KPI tables, anomalies, recommendations, battery simulation, and recommendation status); production-ready with provider abstraction (Anthropic / Azure OpenAI / Mock) and Server-Sent Events streaming
+- **Three parallel data paths into Fabric** validated end-to-end: Power BI DirectLake embed, custom React via SQL Analytics Endpoint, and LLM tool use through backend dispatcher
+- **Domain registered** — energylens.eu live, Azure subscription active
 - **First pilot in discussion** — BSBI Berlin campus as M.Sc. capstone validation
-- **Brand identity finalized** — EnergyLens "Emerald Pulse" design system
+- **Brand identity finalized** — EnergyLens "Emerald Pulse" design system, applied across the web app (Tailwind v4 design tokens + shadcn/ui)
 
 ---
 
@@ -115,8 +121,8 @@ We are applying to Microsoft for Startups Founders Hub to:
 **Specific resource needs:**
 - Microsoft Fabric F8+ capacity (~$2,500/month value)
 - Power BI Premium per Capacity (12-month license)
-- Azure compute for FastAPI backend + PostgreSQL DB
-- Azure OpenAI credits for AI recommendation engine (Phase 2)
+- Azure compute for FastAPI backend + PostgreSQL (web app already operating locally, ready to migrate)
+- **Azure OpenAI credits to switch the live AI Copilot from the current Mock provider to production GPT-4o (provider abstraction already in place, single environment variable to flip)**
 
 ---
 
@@ -133,6 +139,6 @@ Founder, EnergyLens
 - Email: alimertozdem@gmail.com
 - LinkedIn: https://www.linkedin.com/in/alimertozdemir96/
 - GitHub: https://github.com/alimertozdem
-- Domain: energylens.eu *(pending registration)*
+- Domain: energylens.eu *(registered; production deployment pending Azure migration)*
 
-*Document version 1.0 — May 2026*
+*Document version 1.1 — May 2026 (updated after Day 16: live web app + AI Copilot)*

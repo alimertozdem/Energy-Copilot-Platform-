@@ -55,11 +55,19 @@ EnergyLens is built **end-to-end on the Microsoft cloud stack**, with **Microsof
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  PRESENTATION                                                    │
-│  ┌──────────────────┐  ┌───────────────────────────────┐       │
-│  │ Power BI         │  │ Next.js Web App (planned)     │       │
-│  │ Reports (9 pgs)  │  │ Embedded reports + custom UI  │       │
-│  └──────────────────┘  └───────────────────────────────┘       │
+│  PRESENTATION (live, May 2026)                                   │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────┐  │
+│  │ Power BI         │  │ Next.js Web App  │  │ AI Copilot   │  │
+│  │ Reports (9 pgs)  │  │ /portfolio       │  │ /copilot     │  │
+│  │ DirectLake       │  │ /buildings/[id]  │  │ LLM tool use │  │
+│  └──────────────────┘  └──────────────────┘  └──────────────┘  │
+│         ▲                       ▲                    ▲          │
+│         │                       │                    │          │
+│      Embed V2              SQL Analytics        Tool dispatcher │
+│      (app-owns-data)       Endpoint (T-SQL)     (Fabric+Pgres)  │
+│  ═══════════════════════════════════════════════════════════    │
+│  THREE PARALLEL DATA PATHS — same Fabric Lakehouse, same data,  │
+│  three different consumption surfaces validated end-to-end.     │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -114,7 +122,7 @@ Pre-aggregated, business-ready:
 - `gold_battery_simulation` — Strategy scenarios (self-consumption, peak-shaving, TOU, backup)
 - `gold_battery_hourly_profile` — 4 strategies × 24 hours pattern templates
 - `gold_battery_hourly_dispatch` — Per-building hourly dispatch (production)
-- `gold_battery_technologies` — Battery product catalog with EU 2023/1670 compliance
+- `gold_battery_technologies` — Battery product catalog with EU 2023/1542 compliance
 - `gold_iot_realtime` — IoT KPIs for Page 8 dashboard
 - `gold_iot_daily_summary` — Daily IoT aggregates
 - `gold_recommendations` — AI-generated retrofit + operational recommendations
@@ -150,11 +158,84 @@ Pre-aggregated, business-ready:
 8. **IoT Real-Time Monitoring** — Live power, zone comfort, sensor uptime (Tier 2-3)
 9. **Battery Strategy** — Dispatch simulation, scenario comparison, EU compliance
 
-#### Web App (Next.js + FastAPI — planned Q3 2026)
-- **Frontend:** Next.js on Azure Static Web Apps
-- **Backend:** FastAPI on Azure Container Apps
-- **Database:** Azure PostgreSQL (user mgmt, subscription state, custom dashboards)
-- **Embedded Power BI:** User-owns-data or Premium capacity embedding
+#### Web App (Next.js + FastAPI — live since May 2026)
+- **Frontend:** Next.js 16 (App Router, React Server Components), Tailwind v4 design tokens, shadcn/ui — runs locally today, Azure Static Web Apps target for production
+- **Backend:** FastAPI (Python) with SQLAlchemy 2 + Alembic — runs locally today, Azure Container Apps target for production
+- **Database:** Azure PostgreSQL (currently Supabase Frankfurt for dev): 10 tables — users + multi-provider auth + organizations + buildings + module flags + recommendation status + copilot conversations + audit logs
+- **Authentication:** Three providers live — Microsoft Entra ID (NextAuth Azure AD), Google (NextAuth Google), Email/Password (bcrypt cost 12). Backend `/auth/sync` endpoint with INTERNAL_API_KEY service-to-service guard.
+- **Power BI Embedding:** App-owns-data via service principal `EnergyLens-Backend-SP`, V2 embed API (DirectLake-compatible — V1 API does not support DirectLake datasets), POST `/embed/token` endpoint validated end-to-end
+- **Live pages:** `/portfolio` (custom React reading Fabric SQL Endpoint via pyodbc + ODBC Driver 18), `/buildings/[id]` (PBI embed inside app chrome), `/copilot` (AI chat, see 2.6 below), `/login`, `/signup`, `/forgot-password`, `/dashboard`
+
+#### Three Parallel Data Paths into the Fabric Lakehouse
+The same Lakehouse is consumed three ways, each independently validated:
+
+| Path | How | Used by | Latency |
+|---|---|---|---|
+| **A. DirectLake embed** | Power BI semantic model → embedded report via V2 API | `/buildings/[id]` page | Sub-second on warm capacity |
+| **B. SQL Analytics Endpoint** | pyodbc + ODBC Driver 18 + Service Principal AD auth → T-SQL on Lakehouse | `/portfolio` custom React, AI Copilot tool handlers | Sub-second on warm pool |
+| **C. LLM tool use** | Anthropic / Azure OpenAI / Mock provider → tool dispatcher → handler executes path B or PostgreSQL | `/copilot` chat | 1-3s end-to-end including model + SQL |
+
+This is the architectural differentiator a Microsoft reviewer notices: the platform exercises Fabric from three angles, not just one.
+
+### 2.6 AI Copilot Layer (live since May 28, 2026)
+
+The Copilot is the third data path described above, and it is the platform's primary application-layer differentiator. It is built on **LLM tool use**, not retrieval-augmented generation: the model does not summarize embeddings of stale documents, it picks a tool, the backend runs the tool against the Fabric Lakehouse or PostgreSQL, and the model summarizes the actual result.
+
+#### Provider abstraction
+```
+services/llm/
+├── base.py                 — LLMProvider ABC + ToolDefinition + StreamEvent
+├── anthropic_provider.py   — Anthropic SDK wrapper (Claude)
+├── mock_provider.py        — Keyword-routed deterministic provider for dev/demo
+└── (planned) azure_openai_provider.py
+```
+
+Selected via `LLM_PROVIDER` environment variable. The Mock provider runs today because Anthropic credit is exhausted; flipping to Anthropic or Azure OpenAI is a single environment variable change — the tool dispatcher, the Fabric queries, the conversation persistence, and the frontend are provider-agnostic.
+
+#### Tool registry (six production tools)
+| Tool | Data source | Purpose |
+|---|---|---|
+| `query_kpi` | Fabric `gold_kpi_daily` + `silver_building_master` | Single-building energy / cost / CO₂ / EUI over date range |
+| `compare_buildings` | Fabric `gold_kpi_daily` | Multi-building comparison on any metric |
+| `list_recommendations` | Fabric `gold_recommendations` + Postgres `recommendation_status` | Retrieve open retrofit / operational actions |
+| `get_anomalies` | Fabric `gold_anomaly_log` | High / critical anomalies per building, with severity and cost impact |
+| `simulate_battery_scenario` | Fabric `gold_battery_simulation` | EU 2023/1542 compliant battery dispatch ROI scenarios |
+| `update_action_status` | Postgres `recommendation_status` | Mark a recommendation as in-progress / done — round-trips back into `/actions` page |
+
+Each tool has a Pydantic schema, an error-safe handler, and an alias mapping layer so internal Lakehouse column names can drift without breaking the LLM contract or the frontend.
+
+#### Request flow
+```
+Browser /copilot
+  ↓ NextAuth JWT cookie
+Next.js /api/copilot/conversations/{id}/messages (server-side proxy)
+  ↓ Bearer JWT
+FastAPI POST /copilot/conversations/{id}/messages (SSE response)
+  ↓ JWT decode → user_id + org_id
+  ↓ building_repo.list_buildings_for_user → visible_building_ids (RLS at app layer)
+  ↓ orchestrator.stream_assistant_response (async generator)
+LLMProvider.chat_stream → tool_use events
+  ↓
+ToolDispatcher → six handlers (Fabric SQL or Postgres)
+  ↓
+Tool result → second model turn → final text → SSE complete
+  ↓
+All events persisted to Postgres copilot_messages
+Frontend SSE consumer (fetch + ReadableStream) → state machine → chat UI
+```
+
+#### Persistence
+- `copilot_conversations` — one row per chat thread, linked to user + organization, optionally pinned to a specific `building_id`
+- `copilot_messages` — every user, assistant, tool_use, and tool_result message persisted as JSONB; replayable, auditable
+
+#### Access control
+- Per-request JWT validation pins the user
+- Tool handlers filter Fabric queries by `building_id IN (visible_building_ids)` — even if the LLM hallucinates a building ID outside the user's scope, the SQL returns empty
+- INTERNAL_API_KEY guards service-to-service calls
+- Postgres `audit_logs` table records every tool execution
+
+#### Why this matters for Microsoft
+Azure OpenAI is the lowest-friction production target — the provider interface is the same shape Microsoft already supports through the OpenAI Python SDK. The architectural work is done; the credit unlock is the only remaining step. This is the single most leveraged Azure credit allocation in the roadmap.
 
 ---
 
@@ -211,7 +292,7 @@ Stored in `gold_electricity_pricing` (date, country, hour, price, source, CO2 in
 
 ### 4.3 EU Battery Regulation Compliance
 
-EU 2023/1670 mandates for batteries sold after Jan 2024:
+EU 2023/1542 mandates for batteries sold after Jan 2024:
 - Carbon footprint label (Product Environmental Footprint)
 - State of Health %
 - Cycle durability warranty
@@ -278,13 +359,15 @@ EnergyLens tracks via `gold_battery_technologies` with regional approval flags (
 | Quarter | Architectural milestone |
 |---|---|
 | Q2 2026 | MVP (9 pages, batch ingestion, sample data) ✅ |
-| Q3 2026 | First pilot (BSBI campus), real data, web app skeleton |
+| Q2 2026 | Web app v1 live: 3-provider auth, /portfolio, /buildings/[id], app-owns-data embed ✅ |
+| Q2 2026 | AI Copilot live: LLM tool use, six tools, SSE streaming, Mock + Anthropic providers ✅ |
+| Q3 2026 | Azure deployment (Container Apps + Static Web Apps + Postgres Flexible), Azure OpenAI swap, first pilot (BSBI campus) on real data |
 | Q4 2026 | IoT adapters (BACnet/Modbus), 3-5 paying pilots |
-| Q1 2027 | AI recommendations (Azure OpenAI), MQTT streaming |
+| Q1 2027 | MQTT streaming, advanced Copilot features (markdown rendering, building context selector, conversation titles) |
 | Q2 2027 | OPC-UA premium tier, white-label deployment option |
 | Q4 2027 | 50+ buildings, F16 capacity, partner network |
 
 ---
 
-*Document version 1.0 — May 2026*
+*Document version 1.1 — May 28, 2026 (updated after Day 16: AI Copilot Layer added)*
 *Author: Ali Mert Özdemir, Founder*

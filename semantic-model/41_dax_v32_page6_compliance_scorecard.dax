@@ -1,0 +1,495 @@
+// ============================================================
+// DAX v32 — Page 6: Compliance Scorecard + CO₂ Cost + Incentives
+// Energy Copilot Platform
+// ============================================================
+// ÖN KOŞUL:
+//   gold_compliance_results tablosunu Semantic Model'e ekle:
+//     Modeling → Get data → Lakehouse → Tables/gold_compliance_results
+//   İlişki kur:
+//     gold_compliance_results[building_id] → silver_building_master[building_id]
+//     (Many-to-One, ACTIVE)
+//   NOT: gold_compliance_results DATE kolonu yok, Date tablosuyla ilişki gerekmez.
+//
+// BU DOSYADA:
+//   Bölüm A — Compliance Score ölçüleri (gold_compliance_results → Power BI)
+//   Bölüm B — CO₂ Levy Cost display ölçüleri (C5 kartı için)
+//   Bölüm C — Incentive Programs özet ölçüleri
+//   Bölüm D — National Energy Label (ülke bağımsız unified label)
+//   Bölüm E — Page 6 tam binding rehberi (yeni layout)
+// ============================================================
+
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM A — COMPLIANCE SCORE ÖLÇÜLERİ
+// Kaynak: gold_compliance_results (bina başına 1 satır, zaman bağımsız)
+// ────────────────────────────────────────────────────────────
+
+// Portföy genel uyumluluk skoru (0-100)
+// Sayfa 6 → Compliance Overview kartı veya gauge
+// Format: "0.0"
+Overall Compliance Score =
+AVERAGE(gold_compliance_results[overall_score])
+
+// Portföy uyumluluk durumu (metin)
+// Sayfa 6 → Compliance badge
+// Format: text
+Overall Compliance Status =
+VAR _score = [Overall Compliance Score]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_score),    "—",
+        _score >= 85,       "Excellent",
+        _score >= 70,       "Good",
+        _score >= 50,       "Partial",
+        _score >= 30,       "At Risk",
+                            "Non-Compliant"
+    )
+
+// Seçili bina için priority action (tek bina seçiliyken anlamlı)
+// Sayfa 6 → Seçili bina bilgi kartı alt metni
+// Format: text
+Priority Action Text =
+SELECTEDVALUE(
+    gold_compliance_results[priority_action],
+    "Select a building to see recommended action"
+)
+
+// En acil aksiyon gerektiren binanın adı (portföy bakışı için)
+// Format: text
+Highest Risk Building =
+VAR _min_score_building =
+    TOPN(
+        1,
+        SUMMARIZE(
+            gold_compliance_results,
+            gold_compliance_results[building_id],
+            gold_compliance_results[building_name],
+            "@score", CALCULATE(MIN(gold_compliance_results[overall_score]))
+        ),
+        [@score], ASC
+    )
+RETURN
+    MAXX(_min_score_building, gold_compliance_results[building_name])
+
+// ── Regülasyon bazlı skorlar (Compliance Matrix için) ──────
+
+// GEG Skoru (sadece DE binaları)
+// Compliance Scorecard matrisinde DE binalar için kullan
+// Format: "0.0"
+GEG Compliance Score =
+AVERAGE(gold_compliance_results[geg_score])
+
+// EnEfG Skoru (sadece DE binaları)
+// Format: "0.0"
+EnEfG Compliance Score =
+AVERAGE(gold_compliance_results[enefg_score])
+
+// EEG Skoru (sadece DE binaları)
+// Format: "0.0"
+EEG Compliance Score =
+AVERAGE(gold_compliance_results[eeg_score])
+
+// EPBD Skoru (tüm binalar — AB direktifi)
+// Format: "0.0"
+EPBD Compliance Score =
+AVERAGE(gold_compliance_results[epbd_score])
+
+// CSRD Skoru (tüm binalar)
+// Format: "0.0"
+CSRD Compliance Score =
+AVERAGE(gold_compliance_results[csrd_score])
+
+// BEP-TR Skoru (sadece TR binaları)
+// Format: "0.0"
+BEP TR Compliance Score =
+AVERAGE(gold_compliance_results[beptr_score])
+
+// OIB-RL6 Skoru (sadece AT binaları)
+// Format: "0.0"
+OIB Compliance Score =
+AVERAGE(gold_compliance_results[oib_score])
+
+// NL Energielabel Skoru (sadece NL binaları)
+// Format: "0.0"
+NL Label Compliance Score =
+AVERAGE(gold_compliance_results[nl_label_score])
+
+// ── Compliance Matrix renk göstergesi ──────────────────────
+// Her regulation × building hücresini renkle kodlamak için
+// Conditional Formatting'de kullan (Power BI CF → Rules)
+// Bağlama: By field value → bu ölçüyü seç → Color scale 0-100
+
+// Uyumsuz bina sayısı (overall_score < 50)
+// Sayfa 6 → Risk özet kartı
+// Format: "#,##0"
+Non Compliant Building Count =
+CALCULATE(
+    COUNTROWS(gold_compliance_results),
+    gold_compliance_results[overall_score] < 50
+)
+
+// İyi uyum (overall_score >= 70) bina sayısı
+// Format: "#,##0"
+Good Compliance Building Count =
+CALCULATE(
+    COUNTROWS(gold_compliance_results),
+    gold_compliance_results[overall_score] >= 70
+)
+
+// EPBD 2030 zorunluluğuna hazır bina sayısı (EPC sınıfı E veya daha iyi)
+// Referans: EPBD recast 2024 — tüm commercial buildings EPC E by 2030
+// Proxy: epbd_class_e_compliant flag gold_compliance_results'tan
+// Format: "#,##0"
+EPBD 2030 Ready Count =
+CALCULATE(
+    COUNTROWS(gold_compliance_results),
+    gold_compliance_results[epbd_class_e_compliant] = TRUE()
+)
+
+// EPBD 2033 hedefine hazır (sınıf D)
+// Format: "#,##0"
+EPBD 2033 Ready Count =
+CALCULATE(
+    COUNTROWS(gold_compliance_results),
+    gold_compliance_results[epbd_class_d_compliant] = TRUE()
+)
+
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM B — CO₂ LEVY COST DISPLAY
+// Sayfa 6 C5 kartı → Scope 2 Share Pct yerine bu
+// ────────────────────────────────────────────────────────────
+// NEDEN CO₂ LEVY COST SCOPE 2'DEN DAHA İYİ?
+//   Scope 2 Share (%) = "elektriğin %X'i Scope 2" → enerji yöneticisi ne yapar?
+//   CO₂ Levy Cost (€) = "bu yıl gaz için €26,000 ödeyeceksiniz" → net karar desteği
+//   2026 vs 2027 farkı = "1 yıl beklerseniz €6,000 daha" → ısı pompası ROI'si acilleşir
+
+// Portföy toplam CO₂ levy maliyeti — aktif BEHG oranı üzerinden (€)
+// Ölçü adında yıl YOK → aynı notebook kolonu kullanılır, oran her yıl otomatik güncellenir
+// C5 kart Value → bu ölçüyü bağla
+// Card title: "CO₂ Carbon Levy"  |  Subtitle: "BEHG active rate"
+// Format: "€#,##0"
+CO2 Levy Cost EUR =
+SUM(gold_compliance_results[co2_levy_cost_2026_eur])
+
+// Portföy toplam CO₂ levy maliyeti — EU ETS2 senaryosu tahmini (€)
+// "ETS2" bir regülasyon adıdır, yıl değildir → adda yıl yok
+// C5 kart Goal/Target → yüksek = kötü → ayarla: Low is Good
+// Subtitle: "ETS2 scenario"
+// Format: "€#,##0"
+CO2 Levy ETS2 Est EUR =
+SUM(gold_compliance_results[co2_levy_cost_2027_ets2_eur])
+
+// ETS2 senaryosunda fark (€)  — kart alt metni veya tooltip için
+// Format: "+€#,##0"
+CO2 Levy ETS2 Uplift EUR =
+[CO2 Levy ETS2 Est EUR] - [CO2 Levy Cost EUR]
+
+// ETS2 senaryosu artış yüzdesi
+// Format: "0.0"
+CO2 Levy ETS2 Uplift Pct =
+VAR _base = [CO2 Levy Cost EUR]
+RETURN
+    IF(
+        NOT ISBLANK(_base) && _base > 0,
+        ROUND(DIVIDE([CO2 Levy ETS2 Uplift EUR], _base) * 100, 1),
+        BLANK()
+    )
+
+// Portföy toplam gaz kaynaklı CO₂ tahmini (tCO₂/yıl)
+// Compliance scorecard referansı — CSRD raporlama tabanı
+// Format: "#,##0.0"
+Est Portfolio Gas CO2 Tonnes =
+SUM(gold_compliance_results[est_gas_co2_tonnes])
+
+// CO₂ levy exposure seviyesi (metin)
+// C5 kart badge veya Compliance Scorecard'da göster
+// Format: text
+CO2 Levy Risk Status =
+VAR _cost = [CO2 Levy Cost EUR]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_cost) || _cost = 0, "No fossil fuel exposure",
+        _cost < 5000,               "Low exposure",
+        _cost < 20000,              "Moderate — review heating strategy",
+        _cost < 50000,              "High — heat pump transition recommended",
+                                    "Critical — immediate action required"
+    )
+
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM C — INCENTIVE PROGRAMS ÖZETİ
+// Seçili bina için mevcut teşvik programlarını göster
+// ────────────────────────────────────────────────────────────
+
+// Almanya teşvikleri (seçili bina)
+// Sayfa 6 → Seçili bina kartı veya tooltip
+// Format: text
+KfW Programs Text =
+SELECTEDVALUE(
+    gold_compliance_results[kfw_programs_applicable],
+    "—"
+)
+
+// BAFA teşvikleri (seçili bina)
+// Format: text
+BAFA Programs Text =
+SELECTEDVALUE(
+    gold_compliance_results[bafa_programs_applicable],
+    "—"
+)
+
+// Türkiye teşvikleri (seçili bina)
+// Format: text
+YEKA Programs Text =
+SELECTEDVALUE(
+    gold_compliance_results[yeka_programs_applicable],
+    "—"
+)
+
+// Avusturya teşvikleri (seçili bina)
+// Format: text
+AT Incentives Text =
+SELECTEDVALUE(
+    gold_compliance_results[at_incentives_applicable],
+    "—"
+)
+
+// Hollanda teşvikleri (seçili bina)
+// Format: text
+NL Incentives Text =
+SELECTEDVALUE(
+    gold_compliance_results[nl_incentives_applicable],
+    "—"
+)
+
+// Aktif teşvik olan bina sayısı (portföy özeti için)
+// Format: "#,##0"
+Buildings With Incentives =
+CALCULATE(
+    COUNTROWS(gold_compliance_results),
+    NOT(ISBLANK(gold_compliance_results[kfw_programs_applicable]))
+    || NOT(ISBLANK(gold_compliance_results[bafa_programs_applicable]))
+    || NOT(ISBLANK(gold_compliance_results[yeka_programs_applicable]))
+    || NOT(ISBLANK(gold_compliance_results[at_incentives_applicable]))
+    || NOT(ISBLANK(gold_compliance_results[nl_incentives_applicable]))
+)
+
+// Tüm ülke teşviklerini birleşik göster (seçili bina için tek metin)
+// Sayfa 6 → "Available Grants" text card
+// Format: text
+// All Incentives Summary — Seçili bina için tüm ülke teşviklerini tek satırda göster
+// ROW() tablo yapısı Power BI'da hata verdiği için basit string birleştirme kullanıldı.
+// Bina seçili değilse (SELECTEDVALUE blank döner) default mesaj gösterir.
+All Incentives Summary =
+VAR _kfw  = SELECTEDVALUE(gold_compliance_results[kfw_programs_applicable])
+VAR _bafa = SELECTEDVALUE(gold_compliance_results[bafa_programs_applicable])
+VAR _yeka = SELECTEDVALUE(gold_compliance_results[yeka_programs_applicable])
+VAR _at   = SELECTEDVALUE(gold_compliance_results[at_incentives_applicable])
+VAR _nl   = SELECTEDVALUE(gold_compliance_results[nl_incentives_applicable])
+VAR _sep  = "  ·  "
+VAR _raw  =
+    IF(NOT ISBLANK(_kfw),  _kfw  & _sep, "") &
+    IF(NOT ISBLANK(_bafa), _bafa & _sep, "") &
+    IF(NOT ISBLANK(_yeka), _yeka & _sep, "") &
+    IF(NOT ISBLANK(_at),   _at   & _sep, "") &
+    IF(NOT ISBLANK(_nl),   _nl,           "")
+// Son _sep artığını temizle
+VAR _trimmed = TRIM(_raw)
+VAR _clean =
+    IF(
+        RIGHT(_trimmed, LEN(_sep)) = _sep,
+        LEFT(_trimmed, LEN(_trimmed) - LEN(_sep)),
+        _trimmed
+    )
+RETURN
+    IF(ISBLANK(_clean) || _clean = "",
+       "No grants identified — select a building",
+       _clean
+    )
+
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM D — NATIONAL ENERGY LABEL (Unified, 4 ülke)
+// ────────────────────────────────────────────────────────────
+// Portföyde 4 farklı enerji etiket sistemi var:
+//   DE: EPC (A+ – G, basiert auf Primärenergiebedarf)
+//   TR: BEP-TR (A – G, TS 825 bazlı)
+//   AT: EPC / OIB-RL6 (A++ – G, Heizwärmebedarf bazlı)
+//   NL: Energielabel (A++++ – G, NTA 8800 bazlı)
+//
+// Bu ölçü her bina için kendi ülkesinin etiketini döndürür.
+// Portföy görünümünde "A: 1  B: 2  C: 1  D: 2" formatında özet verir.
+
+// Seçili bina için yerel enerji etiketi
+// Format: text
+National Energy Label =
+VAR _country = SELECTEDVALUE(silver_building_master[country_code])
+RETURN
+    SWITCH(
+        _country,
+        "DE", SELECTEDVALUE(gold_compliance_results[beptr_energy_class], [Avg EPC Class Text]),
+              // DE'de EPC = silver_epc_ratings tablosundan geliyor (v11 Avg EPC Class Text)
+              // Compliance tablosunda DE EPC sınıfı direkt yok — Avg EPC Class Text kullan
+        "TR", SELECTEDVALUE(gold_compliance_results[beptr_energy_class], "—"),
+        "AT", [Avg EPC Class Text],   // OIB-RL6 AT'de EPC ile eşdeğer kullanılıyor
+        "NL", SELECTEDVALUE(gold_compliance_results[nl_energielabel_class], "—"),
+        [Avg EPC Class Text]          // fallback
+    )
+
+// Portföy enerji etiketi dağılımı (metin özet)
+// Sayfa 6 → EPC Distribution text veya tooltip
+// Format: text
+Energy Label Distribution =
+VAR _a_plus =
+    CALCULATE(
+        COUNTROWS(gold_compliance_results),
+        gold_compliance_results[nl_energielabel_class] = "A"
+        || gold_compliance_results[beptr_energy_class] = "A"
+    )
+VAR _b =
+    CALCULATE(
+        COUNTROWS(gold_compliance_results),
+        gold_compliance_results[nl_energielabel_class] = "B"
+        || gold_compliance_results[beptr_energy_class] = "B"
+    )
+VAR _c =
+    CALCULATE(
+        COUNTROWS(gold_compliance_results),
+        gold_compliance_results[nl_energielabel_class] = "C"
+        || gold_compliance_results[beptr_energy_class] = "C"
+    )
+VAR _poor =
+    CALCULATE(
+        COUNTROWS(gold_compliance_results),
+        gold_compliance_results[nl_energielabel_class] IN {"D", "E+", "E"}
+        || gold_compliance_results[beptr_energy_class] IN {"D", "E", "F", "G"}
+    )
+RETURN
+    "A/A+: " & COALESCE(_a_plus, 0) &
+    "  B: " & COALESCE(_b, 0) &
+    "  C: " & COALESCE(_c, 0) &
+    "  D+: " & COALESCE(_poor, 0)
+
+// EU ETS2 Risk Flag (2027'den itibaren binalar kapsama alınıyor)
+// Format: text
+ETS2 Risk Flag =
+VAR _gas_cost = [CO2 Levy ETS2 Est EUR]
+RETURN
+    SWITCH(
+        TRUE(),
+        ISBLANK(_gas_cost) || _gas_cost = 0,
+                            "No fossil fuel cost exposure",
+        _gas_cost < 5000,   "Low ETS2 exposure from 2027",
+        _gas_cost < 30000,  "⚠ Medium ETS2 exposure — plan heat transition",
+                            "🔴 High ETS2 exposure — urgent decarbonisation needed"
+    )
+
+
+// ────────────────────────────────────────────────────────────
+// BÖLÜM E — PAGE 6 TAM BINDING REHBERİ (v32 + v31 birlikte)
+// ────────────────────────────────────────────────────────────
+//
+// ══════════════════════════════════════════════════════════════
+//  ROW 1 — KPI CARDS (üst şerit, 5 kart)
+// ══════════════════════════════════════════════════════════════
+//
+//  C1 — GHG Intensity  [DEĞİŞMİYOR]
+//    Value  : [GHG Intensity kgCO2 m2 yr]         (v7/v13)
+//    Goal   : [CRREM Pathway 2C kgCO2 m2 yr]      (v13)
+//    Dir    : Low is Good
+//    Format : "0.0"
+//
+//  C2 — Stranding Year  [DEĞİŞMİYOR]
+//    Value  : [Stranding Year]                     (v13)
+//    Goal   : — (yok)
+//    Format : "0"
+//    Not    : Tek bina seçiminde anlamlı
+//
+//  C3 — EPC Rating  [REBIND — eski: CRREM Status metni]
+//    Value  : [Avg EPC Class Text]                 (v11)
+//    Goal   : "B"  ← Power BI'da sabit text olarak gir
+//    Tooltip: [EPC Distribution Summary]           (v31)
+//    Format : Text
+//
+//  C4 — Renewable Energy Share  [REBIND — eski: bozuk oran]
+//    Value  : [Renewable Energy Share Display Pct] (v31)
+//    Goal   : [Renewable Energy Share Goal Pct]    (v31) = 40
+//    Dir    : High is Good
+//    Format : "0.0"
+//
+//  C5 — CO₂ Carbon Levy  [REBIND — eski: Scope 2 Share Pct]
+//    Başlık : "CO₂ Carbon Levy"  ← Power BI kart başlığına yaz
+//    Value  : [CO2 Levy Cost EUR]                  (v32)
+//    Goal   : [CO2 Levy ETS2 Est EUR]              (v32)
+//    Dir    : Low is Good
+//    Format : "€#,##0"
+//    Not    : Yıl adı YOK. "BEHG active rate vs ETS2 scenario"
+//
+// ══════════════════════════════════════════════════════════════
+//  ROW 2 — SOL + ORTA PANEL
+// ══════════════════════════════════════════════════════════════
+//
+//  [1] CRREM Pathway Table  [DEĞİŞMİYOR]
+//    Visual   : Table
+//    Satırlar : silver_building_master[building_name]
+//    Sütun 1  : [GHG Intensity kgCO2 m2 yr]       (v7)
+//    Sütun 2  : [CRREM Benchmark kWh m2]           (v31)
+//    Sütun 3  : [CRREM Status Display]             (v31)
+//    Dipnot   : [CRREM Coverage Note] → Text Visual altına ekle
+//
+//  [2] EPC Distribution Chart  [KÜÇÜK DEĞİŞİKLİK]
+//    Visual   : Donut veya Bar
+//    Seri     : silver_epc_ratings[epc_class]
+//    Değer    : COUNTROWS (bina sayısı)
+//    EKLE     : Yanına küçük kart → [EU Taxonomy Eligible Pct]
+//               (Ayrı görsel açmak zorunda değilsin, aynı alana sığdır)
+//
+// ══════════════════════════════════════════════════════════════
+//  ROW 3 — SAĞ PANEL (GHG barın alanı ikiye bölünüyor)
+// ══════════════════════════════════════════════════════════════
+//
+//  GHG Scope Stacked Bar → SİL ❌
+//    Neden: CSRD Compliance Score aynı bilgiyi özetler.
+//    Scope 1/2/3 dağılımı statik, kullanıcı aksiyon alamaz.
+//    Bu alan aşağıdaki 2 yeni görsele devredilir.
+//
+//  [3] Compliance Scorecard Matrix  ← YENİ
+//    Visual   : Matrix
+//    Satır    : gold_compliance_results[building_id]
+//    Sütun 1  : [Overall Compliance Score]         (v32) — tüm binalar
+//    Sütun 2  : [EPBD Compliance Score]            (v32) — tüm binalar
+//    Sütun 3  : [CSRD Compliance Score]            (v32) — tüm binalar
+//    Sütun 4  : [GEG Compliance Score]             (v32) — DE'de dolu
+//    Sütun 5  : [BEP TR Compliance Score]          (v32) — TR'de dolu
+//    Conditional Format: Color scale 0(kırmızı)→50(sarı)→100(yeşil)
+//    Not: Ülkeye özgü sütunlar diğer ülkelerde BLANK → boş görünür
+//
+//  [4] Incentive Programs Card  ← YENİ
+//    Visual   : Multi-row card
+//    Alan 1   : [Priority Action Text]             (v32)
+//    Alan 2   : [All Incentives Summary]           (v32)
+//    Alan 3   : [ETS2 Risk Flag]                   (v32)
+//    Alan 4   : [CO2 Levy Risk Status]             (v32)
+//    Not: Bina slicer'a bağlıdır. Tek bina seçiminde o binaya özel.
+//
+// ══════════════════════════════════════════════════════════════
+//  YAPILACAKLAR — SIRAYLA UYGULA
+// ══════════════════════════════════════════════════════════════
+//  1. GHG Scope Stacked Bar'ı sil
+//  2. C3 → [Avg EPC Class Text] rebind, Goal = "B"
+//  3. C4 → [Renewable Energy Share Display Pct] rebind
+//  4. C5 → [CO2 Levy Cost EUR] rebind, Goal = [CO2 Levy ETS2 Est EUR]
+//  5. Compliance Scorecard Matrix ekle (Matrix visual, 5 sütun)
+//  6. Incentive Card ekle (Multi-row card, 4 alan)
+//  7. EPC görseline [EU Taxonomy Eligible Pct] küçük kart ekle
+//
+// ══════════════════════════════════════════════════════════════
+//  ÖNKOŞUL KONTROL LİSTESİ
+// ══════════════════════════════════════════════════════════════
+//  ☑ gold_compliance_results → Semantic Model'e EKLİ (saveAsTable ile)
+//  ☑ gold_compliance_results[building_id] → silver_building_master[building_id]
+//  □ gold_crrem_pathway → zaten ekli (v7/v13)
+//  □ silver_epc_ratings → zaten ekli (v11)
