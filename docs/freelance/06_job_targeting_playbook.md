@@ -290,3 +290,48 @@ See `scripts/freelance_bot/README.md` for setup, and §"Bot canlıya alma" in ou
 4. Bot go-live (your 20-min key setup)
 5. Publish profiles → first proposal wave
 6. Faz 3: make demo/tour/pilot sales-ready + the Mode-B onboarding playbook
+
+---
+
+## 12. Energy-domain expansion (what your EnergyLens app actually qualifies you for)
+
+Your platform is not just "Power BI + CSRD." It demonstrates real, demonstrable competence across the energy stack. The rule for which energy jobs to chase: **energy + data/analytics/dashboards = yes; pure field engineering = no.** You are the "energy data" person, not the on-site electrical/HVAC design engineer.
+
+| Your app capability | Energy job types you can credibly pursue | Angle to pitch |
+|---|---|---|
+| EnPI, kWh/m², EPC scoring, building-type thresholds | Energy Analyst · Energy Management Analyst · Building Performance Analyst · ISO 50001 / EnMS data support | "I turn meter + bill + EPC data into an EnPI/benchmarking dashboard" |
+| Anomaly detection, HVAC analytics, AFDD (12 rules) | Monitoring & Targeting (M&T) · Measurement & Verification (M&V/IPMVP) · energy waste / fault detection | "automated M&T with anomaly alerts and € waste estimates" |
+| Battery dispatch + ROI (EU 2023/1542, 12 countries) | BESS / battery storage feasibility & ROI analyst · energy storage data analyst | "battery dispatch ROI modelling with country-specific pricing" |
+| Solar PV self-consumption, specific yield | Solar PV performance / monitoring analyst · PV data analyst | "PV self-consumption + specific-yield monitoring dashboard" |
+| GHG Scope 1/2/3, EPEX pricing, decarbonisation page | Carbon / energy decarbonisation analyst · Net-Zero data analyst | "Scope 1/2/3 + decarbonisation pathway, audit-traceable" |
+| IoT EventStream, BACnet/Modbus/MQTT, real-time | Smart-building / IoT energy analyst · BMS data integration | "live BMS telemetry to dashboard, sub-second" |
+| Compliance hub (EPBD/MEPS, CRREM, EU Taxonomy) | Real-estate decarbonisation / stranding-risk analyst · EU compliance data | "MEPS/CRREM stranding radar across a portfolio" |
+
+**Honest fit line (say this, it builds trust):** "I'm the data and dashboard layer for energy — I work alongside your engineers/auditors, turning their domain into auditable, refreshable analytics. I don't do field surveys or electrical design."
+
+**Energy search terms** (added to the bot too): `measurement and verification`, `monitoring and targeting`, `energy audit`, `energy benchmarking`, `battery storage`, `BESS`, `energy storage`, `solar PV`, `photovoltaic`, `demand response`, `sub-metering`, `building automation`, `heat pump`, `HVAC analytics` — always paired mentally with "is the deliverable DATA/dashboard?" If yes, pursue.
+
+---
+
+## 13. Where to start this week — concrete search recipe
+
+**Order:** freelancermap (live now) → Malt (build profile) → LinkedIn (mirror) → freelance.de/Contra (optional).
+
+### freelancermap (start here — it's already wired to your bot)
+1. `Find projects` → search box, run these ONE AT A TIME and skim:
+   `Power BI` · `Microsoft Fabric` · `Energy` · `ESG` · `Energiedaten` · `Nachhaltigkeit` · `BESS` · `Energiemanagement`
+2. Filters: Remote + Hybrid; you already exclude nothing on DACH (good — the money is there).
+3. Your daily email digest also lands automatically; the bot reads it.
+
+### Malt (build profile first, then it's mostly inbound)
+- Search weekly: `Power BI ESG` · `energy analytics` · `sustainability dashboard` · `CSRD Power BI` · `energy data`
+- Malt is reverse — strong profile keywords matter more than searching. Fill the profile (04_profiles).
+
+### LinkedIn (after Malt/Contra live)
+- Saved searches with email alerts: `freelance Power BI energy` · `CSRD consultant contract` · `interim ESG data analyst` · `energy data analyst freelance` → forward alerts to the bot Gmail.
+
+### The 3-question filter you run on every result
+1. Is the deliverable DATA/dashboard/analysis (not field engineering)? 
+2. Power BI/Fabric/Azure OR energy/ESG data that needs plumbing? 
+3. Budget ≥ floor and remote-friendly?
+If yes/yes/yes → draft + apply (use templates in §7).

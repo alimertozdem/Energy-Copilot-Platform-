@@ -59,6 +59,24 @@ include_keywords:
   - "decarbonization pathway"
   - "gresb"
 
+  # Tier A3 — Energy domain (backed by your EnergyLens app capabilities)
+  - "measurement and verification"
+  - "monitoring and targeting"
+  - "energy audit"
+  - "energy benchmarking"
+  - "battery storage"
+  - "energy storage"
+  - "bess"
+  - "solar pv"
+  - "photovoltaic"
+  - "pv monitoring"
+  - "demand response"
+  - "sub-metering"
+  - "submetering"
+  - "building automation"
+  - "heat pump"
+  - "hvac analytics"
+
   # Tier B — broader MS analytics (still relevant)
   - "direct lake"
   - "onelake"
