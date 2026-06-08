@@ -19,20 +19,17 @@
 #              emisyonu (yeşil enerji kontratı yoksa Location ile aynı)
 #   Scope 3 — Diğer dolaylı emisyonlar: malzeme, servis, ulaşım (tahmini)
 #
-# VARSAYIMLAR (Assumptions) — BMAD kuralı gereği açık bildirim:
-#   A1: Doğalgaz için standart IPCC dönüşüm faktörü: 2.04 kgCO2/m³
-#       (LHV bazlı, CH4 içeriği %88-92 varsayımı)
-#   A2: Dizel jeneratör: 2.68 kgCO2/litre (DEFRA 2023)
-#   A3: Şebeke emisyon faktörleri (kgCO2/kWh, 2024 tahmini):
-#       DE: 0.380  |  TR: 0.430  |  EU default: 0.280
-#       Kaynak: Agora Energiewende 2024, TEİAŞ 2023
-#   A4: Scope 3 tahmini = toplam enerji tüketiminin %8'i oranında
-#       tedarik zinciri + çalışan ulaşımı (sektörel ortalama)
-#       Bu değer kesin değil — gerçek Scope 3 envanter çalışması gerektirir.
-#   A5: Soğutucu gaz kaçağı verisi mevcut değil → Scope 1'e dahil edilmemiş
-#       (gelecek versiyonda silver_refrigerant_log tablosuyla eklenecek)
-#   A6: Doğalgaz tüketim verisi silver_building_master'da mevcut değilse
-#       heating_energy_kwh kolonundan ters hesaplanır (verimlilik: %85 kazandı)
+# VARSAYIMLAR (Assumptions) — BMAD kuralı gereği açık bildirim (WP1-5 sonrası güncel):
+#   A1: Gaz CO₂ faktörü ref_fuel_factors'tan (0.201 kg/kWh, DEFRA). Hardcoded 2.04 kg/m³ kaldırıldı.
+#   A2: Dizel faktörü ref_fuel_factors'tan (2.68 kg/litre, DEFRA).
+#   A3: Şebeke faktörleri ref_grid_emission_factors'tan, YIL-İNDEKSLİ:
+#       DE UBA resmi serisi (2024=0.363) | TR 0.442 | AT/NL/FR/PL/EU EEA-sourced.
+#   A4: Scope 3 (WP4) kategori-yapılı: Cat 1 embodied = alan × RICS/LETI benchmark /
+#       amortizasyon; Cat 13 leased = gerçek kiracı verisi bekliyor (0). disclosure_grade=False.
+#   A5: Refrigerant Scope 1 (WP3) = silver_refrigerant_log × ref_refrigerant_gwp (IPCC GWP,
+#       F-Gas logbook); tablo yoksa 0 (uydurma yok). Market-based S2 (WP2) = residual mix
+#       fallback (ref_residual_mix, AIB) — location DEĞİL.
+#   A6: Doğalgaz tüketimi yoksa ısıtma payı = toplam tüketimin %25'i proxy + kazan verimi %85.
 #
 # INPUT TABLOLAR:
 #   gold_kpi_daily          — günlük elektrik tüketimi, solar üretim
@@ -150,37 +147,20 @@ SILVER_BUILDING       = f"{TABLES_PREFIX}/silver_building_master"
 OUTPUT_TABLE          = f"{TABLES_PREFIX}/gold_ghg_scope"
 
 # =============================================================================
-# GHG Emisyon Faktörleri (Assumption A1–A3)
-# Bu değerleri periyodik olarak güncelleyin:
-#   DE: Agora Energiewende yıllık yayını
-#   TR: TEİAŞ Elektrik Üretim İstatistikleri
+# BÖLÜM 2b — Motor-içi sabit (faktörler ARTIK referans katmanından gelir — WP5 temizlik)
+# -----------------------------------------------------------------------------
+# Eski hardcoded GRID_EMISSION_FACTORS dict + gaz/dizel sabitleri + SCOPE3_RATIO
+# KALDIRILDI (ölü koddu, çelişkili değerler taşıyordu). Artık hepsi referans katmanı:
+#   şebeke   → ref_grid_emission_factors   (DE UBA 0.363/2024, diğerleri EEA)
+#   gaz/dizel→ ref_fuel_factors            (gaz 0.201 kg/kWh, DEFRA)
+#   residual → ref_residual_mix            (market-based fallback, AIB)
+#   refrig.  → ref_refrigerant_gwp         (Scope 1 fugitive, IPCC GWP)
+#   embodied → ref_embodied_carbon         (Scope 3 Cat 1, RICS/LETI)
+# (hepsi BÖLÜM 3b'de yüklenir.) Burada SADECE bir motor parametresi kalır:
 # =============================================================================
-
-# Şebeke elektrik emisyon faktörleri (kgCO2/kWh, 2024)
-GRID_EMISSION_FACTORS = {
-    "DE": 0.380,   # Almanya — yenilenebilir penetrasyon artıkça düşüyor
-    "TR": 0.430,   # Türkiye — doğalgaz + kömür ağırlıklı
-    "AT": 0.158,   # Avusturya — hidroelektrik dominant
-    "NL": 0.290,   # Hollanda
-    "FR": 0.052,   # Fransa — nükleer dominant, çok düşük
-    "PL": 0.720,   # Polonya — kömür dominant, yüksek
-    "DEFAULT": 0.280,  # AB ortalaması (Eurostat 2023)
-}
-
-# Yakıt emisyon faktörleri
-GAS_EF_KG_PER_M3       = 2.04    # kgCO2/m³ doğalgaz (IPCC, LHV bazlı) — Varsayım A1
-GAS_BOILER_EFFICIENCY   = 0.85    # %85 — kondensasyon kazanı değil varsayımı — Varsayım A6
-DIESEL_EF_KG_PER_LITRE  = 2.68   # kgCO2/litre dizel (DEFRA 2023) — Varsayım A2
-
-# Scope 3 tahmini (Varsayım A4)
-SCOPE3_RATIO_OF_ENERGY  = 0.08   # toplam enerji kaynaklı emisyonun %8'i
-
-print("✅ Emisyon faktörleri yüklendi:")
-for country, ef in GRID_EMISSION_FACTORS.items():
-    if country != "DEFAULT":
-        print(f"   {country}: {ef} kgCO2/kWh")
-print(f"   Doğalgaz: {GAS_EF_KG_PER_M3} kgCO2/m³")
-print(f"   Dizel   : {DIESEL_EF_KG_PER_LITRE} kgCO2/litre")
+GAS_BOILER_EFFICIENCY = 0.85   # kazan verimi (yakıt→ısı); model parametresi, faktör değil (Varsayım A6)
+print(f"✅ Motor parametresi: kazan verimi {GAS_BOILER_EFFICIENCY}. "
+      f"Tüm emisyon faktörleri referans katmanından okunur (BÖLÜM 3b).")
 
 
 # =============================================================================
@@ -233,6 +213,11 @@ df_building_slim = df_building.select(
     # audit D2: market-based Scope 2 için sözleşme (supplier) faktörü — varsa kullan
     (col("green_supplier_ef_kg_kwh") if "green_supplier_ef_kg_kwh" in _avail
      else lit(None).cast("double")).alias("supplier_ef"),
+    # WP4: Scope 3 Cat 1 (embodied) için bina tipi; Cat 13 için kiraya verilen alan (varsa)
+    (col("building_type") if "building_type" in _avail
+     else lit("DEFAULT")).alias("building_type"),
+    (col("leased_area_m2") if "leased_area_m2" in _avail
+     else lit(None).cast("double")).alias("leased_area_m2"),
 ).distinct()
 
 print(f"✅ Bina master proxy katmanı uygulandı: {df_building_slim.count()} bina")
@@ -263,6 +248,85 @@ GAS_EF_KG_PER_KWH      = _fuel.get("natural_gas_kg_per_kwh", 0.201)
 DIESEL_EF_KG_PER_LITRE = _fuel.get("diesel_kg_per_litre", 2.68)
 print(f"✅ Referans katmanı yüklendi: ref_grid {df_ref_grid.count()} satır, "
       f"gaz {GAS_EF_KG_PER_KWH} kg/kWh, EU fallback {EU_EF_FALLBACK}")
+
+# -----------------------------------------------------------------------------
+# WP2: ref_residual_mix — market-based Scope 2 no-instrument fallback (AIB).
+# GHG Protocol Scope 2 Guidance: sözleşmeli enstrüman (GoO) YOKSA market-based,
+# location ortalaması DEĞİL, RESIDUAL MIX faktörüyle hesaplanır. Tablo yoksa
+# (03 WP1 henüz koşmadıysa) zarifçe location'a düşülür — sessiz hata yok.
+# -----------------------------------------------------------------------------
+try:
+    df_ref_residual = (
+        spark.read.format("delta").load(f"{TABLES_PREFIX}/ref_residual_mix")
+        .select(
+            col("country_code").alias("res_country"),
+            col("year").alias("res_year"),
+            col("residual_mix_kg_kwh").alias("res_ef"),
+        )
+    )
+    _has_residual = True
+    print(f"✅ ref_residual_mix yüklendi: {df_ref_residual.count()} satır (market-based fallback)")
+except Exception as _res_ex:
+    df_ref_residual = None
+    _has_residual = False
+    print(f"ℹ️  ref_residual_mix yok ({type(_res_ex).__name__}) → market-based location'a düşer. "
+          f"Önce 03_ref_factors_tariffs_loader (WP1) çalıştır.")
+
+# -----------------------------------------------------------------------------
+# WP3: Refrigerant Scope 1 (fugitive) prep.
+# silver_refrigerant_log BEKLENEN ŞEMA (pilot F-Gas logbook'tan doldurulacak —
+# EU 2024/573 zorunlu kılıyor):
+#     building_id  STRING
+#     event_date   DATE        (servis/dolum tarihi)
+#     refrigerant  STRING      (ör. "R-410A", "R-32")
+#     topup_kg     DOUBLE      (eklenen = sızan miktar)
+# Fugitive tCO2e = topup_kg × GWP-100 / 1000  (ref_refrigerant_gwp'den).
+# Tablo yoksa refrigerant Scope 1 = 0 (uydurmuyoruz — sadece yapı hazır).
+# -----------------------------------------------------------------------------
+try:
+    df_refrig_log = spark.read.format("delta").load(f"{TABLES_PREFIX}/silver_refrigerant_log")
+    df_gwp_ref = (
+        spark.read.format("delta").load(f"{TABLES_PREFIX}/ref_refrigerant_gwp")
+        .select(col("refrigerant").alias("gwp_refrigerant"), col("gwp_100"))
+    )
+    df_refrig_monthly = (
+        df_refrig_log
+        .withColumn("year_month", date_trunc("month", col("event_date")).cast(DateType()))
+        .join(broadcast(df_gwp_ref), col("refrigerant") == col("gwp_refrigerant"), "left")
+        .withColumn(
+            "refrig_tco2",
+            spark_round(col("topup_kg") * coalesce(col("gwp_100"), lit(0.0)) / 1000, 4),
+        )
+        .groupBy("building_id", "year_month")
+        .agg(spark_sum("refrig_tco2").alias("scope1_refrigerant_tco2"))
+    )
+    _has_refrig = True
+    print(f"✅ silver_refrigerant_log işlendi: {df_refrig_monthly.count()} bina-ay (refrigerant Scope 1)")
+except Exception as _refrig_ex:
+    df_refrig_monthly = None
+    _has_refrig = False
+    print(f"ℹ️  silver_refrigerant_log yok ({type(_refrig_ex).__name__}) → refrigerant Scope 1 = 0. "
+          f"Pilot F-Gas logbook gelince doldur (building_id, event_date, refrigerant, topup_kg).")
+
+# -----------------------------------------------------------------------------
+# WP4: ref_embodied_carbon — Scope 3 Cat 1 (gömülü karbon) benchmark.
+# bina tipi → kgCO2e/m² (upfront A1-A5) + amortizasyon yılı. Tablo yoksa default'a düşer.
+# -----------------------------------------------------------------------------
+try:
+    df_embodied = (
+        spark.read.format("delta").load(f"{TABLES_PREFIX}/ref_embodied_carbon")
+        .select(
+            col("building_type").alias("emb_type"),
+            col("embodied_kgco2e_m2"),
+            col("amortization_years"),
+        )
+    )
+    _has_embodied = True
+    print(f"✅ ref_embodied_carbon yüklendi: {df_embodied.count()} bina tipi (Scope 3 Cat 1)")
+except Exception as _emb_ex:
+    df_embodied = None
+    _has_embodied = False
+    print(f"ℹ️  ref_embodied_carbon yok ({type(_emb_ex).__name__}) → Cat 1 default benchmark (700 kgCO2e/m²).")
 
 
 # =============================================================================
@@ -312,6 +376,45 @@ df_with_ef = (
     .drop("ref_country", "ref_year", "ref_ef")
 )
 
+# WP2: residual mix JOIN (country_code, reporting_year) → res_ef.
+# Eşleşme yoksa (AT/NL full-disclosure, TR not-in-AIB, veya tablo yok) res_ef = NULL
+# → market-based location'a düşer (doğru davranış).
+if _has_residual:
+    df_with_ef = (
+        df_with_ef
+        .join(
+            broadcast(df_ref_residual),
+            (col("country_code") == col("res_country")) & (col("reporting_year") == col("res_year")),
+            "left",
+        )
+        .drop("res_country", "res_year")
+    )
+else:
+    df_with_ef = df_with_ef.withColumn("res_ef", lit(None).cast("double"))
+
+# WP3: refrigerant Scope 1 JOIN (building_id, year_month). Yoksa 0.
+if _has_refrig:
+    df_with_ef = df_with_ef.join(df_refrig_monthly, on=["building_id", "year_month"], how="left")
+else:
+    df_with_ef = df_with_ef.withColumn("scope1_refrigerant_tco2", lit(None).cast("double"))
+df_with_ef = df_with_ef.withColumn(
+    "scope1_refrigerant_tco2", coalesce(col("scope1_refrigerant_tco2"), lit(0.0))
+)
+
+# WP4: embodied benchmark JOIN (building_type). Eşleşme yoksa calc'ta default'a düşer.
+if _has_embodied:
+    df_with_ef = (
+        df_with_ef
+        .join(broadcast(df_embodied), col("building_type") == col("emb_type"), "left")
+        .drop("emb_type")
+    )
+else:
+    df_with_ef = (
+        df_with_ef
+        .withColumn("embodied_kgco2e_m2", lit(None).cast("double"))
+        .withColumn("amortization_years", lit(None).cast("int"))
+    )
+
 
 # =============================================================================
 # BÖLÜM 6 — SCOPE HESAPLAMALARI
@@ -354,8 +457,13 @@ df_scoped = df_with_ef.withColumn(
         )
     ).otherwise(lit(0.0))
 ).withColumn(
+    # WP3: Scope 1 toplam artık refrigerant fugitive'i de içerir
+    # (gaz + dizel + soğutucu gaz kaçağı). Pilot logbook'u yoksa refrigerant=0.
     "scope1_total_tco2",
-    spark_round(col("scope1_gas_tco2") + col("scope1_diesel_tco2"), 4)
+    spark_round(
+        col("scope1_gas_tco2") + col("scope1_diesel_tco2") + col("scope1_refrigerant_tco2"),
+        4,
+    )
 
 ).withColumn(
     # -----------------------------------------------------------------
@@ -370,34 +478,51 @@ df_scoped = df_with_ef.withColumn(
         4
     )
 ).withColumn(
-    # audit D2 fix: market-based Scope 2 — sözleşme (supplier) faktörü.
-    # GHG Protocol kuralı: kontraktüel araç (GoO/PPA/yeşil tarife) YOKSA market = location
-    # (bu doğru davranıştır, hata değil). supplier_ef silver_building_master'da varsa
-    # iki sayı GERÇEKTEN ayrışır → ESRS E1-6'nın istediği çift-metot disclosure çalışır.
+    # WP2: market-based Scope 2 — GHG Protocol Scope 2 Guidance faktör hiyerarşisi:
+    #   1) supplier_ef   — sözleşmeli enstrüman (GoO/PPA/yeşil tarife), en spesifik
+    #   2) res_ef        — residual mix (enstrüman YOKSA; location DEĞİL, çünkü GoO'lar
+    #                      yeşil nitelikleri çekince kalan miks daha kirlidir — AIB)
+    #   3) location      — residual da yoksa (AT/NL full-disclosure veya tablo yok)
+    # Böylece location ile market GERÇEKTEN ayrışır (ESRS E1-6 çift-metot disclosure).
     "scope2_market_tco2",
     spark_round(
         coalesce(col("monthly_grid_kwh"), col("monthly_consumption_kwh"))
-        * coalesce(col("supplier_ef"), col("emission_factor_grid"))
+        * coalesce(col("supplier_ef"), col("res_ef"), col("emission_factor_grid"))
         / 1000,
         4,
     )
 ).withColumn(
+    "scope2_market_factor",
+    coalesce(col("supplier_ef"), col("res_ef"), col("emission_factor_grid"))
+).withColumn(
     "scope2_method",
     when(col("supplier_ef").isNotNull(), lit("market_based_contract"))
-    .otherwise(lit("market_equals_location_no_instrument"))
+    .when(col("res_ef").isNotNull(), lit("residual_mix_no_instrument"))
+    .otherwise(lit("location_fallback_full_disclosure"))
 
 ).withColumn(
     # -----------------------------------------------------------------
-    # SCOPE 3 — Tahmini tedarik zinciri emisyonları (Varsayım A4)
-    # Scope 3 Category 1 (purchased goods) + Category 7 (employee commuting)
-    # = %8 of (Scope1 + Scope2) — sektörel CRREM/GRESB varsayımı
+    # WP4: SCOPE 3 — kategori-yapılı (eski düz %8 yerine), ESRS-E1 eşlenebilir.
+    # Cat 1 (embodied/upfront): AYLIK = alan × kgCO2e/m² / amortizasyon / 12 / 1000.
+    # Benchmark tahmini (RICS/LETI) → disclosure_grade=False. Default 700 / 60 yıl.
     # -----------------------------------------------------------------
-    "scope3_estimated_tco2",
+    "scope3_cat1_embodied_tco2",
     spark_round(
-        (col("scope1_total_tco2") + col("scope2_location_tco2"))
-        * SCOPE3_RATIO_OF_ENERGY,
-        4
+        coalesce(col("area_m2"), lit(0.0))
+        * coalesce(col("embodied_kgco2e_m2"), lit(700.0))
+        / coalesce(col("amortization_years"), lit(60))
+        / 12.0 / 1000.0,
+        4,
     )
+).withColumn(
+    # Cat 13 (downstream leased — kiracı enerjisi): GERÇEK kiracı verisi gelene kadar 0.
+    # Uydurmuyoruz; leased_area_m2 + tenant tüketimi gelince alan-oranlı tahmin eklenir.
+    "scope3_cat13_leased_tco2",
+    lit(0.0)
+).withColumn(
+    # Scope 3 toplam = Cat 1 + Cat 13 (hâlâ TARAMA/tahmin → disclosure_grade=False)
+    "scope3_estimated_tco2",
+    spark_round(col("scope3_cat1_embodied_tco2") + col("scope3_cat13_leased_tco2"), 4)
 
 ).withColumn(
     "total_ghg_location_tco2",
@@ -416,9 +541,9 @@ df_scoped = df_with_ef.withColumn(
         4
     )
 ).withColumn(
-    # audit D1 fix: Scope 3 = (S1+S2)×%8 bir TARAMA tahminidir, ESRS-disclosure-grade DEĞİL.
-    # Bu bayraklar görselin "tahmini — ESRS-ready değil" etiketini taşımasını sağlar.
-    "scope3_method", lit("screening_8pct_of_s1s2")
+    # WP4: Scope 3 artık kategori-yapılı ama hâlâ TAHMİN (Cat 1 benchmark, Cat 13 bekliyor).
+    # ESRS-disclosure-grade DEĞİL → görsel "estimated, not disclosure-grade" etiketi taşır.
+    "scope3_method", lit("cat1_embodied_benchmark+cat13_leased_pending")
 ).withColumn(
     "scope3_disclosure_grade", lit(False)
 ).withColumn(
@@ -449,10 +574,14 @@ FINAL_COLS = [
     "reporting_month",
     "scope1_gas_tco2",
     "scope1_diesel_tco2",
+    "scope1_refrigerant_tco2",   # WP3
     "scope1_total_tco2",
     "scope2_location_tco2",
     "scope2_market_tco2",
+    "scope2_market_factor",      # WP2
     "scope2_method",
+    "scope3_cat1_embodied_tco2", # WP4
+    "scope3_cat13_leased_tco2",  # WP4
     "scope3_estimated_tco2",
     "scope3_method",
     "scope3_disclosure_grade",

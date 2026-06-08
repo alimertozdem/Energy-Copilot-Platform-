@@ -15,6 +15,7 @@
 import { useState } from "react"
 
 import { AppChrome } from "@/components/AppChrome"
+import { ComparePageNav } from "@/components/ComparePageNav"
 import { SidePanel } from "@/components/SidePanels"
 import type { Building } from "@/lib/api/buildings"
 import { DEFAULT_PAGE_CONFIG, PAGE_CONFIG } from "@/lib/config/pageAccents"
@@ -33,6 +34,12 @@ type CompareReportShellProps = {
 
 export function CompareReportShell({ buildings }: CompareReportShellProps) {
   const [activePageName, setActivePageName] = useState<string>("")
+  // Page the left ComparePageNav navigated the embed to (PBI displayName).
+  // Kept separate from activePageName (what the embed reports back): a click
+  // sets targetPage to drive setActive(), the reported state drives the title
+  // accent + nav highlight. With the left nav as the sole page-switcher the
+  // two stay in sync, so plain value-equality navigation is enough.
+  const [targetPage, setTargetPage] = useState<string>("")
 
   const config = PAGE_CONFIG[activePageName] ?? DEFAULT_CONFIG
 
@@ -73,7 +80,10 @@ export function CompareReportShell({ buildings }: CompareReportShellProps) {
 
       {/* Same flex layout as single-building shell. */}
       <div className="relative z-10 flex h-[calc(100vh-7rem)]">
-        <SidePanel side="left" accentColor={config.color} />
+        <ComparePageNav
+          activePageName={activePageName}
+          onSelect={setTargetPage}
+        />
 
         <div
           className="flex-1 min-w-0 flex items-center justify-center transition-all duration-500"
@@ -114,6 +124,8 @@ export function CompareReportShell({ buildings }: CompareReportShellProps) {
 
             <ReportClient
               buildingIds={fabricIds}
+              pageName={targetPage || undefined}
+              hidePageNav
               onPageChanged={(name) => setActivePageName(name)}
             />
           </div>

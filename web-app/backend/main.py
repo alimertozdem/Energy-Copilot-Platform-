@@ -6,7 +6,10 @@ from dotenv import load_dotenv
 import msal
 import httpx
 import logging
-import pyodbc
+try:
+    import pyodbc
+except Exception:
+    pyodbc = None
 from fastapi.responses import JSONResponse
 
 # Load .env file (override=True forces .env values to win over any pre-existing shell env vars)

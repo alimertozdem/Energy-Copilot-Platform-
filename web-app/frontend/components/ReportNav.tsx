@@ -3,7 +3,7 @@
 /**
  * ReportNav -- left sub-nav for a building's report section.
  *
- * Lists the 9 Power BI report pages as deep-link routes
+ * Lists the 10 Power BI report pages as deep-link routes
  * (/buildings/[fabric_building_id]/reports/[slug]). The active page is
  * highlighted with its accent colour (kept in sync with pageAccents.ts).
  *
@@ -23,6 +23,7 @@ import {
   Leaf,
   Lock,
   Radio,
+  Sun,
   TrendingUp,
   TriangleAlert,
   Users,
@@ -45,6 +46,7 @@ const ICONS: Record<string, LucideIcon> = {
   Wind,
   Radio,
   BatteryCharging,
+  Sun,
 }
 
 type ReportNavProps = {

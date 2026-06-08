@@ -77,6 +77,11 @@ export const PAGE_CONFIG: Record<string, PageConfig> = {
     color: "#1D9E75", // brand-emerald — Battery KPIs in pure emerald (#20B060)
     motifs: [EnergyFlowMotif, CitySkylineMotif],
   },
+  "10_Solar": {
+    title: "Solar Performance",
+    color: "#F59E0B", // accent-amber — PV generation / solar yield
+    motifs: [EnergyFlowMotif, CitySkylineMotif],
+  },
 }
 
 export const DEFAULT_PAGE_CONFIG: PageConfig = {

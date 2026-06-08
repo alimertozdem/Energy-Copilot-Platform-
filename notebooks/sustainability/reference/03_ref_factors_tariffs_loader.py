@@ -88,23 +88,28 @@ _UBA_URL = "https://www.umweltbundesamt.de/themen/co2-emissionen-pro-kilowattstu
 _IEA = "IEA Emissions Factors 2025"
 _IEA_URL = "https://www.iea.org/data-and-statistics/data-product/emissions-factors-2025"
 _TEIAS = "TEİAŞ (Türkiye Elektrik İletim A.Ş.)"
+# EEA — free, official per-country electricity carbon intensity (replaces IEA placeholders)
+_EEA = "EEA — GHG emission intensity of electricity generation (country level)"
+_EEA_URL = "https://www.eea.europa.eu/en/analysis/indicators/greenhouse-gas-emission-intensity-of-1"
 
 grid_rows = [
-    # Germany — official UBA annual series
+    # Germany — official UBA annual series (consumption-based, incl. imports & T&D)
     ("DE", 2022, 0.433, _UBA, _UBA_URL, "official_series", _TODAY),
     ("DE", 2023, 0.386, _UBA, _UBA_URL, "official_series", _TODAY),
     ("DE", 2024, 0.363, _UBA, _UBA_URL, "official_series", _TODAY),
     ("DE", 2025, 0.363, _UBA, _UBA_URL, "official_series_carryforward", _TODAY),  # 2025 final yayımlanana kadar 2024 taşınır
-    # Turkey — single national value (product-owner approved 2026-05-30)
+    # Turkey — single national value (product-owner approved 2026-05-30; not in EEA/AIB scope)
     ("TR", 2023, 0.442, _TEIAS, "", "national_single", _TODAY),
     ("TR", 2024, 0.442, _TEIAS, "", "national_single", _TODAY),
     ("TR", 2025, 0.442, _TEIAS, "", "national_single", _TODAY),
-    # Other EU — IEA-based placeholders (confirm against IEA Emissions Factors 2025)
-    ("AT", 2024, 0.158, _IEA, _IEA_URL, "verify_iea_2025", _TODAY),  # hydro-dominant
-    ("NL", 2024, 0.290, _IEA, _IEA_URL, "verify_iea_2025", _TODAY),
-    ("FR", 2024, 0.052, _IEA, _IEA_URL, "verify_iea_2025", _TODAY),  # nuclear-dominant
-    ("PL", 2024, 0.660, _IEA, _IEA_URL, "verify_iea_2025", _TODAY),  # coal, declining
-    ("EU", 2024, 0.230, "Eurostat / EEA", _IEA_URL, "verify_iea_2025", _TODAY),
+    # Other Europe — EEA "GHG emission intensity of electricity generation" (free, official).
+    # Web-verified EEA 2023 values (2026-06-08); carried forward until EEA publishes 2024.
+    # FR/PL/EU exact; AT/NL approximate (hydro/gas) → confirm the exact EEA cell.
+    ("FR", 2024, 0.056, _EEA, _EEA_URL, "eea_2023_basis", _TODAY),   # nuclear/hydro dominant
+    ("PL", 2024, 0.662, _EEA, _EEA_URL, "eea_2023_basis", _TODAY),   # coal dominant
+    ("EU", 2024, 0.242, _EEA, _EEA_URL, "eea_2023_basis", _TODAY),   # EU-27 average
+    ("AT", 2024, 0.158, _EEA, _EEA_URL, "eea_verify",     _TODAY),   # hydro dominant (confirm exact)
+    ("NL", 2024, 0.290, _EEA, _EEA_URL, "eea_verify",     _TODAY),   # gas dominant (confirm exact)
 ]
 
 df_grid = spark.createDataFrame(grid_rows, schema=GRID_SCHEMA)
@@ -191,7 +196,131 @@ df_fuel.show(truncate=False)
 
 
 # =============================================================================
-# BÖLÜM 4 — DOĞRULAMA
+# BÖLÜM 4 — ref_residual_mix  (market-based Scope 2 — no-instrument fallback)
+# =============================================================================
+# GHG Protocol Scope 2 Guidance: bir tüketicinin sözleşmeli enstrümanı (GoO/PPA)
+# YOKSA, market-based emisyon LOCATION ortalamasıyla DEĞİL, RESIDUAL MIX faktörüyle
+# hesaplanmalı — çünkü yeşil nitelikler GoO olarak satıldığında kalan ("residual")
+# miks daha kirlidir. Örn: DE 2024 residual mix = 0.725 kg/kWh, location = 0.363
+# → ~2× fark. 09_ghg_scope bu tabloyu enstrümansız binalar için kullanır.
+#
+# Kaynak: AIB European Residual Mixes 2024 (issuance-based method), Table 2.
+#   Atıf zorunlu (AIB). NOT: AIB'nin ALTTAKİ base teknoloji faktörleri türev araçta
+#   yeniden dağıtılamaz; burada YALNIZCA yayımlanmış ülke residual-mix CO₂ değerini
+#   (gCO₂/kWh) referans alıyoruz — bu izinli kullanımdır.
+# AT/NL/CH: "full consumption disclosure" → residual mix YOK → location kullanılır.
+# =============================================================================
+
+RESIDUAL_SCHEMA = StructType([
+    StructField("country_code",        StringType(),  False),
+    StructField("year",                IntegerType(), False),
+    StructField("residual_mix_kg_kwh", DoubleType(),  True),   # NULL → full disclosure / use location
+    StructField("applicable",          StringType(),  True),   # yes | full_disclosure_use_location | not_in_aib
+    StructField("source",              StringType(),  True),
+    StructField("source_url",          StringType(),  True),
+    StructField("data_confidence",     StringType(),  True),
+    StructField("last_updated",        StringType(),  True),
+])
+
+_AIB = "AIB European Residual Mixes 2024 (Table 2, issuance-based)"
+_AIB_URL = "https://www.aib-net.org/facts/european-residual-mix/2024"
+
+residual_rows = [
+    # country, year, residual_kg_kwh, applicable, source, url, confidence, updated
+    ("DE", 2023, 0.72456, "yes", _AIB, _AIB_URL, "aib_2024_carryback_verify", _TODAY),
+    ("DE", 2024, 0.72456, "yes", _AIB, _AIB_URL, "aib_2024_official",         _TODAY),  # Table 2: 724.56 gCO₂/kWh
+    ("DE", 2025, 0.72456, "yes", _AIB, _AIB_URL, "aib_2024_carryforward",     _TODAY),
+    ("AT", 2024, None, "full_disclosure_use_location", _AIB, _AIB_URL, "aib_2024_official", _TODAY),
+    ("NL", 2024, None, "full_disclosure_use_location", _AIB, _AIB_URL, "aib_2024_official", _TODAY),
+    ("FR", 2024, None, "verify_aib_2024", _AIB, _AIB_URL, "verify",     _TODAY),
+    ("PL", 2024, None, "verify_aib_2024", _AIB, _AIB_URL, "verify",     _TODAY),
+    ("TR", 2024, None, "not_in_aib",      _TEIAS, "",     "use_location", _TODAY),
+]
+
+df_residual = spark.createDataFrame(residual_rows, schema=RESIDUAL_SCHEMA)
+df_residual.write.format("delta").mode("overwrite").option("overwriteSchema", "true") \
+    .saveAsTable("ref_residual_mix")
+print(f"✅ ref_residual_mix yazıldı: {df_residual.count()} satır "
+      f"(DE 2024 = 0.725 kg/kWh ≈ location'ın 2×'i)")
+df_residual.orderBy("country_code", "year").show(truncate=False)
+
+
+# =============================================================================
+# BÖLÜM 5 — ref_refrigerant_gwp  (Scope 1 fugitive — refrigerant kaçağı)
+# =============================================================================
+# Scope 1 fugitive emisyon = yıllık dolum (kg) × GWP-100. 09_ghg_scope bu tabloyu
+# silver_refrigerant_log ile JOIN eder (F-Gas logbook'tan; EU 2024/573 zorunlu).
+# Legacy blend'ler için EU F-Gas Reg Annex (AR4-temelli) değerleri yaygın kullanılır;
+# GHG Protocol/ESRS en güncel IPCC'yi (AR6) önerir → ipcc_basis kolonu hangisini
+# kullandığımızı taşır (müşterinin raporlama standardına göre değiştirilebilir).
+# =============================================================================
+
+GWP_SCHEMA = StructType([
+    StructField("refrigerant",  StringType(),  False),
+    StructField("gwp_100",      DoubleType(),  False),
+    StructField("ipcc_basis",   StringType(),  True),
+    StructField("note",         StringType(),  True),
+    StructField("source",       StringType(),  True),
+    StructField("last_updated", StringType(),  True),
+])
+
+_FGAS = "EU F-Gas Reg (EU) 2024/573 Annex I / IPCC"
+gwp_rows = [
+    ("R-410A",   2088.0, "AR4_blend", "common AC / heat-pump (R-32+R-125)", _FGAS, _TODAY),
+    ("R-32",      675.0, "AR4",       "modern AC / heat-pump (lower GWP)",  _FGAS, _TODAY),
+    ("R-134a",   1430.0, "AR4",       "chillers, mobile AC",                _FGAS, _TODAY),
+    ("R-407C",   1774.0, "AR4_blend", "AC retrofit blend",                  _FGAS, _TODAY),
+    ("R-404A",   3922.0, "AR4_blend", "commercial refrigeration",           _FGAS, _TODAY),
+    ("R-1234yf",    1.0, "AR5",       "HFO, very low GWP",                  _FGAS, _TODAY),
+    ("R-290",       3.0, "AR5",       "propane (natural refrigerant)",      _FGAS, _TODAY),
+    ("R-744",       1.0, "AR5",       "CO₂ (natural refrigerant)",          _FGAS, _TODAY),
+    ("R-717",       0.0, "AR5",       "ammonia (natural refrigerant)",      _FGAS, _TODAY),
+]
+df_gwp = spark.createDataFrame(gwp_rows, schema=GWP_SCHEMA)
+df_gwp.write.format("delta").mode("overwrite").option("overwriteSchema", "true") \
+    .saveAsTable("ref_refrigerant_gwp")
+print(f"✅ ref_refrigerant_gwp yazıldı: {df_gwp.count()} soğutucu gaz")
+df_gwp.show(truncate=False)
+
+
+# =============================================================================
+# BÖLÜM 6 — ref_embodied_carbon  (Scope 3 Cat 1 — gömülü/upfront karbon benchmark)
+# =============================================================================
+# Bina malzemelerinin gömülü karbonu (A1-A5), bina tipine göre kgCO₂e/m². 09_ghg_scope
+# (WP4) bunu alan × yoğunluk / amortization_years ile YILLIK Cat 1 tahmini yapar.
+# Bu bir BENCHMARK tahminidir (gerçek malzeme/EPD verisi DEĞİL) → scope3 disclosure_grade
+# False kalır. Kaynak: RICS WLCA / LETI / DGNB tipik aralıkları. Amortizasyon: 60 yıl.
+# =============================================================================
+
+EMBODIED_SCHEMA = StructType([
+    StructField("building_type",      StringType(),  False),
+    StructField("embodied_kgco2e_m2", DoubleType(),  False),   # upfront A1-A5, whole building
+    StructField("amortization_years", IntegerType(), False),
+    StructField("source",             StringType(),  True),
+    StructField("data_confidence",    StringType(),  True),
+    StructField("last_updated",       StringType(),  True),
+])
+
+_RICS = "RICS WLCA / LETI / DGNB typical embodied-carbon benchmarks"
+embodied_rows = [
+    ("Office",      750.0, 60, _RICS, "benchmark_estimate", _TODAY),
+    ("Retail",      600.0, 60, _RICS, "benchmark_estimate", _TODAY),
+    ("Hotel",       850.0, 60, _RICS, "benchmark_estimate", _TODAY),
+    ("Logistics",   450.0, 60, _RICS, "benchmark_estimate", _TODAY),
+    ("Healthcare",  950.0, 60, _RICS, "benchmark_estimate", _TODAY),
+    ("Lab",        1100.0, 60, _RICS, "benchmark_estimate", _TODAY),
+    ("DataCenter", 1400.0, 60, _RICS, "benchmark_estimate", _TODAY),
+    ("DEFAULT",     700.0, 60, _RICS, "benchmark_estimate", _TODAY),
+]
+df_embodied = spark.createDataFrame(embodied_rows, schema=EMBODIED_SCHEMA)
+df_embodied.write.format("delta").mode("overwrite").option("overwriteSchema", "true") \
+    .saveAsTable("ref_embodied_carbon")
+print(f"✅ ref_embodied_carbon yazıldı: {df_embodied.count()} bina tipi")
+df_embodied.show(truncate=False)
+
+
+# =============================================================================
+# BÖLÜM 7 — DOĞRULAMA
 # =============================================================================
 print("\n" + "=" * 60)
 print("VALIDATION — referans katmanı")
@@ -212,14 +341,27 @@ _tr_vals = [r["emission_factor_kg_kwh"] for r in
 assert _tr_vals == [0.442], f"❌ TR faktörü tek değer olmalı (0.442), bulundu: {_tr_vals}"
 print(f"\n✅ TR grid faktörü tek kanonik değer: {_tr_vals[0]} (artık 0.430/0.450 yok)")
 
+# Residual mix anahtar kontrol: DE enstrümansız market-based, location'dan ~2× kirli olmalı
+_de_loc = [r["emission_factor_kg_kwh"] for r in
+           df_grid.filter((F.col("country_code") == "DE") & (F.col("year") == 2024)).collect()]
+_de_res = [r["residual_mix_kg_kwh"] for r in
+           df_residual.filter((F.col("country_code") == "DE") & (F.col("year") == 2024)).collect()]
+if _de_loc and _de_res and _de_res[0]:
+    _ratio = round(_de_res[0] / _de_loc[0], 2)
+    print(f"\n✅ DE 2024 market-based kontrolü: residual {_de_res[0]} / location {_de_loc[0]} = {_ratio}× "
+          f"(beklenen >1 — GoO'lar yeşili çekince residual kirlenir)")
+    assert _de_res[0] > _de_loc[0], "❌ Residual mix location'dan büyük olmalı (GHG Protocol mantığı)"
+
 print("""
-📋 SONRAKI ADIM (refactor — task 9):
-   Motorları bu tablolara bağla:
-     03_gold_kpi_engine  → silver_building_master.emission_factor_kg_kwh yerine
-                           ref_grid_emission_factors JOIN (country_code, YEAR(date))
-     09_ghg_scope        → GRID_EMISSION_FACTORS dict yerine ref tablosu
-     05_compliance / 06_recommendation → RATE_* sabitleri yerine ref_electricity_tariffs
-     12_battery          → pricing_data inline yerine ref_electricity_tariffs
-   Böylece tek değer her sayfaya akar (audit A1/A2 kapanır).
+📋 SONRAKI ADIM (WP1 → WP2/3/4 wiring):
+   Yeni referans tabloları (bu loader):
+     ref_grid_emission_factors  → location-based Scope 2 (DE UBA, diğerleri EEA-sourced)
+     ref_residual_mix           → market-based Scope 2 no-instrument fallback (AIB)
+     ref_refrigerant_gwp        → Scope 1 fugitive (IPCC GWP × F-Gas logbook)
+     ref_embodied_carbon        → Scope 3 Cat 1 (RICS/LETI benchmark × alan)
+   Motor bağlantıları:
+     09_ghg_scope (WP2) → market = residual mix JOIN (location yerine)
+     09_ghg_scope (WP3) → scope1_refrigerant = silver_refrigerant_log × ref_refrigerant_gwp
+     09_ghg_scope (WP4) → scope3 kategori = ref_embodied_carbon (Cat 1) + leased (Cat 13)
 """)
-print("✅ Notebook 03_ref_factors_tariffs_loader tamamlandı.")
+print("✅ Notebook 03_ref_factors_tariffs_loader tamamlandı (WP1).")

@@ -1,5 +1,5 @@
 /**
- * reportPages.ts -- manifest of the 9 embedded Power BI report pages.
+ * reportPages.ts -- manifest of the 10 embedded Power BI report pages.
  *
  * Single source of truth for:
  *   * the /buildings/[fabric_building_id]/reports/[page] deep-link routes
@@ -14,7 +14,7 @@
  *   * title          : human label for breadcrumb / nav / document title
  *   * requiredModule : which BuildingModule must be enabled to view this page.
  *                      'meters' is always-on (Pages 1-7). 'iot' gates Page 8,
- *                      'battery' gates Page 9. Mirrors building_modules in the
+ *                      'battery' gates Page 9, 'solar' gates Page 10. Mirrors building_modules in the
  *                      backend (app/db/models/building.py).
  *   * accent         : page accent hex, kept in sync with pageAccents.ts so the
  *                      nav highlight matches the embed chrome.
@@ -37,7 +37,7 @@ export type ReportPageMeta = {
 }
 
 /**
- * Ordered to match the PBI report's own tab order (Pages 1-9). The first
+ * Ordered to match the PBI report's own tab order (Pages 1-10). The first
  * entry is the default landing page for a building's report section.
  */
 export const REPORT_PAGES: ReportPageMeta[] = [
@@ -113,6 +113,14 @@ export const REPORT_PAGES: ReportPageMeta[] = [
     accent: "#1D9E75",
     iconKey: "BatteryCharging",
   },
+  {
+    slug: "solar",
+    pbiDisplayName: "10_Solar",
+    title: "Solar Performance",
+    requiredModule: "solar",
+    accent: "#F59E0B",
+    iconKey: "Sun",
+  },
 ]
 
 export const REPORT_PAGES_BY_SLUG: Record<string, ReportPageMeta> =
@@ -130,8 +138,8 @@ export const DEFAULT_REPORT_SLUG = REPORT_PAGES[0].slug
  * A page is locked when its required module is not 'meters' and the building
  * does not have that module enabled.
  *
- * 'meters' (Pages 1-7) is always available. 'iot' (Page 8) and 'battery'
- * (Page 9) only unlock once the customer connects the relevant system --
+ * 'meters' (Pages 1-7) is always available. 'iot' (Page 8), 'battery' (Page 9) and 'solar'
+ * (Page 10) only unlock once the customer connects the relevant system --
  * recorded as an enabled BuildingModule (onboarding wizard / admin). This is
  * the web-app "module layer" of the 3-layer access model; Power BI RLS does
  * not enforce page visibility.
