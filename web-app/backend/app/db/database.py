@@ -8,6 +8,10 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 load_dotenv()
 
+print("DATABASE_URL exists:", "DATABASE_URL" in os.environ)
+print("DATABASE_URL value:", repr(os.getenv("DATABASE_URL")))
+print("PWD:", os.getcwd())
+
 _raw_url = os.getenv("DATABASE_URL")
 if not _raw_url:
     raise RuntimeError("DATABASE_URL is not set in .env")
