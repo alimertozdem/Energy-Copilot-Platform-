@@ -8,7 +8,9 @@ venv/
 .env
 *.log
 
-# We DO commit data/jobs.db so dedup state survives across cron runs.
-# To exclude it, uncomment:
-# data/*.db
+# Dedup DB is persisted via the GitHub Actions cache (see workflow), NOT committed.
+# Keeps scraped job/email content out of git and avoids secret-scanning push blocks.
+data/*.db
+data/jobs.db
+
 *.bak

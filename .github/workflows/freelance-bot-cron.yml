@@ -4,10 +4,9 @@ on:
   schedule:
     # Every 30 minutes. UTC. (GitHub Actions cron is UTC only.)
     - cron: "*/30 * * * *"
-    # Daily summary at 9:00 Europe/Berlin = 07:00 UTC (winter) / 08:00 UTC (summer).
-    # We use 07:30 UTC year-round; close enough for the morning briefing.
+    # Daily summary at 9:00 Europe/Berlin = 07:30 UTC year-round (close enough).
     - cron: "30 7 * * *"
-    # Weekly digest Sunday 20:00 Berlin = 18:00 / 19:00 UTC. Pick 18:30 UTC.
+    # Weekly digest Sunday ~20:00 Berlin = 18:30 UTC.
     - cron: "30 18 * * 0"
   workflow_dispatch:
     inputs:
@@ -31,7 +30,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
 
-    # GitHub gives us one schedule trigger at a time. We pick mode from the cron expression.
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -49,6 +47,17 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+
+      # Dedup state (jobs.db) is persisted via the Actions cache, NOT committed
+      # to the repo. This keeps scraped job/email content out of git and avoids
+      # secret-scanning push protection blocking the run.
+      - name: Restore bot DB (dedup state)
+        uses: actions/cache@v4
+        with:
+          path: scripts/freelance_bot/data/jobs.db
+          key: freelance-bot-db-${{ github.run_id }}
+          restore-keys: |
+            freelance-bot-db-
 
       - name: Install dependencies
         working-directory: scripts/freelance_bot
@@ -79,17 +88,3 @@ jobs:
             ARGS="$ARGS --dry-run"
           fi
           python -m src.main $ARGS
-
-      - name: Commit DB changes
-        if: steps.mode.outputs.dry_run != 'true' && steps.mode.outputs.mode == 'scan'
-        working-directory: scripts/freelance_bot
-        run: |
-          git config user.name  "freelance-bot"
-          git config user.email "bot@users.noreply.github.com"
-          git add data/jobs.db
-          if ! git diff --cached --quiet; then
-            git commit -m "chore(bot): update jobs.db [skip ci]"
-            git push
-          else
-            echo "No DB changes to commit."
-          fi
