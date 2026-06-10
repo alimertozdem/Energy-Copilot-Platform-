@@ -75,7 +75,7 @@ def _build_connection_string() -> str:
         f"Authority Id={tenant_id};"
         f"Encrypt=yes;"
         f"TrustServerCertificate=no;"
-        f"Connection Timeout=30;"
+        f"Connection Timeout=90;"
     )
 
 

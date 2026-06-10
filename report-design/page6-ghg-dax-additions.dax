@@ -1,0 +1,71 @@
+// ============================================================================
+// Page 6 — GHG Scope measure additions  (WP2 / WP3 / WP4)   2026-06-08
+// Table: gold_ghg_scope  (re-run 03_ref_factors_tariffs_loader → 09_ghg_scope_engine first)
+// Add these in Tabular Editor / Power BI. Names follow the existing v7 GHG convention.
+// New columns required in the model: scope1_refrigerant_tco2, scope2_market_factor,
+//   scope3_cat1_embodied_tco2, scope3_cat13_leased_tco2
+// ============================================================================
+
+// ---------- Scope 1 breakdown (refrigerant is new — WP3) ----------------------
+Scope 1 Gas tCO2e = SUM ( gold_ghg_scope[scope1_gas_tco2] )
+Scope 1 Diesel tCO2e = SUM ( gold_ghg_scope[scope1_diesel_tco2] )
+Scope 1 Refrigerant tCO2e = SUM ( gold_ghg_scope[scope1_refrigerant_tco2] )
+Scope 1 Total tCO2e = SUM ( gold_ghg_scope[scope1_total_tco2] )
+
+// ---------- Scope 2 dual reporting + residual-mix gap (WP2) --------------------
+Scope 2 Location tCO2e = SUM ( gold_ghg_scope[scope2_location_tco2] )
+Scope 2 Market tCO2e = SUM ( gold_ghg_scope[scope2_market_tco2] )
+
+// The "audit gap": market-based minus location-based. Positive => unbacked supply is
+// dirtier than the grid average (residual mix). This is the number an auditor looks for.
+Scope 2 Market vs Location tCO2e =
+    [Scope 2 Market tCO2e] - [Scope 2 Location tCO2e]
+
+// Method label for the card/tooltip (which factor path was used)
+Scope 2 Method =
+VAR m = SELECTEDVALUE ( gold_ghg_scope[scope2_method], "mixed" )
+RETURN
+    SWITCH (
+        m,
+        "market_based_contract", "Contract (GoO / PPA)",
+        "residual_mix_no_instrument", "Residual mix (no instrument)",
+        "location_fallback_full_disclosure", "Location (full-disclosure region)",
+        m
+    )
+
+// ---------- Scope 3 categories (WP4 + WP-max: full material set) ---------------
+Scope 3 Cat1 Embodied tCO2e = SUM ( gold_ghg_scope[scope3_cat1_embodied_tco2] )
+Scope 3 Cat3 Fuel&Energy tCO2e = SUM ( gold_ghg_scope[scope3_cat3_fuelenergy_tco2] )
+Scope 3 Cat5 Waste tCO2e = SUM ( gold_ghg_scope[scope3_cat5_waste_tco2] )
+Scope 3 Cat6 Travel tCO2e = SUM ( gold_ghg_scope[scope3_cat6_travel_tco2] )
+Scope 3 Cat7 Commute tCO2e = SUM ( gold_ghg_scope[scope3_cat7_commute_tco2] )
+Scope 3 Cat13 Leased tCO2e = SUM ( gold_ghg_scope[scope3_cat13_leased_tco2] )
+Scope 3 Total (est.) tCO2e = SUM ( gold_ghg_scope[scope3_estimated_tco2] )
+
+// ---------- Totals ------------------------------------------------------------
+Total GHG Location tCO2e = SUM ( gold_ghg_scope[total_ghg_location_tco2] )
+Total GHG Market tCO2e = SUM ( gold_ghg_scope[total_ghg_market_tco2] )
+
+// ---------- Honesty labels (show these on the Scope 3 visual / tooltip) --------
+Scope 3 Disclosure Label =
+    IF (
+        SELECTEDVALUE ( gold_ghg_scope[scope3_disclosure_grade] ) = FALSE (),
+        "Estimated — not disclosure-grade",
+        "Disclosure-grade"
+    )
+
+Scope 2 Reporting Note =
+    "ESRS E1-6 dual: location "
+        & FORMAT ( [Scope 2 Location tCO2e], "#,0.0" )
+        & " / market "
+        & FORMAT ( [Scope 2 Market tCO2e], "#,0.0" )
+        & " tCO2e"
+
+// ============================================================================
+// Suggested Page 6 visual changes:
+//   • Scope 1 donut → add Refrigerant slice (Gas / Diesel / Refrigerant)
+//   • Scope 2 → two bars (Location vs Market) + [Scope 2 Method] as a card/tooltip
+//     + a callout using [Scope 2 Market vs Location tCO2e] (the residual-mix gap)
+//   • Scope 3 → stacked (Cat 1 Embodied / Cat 13 Leased) with [Scope 3 Disclosure Label]
+//     pinned as a caption so it always reads "Estimated — not disclosure-grade"
+// ============================================================================
