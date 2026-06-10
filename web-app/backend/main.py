@@ -55,6 +55,10 @@ if _missing:
 PBI_SCOPE = ["https://analysis.windows.net/powerbi/api/.default"]
 PBI_API_BASE = "https://api.powerbi.com/v1.0/myorg"
 
+# CORS origins: comma-separated env var for prod (Vercel domain), localhost fallback for dev.
+_cors_env = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+_cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+
 # FastAPI app
 app = FastAPI(
     title="EnergyLens API",
@@ -64,7 +68,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

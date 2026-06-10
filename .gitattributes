@@ -1,0 +1,13 @@
+# Protect binary assets from any line-ending / text normalization.
+# (Text files are left to the editor; no repo-wide renormalization.)
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.docx binary
+*.pptx binary
+*.xlsx binary
+*.pbix binary
+*.parquet binary
