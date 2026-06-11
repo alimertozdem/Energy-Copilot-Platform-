@@ -159,7 +159,7 @@ export default function PowerBIReport({
     // It returns the same EmbedConfig shape, so the rest of this component
     // stays unchanged.
     const tokenUrl = useDemo
-      ? "http://127.0.0.1:8000/demo/embed/token"
+      ? "/api/demo/embed-token"
       : "http://127.0.0.1:8000/embed/token"
 
     const body =
