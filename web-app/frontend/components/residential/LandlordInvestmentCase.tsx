@@ -13,6 +13,7 @@
  * figures are indicative decision-support, not legal/financial advice.
  */
 import type { ActionItem } from "@/lib/api/actions"
+import { InfoTip } from "@/components/ui/info-tip"
 
 // §559 BGB: the landlord may raise annual rent by up to 8% of the modernisation
 // cost (after deducting public subsidies). Stated assumption — caps apply.
@@ -57,7 +58,9 @@ export function LandlordInvestmentCase({
     <section className="rounded-xl border border-border-subtle bg-bg-elevated/40 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-text-primary">Landlord investment case</h2>
+          <h2 className="text-sm font-semibold text-text-primary">
+            Landlord investment case <InfoTip term="retrofit_saving" />
+          </h2>
           <p className="mt-0.5 text-xs text-text-muted">
             Why the owner invests — even though tenants get the energy savings.
           </p>

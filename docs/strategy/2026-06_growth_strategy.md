@@ -207,3 +207,18 @@ recommendation engine + `/financing` (BAFA/KfW) + `/actions` tracking.
   chicken-and-egg. Build it **after** a commercial reference base exists.
 - **Energy-logic gate unchanged:** the marketplace doesn't invent engineering logic; it routes to
   humans who execute. Recommendations keep stating their assumptions.
+
+---
+
+## 10. Decisions locked + plan docs (2026-06-12)
+
+The §7 open decisions are now resolved with the product owner:
+
+1. **Residential buyer:** professional portfolio — **Hausverwaltung / housing company** (not single-owner / WEG).
+2. **Geography:** **Germany first** (strongest EPBD/MEPS + BAFA/KfW subsidy + carbon price).
+3. **Energy-logic (§4.3):** approved as **indicative ranges**, recomputed with the real *Energieberater* method (ΔU × area × Gradtagzahl ÷ η, and empirical study % for operational measures), current DE prices + emission factors + BAFA/KfW rules → **`residential-retrofit-calculations.md`** (also the single source for the in-app calculation tooltips).
+4. **Roadmap order:** A (CO₂-forward MACC) and B (no-hardware onboarding) are **built**; **C (residential)** is the active vertical; D continuous.
+
+**Execution Marketplace** — model decided: **hybrid (MVP lead-gen → target take-rate)**; full BMAD plan → **`execution-marketplace-plan.md`**. Build gated to *after* a commercial reference base + first residential pilots.
+
+**Calculation transparency** (trust layer, Mert 2026-06-12): every calculated figure now carries a "how it's calculated + assumptions + indicative/screening" tooltip via the extended glossary registry → **`../architecture/calc-transparency-plan.md`**.

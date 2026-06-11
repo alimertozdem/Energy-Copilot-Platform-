@@ -38,6 +38,7 @@ export function PortfolioKPIRow({ kpis }: { kpis: PortfolioKPIs }) {
         delta_pct={kpis.total_cost.delta_pct}
         direction={kpis.total_cost.direction}
         accent={PORTFOLIO_ACCENT}
+        term="energy_cost"
       />
       <KPITile
         label="Total CO₂"
@@ -46,6 +47,7 @@ export function PortfolioKPIRow({ kpis }: { kpis: PortfolioKPIs }) {
         delta_pct={kpis.total_co2.delta_pct}
         direction={kpis.total_co2.direction}
         accent={PORTFOLIO_ACCENT}
+        term="co2_emissions"
       />
     </div>
   )

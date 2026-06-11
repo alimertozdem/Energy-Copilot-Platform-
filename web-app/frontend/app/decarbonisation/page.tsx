@@ -18,6 +18,7 @@ import { AppChrome } from "@/components/AppChrome"
 import { FetchErrorNotice } from "@/components/FetchErrorNotice"
 import { SustainabilityMotif } from "@/components/SustainabilityMotif"
 import { MaccChart } from "@/components/abatement/MaccChart"
+import { InfoTip } from "@/components/ui/info-tip"
 import { BuildingSlicer } from "@/components/BuildingSlicer"
 import { PageIntro } from "@/components/PageIntro"
 import { authOptions } from "@/lib/auth/options"
@@ -166,6 +167,7 @@ function DecarbBody({ data, scoped }: { data: MaccResponse; scoped: boolean }) {
           <div>
             <h2 className="text-sm font-semibold text-text-primary">
               Marginal abatement cost curve
+              <InfoTip term="abatement_cost" className="ml-1.5" />
             </h2>
             <p className="mt-0.5 max-w-2xl text-xs text-text-muted">
               Each bar is one improvement measure. <strong className="font-medium text-text-primary">Width</strong> = how

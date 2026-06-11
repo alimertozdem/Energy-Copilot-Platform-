@@ -15,6 +15,7 @@ import { LogoCard } from "@/app/components/LogoCard"
 import {
   GLOSSARY,
   GLOSSARY_CATEGORY_ORDER,
+  CONFIDENCE_NOTE,
   type GlossaryCategory,
 } from "@/lib/glossary"
 
@@ -109,6 +110,26 @@ export default function GlossaryPage() {
                       <dd className="mt-1.5 text-sm text-text-muted leading-relaxed">
                         {e.full}
                       </dd>
+                      {e.method && (
+                        <div className="mt-3 border-t border-border-subtle/60 pt-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-emerald/80">
+                            How it&rsquo;s calculated
+                          </p>
+                          <p className="mt-1 text-sm text-text-muted">{e.method}</p>
+                          {e.assumptions && e.assumptions.length > 0 && (
+                            <ul className="mt-1.5 space-y-0.5">
+                              {e.assumptions.map((a) => (
+                                <li key={a} className="text-xs text-text-faint">&bull; {a}</li>
+                              ))}
+                            </ul>
+                          )}
+                          {e.confidence && (
+                            <p className="mt-2 text-xs italic text-text-faint">
+                              {CONFIDENCE_NOTE[e.confidence]}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </dl>

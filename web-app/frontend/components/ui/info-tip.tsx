@@ -5,11 +5,12 @@ import { Tooltip as TooltipPrimitive } from "radix-ui"
 import { Info } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { GLOSSARY, type TermKey } from "@/lib/glossary"
+import { GLOSSARY, CONFIDENCE_NOTE, type TermKey } from "@/lib/glossary"
 
 /**
  * InfoTip — a small accessible "i" trigger that reveals a glossary term's
- * short definition on hover OR keyboard focus.
+ * definition AND (when present) how the figure is calculated, on hover OR
+ * keyboard focus.
  *
  * Built on radix Tooltip, so it ships with focus management, Escape-to-close
  * and aria-describedby wiring for free. Each instance carries its own
@@ -58,7 +59,7 @@ export function InfoTip({
             sideOffset={6}
             collisionPadding={8}
             className={cn(
-              "z-50 max-w-[260px] rounded-lg border border-white/15 bg-zinc-900/95",
+              "z-50 max-w-[320px] rounded-lg border border-white/15 bg-zinc-900/95",
               "px-3 py-2 text-xs leading-relaxed text-white/90 shadow-xl backdrop-blur-md"
             )}
           >
@@ -66,6 +67,28 @@ export function InfoTip({
               {entry.label}
             </span>
             {entry.short}
+            {entry.method && (
+              <span className="mt-2 block border-t border-white/10 pt-2">
+                <span className="block text-[10px] font-semibold uppercase tracking-wide text-white/45">
+                  How it&rsquo;s calculated
+                </span>
+                <span className="mt-0.5 block text-white/90">{entry.method}</span>
+                {entry.assumptions && entry.assumptions.length > 0 && (
+                  <span className="mt-1 block">
+                    {entry.assumptions.map((a) => (
+                      <span key={a} className="block text-[11px] text-white/60">
+                        • {a}
+                      </span>
+                    ))}
+                  </span>
+                )}
+                {entry.confidence && (
+                  <span className="mt-1.5 block text-[11px] italic text-white/55">
+                    {CONFIDENCE_NOTE[entry.confidence]}
+                  </span>
+                )}
+              </span>
+            )}
             <TooltipPrimitive.Arrow className="fill-zinc-900" width={11} height={6} />
           </TooltipPrimitive.Content>
         </TooltipPrimitive.Portal>
