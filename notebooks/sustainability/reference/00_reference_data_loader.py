@@ -13,7 +13,7 @@
 #   ref_tariffs                → Ülke bazlı enerji tarifeleri
 #   ref_building_type_profiles → 8 bina tipi: benchmark, yük profili, öncelikler
 #   ref_technology_catalog     → Isı pompası, batarya, yalıtım ürün kategorileri
-#   ref_simulation_inputs      → 3 örnek bina için simülasyon girdi değerleri
+#   ref_simulation_inputs      → 4 bina için simülasyon girdi değerleri (B001-B003 + B011)
 #
 # NOT: Bu notebook'u pipeline başında (Bronze öncesinde) veya
 #      bağımsız olarak çalıştırabilirsin. Veriler inline tanımlıdır —
@@ -670,13 +670,13 @@ df_cat = write_ref_table(cat_data, cat_schema, REF_PATHS["technology_catalog"], 
 
 # =============================================================================
 # BÖLÜM 5 — ref_simulation_inputs
-# 3 örnek bina için simülasyon girdileri.
+# 4 bina için simülasyon girdileri (B001-B003 ticari + B011 konut).
 # Üretimde: müşteri bu verileri UI üzerinden girer veya API'den çekilir.
 # Eksik veriler için ülke/bina tipi bazlı defaults kullanılır.
 # =============================================================================
 
 print("\n" + "="*60)
-print("BÖLÜM 5 — Simülasyon Girdi Değerleri (3 Bina)")
+print("BÖLÜM 5 — Simülasyon Girdi Değerleri (4 Bina)")
 print("="*60)
 
 sim_schema = StructType([
@@ -768,6 +768,24 @@ sim_data = [
      "Forklift şarj istasyonları yakında eklenecekse: ani peak yükleri için batarya kritik. "
      "Hamburg iklimi: HDD yüksek → yalıtım iyileştirmesi yüksek ROI. "
      "Büyük depo alanı nedeniyle bina zarfı (çatı yalıtımı) en büyük ısı kaybı kalemi."),
+
+    # ── B011: Berlin Konut (MFH) — Residential vertical ───────────────────────
+    # 1970s yenilenmemiş çok-katlı konut, merkezi gaz. Isı pompası + zarf yalıtımı potansiyeli.
+    # Enerji-varsayımları reviewer onaylı (Mert, 2026-06-12); residential-retrofit-calculations.md ile hizalı.
+    ("B011",
+     "TAR-DE-TOU",
+     0.30, 0.11, 0.082, 0.0,              # elektrik, GAZ 0.11 (calc doc), feed-in, demand charge yok (konut)
+     "GAS", 30, "RADIATOR_LT", 60.0,      # gaz ~30y, düşük-sıcaklık radyatör 60°C (HP feasible, ≤65)
+     4, 3.0, 12.0, 100.0,                 # 4 kat, 3.0m, 12m yükseklik, ~100m çevre (2400m²/4 kat)
+     250.0, 50.0,                          # şebeke bağlantı, max ihracat
+     100.0, 0.0, 0.22, 0.95, 0.20,        # HP ~100kW, ek batarya yok, U-hedef duvar0.22/pencere0.95/çatı0.20 (GEG)
+     3300.0, 90.0,                         # HDD 3300 (Berlin, 18°C baz), CDD 90
+     0.04, 0.03, 20,                       # %4 iskonto, %3 escalation, 20y (konut horizonu)
+     "ESTIMATED",
+     "1970s yenilenmemiş MFH (Berlin), merkezi gaz, 24 daire / 2400 m². RADIATOR_LT@60°C: "
+     "oversized 1970s radyatör + T0 hidrolik denge düşük-sıcaklık HP'ye izin verir (profil HP=HIGH). "
+     "U-hedefleri GEG retrofit (duvar 0.22 / pencere 0.95 / çatı 0.20) = residential-retrofit-calculations.md. "
+     "Gaz 0.11 €/kWh çalışma fiyatı. Indicative/screening — reviewer onaylı 2026-06-12."),
 ]
 
 df_sim = write_ref_table(sim_data, sim_schema, REF_PATHS["simulation_inputs"], "ref_simulation_inputs")

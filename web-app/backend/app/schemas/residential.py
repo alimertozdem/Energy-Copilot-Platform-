@@ -14,6 +14,9 @@ class ResidentialUnitRow(BaseModel):
     area_m2: float | None = None
     is_heated: bool | None = None
     eui_kwh_m2_yr: float | None = None
+    eui_climate_adjusted_kwh_m2_yr: float | None = Field(
+        default=None, description="HDD-normalized EUI (degree-day ratio, base 15 °C). =raw when factor 1.0."
+    )
     epc_band: str | None = None
     vs_building_pct: float | None = None
     heating_dhw_kwh_annual: float | None = None
@@ -38,6 +41,9 @@ class ResidentialBuildingRollup(BaseModel):
 
     units_with_data: int = 0
     building_avg_eui_kwh_m2_yr: float | None = None
+    climate_adjustment_factor: float | None = Field(
+        default=None, description="Building HDD climate factor (same for all units; 1.0 = no weather)."
+    )
     epc_distribution: dict[str, int] = Field(
         default_factory=dict, description="Count of units per EPC band, e.g. {'C': 3}."
     )

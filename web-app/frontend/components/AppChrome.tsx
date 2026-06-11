@@ -150,6 +150,7 @@ function MobileNav() {
   }[] = [
     { href: "/portfolio", label: "Portfolio", active: pathname.startsWith("/portfolio"), badge: null, badgeClass: "" },
     { href: "/buildings", label: "Buildings", active: pathname.startsWith("/buildings"), badge: null, badgeClass: "" },
+    { href: "/residential", label: "Residential", active: pathname === "/residential" || pathname.startsWith("/residential/"), badge: null, badgeClass: "" },
     { href: "/connections", label: "Connections", active: pathname.startsWith("/connections"), badge: null, badgeClass: "" },
     { href: "/actions", label: "Actions", active: pathname.startsWith("/actions"), badge: openActions, badgeClass: "bg-amber-500/20 text-amber-200 border-amber-500/40" },
     { href: "/alerts", label: "Alerts", active: pathname.startsWith("/alerts"), badge: openAlerts, badgeClass: "bg-red-500/20 text-red-200 border-red-500/40" },
@@ -216,6 +217,7 @@ function MobileNav() {
 function PrimaryNav() {
   const pathname = usePathname() ?? ""
   const isBuildings = pathname.startsWith("/buildings")
+  const isResidential = pathname === "/residential" || pathname.startsWith("/residential/")
   const isPortfolio = pathname.startsWith("/portfolio")
   const isCopilot = pathname.startsWith("/copilot")
   const isActions = pathname.startsWith("/actions")
@@ -251,6 +253,18 @@ function PrimaryNav() {
         )}
       >
         Buildings
+      </Link>
+      <Link
+        href="/residential"
+        aria-current={isResidential ? "page" : undefined}
+        className={cn(
+          "px-3 py-1.5 rounded-md text-sm transition-colors",
+          isResidential
+            ? "bg-brand-emerald/10 text-brand-emerald"
+            : "text-text-muted hover:text-text-primary hover:bg-white/5"
+        )}
+      >
+        Residential
       </Link>
       <Link
         href="/actions"

@@ -37,7 +37,7 @@ def ne(c):
 if spark.catalog.tableExists("silver_building_master"):
     tgt = spark.table("silver_building_master").schema
     nm = [f.name for f in tgt]
-    kn = {k: v for k, v in {"building_id": BID, "building_type": "Residential_MF",
+    kn = {k: v for k, v in {"building_id": BID, "building_type": "RESIDENTIAL_MF",
           "country_code": "DE", "city": "Berlin", "name": "Musterstraße 12 (MFH)",
           "conditioned_area_m2": 2400.0, "unit_count": 24, "common_area_m2": 180.0}.items() if k in nm}
     d = spark.createDataFrame([tuple(kn.values())], list(kn.keys()))

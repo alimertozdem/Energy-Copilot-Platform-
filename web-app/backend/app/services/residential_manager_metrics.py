@@ -44,7 +44,8 @@ def get_building_residential(fabric_building_id: str) -> ResidentialBuildingResp
     """Per-unit KPIs + a building rollup for one building."""
     kpi_rows = fabric_sql.execute_query(
         """
-        SELECT unit_id, area_m2, is_heated, eui_kwh_m2_yr, epc_band,
+        SELECT unit_id, area_m2, is_heated, eui_kwh_m2_yr,
+               eui_climate_adjusted_kwh_m2_yr, climate_adjustment_factor, epc_band,
                vs_building_pct, heating_dhw_kwh_annual, cov_days,
                building_avg_eui_kwh_m2_yr
         FROM [dbo].[gold_residential_unit_kpi]
@@ -71,12 +72,15 @@ def get_building_residential(fabric_building_id: str) -> ResidentialBuildingResp
     units: list[ResidentialUnitRow] = []
     epc_dist: dict[str, int] = {}
     building_avg: float | None = None
+    building_climate: float | None = None
     for r in kpi_rows:
         band = r.get("epc_band")
         if band:
             epc_dist[band] = epc_dist.get(band, 0) + 1
         if building_avg is None:
             building_avg = _f(r.get("building_avg_eui_kwh_m2_yr"))
+        if building_climate is None:
+            building_climate = _f(r.get("climate_adjustment_factor"))
         c = common.get(r["unit_id"], {})
         is_heated_raw = r.get("is_heated")
         units.append(
@@ -85,6 +89,7 @@ def get_building_residential(fabric_building_id: str) -> ResidentialBuildingResp
                 area_m2=_f(r.get("area_m2")),
                 is_heated=bool(is_heated_raw) if is_heated_raw is not None else None,
                 eui_kwh_m2_yr=_f(r.get("eui_kwh_m2_yr")),
+                eui_climate_adjusted_kwh_m2_yr=_f(r.get("eui_climate_adjusted_kwh_m2_yr")),
                 epc_band=band,
                 vs_building_pct=_f(r.get("vs_building_pct")),
                 heating_dhw_kwh_annual=_f(r.get("heating_dhw_kwh_annual")),
@@ -105,6 +110,7 @@ def get_building_residential(fabric_building_id: str) -> ResidentialBuildingResp
     rollup = ResidentialBuildingRollup(
         units_with_data=len(units),
         building_avg_eui_kwh_m2_yr=building_avg,
+        climate_adjustment_factor=building_climate,
         epc_distribution=epc_dist,
         uvi=uvi,
     )

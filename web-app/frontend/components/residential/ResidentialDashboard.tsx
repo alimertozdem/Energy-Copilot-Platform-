@@ -87,7 +87,12 @@ export function ResidentialDashboard({
         <Card
           label="Building avg EUI"
           value={f(rollup.building_avg_eui_kwh_m2_yr)}
-          hint="kWh/m²·yr (heating + hot water)"
+          hint={
+            rollup.climate_adjustment_factor != null &&
+            rollup.climate_adjustment_factor !== 1
+              ? `kWh/m²·yr · climate-adj ×${rollup.climate_adjustment_factor.toFixed(2)}`
+              : "kWh/m²·yr (heating + hot water)"
+          }
         />
         <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">EPC mix</p>
@@ -135,7 +140,15 @@ export function ResidentialDashboard({
                 <tr key={u.unit_id} className="border-b border-border-subtle/60 text-text-primary/90">
                   <td className="px-4 py-2.5 font-medium">{u.unit_id}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums">{f(u.area_m2)}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">{f(u.eui_kwh_m2_yr)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums">
+                    {f(u.eui_kwh_m2_yr)}
+                    {u.eui_climate_adjusted_kwh_m2_yr != null &&
+                      u.eui_climate_adjusted_kwh_m2_yr !== u.eui_kwh_m2_yr && (
+                        <span className="block text-[10px] font-normal text-text-faint">
+                          adj {f(u.eui_climate_adjusted_kwh_m2_yr)}
+                        </span>
+                      )}
+                  </td>
                   <td className="px-4 py-2.5 text-center"><EpcChip band={u.epc_band} /></td>
                   <td className={`px-4 py-2.5 text-right tabular-nums ${vsColor}`}>{vsText}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums">{f(u.heating_dhw_kwh_annual)}</td>
@@ -154,6 +167,10 @@ export function ResidentialDashboard({
         Per-unit figures are shown for cost-allocation (HKVO) purposes. Shared heating &amp;
         hot water are allocated 70% by consumption / 30% by floor area. The monthly
         statement (UVI) per unit is available from the resident view / PDF export.
+        Climate-adjusted EUI (&ldquo;adj&rdquo;) normalises the heating season by a
+        degree-day ratio (base 15&nbsp;°C, same reference as the commercial KPI) for fair
+        year-to-year comparison; it lightly over-corrects the weather-independent
+        hot-water base load (indicative, screening-grade).
       </p>
     </div>
   )

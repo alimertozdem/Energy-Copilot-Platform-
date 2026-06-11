@@ -60,6 +60,7 @@ CITY_COORDS = {
     "B008": (51.3397, 12.3731, "Leipzig"),     # DE
     "B009": (50.1109,  8.6821, "Frankfurt"),   # DE
     "B010": (59.3293, 18.0686, "Stockholm"),   # SE
+    "B011": (52.5200, 13.4050, "Berlin"),      # DE — residential MFH (G1 climate-adjust)
 }
 
 print(f"✅ Open-Meteo HOURLY weather loader — {START_DATE} → {END_DATE}, HDD{HDD_BASE_C}/CDD{CDD_BASE_C}")
