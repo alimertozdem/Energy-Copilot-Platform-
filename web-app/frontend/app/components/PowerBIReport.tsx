@@ -160,7 +160,7 @@ export default function PowerBIReport({
     // stays unchanged.
     const tokenUrl = useDemo
       ? "/api/demo/embed-token"
-      : "http://127.0.0.1:8000/embed/token"
+      : "/api/embed-token"
 
     const body =
       useDemo && buildingIds && buildingIds.length === 1
