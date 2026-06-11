@@ -7,6 +7,7 @@
  */
 
 export type BillingTier = "basic" | "monitor"
+export type BillingPeriod = "monthly" | "annual"
 
 export type BillingResult = { ok: true; url: string } | { ok: false; error: string }
 
@@ -30,9 +31,12 @@ async function postForUrl(path: string, body?: unknown): Promise<BillingResult> 
   }
 }
 
-/** Begin a Stripe Checkout session for a self-serve tier. */
-export function startCheckout(tier: BillingTier): Promise<BillingResult> {
-  return postForUrl("/api/billing/checkout", { tier })
+/** Begin a Stripe Checkout session for a self-serve tier (monthly or annual). */
+export function startCheckout(
+  tier: BillingTier,
+  period: BillingPeriod = "monthly"
+): Promise<BillingResult> {
+  return postForUrl("/api/billing/checkout", { tier, period })
 }
 
 /** Open the Stripe Customer Portal (manage / cancel the subscription). */

@@ -6,9 +6,8 @@
  * route to /signup — a visitor creates an account, then upgrades self-serve in
  * Settings -> Subscription (Stripe Checkout). Enterprise is "contact sales".
  *
- * NOTE: prices + feature bullets below are display placeholders for the pitch.
- * The authoritative price lives in Stripe; finalise amounts before launch.
- * Monitor = €299/mo is the figure already used in the module-unlock UX.
+ * NOTE: prices below follow docs/strategy/pricing-model-v2.md (the authoritative
+ * spec). The live price lives in Stripe; per-building automation is v1.1 (see doc).
  *
  * Design: shares the landing's premium language — bg-radial-emerald-glow +
  * dot-grid + top pulse glow, Space Grotesk (font-display) headings, ping-dot
@@ -40,6 +39,7 @@ type Plan = {
   name: string
   price: string
   cadence?: string
+  annual?: string
   blurb: string
   features: string[]
   cta: { label: string; href: string }
@@ -66,9 +66,10 @@ const PLANS: Plan[] = [
     name: "Basic",
     price: "€99",
     cadence: "/mo",
+    annual: "or €1,010/yr — save 15%",
     blurb: "Portfolio analytics across multiple buildings.",
     features: [
-      "Up to 10 buildings",
+      "3 buildings included, then €35 each / mo",
       "Anomaly detection & alerts",
       "Recommendations tracking",
       "Email support",
@@ -80,8 +81,10 @@ const PLANS: Plan[] = [
     name: "Monitor",
     price: "€299",
     cadence: "/mo",
+    annual: "or €3,050/yr — save 15%",
     blurb: "Live operations + investment decision support.",
     features: [
+      "5 buildings included, then €60 each / mo",
       "Everything in Basic",
       "Live IoT monitoring (BACnet / Modbus / MQTT)",
       "Battery & solar ROI simulation",
@@ -194,8 +197,9 @@ export default function PricingPage() {
             Plans &amp; pricing
           </h1>
           <p className="mt-4 max-w-2xl mx-auto text-text-muted sm:text-lg">
-            Start free, upgrade as your portfolio grows. Every plan runs on Microsoft
-            Fabric and is EU-hosted.
+            Start free, upgrade as your portfolio grows. Pay monthly or annually
+            (save 15%); larger portfolios scale per building. Every plan runs on
+            Microsoft Fabric and is EU-hosted.
           </p>
         </div>
 
@@ -220,6 +224,7 @@ export default function PricingPage() {
                 <span className="font-display text-3xl font-bold text-text-primary">{p.price}</span>
                 {p.cadence && <span className="text-sm text-text-muted">{p.cadence}</span>}
               </div>
+              {p.annual && <p className="mt-1 text-xs text-brand-emerald">{p.annual}</p>}
               <p className="mt-2 text-sm text-text-muted">{p.blurb}</p>
 
               <ul className="mt-4 flex-1 space-y-2">

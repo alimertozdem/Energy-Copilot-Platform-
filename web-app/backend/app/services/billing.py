@@ -14,6 +14,7 @@ Env (set by the operator -- see BILL-6 runbook):
   STRIPE_PRICE_BASIC        price_...   (Basic, recurring monthly)
   STRIPE_PRICE_MONITOR      price_...   (Monitor, recurring monthly)
   STRIPE_PRICE_RESIDENTIAL  price_...   (Residential, recurring monthly; per-building base)
+  STRIPE_PRICE_BASIC_ANNUAL / _MONITOR_ANNUAL / _RESIDENTIAL_ANNUAL  (optional; annual -15%)
   BILLING_SUCCESS_URL       http://localhost:3000/settings?billing=success
   BILLING_CANCEL_URL        http://localhost:3000/settings?billing=cancel
   BILLING_PORTAL_RETURN_URL http://localhost:3000/settings
@@ -53,22 +54,33 @@ def _configure() -> None:
     stripe.api_key = key
 
 
-def _price_id_for_tier(tier: str) -> str | None:
-    return {
-        "basic": os.getenv("STRIPE_PRICE_BASIC"),
-        "monitor": os.getenv("STRIPE_PRICE_MONITOR"),
-        "residential": os.getenv("STRIPE_PRICE_RESIDENTIAL"),
+def _price_id_for_tier(tier: str, period: str = "monthly") -> str | None:
+    base = {
+        "basic": "STRIPE_PRICE_BASIC",
+        "monitor": "STRIPE_PRICE_MONITOR",
+        "residential": "STRIPE_PRICE_RESIDENTIAL",
     }.get(tier)
+    if not base:
+        return None
+    suffix = "_ANNUAL" if period == "annual" else ""
+    return os.getenv(f"{base}{suffix}")
 
 
 def _tier_for_price_id(price_id: str | None) -> str | None:
+    """Map a Stripe price id back to its tier (covers monthly + annual ids)."""
     if not price_id:
         return None
-    return {
-        os.getenv("STRIPE_PRICE_BASIC"): "basic",
-        os.getenv("STRIPE_PRICE_MONITOR"): "monitor",
-        os.getenv("STRIPE_PRICE_RESIDENTIAL"): "residential",
-    }.get(price_id)
+    mapping: dict[str, str] = {}
+    for tier, base in (
+        ("basic", "STRIPE_PRICE_BASIC"),
+        ("monitor", "STRIPE_PRICE_MONITOR"),
+        ("residential", "STRIPE_PRICE_RESIDENTIAL"),
+    ):
+        for suffix in ("", "_ANNUAL"):
+            pid = os.getenv(f"{base}{suffix}")
+            if pid:
+                mapping[pid] = tier
+    return mapping.get(price_id)
 
 
 def ensure_customer(db: Session, org: Organization, *, email: str | None) -> str:
@@ -87,15 +99,19 @@ def ensure_customer(db: Session, org: Organization, *, email: str | None) -> str
 
 
 def create_checkout_session(
-    db: Session, org: Organization, *, tier: str, email: str | None
+    db: Session, org: Organization, *, tier: str, email: str | None,
+    period: str = "monthly",
 ) -> str:
-    """Create a subscription Checkout Session for `tier`; return its URL."""
+    """Create a subscription Checkout Session for `tier` (monthly|annual); return its URL."""
     _configure()
     if tier not in SELF_SERVE_TIERS:
         raise BillingError(f"Tier '{tier}' is not purchasable self-serve")
-    price_id = _price_id_for_tier(tier)
+    if period not in ("monthly", "annual"):
+        raise BillingError(f"Unknown billing period '{period}'")
+    price_id = _price_id_for_tier(tier, period)
     if not price_id:
-        raise BillingError(f"No Stripe price configured for tier '{tier}'")
+        label = "annual" if period == "annual" else "monthly"
+        raise BillingError(f"No {label} Stripe price configured for tier '{tier}'")
 
     customer_id = ensure_customer(db, org, email=email)
     success_url = os.getenv(
@@ -112,7 +128,7 @@ def create_checkout_session(
         success_url=success_url,
         cancel_url=cancel_url,
         client_reference_id=str(org.id),
-        metadata={"organization_id": str(org.id), "tier": tier},
+        metadata={"organization_id": str(org.id), "tier": tier, "period": period},
         allow_promotion_codes=True,
     )
     url = session.get("url")

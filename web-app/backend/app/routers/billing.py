@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 class CheckoutRequest(BaseModel):
     tier: str
+    period: str = "monthly"
 
 
 class UrlResponse(BaseModel):
@@ -68,7 +69,9 @@ def create_checkout(
         raise HTTPException(status_code=503, detail="Billing is not configured")
     org = _require_org_admin(db, org_id, user.id)
     try:
-        url = billing.create_checkout_session(db, org, tier=body.tier, email=user.email)
+        url = billing.create_checkout_session(
+            db, org, tier=body.tier, email=user.email, period=body.period
+        )
     except billing.BillingError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return UrlResponse(url=url)

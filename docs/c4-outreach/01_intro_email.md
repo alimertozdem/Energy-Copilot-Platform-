@@ -2,7 +2,9 @@
 
 **When to use:** after / alongside the introduction from your BSBI professor. Keep it short — you just want a short call, not a sale.
 
-> Fill in: **[Professor name]**, **[phone]**. If the professor sends the first note himself, use the shorter version below.
+> **Before sending — fill 2 things:** **[Professor name]** (the BSBI professor making the intro — confirm: Dr. Chelabi, or whoever connects you to C4) and **[phone]**.
+> **Live demo, ready to paste when they want it:** `https://energy-copilot-platform.vercel.app/demo` (no login; 6 sample buildings + a live dashboard).
+> If the professor sends the first note himself, use the shorter version below.
 
 ---
 

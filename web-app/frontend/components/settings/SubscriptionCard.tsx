@@ -12,7 +12,7 @@ import { useState } from "react"
 import { Loader2, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { openPortal, startCheckout, type BillingTier } from "@/lib/api/billing"
+import { openPortal, startCheckout, type BillingPeriod, type BillingTier } from "@/lib/api/billing"
 import { type OrganizationProfile } from "@/lib/api/settings"
 import { cn } from "@/lib/utils"
 
@@ -63,6 +63,7 @@ export function SubscriptionCard({
 }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [period, setPeriod] = useState<BillingPeriod>("monthly")
 
   const currentTier = org.subscription_tier
   const status =
@@ -74,7 +75,8 @@ export function SubscriptionCard({
   async function go(action: "portal" | BillingTier) {
     setError(null)
     setBusy(action)
-    const result = action === "portal" ? await openPortal() : await startCheckout(action)
+    const result =
+      action === "portal" ? await openPortal() : await startCheckout(action, period)
     if (result.ok) {
       window.location.href = result.url
       return // navigating to Stripe; keep the buttons disabled
@@ -140,6 +142,23 @@ export function SubscriptionCard({
 
       {canManage ? (
         <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border-subtle">
+          <div className="inline-flex items-center gap-0.5 rounded-lg border border-border-subtle bg-white/[0.02] p-0.5 text-xs">
+            {(["monthly", "annual"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                className={cn(
+                  "rounded-md px-2.5 py-1 transition-colors",
+                  period === p
+                    ? "bg-brand-emerald/15 text-brand-emerald"
+                    : "text-text-muted hover:text-text-primary"
+                )}
+              >
+                {p === "monthly" ? "Monthly" : "Annual −15%"}
+              </button>
+            ))}
+          </div>
           {SELF_SERVE.filter((t) => t !== currentTier).map((t) => (
             <Button key={t} size="sm" onClick={() => go(t)} disabled={busy !== null}>
               {busy === t && <Loader2 className="w-3.5 h-3.5 animate-spin" />}

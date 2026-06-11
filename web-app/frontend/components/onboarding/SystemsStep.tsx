@@ -131,7 +131,7 @@ export function SystemsStep({
         {data.has_solar && (
           <div className="ml-7 pl-3 border-l border-border-subtle">
             <label htmlFor="s-pv" className={labelCls}>
-              Installed PV capacity (kWp)
+              Installed PV capacity (kWp) <span className="text-text-faint">(optional)</span>
             </label>
             <input
               id="s-pv"
@@ -142,6 +142,9 @@ export function SystemsStep({
               placeholder="e.g. 120"
               className={`${inputCls} max-w-[180px]`}
             />
+            <p className="mt-1 text-[11px] text-text-faint">
+              On the nameplate / inverter — drives self-consumption &amp; ROI. Leave blank if unsure; add it later.
+            </p>
           </div>
         )}
       </div>

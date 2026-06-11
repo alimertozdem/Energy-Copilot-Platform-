@@ -2,16 +2,21 @@
 
 EnergyLens uses **Stripe Checkout + Customer Portal + webhooks** for self-serve
 subscriptions. The app code is complete; this is the one-time operator setup
-(test mode). Plans: `free` (default) · `basic` + `monitor` (self-serve) ·
-`enterprise` (contact sales). Prices live in Stripe — never hardcoded.
+(test mode). Plans + numbers follow
+[`docs/strategy/pricing-model-v2.md`](../docs/strategy/pricing-model-v2.md):
+`free` (default) · `basic` + `monitor` + `residential` (self-serve, **monthly or
+annual −15%**) · `enterprise` (contact sales). Prices live in Stripe — never hardcoded.
 
 ## 1. Stripe account + products (test mode)
 
 1. Create a Stripe account and stay in **Test mode** (toggle, top-right).
-2. **Products → Add product** twice:
-   - **Basic** — add a **recurring / monthly** price → copy its `price_…` id.
-   - **Monitor** — add a **recurring / monthly** price → copy its `price_…` id.
-   (Amounts are up to you; e.g. Basic €99/mo, Monitor €299/mo.)
+2. **Products → Add product** for each self-serve plan. Add **both** a monthly and
+   an annual recurring price per product (annual = −15%), and copy each `price_…` id:
+   - **Basic** — monthly **€99** + annual **€1,010/yr** → `STRIPE_PRICE_BASIC` / `_BASIC_ANNUAL`.
+   - **Monitor** — monthly **€299** + annual **€3,050/yr** → `STRIPE_PRICE_MONITOR` / `_MONITOR_ANNUAL`.
+   - **Residential** — monthly **€49/building** → `STRIPE_PRICE_RESIDENTIAL` / `_RESIDENTIAL_ANNUAL`.
+   (Per-building overage for Basic/Monitor and the €3/unit line are **v1.1** — handled
+   at contract today; see the pricing-model doc. Enterprise is contact-sales, no price.)
 3. **Developers → API keys** → copy the **Secret key** (`sk_test_…`).
 4. **Customer Portal**: Settings → Billing → **Customer portal** → activate it in
    test mode (one-time), otherwise `/billing/portal` will error.
@@ -20,9 +25,13 @@ subscriptions. The app code is complete; this is the one-time operator setup
 
 ```
 STRIPE_SECRET_KEY=sk_test_xxx
-STRIPE_WEBHOOK_SECRET=whsec_xxx          # see step 4 (local = from `stripe listen`)
-STRIPE_PRICE_BASIC=price_xxx
-STRIPE_PRICE_MONITOR=price_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx           # see step 4 (local = from `stripe listen`)
+STRIPE_PRICE_BASIC=price_xxx             # Basic, monthly
+STRIPE_PRICE_MONITOR=price_xxx           # Monitor, monthly
+STRIPE_PRICE_RESIDENTIAL=price_xxx       # Residential, monthly (optional)
+STRIPE_PRICE_BASIC_ANNUAL=price_xxx      # annual (-15%) — enables the Monthly/Annual toggle
+STRIPE_PRICE_MONITOR_ANNUAL=price_xxx    # annual (-15%)
+STRIPE_PRICE_RESIDENTIAL_ANNUAL=price_xxx # annual (-15%), optional
 BILLING_SUCCESS_URL=http://localhost:3000/settings?billing=success
 BILLING_CANCEL_URL=http://localhost:3000/settings?billing=cancel
 BILLING_PORTAL_RETURN_URL=http://localhost:3000/settings
@@ -70,6 +79,11 @@ For a deployed environment instead: Developers → Webhooks → add an endpoint
 
 ## Notes
 
+- **Annual billing:** when the `_ANNUAL` price ids are set, Settings → Subscription
+  shows a **Monthly / Annual −15%** toggle and sends the chosen period to Checkout.
+  If they are unset, the app cleanly stays monthly-only.
+- **Per-building / per-unit overage is v1.1** — not yet metered in Stripe; handle
+  larger portfolios at contract for now (see `docs/strategy/pricing-model-v2.md`).
 - The webhook endpoint is unauthenticated but **signature-verified** against
   `STRIPE_WEBHOOK_SECRET` — only Stripe can drive tier changes.
 - Checkout/Portal endpoints are **org-admin only** (`POST /billing/checkout`,
