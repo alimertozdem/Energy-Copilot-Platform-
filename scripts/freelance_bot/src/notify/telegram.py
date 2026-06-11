@@ -107,6 +107,54 @@ def format_match_message(
     return "\n".join(parts)
 
 
+def format_daily_digest(items_by_stream: dict, date_str: str) -> str:
+    """One daily message with two sections: Jobs (cover letters) + Freelance (proposals).
+
+    items_by_stream: {"job": [item, ...], "freelance": [item, ...]}.
+    Each item is a dict with: title, url, source, score, budget_raw, draft.
+    Long digests are split automatically by TelegramNotifier.send().
+    """
+    jobs = items_by_stream.get("job", [])
+    free = items_by_stream.get("freelance", [])
+    parts = [
+        f"🗓 *Daily digest — {date_str}*",
+        f"_{len(jobs)} job(s) · {len(free)} freelance — copy, tweak the first line, send._",
+        "",
+        f"💼 *JOBS (LinkedIn) — {len(jobs)}*",
+    ]
+    if not jobs:
+        parts.append("_No new job matches today._")
+    for i, it in enumerate(jobs, 1):
+        parts.append("")
+        parts.append(f"*{i}. {_escape_md(it.get('title', 'Untitled'))}*  (match {it.get('score', '?')}/10)")
+        if it.get("url"):
+            parts.append(f"[Open job posting]({it['url']})")
+        parts.append("📝 Cover letter:")
+        parts.append("```")
+        parts.append((it.get("draft") or "(draft failed — write manually)")[:1600])
+        parts.append("```")
+
+    parts.append("")
+    parts.append(f"🧰 *FREELANCE — {len(free)}*")
+    if not free:
+        parts.append("_No new freelance matches today._")
+    for i, it in enumerate(free, 1):
+        parts.append("")
+        meta = f"(match {it.get('score', '?')}/10"
+        if it.get("budget_raw"):
+            meta += f" · {_escape_md(it['budget_raw'])}"
+        meta += ")"
+        parts.append(f"*{i}. {_escape_md(it.get('title', 'Untitled'))}*  {meta}")
+        if it.get("url"):
+            parts.append(f"[Open gig]({it['url']})")
+        parts.append("📝 Proposal:")
+        parts.append("```")
+        parts.append((it.get("draft") or "(draft failed — write manually)")[:1600])
+        parts.append("```")
+
+    return "\n".join(parts)
+
+
 def format_daily_summary(stats: dict) -> str:
     return (
         f"🌅 *Daily Summary*\n"

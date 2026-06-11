@@ -153,6 +153,32 @@ class JobsDB:
             )
             conn.commit()
 
+    def get_pending_digest(self, since_iso: str) -> list[dict]:
+        """Matched, drafted proposals not yet sent in a daily digest.
+
+        Returns dicts (job + proposal fields) for the digest builder to group
+        by stream and cap. Excludes anything already logged with kind='digest'.
+        """
+        with get_connection(self.db_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT j.job_id, j.source, j.title, j.url, j.budget_raw,
+                       j.llm_score, p.draft_text, p.package_id
+                  FROM proposals p
+                  JOIN jobs j ON j.job_id = p.job_id
+                 WHERE p.status = 'drafted'
+                   AND p.drafted_at >= ?
+                   AND j.matched = 1
+                   AND j.job_id NOT IN (
+                         SELECT job_id FROM notification_log
+                          WHERE kind = 'digest' AND job_id IS NOT NULL
+                       )
+                 ORDER BY j.llm_score DESC, p.drafted_at DESC
+                """,
+                (since_iso,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
     # ────────────────────────── Runs ──────────────────────────
 
     def start_run(self) -> int:

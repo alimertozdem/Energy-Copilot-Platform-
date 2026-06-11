@@ -4,8 +4,8 @@ on:
   schedule:
     # Every 30 minutes. UTC. (GitHub Actions cron is UTC only.)
     - cron: "*/30 * * * *"
-    # Daily summary at 9:00 Europe/Berlin = 07:30 UTC year-round (close enough).
-    - cron: "30 7 * * *"
+    # Daily digest ~noon Europe/Berlin = 10:30 UTC (≈11:30 winter / 12:30 summer).
+    - cron: "30 10 * * *"
     # Weekly digest Sunday ~20:00 Berlin = 18:30 UTC.
     - cron: "30 18 * * 0"
   workflow_dispatch:
@@ -17,6 +17,7 @@ on:
         type: choice
         options:
           - scan
+          - daily_digest
           - daily_summary
           - weekly_digest
       dry_run:
@@ -73,7 +74,7 @@ jobs:
             echo "dry_run=${{ inputs.dry_run }}" >> $GITHUB_OUTPUT
           else
             case "${{ github.event.schedule }}" in
-              "30 7 * * *")    echo "mode=daily_summary" >> $GITHUB_OUTPUT ;;
+              "30 10 * * *")   echo "mode=daily_digest" >> $GITHUB_OUTPUT ;;
               "30 18 * * 0")   echo "mode=weekly_digest" >> $GITHUB_OUTPUT ;;
               *)               echo "mode=scan" >> $GITHUB_OUTPUT ;;
             esac

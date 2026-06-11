@@ -1,8 +1,10 @@
-"""Proposal draft generator.
+"""Proposal / cover-letter draft generator (two streams).
 
-Builds a prompt from personal.yml + proposal_master.md + matched job description,
-then calls the LLM. Output is a 220-320 word proposal Mert can copy-paste
-straight into the platform (with minor edits if needed).
+- FREELANCE gigs  -> generate_proposal()     (uses proposal_master.md)
+- JOB postings    -> generate_cover_letter()  (uses job_cover_letter.md)
+
+Both write in Mert's voice: natural, plain, honest — never AI-sounding or salesy.
+Output is plain text he can paste straight in (with minor edits if needed).
 """
 from __future__ import annotations
 
@@ -16,26 +18,32 @@ from ..llm import LLMError, call_llm
 
 logger = logging.getLogger(__name__)
 
-PROPOSAL_SYSTEM_PROMPT = """You write freelance proposals on behalf of a senior \
-Microsoft Fabric & Power BI specialist named Ali Mert Özdemir. You write in his \
-voice: direct, technically credible, no apology language, no buzzwords.
+_NATURAL_TONE = """Write like a real, helpful person — not like an AI or a brochure.
+Plain, simple English. Short sentences. Be honest and grounded (Mert is early in
+his career). Never use buzzwords or AI cliches such as: "I am excited", "I would
+love to", "passionate", "leverage", "robust", "seamless", "cutting-edge", "delve",
+"great fit", "proven track record", "hit the ground running", "thrilled",
+"I am confident that". No emojis, no markdown, no bold. Do not invent experience,
+tools, numbers, or certifications that are not in the personal context."""
 
-Follow the master template structure exactly. Pick the productized package that \
-best matches the job. If multiple packages fit, offer TWO options (forces the \
-client to choose between A and B, not yes/no).
+PROPOSAL_SYSTEM_PROMPT = (
+    "You write short FREELANCE proposals on behalf of Ali Mert Ozdemir, who works "
+    "with Microsoft Fabric + Power BI on energy and ESG data.\n\n"
+    + _NATURAL_TONE
+    + "\n\nFollow the structure in the master template. Pick the ONE proof artifact "
+    "closest to the job. Suggest the package that fits best (or hourly). Keep it "
+    "150-230 words. Present EnergyLens as a personal project he built to learn the "
+    "stack, not client work. Sign off: Best, Mert"
+)
 
-Pick exactly ONE proof artifact from the list — the one most relevant to the job's \
-domain. Reference it concretely.
-
-Hard constraints:
-- 220-320 words TOTAL
-- 5 ingredients in order: pain mirror → proof artifact → specific question → \
-  package match → domain jargon
-- No emojis. No bold/italic. No markdown.
-- Use "will" not "would". No "I think I might".
-- Sign off with "Best, Mert"
-- Do not invent capabilities or numbers not in the personal context
-"""
+COVER_LETTER_SYSTEM_PROMPT = (
+    "You write short, natural JOB cover letters on behalf of Ali Mert Ozdemir, who "
+    "is applying for energy / data / sustainability roles. This is an EMPLOYMENT "
+    "application — no prices, no packages, no freelance pitch language.\n\n"
+    + _NATURAL_TONE
+    + "\n\nFollow the structure in the template. Keep it 150-210 words. Honest, "
+    "early-career framing. Sign off: Best regards, Ali Mert Ozdemir"
+)
 
 
 def load_yaml(path: Path) -> dict:
@@ -55,43 +63,64 @@ def generate_proposal(
     personal_yml_path: Path,
     template_dir: Path,
 ) -> tuple[Optional[str], Optional[str]]:
-    """Return (proposal_text, picked_package_id).
-
-    On LLM failure, returns (None, None). Caller decides how to handle.
-    """
+    """FREELANCE proposal. Returns (text, picked_package_id) or (None, None)."""
     personal = load_yaml(personal_yml_path)
     master = load_text(template_dir / "proposal_master.md")
     examples = _load_examples(template_dir)
-
-    user_prompt = _build_prompt(
+    user_prompt = _build_proposal_prompt(
         personal=personal,
         master_template=master,
         examples=examples,
         job_title=job_title,
         job_description=job_description,
     )
-
     try:
         resp = call_llm(
             PROPOSAL_SYSTEM_PROMPT + "\n\n---\n\n" + user_prompt,
-            temperature=0.45,
+            temperature=0.5,
             max_output_tokens=900,
         )
     except LLMError as e:
         logger.error("Proposal LLM failed: %s", e)
         return None, None
-
     text = resp.text.strip()
-    # quick sanity: must end with sign-off
     if "Mert" not in text[-200:]:
         text = text.rstrip() + "\n\nBest,\nMert"
+    return text, _infer_picked_package(text, personal)
 
-    package_id = _infer_picked_package(text, personal)
-    return text, package_id
+
+def generate_cover_letter(
+    *,
+    job_title: str,
+    job_description: str,
+    personal_yml_path: Path,
+    template_dir: Path,
+) -> Optional[str]:
+    """JOB cover letter. Returns text or None on failure."""
+    personal = load_yaml(personal_yml_path)
+    template = load_text(template_dir / "job_cover_letter.md")
+    user_prompt = _build_cover_letter_prompt(
+        personal=personal,
+        template=template,
+        job_title=job_title,
+        job_description=job_description,
+    )
+    try:
+        resp = call_llm(
+            COVER_LETTER_SYSTEM_PROMPT + "\n\n---\n\n" + user_prompt,
+            temperature=0.5,
+            max_output_tokens=700,
+        )
+    except LLMError as e:
+        logger.error("Cover letter LLM failed: %s", e)
+        return None
+    text = resp.text.strip()
+    if "Mert" not in text[-220:] and "Ali" not in text[-220:]:
+        text = text.rstrip() + "\n\nBest regards,\nAli Mert Ozdemir"
+    return text
 
 
 def _load_examples(template_dir: Path) -> list[str]:
-    """Load few-shot examples to ground the LLM."""
     examples = []
     for fname in ("example_csrd.md", "example_kpi.md", "example_fabric_audit.md", "example_hourly.md"):
         p = template_dir / fname
@@ -100,36 +129,23 @@ def _load_examples(template_dir: Path) -> list[str]:
     return examples
 
 
-def _build_prompt(
-    *,
-    personal: dict,
-    master_template: str,
-    examples: list[str],
-    job_title: str,
-    job_description: str,
-) -> str:
-    """Construct the user prompt with all context the LLM needs."""
+def _build_proposal_prompt(*, personal, master_template, examples, job_title, job_description):
     packages_block = "\n".join(
-        f"- {p['id']}: {p['name']} — €{p['price_eur']} / {p['duration']}\n"
-        f"  fits_when: {p['fits_when']}\n"
-        f"  summary: {p['summary'].strip()}"
+        f"- {p['id']}: {p['name']} — EUR {p['price_eur']} / {p['duration']}\n"
+        f"  fits_when: {p['fits_when']}\n  summary: {p['summary'].strip()}"
         for p in personal.get("packages", [])
     )
-
     artifacts_block = "\n".join(
         f"- {a['id']} — {a['summary']}\n  fits_when: {a['fits_when']}"
         for a in personal.get("proof_artifacts", [])
     )
-
     hourly = personal.get("hourly_fallback", {})
     hourly_block = (
-        f"Hourly fallback: €{hourly.get('hourly_eur', 60)}/hr, "
-        f"€{hourly.get('daily_eur', 450)}/day. {hourly.get('notes', '')}"
+        f"Hourly fallback: EUR {hourly.get('hourly_eur', 60)}/hr, "
+        f"EUR {hourly.get('daily_eur', 450)}/day. {hourly.get('notes', '')}"
     )
-
     examples_block = "\n\n---\n\n".join(examples) if examples else "(no examples)"
-
-    return f"""## MASTER TEMPLATE STRUCTURE
+    return f"""## STRUCTURE & TONE
 
 {master_template}
 
@@ -146,16 +162,16 @@ Productized packages:
 
 {hourly_block}
 
-Proof artifacts (pick ONE that best matches this job):
+Proof artifacts (pick ONE that best matches this gig):
 {artifacts_block}
 
 Sign-off CTA: {personal.get('call_signoff', {}).get('cta', '')}
 
-## FEW-SHOT EXAMPLES
+## FEW-SHOT EXAMPLES (style reference for naturalness only)
 
 {examples_block}
 
-## JOB TO RESPOND TO
+## GIG TO RESPOND TO
 
 Title: {job_title}
 
@@ -164,17 +180,49 @@ Description:
 
 ## YOUR TASK
 
-Write the proposal now. Output ONLY the proposal text. No preamble, no JSON, no \
-headers, no markdown formatting. Plain text only. 220-320 words.
+Write the proposal now. Plain text only. 150-230 words.
+"""
+
+
+def _build_cover_letter_prompt(*, personal, template, job_title, job_description):
+    return f"""## STRUCTURE & TONE
+
+{template}
+
+## PERSONAL CONTEXT (use only what is true here)
+
+Positioning:
+{personal.get('positioning', '').strip()}
+
+Credentials:
+{chr(10).join('- ' + c for c in personal.get('credentials', []))}
+
+Real background to draw on:
+- B.Sc. Energy Systems Engineering (Yasar University, Izmir, 2022)
+- M.Sc. Energy Management student in Berlin (BSBI)
+- Microsoft Certified: Fabric Analytics Engineer (DP-600); Google Business Intelligence Certificate
+- Energy engineer on solar PV design at Elegant Enerji (2022-2023)
+- Wind turbine O&M internship at Enercon
+- EnergyLens: a personal end-to-end Microsoft Fabric + Power BI project (energy KPIs, Scope 1/2/3, anomaly detection, solar and battery) built to go deep on the stack
+
+## JOB TO APPLY FOR
+
+Title: {job_title}
+
+Description:
+{job_description[:5000]}
+
+## YOUR TASK
+
+Write the cover letter now. Plain text only. 150-210 words.
 """
 
 
 def _infer_picked_package(proposal_text: str, personal: dict) -> Optional[str]:
-    """Best-effort: which package id did the LLM mention?"""
     for p in personal.get("packages", []):
         pid = p["id"]
         if pid.lower() in proposal_text.lower() or p["name"].lower() in proposal_text.lower():
             return pid
-    if "€60/hour" in proposal_text or "€450/day" in proposal_text or "hourly" in proposal_text.lower():
+    if "hourly" in proposal_text.lower():
         return "hourly"
     return None

@@ -150,6 +150,9 @@ llm_score:
 # ─────────────────────────────────────────────────────────────────────────────
 notifications:
   max_per_day: 10
+  # v2 — daily digest: scan only COLLECTS + drafts; one digest is sent at noon.
+  digest_mode: true           # true = no live per-match pushes; accumulate for the daily digest
+  digest_per_stream: 6        # max items per stream (Jobs / Freelance) in one daily digest
   daily_summary_hour: 9       # local time, push a "X new matches" summary
   weekly_digest_dow: "sun"    # Sunday
   weekly_digest_hour: 20
