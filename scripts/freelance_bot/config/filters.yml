@@ -140,7 +140,7 @@ fx_to_eur:
 # Tier 3 — LLM semantic score threshold
 # ─────────────────────────────────────────────────────────────────────────────
 llm_score:
-  min_score_to_push: 7        # 1-10 scale, push to Telegram at or above this
+  min_score_to_push: 6        # 1-10 scale, push to Telegram at or above this
   min_score_to_log: 4         # below this we don't even log details (save tokens)
   prompt_temperature: 0.2     # low temperature = consistent scoring
   retry_on_error: 2
