@@ -1,8 +1,13 @@
 """Email IMAP job source — for Malt / Contra / LinkedIn / freelancermap alert emails.
 
-Polls a Gmail (or any IMAP) inbox. Each platform has its own parser that
-turns an email body into a RawJob. We add new parsers by registering them
-in PARSER_REGISTRY.
+Polls a Gmail (or any IMAP) inbox. Each platform has its own parser that turns
+an email body into ONE OR MORE RawJobs.
+
+Alert emails from LinkedIn and freelancermap bundle MANY postings into a single
+email. Older versions collapsed the whole email into one useless item whose link
+pointed at the saved-search page, not a real posting. Parsers now return a LIST
+of jobs — each with its own title and a direct link — so the digest shows real,
+clickable jobs.
 
 Auth: pass username + Gmail app password via env. Never hardcode.
 """
@@ -13,97 +18,168 @@ import logging
 import os
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Optional
+from typing import Callable
+from urllib.parse import urlparse, urlunparse
 
 from .base import RawJob, to_utc_iso
 
 logger = logging.getLogger(__name__)
 
+try:
+    from bs4 import BeautifulSoup
+except ImportError:  # bs4 is a declared dependency; degrade gracefully if absent
+    BeautifulSoup = None
+
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Parsers — one per platform. Take (subject, body) -> Optional[RawJob fields].
-# Each returns dict with {title, description, url, client_name} or None to skip.
+# Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def parse_malt(subject: str, body: str) -> Optional[dict]:
-    """Malt project alert emails."""
-    # Malt subject usually: "New project for you: <title>" or "Nouveau projet pour vous : ..."
+def _soup(body: str):
+    if BeautifulSoup is None or not body:
+        return None
+    try:
+        return BeautifulSoup(body, "html.parser")
+    except Exception:
+        return None
+
+
+def _clean_url(href: str) -> str:
+    """Drop query/fragment (tracking params) to get a canonical, dedup-able URL."""
+    try:
+        p = urlparse(href)
+        return urlunparse((p.scheme, p.netloc, p.path, "", "", ""))
+    except Exception:
+        return href
+
+
+def _ws(s: str) -> str:
+    return re.sub(r"\s+", " ", s or "").strip()
+
+
+def _plain(soup, body: str) -> str:
+    return (soup.get_text(" ") if soup is not None else body)[:6000]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Parsers — each returns list[dict]; dict = {title, description, url, client_name}
+# ─────────────────────────────────────────────────────────────────────────────
+
+def parse_linkedin(subject: str, body: str) -> list[dict]:
+    """LinkedIn 'N new jobs in your saved search' emails bundle many postings.
+
+    Extract each job card: anchor text = title, /jobs/view/<id> = direct link.
+    Falls back to a single email-level item if no cards are found.
+    """
+    jobs: list[dict] = []
+    seen: set[str] = set()
+    soup = _soup(body)
+    if soup is not None:
+        for a in soup.find_all("a", href=True):
+            m = re.search(r"/jobs/view/(\d+)", a["href"])
+            if not m:
+                continue
+            jid = m.group(1)
+            if jid in seen:
+                continue
+            title = _ws(a.get_text())
+            if len(title) < 3:
+                continue
+            seen.add(jid)
+            context = title
+            container = a.find_parent(["td", "tr", "div", "table"])
+            if container is not None:
+                ctx = _ws(container.get_text(" "))
+                if len(ctx) > len(title):
+                    context = ctx[:400]
+            jobs.append({
+                "title": title[:200],
+                "description": context[:6000],
+                "url": f"https://www.linkedin.com/jobs/view/{jid}/",
+                "client_name": None,
+            })
+    if jobs:
+        return jobs
+    return [{
+        "title": _ws(subject.replace("LinkedIn", "")) or "LinkedIn job alert",
+        "description": _plain(soup, body),
+        "url": None,
+        "client_name": None,
+    }]
+
+
+def parse_freelancermap(subject: str, body: str) -> list[dict]:
+    """freelancermap 'project agent' digests bundle many projects."""
+    jobs: list[dict] = []
+    seen: set[str] = set()
+    soup = _soup(body)
+    if soup is not None:
+        for a in soup.find_all("a", href=True):
+            if not re.search(r"freelancermap\.[a-z]+/(?:project|projekt)", a["href"], re.I):
+                continue
+            clean = _clean_url(a["href"])
+            title = _ws(a.get_text())
+            if clean in seen or len(title) < 5:
+                continue
+            seen.add(clean)
+            jobs.append({
+                "title": title[:200],
+                "description": title[:6000],
+                "url": clean,
+                "client_name": None,
+            })
+    if jobs:
+        return jobs
+    return [{
+        "title": _ws(re.sub(r"(?i)freelancermap|project ?agent|projektagent|[:|]", " ", subject)) or "freelancermap project alert",
+        "description": _plain(soup, body),
+        "url": "https://www.freelancermap.com/project/",
+        "client_name": None,
+    }]
+
+
+def parse_malt(subject: str, body: str) -> list[dict]:
+    """Malt project alert — usually one project per email."""
     title_m = re.search(r"(?:project for you|new project|nouveau projet)[:\-]\s*(.+)", subject, re.I)
-    title = (title_m.group(1) if title_m else subject).strip()
-
-    # Find a project URL
+    title = _ws(title_m.group(1) if title_m else subject)
     url_m = re.search(r"https?://(?:www\.)?malt\.[a-z]+/[^\s\"'<>]+", body, re.I)
-
-    # Best-effort: client name is sometimes in the body before "is looking for"
     client_m = re.search(r"([A-Z][\w&\.\- ]{2,40})\s+(?:is looking|cherche|recherche)", body)
-    client = client_m.group(1).strip() if client_m else None
+    soup = _soup(body)
+    return [{
+        "title": title or "Malt project",
+        "description": _plain(soup, body),
+        "url": _clean_url(url_m.group(0)) if url_m else None,
+        "client_name": client_m.group(1).strip() if client_m else None,
+    }]
 
-    return {
-        "title": title,
-        "description": body[:6000],
-        "url": url_m.group(0) if url_m else None,
-        "client_name": client,
-    }
 
-
-def parse_contra(subject: str, body: str) -> Optional[dict]:
-    """Contra opportunity / digest emails."""
-    title = subject.replace("New opportunity:", "").strip()
+def parse_contra(subject: str, body: str) -> list[dict]:
+    """Contra opportunity / digest emails (may list several opportunities)."""
+    jobs: list[dict] = []
+    seen: set[str] = set()
+    soup = _soup(body)
+    if soup is not None:
+        for a in soup.find_all("a", href=True):
+            if not re.search(r"contra\.com/(?:opportunities|jobs|p)/", a["href"], re.I):
+                continue
+            clean = _clean_url(a["href"])
+            title = _ws(a.get_text())
+            if clean in seen or len(title) < 5:
+                continue
+            seen.add(clean)
+            jobs.append({"title": title[:200], "description": title[:6000], "url": clean, "client_name": None})
+    if jobs:
+        return jobs
     url_m = re.search(r"https?://(?:www\.)?contra\.com/[^\s\"'<>]+", body, re.I)
-    return {
-        "title": title,
-        "description": body[:6000],
-        "url": url_m.group(0) if url_m else None,
+    return [{
+        "title": _ws(subject.replace("New opportunity:", "")) or "Contra opportunity",
+        "description": _plain(soup, body),
+        "url": _clean_url(url_m.group(0)) if url_m else None,
         "client_name": None,
-    }
+    }]
 
 
-def parse_linkedin(subject: str, body: str) -> Optional[dict]:
-    """LinkedIn 'X new jobs in your saved search' emails.
-
-    LinkedIn aggregates multiple jobs per email — we extract the first one
-    with a meaningful title. Multi-job parsing is a future improvement.
-    """
-    # Try to grab the first job card title
-    title_m = re.search(r"([\w&\.\- ]{8,100})\s*\n\s*(?:at|·)\s*([\w&\.\- ]{2,80})", body)
-    if title_m:
-        title = title_m.group(1).strip()
-        client = title_m.group(2).strip()
-    else:
-        title = subject.replace("LinkedIn", "").strip()
-        client = None
-
-    url_m = re.search(r"https?://(?:www\.)?linkedin\.com/jobs/view/[^\s\"'<>]+", body, re.I)
-    return {
-        "title": title,
-        "description": body[:6000],
-        "url": url_m.group(0) if url_m else None,
-        "client_name": client,
-    }
-
-
-def parse_freelancermap(subject: str, body: str) -> Optional[dict]:
-    """freelancermap 'project agent' daily digest emails.
-
-    The digest aggregates multiple projects. Like LinkedIn, we surface the
-    first project link with the digest subject as title; the full body (all
-    projects' text) is passed as description so the LLM still scores on the
-    complete content. Multi-job splitting is a future improvement.
-    """
-    title = re.sub(r"(?i)freelancermap|project ?agent|projektagent|:|\|", " ", subject).strip()
-    if not title:
-        title = "freelancermap project alert"
-    # freelancermap project URLs: /project/<slug>-<id> or /projekt/<...>
-    url_m = re.search(r"https?://(?:www\.)?freelancermap\.com/(?:project|projekt)[^\s\"'<>]+", body, re.I)
-    return {
-        "title": title,
-        "description": body[:6000],
-        "url": url_m.group(0) if url_m else "https://www.freelancermap.com/project/",
-        "client_name": None,
-    }
-
-
-PARSER_REGISTRY: dict[str, Callable[[str, str], Optional[dict]]] = {
+PARSER_REGISTRY: dict[str, Callable[[str, str], list[dict]]] = {
     "malt": parse_malt,
     "contra": parse_contra,
     "linkedin": parse_linkedin,
@@ -140,7 +216,6 @@ class EmailIMAPSource:
             logger.warning("IMAP source %s missing credentials; skipping", self.name)
             return []
 
-        # Lazy import so this file is importable without the dep installed
         try:
             from imap_tools import AND, MailBox
         except ImportError:
@@ -166,30 +241,39 @@ class EmailIMAPSource:
                     logger.warning("Cannot open IMAP folder %s: %s", fname, e)
                     continue
 
-                # Gmail labels appear as folders; fetch recent
+                folder_jobs = 0
                 criteria = AND(date_gte=cutoff.date())
                 for msg in mb.fetch(criteria, limit=100, reverse=True):
                     msg_dt = msg.date
                     if msg_dt and msg_dt.replace(tzinfo=timezone.utc) < cutoff:
                         continue
                     subj = msg.subject or ""
-                    body = msg.text or msg.html or ""
-                    parsed = parser(subj, body)
-                    if not parsed or not parsed.get("title"):
+                    body = msg.html or msg.text or ""
+                    try:
+                        parsed_list = parser(subj, body) or []
+                    except Exception as e:
+                        logger.warning("Parser %s failed on a message: %s", parser_name, e)
                         continue
 
-                    seed = f"{msg.uid}-{parser_name}"
-                    jid = f"{prefix}{hashlib.sha1(seed.encode()).hexdigest()[:14]}"
+                    for parsed in parsed_list:
+                        if not parsed or not parsed.get("title"):
+                            continue
+                        # Stable per-job id: prefer the job's own URL so the same
+                        # posting across multiple daily emails dedups to one id.
+                        basis = parsed.get("url") or f"{msg.uid}-{parsed['title']}"
+                        jid = f"{prefix}{hashlib.sha1(basis.encode()).hexdigest()[:14]}"
+                        jobs.append(RawJob(
+                            job_id=jid,
+                            source=f"email:{parser_name}",
+                            title=parsed["title"][:250],
+                            description=parsed["description"],
+                            url=parsed.get("url"),
+                            client_name=parsed.get("client_name"),
+                            posted_at=to_utc_iso(msg_dt) if msg_dt else None,
+                        ))
+                        folder_jobs += 1
 
-                    jobs.append(RawJob(
-                        job_id=jid,
-                        source=f"email:{parser_name}",
-                        title=parsed["title"][:250],
-                        description=parsed["description"],
-                        url=parsed.get("url"),
-                        client_name=parsed.get("client_name"),
-                        posted_at=to_utc_iso(msg_dt) if msg_dt else None,
-                    ))
+                logger.info("Email folder %s (%s) -> %d job(s)", fname, parser_name, folder_jobs)
 
         logger.info("Email %s returned %d items", self.name, len(jobs))
         return jobs

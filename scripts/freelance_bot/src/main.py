@@ -258,6 +258,16 @@ def _run_scan(
             pushed += 1
             remaining_today -= 1
 
+    # Reliable daily digest: GitHub Actions' dedicated scheduled run is
+    # unreliable on the free tier (slots get delayed or dropped), so any scan
+    # that runs at/after the digest hour delivers today's digest if it has not
+    # gone out yet. Whichever scan fires after noon sends the message.
+    if digest_mode and not dry_run:
+        try:
+            _maybe_send_digest_after_scan(db, notifier, filters_cfg, tz)
+        except Exception:
+            logger.exception("Reliable digest trigger failed")
+
     db.finish_run(run_id, seen, new, matched, drafted, pushed, errors or None)
     logger.info(
         "Run finished — seen=%d new=%d matched=%d drafted=%d pushed=%d",
@@ -340,6 +350,20 @@ def _send_weekly_digest(db: JobsDB, notifier: TelegramNotifier, filters_cfg: dic
 def _stream_for(job_id: str) -> str:
     """LinkedIn alerts are employment jobs; everything else is freelance."""
     return "job" if (job_id or "").startswith("li_") else "freelance"
+
+
+def _maybe_send_digest_after_scan(db: JobsDB, notifier: TelegramNotifier, filters_cfg: dict, tz: ZoneInfo) -> None:
+    """Send the daily digest from a regular scan run if it's past the digest
+    hour locally and today's digest has not been sent yet. Makes the digest
+    resilient to GitHub Actions dropping the dedicated scheduled run."""
+    notif = filters_cfg["notifications"]
+    digest_hour = int(notif.get("digest_hour", 12))
+    if datetime.now(tz).hour < digest_hour:
+        return
+    if db.count_notifications_today("daily_digest") > 0:
+        return  # already sent today
+    logger.info("Reliable digest trigger — sending daily digest from a scan run")
+    _send_daily_digest(db, notifier, filters_cfg, dry_run=False)
 
 
 def _send_daily_digest(db: JobsDB, notifier: TelegramNotifier, filters_cfg: dict, dry_run: bool) -> int:
