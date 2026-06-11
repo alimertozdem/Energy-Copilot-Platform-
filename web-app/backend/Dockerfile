@@ -23,7 +23,8 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # App source
 COPY . .
-RUN chmod +x start.sh
 
 EXPOSE 8000
-CMD ["./start.sh"]
+# Start directly (no start.sh dependency — avoids CRLF/truncation issues with the script file).
+# Migrations are best-effort; then exec uvicorn so it becomes PID 1 and receives signals.
+CMD ["sh", "-c", "alembic upgrade head || echo '[start] alembic skipped (continuing)'; exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]

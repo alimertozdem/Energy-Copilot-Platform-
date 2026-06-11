@@ -9,7 +9,9 @@ than queried from Postgres for two reasons:
 
 Numbers are read from Fabric Lakehouse silver_building_master + gold_kpi_daily
 the same way /portfolio reads them, anchored to MAX([date]) so the demo always
-shows realistic numbers even when sample data ends in the past.
+shows realistic numbers even when sample data ends in the past. If the Fabric
+SQL endpoint is unreachable from the host, a last-known static sample is served
+instead (see _DEMO_FALLBACK) so the public page never breaks.
 
 RLS strategy (Day 17, 2026-05-29):
   We originally planned to pass effectiveIdentity (username + 'Demo' role) on
@@ -33,11 +35,16 @@ RLS strategy (Day 17, 2026-05-29):
   passing rls_username / rls_roles to pbi_embed.generate_embed_token.
 """
 
+import logging
 import os
 from datetime import date, timedelta
 
+import pyodbc
+
 from app.integrations import fabric_sql, pbi_embed
 from app.schemas.demo import DemoBuilding, DemoBuildingsResponse, DemoEmbedTokenResponse
+
+logger = logging.getLogger(__name__)
 
 
 # -----------------------------------------------------------------------------
@@ -56,6 +63,80 @@ DEMO_FABRIC_IDS: tuple[str, ...] = (
 )
 
 
+# -----------------------------------------------------------------------------
+# Static fallback — last-known real values for the public sample portfolio.
+# -----------------------------------------------------------------------------
+# Captured from the Fabric Lakehouse (silver_building_master + gold_kpi_daily).
+# Served verbatim when the Fabric SQL endpoint is unreachable from the host —
+# e.g. Azure Container Apps (Consumption) egress can't complete the SQL
+# "Redirect" handshake to the backend node ports, while the Power BI embed
+# token path (HTTPS/443) is unaffected. This keeps the public /demo page fully
+# working (building cards + live embedded dashboard) regardless of pyodbc
+# reachability. When Fabric IS reachable, live numbers are used instead.
+_DEMO_FALLBACK: tuple[DemoBuilding, ...] = (
+    DemoBuilding(
+        fabric_building_id="B001",
+        name="Berliner Bürogebäude Alpha",
+        city="Berlin",
+        country="DE",
+        building_type="Office",
+        floor_area_m2=5200.0,
+        epc_class="B",
+        kwh_30d=33294.491,
+    ),
+    DemoBuilding(
+        fabric_building_id="B002",
+        name="Istanbul Ticaret Merkezi Beta",
+        city="Istanbul",
+        country="TR",
+        building_type="Retail",
+        floor_area_m2=8500.0,
+        epc_class="E",
+        kwh_30d=162371.185,
+    ),
+    DemoBuilding(
+        fabric_building_id="B003",
+        name="Hamburg Logistics Hub Gamma",
+        city="Hamburg",
+        country="DE",
+        building_type="Logistics",
+        floor_area_m2=12000.0,
+        epc_class="A",
+        kwh_30d=132902.911,
+    ),
+    DemoBuilding(
+        fabric_building_id="B004",
+        name="Wien Grand Hotel Delta",
+        city="Vienna",
+        country="AT",
+        building_type="Hotel",
+        floor_area_m2=7800.0,
+        epc_class="C",
+        kwh_30d=167714.642,
+    ),
+    DemoBuilding(
+        fabric_building_id="B005",
+        name="Frankfurt Klinikum Epsilon",
+        city="Frankfurt",
+        country="DE",
+        building_type="Healthcare",
+        floor_area_m2=15000.0,
+        epc_class="C",
+        kwh_30d=663617.589,
+    ),
+    DemoBuilding(
+        fabric_building_id="B006",
+        name="Amsterdam Universiteit Zeta",
+        city="Amsterdam",
+        country="NL",
+        building_type="Education",
+        floor_area_m2=9500.0,
+        epc_class="D",
+        kwh_30d=127778.68,
+    ),
+)
+
+
 def _safe_float(v) -> float:
     return float(v) if v is not None else 0.0
 
@@ -63,9 +144,27 @@ def _safe_float(v) -> float:
 def get_demo_buildings() -> DemoBuildingsResponse:
     """Return the public sample buildings with their last-30-day kWh total.
 
-    Read pattern mirrors /portfolio: pull building_master rows, LEFT JOIN a
-    30-day kWh aggregate anchored at MAX([date]). Empty payload if Fabric has
-    no rows for these IDs (extremely unlikely — these are deterministic seeds).
+    Tries the live Fabric read first (same pattern as /portfolio). If the
+    Fabric SQL endpoint is unreachable (pyodbc.Error) — e.g. from a host whose
+    egress can't complete the SQL Redirect handshake — falls back to the
+    last-known static sample (_DEMO_FALLBACK) so the public /demo page never
+    breaks. The embedded Power BI dashboard is unaffected either way (it uses
+    the embed-token path over HTTPS, not pyodbc).
+    """
+    try:
+        return _get_demo_buildings_from_fabric()
+    except pyodbc.Error as exc:
+        logger.warning(
+            "Fabric unavailable for /demo/buildings; serving static sample "
+            "portfolio: %s",
+            exc,
+        )
+        return DemoBuildingsResponse(buildings=list(_DEMO_FALLBACK))
+
+
+def _get_demo_buildings_from_fabric() -> DemoBuildingsResponse:
+    """Live read: building_master rows LEFT JOINed to a 30-day kWh aggregate
+    anchored at MAX([date]). Raises pyodbc.Error when Fabric is unreachable.
     """
     ph, ids_params = fabric_sql.format_in_clause(list(DEMO_FABRIC_IDS))
 

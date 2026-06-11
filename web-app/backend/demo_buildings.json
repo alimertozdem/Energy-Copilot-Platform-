@@ -1,0 +1,62 @@
+[
+  {
+    "fabric_building_id": "B001",
+    "name": "Berliner B\u00fcrogeb\u00e4ude Alpha",
+    "city": "Berlin",
+    "country": "DE",
+    "building_type": "Office",
+    "floor_area_m2": 5200.0,
+    "epc_class": "B",
+    "kwh_30d": 33294.49100000001
+  },
+  {
+    "fabric_building_id": "B002",
+    "name": "Istanbul Ticaret Merkezi Beta",
+    "city": "Istanbul",
+    "country": "TR",
+    "building_type": "Retail",
+    "floor_area_m2": 8500.0,
+    "epc_class": "E",
+    "kwh_30d": 162371.18500000003
+  },
+  {
+    "fabric_building_id": "B003",
+    "name": "Hamburg Logistics Hub Gamma",
+    "city": "Hamburg",
+    "country": "DE",
+    "building_type": "Logistics",
+    "floor_area_m2": 12000.0,
+    "epc_class": "A",
+    "kwh_30d": 132902.911
+  },
+  {
+    "fabric_building_id": "B004",
+    "name": "Wien Grand Hotel Delta",
+    "city": "Vienna",
+    "country": "AT",
+    "building_type": "Hotel",
+    "floor_area_m2": 7800.0,
+    "epc_class": "C",
+    "kwh_30d": 167714.642
+  },
+  {
+    "fabric_building_id": "B005",
+    "name": "Frankfurt Klinikum Epsilon",
+    "city": "Frankfurt",
+    "country": "DE",
+    "building_type": "Healthcare",
+    "floor_area_m2": 15000.0,
+    "epc_class": "C",
+    "kwh_30d": 663617.5890000002
+  },
+  {
+    "fabric_building_id": "B006",
+    "name": "Amsterdam Universiteit Zeta",
+    "city": "Amsterdam",
+    "country": "NL",
+    "building_type": "Education",
+    "floor_area_m2": 9500.0,
+    "epc_class": "D",
+    "kwh_30d": 127778.68
+  }
+]

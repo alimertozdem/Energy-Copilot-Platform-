@@ -153,8 +153,8 @@ These tasks MUST be completed before trial expires. Without them, project cannot
 
 - [ ] **Cost Estimate for Post-Trial**
   - **Scenario A (Startup wins):** €0/month ✅
-  - **Scenario B (Fallback P1):** €32/month
-  - **Scenario C (Hybrid):** €32/month + €10-20/month storage
+  - **Scenario B (Fallback):** Fabric F2 ≈ €87/mo paused, €242 24/7 (NOT €32 — see docs/strategy/unit-economics-pricing-review.md)
+  - **Scenario C (Hybrid):** Fabric F2 €87–242/mo + €10-20/month storage
   - Decide: which scenario acceptable for next 3 months?
 
 - [ ] **Final Backup & Archive**
@@ -226,7 +226,7 @@ These are polish items:
 - Check: all tables in data model?
 
 ⚠️ **If Startup program response delays:**
-- Plan **Scenario B (€32/month P1)** as fallback immediately
+- Plan **Scenario B (Fabric F2 ≈ €87–242/mo)** as fallback immediately
 - Trial ends 2026-05-21, cannot wait for approval
 - Apply to capacity immediately on Day 14
 
@@ -242,7 +242,7 @@ These are polish items:
 ✅ All DAX measures documented
 ✅ All code (notebooks, scripts) in GitHub with comments
 ✅ Startup program application submitted (pending or approved)
-✅ Fallback capacity budget (€32/month) identified & approved
+✅ Fallback capacity budget (Fabric F2 ≈ €87–242/mo) identified & approved
 ✅ Team understands post-trial capacity strategy
 
 **If any of above = ❌, trial is NOT successful → cannot proceed to web app.**

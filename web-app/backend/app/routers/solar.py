@@ -13,6 +13,7 @@ from app.db.database import get_db
 from app.repositories import building as building_repo
 from app.schemas.solar import SolarDetailResponse
 from app.services import solar_detail
+from app.services import sample_fallback
 from app.utils.jwt import get_current_user_id
 
 router = APIRouter(prefix="/solar", tags=["solar"])
@@ -26,4 +27,7 @@ def get_solar_detail(
     """Daily portfolio solar series + summary for the /solar page."""
     buildings = building_repo.list_buildings_for_user(db, user_id=user_id)
     fabric_ids = [b.fabric_building_id for b in buildings if b.fabric_building_id]
-    return solar_detail.get_solar_detail(fabric_ids)
+    return sample_fallback.serve(
+        "solar_detail", SolarDetailResponse, fabric_ids,
+        lambda: solar_detail.get_solar_detail(fabric_ids),
+    )

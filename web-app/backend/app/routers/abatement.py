@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.schemas.abatement import MaccResponse
+from app.repositories import building as building_repo
 from app.services import abatement
+from app.services import sample_fallback
 from app.utils.jwt import get_current_user_id
 
 router = APIRouter(prefix="/abatement", tags=["abatement"])
@@ -29,6 +31,13 @@ def get_macc(
     limit: int = Query(default=500, ge=1, le=2000),
 ) -> MaccResponse:
     """Portfolio marginal abatement cost curve (measures sorted cheapest-first)."""
-    return abatement.get_macc_for_user(
-        db, user_id=user_id, building_id=building_id, limit=limit
+    fabric_ids = [
+        b.fabric_building_id
+        for b in building_repo.list_buildings_for_user(db, user_id=user_id)
+        if b.fabric_building_id
+    ]
+    return sample_fallback.serve(
+        "abatement", MaccResponse, fabric_ids,
+        lambda: abatement.get_macc_for_user(
+            db, user_id=user_id, building_id=building_id, limit=limit),
     )

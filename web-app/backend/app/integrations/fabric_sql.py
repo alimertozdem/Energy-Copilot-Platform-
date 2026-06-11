@@ -47,6 +47,20 @@ def _cache_ttl() -> float:
         return 0.0
 
 
+# The Fabric SQL Analytics Endpoint resumes from idle on the first connection,
+# which can take ~20s. pyodbc's default login timeout is 15s, so a cold endpoint
+# surfaces as 'Login timeout expired (SQLDriverConnect)'. We therefore set the
+# login timeout explicitly in get_connection(). Overridable via env for tuning.
+_DEFAULT_LOGIN_TIMEOUT = 90
+
+
+def _login_timeout() -> int:
+    try:
+        return int(os.getenv("FABRIC_SQL_LOGIN_TIMEOUT", "") or _DEFAULT_LOGIN_TIMEOUT)
+    except ValueError:
+        return _DEFAULT_LOGIN_TIMEOUT
+
+
 def _build_connection_string() -> str:
     """
     Compose the ODBC connection string from environment variables.
@@ -58,6 +72,10 @@ def _build_connection_string() -> str:
       PBI_TENANT_ID         — Reused from existing Power BI service principal
       PBI_CLIENT_ID         — Reused
       PBI_CLIENT_SECRET     — Reused
+
+    The login timeout is NOT set here: the "Connection Timeout=" keyword is a
+    SqlClient (ADO.NET) keyword that the ODBC driver ignores. It is passed to
+    pyodbc.connect() as the `timeout` argument instead (see get_connection).
     """
     server = os.environ["FABRIC_SQL_SERVER"]
     database = os.environ["FABRIC_SQL_DATABASE"]
@@ -75,7 +93,6 @@ def _build_connection_string() -> str:
         f"Authority Id={tenant_id};"
         f"Encrypt=yes;"
         f"TrustServerCertificate=no;"
-        f"Connection Timeout=90;"
     )
 
 
@@ -101,8 +118,11 @@ def get_connection() -> pyodbc.Connection:
         with fabric_sql.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(...)
+
+    `timeout` sets the ODBC login timeout (SQL_ATTR_LOGIN_TIMEOUT) so a cold
+    Fabric SQL endpoint resuming from idle (~20s) doesn't trip the 15s default.
     """
-    return pyodbc.connect(_get_connection_string())
+    return pyodbc.connect(_get_connection_string(), timeout=_login_timeout())
 
 
 def execute_query(sql: str, params: tuple = ()) -> list[dict[str, Any]]:

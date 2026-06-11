@@ -27,6 +27,7 @@ from app.schemas.alerts import (
 )
 from app.services import access
 from app.services import alerts_data
+from app.services import sample_fallback
 from app.utils.jwt import get_current_user_id
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
@@ -57,14 +58,16 @@ def list_alerts(
     limit: int = Query(default=500, ge=1, le=2000),
 ) -> AlertsResponse:
     """Return the portfolio-wide anomaly view + severity counts (+ ack overlay)."""
-    return alerts_data.get_alerts_for_user(
-        db,
-        user_id=user_id,
-        severity=severity,
-        building_id=building_id,
-        unresolved_only=unresolved_only,
-        resolution=resolution,
-        limit=limit,
+    fabric_ids = [
+        b.fabric_building_id
+        for b in building_repo.list_buildings_for_user(db, user_id=user_id)
+        if b.fabric_building_id
+    ]
+    return sample_fallback.serve(
+        "alerts", AlertsResponse, fabric_ids,
+        lambda: alerts_data.get_alerts_for_user(
+            db, user_id=user_id, severity=severity, building_id=building_id,
+            unresolved_only=unresolved_only, resolution=resolution, limit=limit),
     )
 
 

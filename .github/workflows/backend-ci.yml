@@ -1,0 +1,30 @@
+name: backend-ci
+
+# Runs the pure Tier-1 energy-logic unit tests (baseline KPI, bridge readiness,
+# bill parser). These engines have no DB/network deps, so the job needs only
+# pytest — mirroring the dependency-light edge-gateway-ci pattern.
+
+on:
+  push:
+    paths:
+      - "web-app/backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "web-app/backend/**"
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-app/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pytest
+        run: pip install pytest
+      - name: Run backend unit tests (pure energy-logic engines)
+        run: python -m pytest tests/ -q

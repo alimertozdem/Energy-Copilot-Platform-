@@ -179,3 +179,31 @@ Suggested first move: **Phase A**, because it is the cheapest to build, improves
 - EPBD 2024 MEPS (residential & non-residential targets): [European Commission](https://energy.ec.europa.eu/topics/energy-efficiency/energy-performance-buildings/energy-performance-buildings-directive_en) · [Longevity Partners](https://longevity-partners.com/exclusive/existing-buildings-the-revised-epbd-minimum-energy-performance-standards-renovation-requirements/)
 - BAFA heat-pump subsidy 2026: [Rechenportal](https://rechenportal.de/en/heat-pump-calculator/blog/bafa-heat-pump-subsidy-2026-bonuses/) · [BAFA](https://www.bafa.de/EN/Energy/energy_node.html)
 - Mieterstrom / Solarpaket I: [BMWE FAQ](https://www.bundeswirtschaftsministerium.de/Redaktion/EN/FAQ/landlord-to-tenant-electricity/faq-mieterstrom.html) · [heise](https://www.heise.de/en/news/Fuer-Mieterstrom-und-Balkonkraftwerke-Solarpaket-I-tritt-in-Kraft-9718947.html)
+
+---
+
+## 9. Addendum (2026-06-11) — General framework recap + Execution Marketplace (future)
+
+**General framework:** this document *is* the BMAD Business-layer "general framework" — two
+horizontal layers (A: CO₂-forward MACC · B: no-hardware onboarding) × two verticals (C:
+residential · D: commercial) on the existing core engine. **Residential is already scaffolded in
+code** (`residential.py`, `residence.py`, `residential_metrics`, `30_residential_gold`, the
+`/financing` page, and a Residential pricing tier €49/building + €3/unit). The open residential
+items are *approvals*, not build: validate the §4.3 saving ranges (energy-logic gate) and confirm
+buyer (Hausverwaltung) + geography (DE).
+
+**New direction — Execution Marketplace (Mert, 2026-06-11):** close the *insight → action* loop. A
+customer who sees a recommended measure (heat-pump, insulation, PV) can, **in-app**, connect with
+vetted installers/contractors, get quotes, and commission the work — layered on the existing
+recommendation engine + `/financing` (BAFA/KfW) + `/actions` tracking.
+
+- **Value:** turns advisory into transactional — new revenue (lead-gen / take-rate on retrofit
+  projects) and strong retention.
+- **Maps to existing:** recommendation engine (*what*) → marketplace (*who*) → financing (*how to
+  pay*) → actions (*track*). Three of the four already exist; the marketplace is the missing
+  connective layer.
+- **Why a later phase:** a two-sided marketplace needs vendor onboarding + vetting/trust,
+  quoting/bidding, payments/escrow, and legal/liability framing — plus the classic supply-side
+  chicken-and-egg. Build it **after** a commercial reference base exists.
+- **Energy-logic gate unchanged:** the marketplace doesn't invent engineering logic; it routes to
+  humans who execute. Recommendations keep stating their assumptions.

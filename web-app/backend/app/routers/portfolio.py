@@ -25,6 +25,7 @@ from app.repositories import building as building_repo
 from app.schemas.portfolio import PortfolioBuildingsResponse, PortfolioKPIs
 from app.services import access
 from app.services import portfolio_metrics
+from app.services import sample_fallback
 from app.utils.jwt import get_current_user_id
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
@@ -60,7 +61,10 @@ def get_portfolio_kpis(
     fabric_ids: Annotated[list[str], Depends(_get_visible_fabric_ids)],
 ) -> PortfolioKPIs:
     """Return the 4 portfolio-level KPI tiles + delta vs prior 30 days."""
-    return portfolio_metrics.get_portfolio_kpis(fabric_ids)
+    return sample_fallback.serve(
+        "portfolio_kpis", PortfolioKPIs, fabric_ids,
+        lambda: portfolio_metrics.get_portfolio_kpis(fabric_ids),
+    )
 
 
 @router.get("/buildings", response_model=PortfolioBuildingsResponse)
@@ -68,4 +72,7 @@ def get_portfolio_buildings(
     fabric_ids: Annotated[list[str], Depends(_get_visible_fabric_ids)],
 ) -> PortfolioBuildingsResponse:
     """Return one row per visible building with 30-day aggregates + module flags."""
-    return portfolio_metrics.get_portfolio_buildings(fabric_ids)
+    return sample_fallback.serve(
+        "portfolio_buildings", PortfolioBuildingsResponse, fabric_ids,
+        lambda: portfolio_metrics.get_portfolio_buildings(fabric_ids),
+    )

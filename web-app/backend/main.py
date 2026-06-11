@@ -1,5 +1,8 @@
 import os
-from fastapi import FastAPI, HTTPException, Request
+from typing import Annotated
+from uuid import UUID
+from fastapi import Depends, FastAPI, HTTPException, Request
+from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -37,6 +40,11 @@ from app.routers import connections as connections_router
 from app.routers import agent as agent_router
 from app.routers import abatement as abatement_router
 from app.routers import pilot as pilot_router
+
+# Auth + DB + repo for the RLS-scoped /embed/token (server-side row-level security)
+from app.db.database import get_db
+from app.utils.jwt import get_current_user_id
+from app.repositories import building as building_repo
 
 # Read Power BI credentials from environment
 PBI_TENANT_ID = os.getenv("PBI_TENANT_ID")
@@ -175,8 +183,34 @@ def health():
 
 
 @app.post("/embed/token", response_model=EmbedTokenResponse)
-async def get_embed_token():
-    """Generate a Power BI embed token for the configured report (V2 API, supports DirectLake)."""
+async def get_embed_token(
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Generate an RLS-scoped Power BI embed token for the authenticated user.
+
+    Server-side row-level security: resolve the caller's visible Fabric
+    building-ids (same source of truth as the pyodbc pages --
+    building_repo.list_buildings_for_user) and stamp them into the V2 embed
+    token effectiveIdentity customData. The dataset CustomerRLS role
+    (PATHCONTAINS(CUSTOMDATA(), silver_building_master[building_id])) then
+    filters every page to those buildings, so the token can no longer read the
+    whole model. Empty list -> fail-closed. Requires the model OneLake source
+    bound to a fixed-identity connection (SSO off); see
+    docs/pilot/cp2-embed-rls-smoke-test.md.
+    """
+    buildings = building_repo.list_buildings_for_user(db, user_id=user_id)
+    # Exclude shared sample/demo-org buildings: a customer's embedded report
+    # shows ONLY their own (and partner-client) live buildings, never the demo
+    # portfolio. A customer with no live building yet sees an empty report (the
+    # app's "data pending" banner explains why).
+    fabric_ids = [
+        b.fabric_building_id
+        for b in buildings
+        if b.fabric_building_id and not b.organization.is_sample
+    ]
+    custom_data = "|".join(fabric_ids)
+
     azure_token = get_azure_token()
 
     headers = {
@@ -199,12 +233,20 @@ async def get_embed_token():
         embed_url = report_data["embedUrl"]
         dataset_id = report_data["datasetId"]
 
-        # 2. Generate embed token via V2 API (supports DirectLake)
+        # 2. Generate embed token via V2 API with RLS effectiveIdentity (customData).
         token_url = f"{PBI_API_BASE}/GenerateToken"
         token_body = {
             "datasets": [{"id": dataset_id}],
             "reports": [{"id": PBI_REPORT_ID}],
             "targetWorkspaces": [{"id": PBI_WORKSPACE_ID}],
+            "identities": [
+                {
+                    "username": "rls@energylens.app",
+                    "roles": ["CustomerRLS"],
+                    "datasets": [dataset_id],
+                    "customData": custom_data,
+                }
+            ],
         }
         token_resp = await client.post(token_url, headers=headers, json=token_body)
 

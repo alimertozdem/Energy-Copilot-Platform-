@@ -34,6 +34,7 @@ from app.schemas.actions import (
 )
 from app.services import access
 from app.services import actions_data
+from app.services import sample_fallback
 from app.utils.jwt import get_current_user_id
 
 router = APIRouter(prefix="/actions", tags=["actions"])
@@ -61,13 +62,16 @@ def list_actions(
     limit: int = Query(default=500, ge=1, le=2000),
 ) -> ActionsResponse:
     """Return the joined Fabric + Postgres recommendations view."""
-    return actions_data.get_actions_for_user(
-        db,
-        user_id=user_id,
-        status_filter=status_filter,
-        building_id=building_id,
-        category=category,
-        limit=limit,
+    fabric_ids = [
+        b.fabric_building_id
+        for b in building_repo.list_buildings_for_user(db, user_id=user_id)
+        if b.fabric_building_id
+    ]
+    return sample_fallback.serve(
+        "actions", ActionsResponse, fabric_ids,
+        lambda: actions_data.get_actions_for_user(
+            db, user_id=user_id, status_filter=status_filter,
+            building_id=building_id, category=category, limit=limit),
     )
 
 

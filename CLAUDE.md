@@ -143,7 +143,7 @@ gold_battery_technologies (battery specs + EU compliance)
 #### What Happens After Trial:
 - **Notebooks:** STOP (compute = €0/month)
 - **Lakehouse:** READ-ONLY, storage only (€5-15/month)
-- **Power BI Premium:** STARTUP CREDITS (goal: €0) OR €32/month P1
+- **Power BI Premium:** STARTUP CREDITS (goal: €0) OR a small Fabric F-SKU — F2 ≈ €87/mo paused, €242/mo 24/7, €145 reserved (NOT €32; 'P1' = legacy F64 ≈ €7.7k). See docs/strategy/unit-economics-pricing-review.md
 - **App:** Embedded via user-owns-data OR Startup capacity
 
 ### Cost & Capacity Model
@@ -156,9 +156,9 @@ gold_battery_technologies (battery specs + EU compliance)
 - Status: BEST CASE
 
 **Scenario B: Self-funded P1** (Fallback)
-- Premium capacity P1: €32/month
+- Fabric F2 capacity: €87/mo paused → €242/mo 24/7; reserved ≈ €145
 - Embedded reports: 20-25 concurrent users
-- Monthly cost: €32
+- Monthly cost: ≈ €87–242 (Fabric F2)
 - Status: SUSTAINABLE
 
 **Scenario C: Per-Capacity (Avoid)**
@@ -176,7 +176,7 @@ gold_battery_technologies (battery specs + EU compliance)
 - **Frontend:** Next.js on Azure Static Web Apps (€0-20/month)
 - **Backend:** FastAPI on Azure Container Apps (€10-30/month)
 - **Database:** Azure PostgreSQL (€15-30/month)
-- **Embedded Power BI:** Premium capacity (€0 or €32/month)
+- **Embedded Power BI:** Fabric F2 capacity (€0 with startup credits, else ≈ €87–242/mo)
 - **Total monthly minimum:** €25-80/month (excluding capacity)
 
 ---

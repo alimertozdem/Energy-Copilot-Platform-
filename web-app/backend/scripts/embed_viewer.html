@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CP-2 Embed RLS — token viewer</title>
+  <!-- powerbi-client (UMD) from a public npm CDN. Open this file directly in a browser. -->
+  <script src="https://cdn.jsdelivr.net/npm/powerbi-client@2.22.4/dist/powerbi.min.js"></script>
+  <style>
+    body { font-family: system-ui, Segoe UI, Arial, sans-serif; margin: 0; background:#0d1117; color:#e6edf3; }
+    header { padding: 14px 18px; border-bottom: 1px solid #233; }
+    h1 { font-size: 15px; margin: 0 0 4px; }
+    p.hint { font-size: 12px; color:#9da7b3; margin: 0; }
+    .form { display:grid; gap:8px; padding: 14px 18px; max-width: 1100px; }
+    label { font-size: 12px; color:#9da7b3; }
+    textarea, input { width: 100%; box-sizing: border-box; background:#161b22; color:#e6edf3;
+      border:1px solid #30363d; border-radius:6px; padding:8px; font-family: ui-monospace, monospace; font-size:12px; }
+    textarea { min-height: 64px; resize: vertical; }
+    button { background:#238636; color:#fff; border:0; border-radius:6px; padding:9px 16px; font-weight:600; cursor:pointer; width: 160px; }
+    button:hover { background:#2ea043; }
+    #report { height: 70vh; margin: 8px 18px 18px; border:1px solid #30363d; border-radius:8px; overflow:hidden; background:#fff; }
+    .row2 { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+    .err { color:#ff7b72; font-size:12px; padding: 0 18px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CP-2 — Embed RLS token viewer</h1>
+    <p class="hint">Run <code>scripts/smoke_embed_rls.py</code>, paste its <b>token</b> + <b>embed_url</b> + your <b>report id</b> (PBI_REPORT_ID), then Embed. With <code>RLS_CUSTOMDATA="B001"</code> you should see ONLY B001 across all pages — that visually confirms the dynamic RLS filtered server-side.</p>
+  </header>
+
+  <div class="form">
+    <div>
+      <label>Embed token (the long <code>token</code> string the script printed)</label>
+      <textarea id="token" placeholder="H4sI... or eyJ..."></textarea>
+    </div>
+    <div class="row2">
+      <div>
+        <label>embed_url</label>
+        <input id="embedUrl" placeholder="https://app.powerbi.com/reportEmbed?reportId=..." />
+      </div>
+      <div>
+        <label>report id (PBI_REPORT_ID)</label>
+        <input id="reportId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+      </div>
+    </div>
+    <button onclick="go()">Embed</button>
+    <div id="err" class="err"></div>
+  </div>
+
+  <div id="report"></div>
+
+  <script>
+    function go() {
+      var err = document.getElementById('err'); err.textContent = '';
+      try {
+        var token = document.getElementById('token').value.trim();
+        var embedUrl = document.getElementById('embedUrl').value.trim();
+        var reportId = document.getElementById('reportId').value.trim();
+        if (!token || !embedUrl || !reportId) { err.textContent = 'Fill all three fields.'; return; }
+
+        var pbi = window['powerbi-client'];
+        var models = pbi.models;
+        var container = document.getElementById('report');
+        window.powerbi.reset(container);
+
+        var config = {
+          type: 'report',
+          tokenType: models.TokenType.Embed,
+          accessToken: token,
+          embedUrl: embedUrl,
+          id: reportId,
+          settings: {
+            panes: { filters: { visible: true }, pageNavigation: { visible: true } }
+          }
+        };
+        var report = window.powerbi.embed(container, config);
+        report.off('error');
+        report.on('error', function (e) { err.textContent = 'Power BI error: ' + JSON.stringify(e.detail); });
+      } catch (e) {
+        err.textContent = 'Error: ' + (e && e.message ? e.message : e);
+      }
+    }
+  </script>
+</body>
+</html>
