@@ -14,6 +14,7 @@
  */
 import type { ActionItem } from "@/lib/api/actions"
 import { InfoTip } from "@/components/ui/info-tip"
+import { RequestInstallerButton } from "@/components/installer/RequestInstallerButton"
 
 // §559 BGB: the landlord may raise annual rent by up to 8% of the modernisation
 // cost (after deducting public subsidies). Stated assumption — caps apply.
@@ -38,6 +39,7 @@ export function LandlordInvestmentCase({
 }: {
   actions: ActionItem[]
   epcClass: string | null
+  fabricBuildingId: string
 }) {
   const measures = actions.filter(
     (a) => (a.capex_eur ?? a.net_capex_eur ?? 0) > 0
@@ -117,6 +119,13 @@ export function LandlordInvestmentCase({
                 </span>
               </Line>
             )}
+          </div>
+          <div className="mt-4 flex justify-end">
+            <RequestInstallerButton
+              fabricBuildingId={fabricBuildingId}
+              measureLabel="Retrofit package"
+              source="residential"
+            />
           </div>
         </>
       )}

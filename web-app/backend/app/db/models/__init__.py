@@ -18,6 +18,7 @@ from app.db.models.connection import Device, SensorPoint
 from app.db.models.agent import AgentToken
 from app.db.models.bridge import BridgeRequest
 from app.db.models.pilot import PilotRequest
+from app.db.models.installer import InstallerRequest
 from app.db.models.residential import (
     Unit,
     ResidentIdentity,
@@ -44,6 +45,7 @@ __all__ = [
     "AgentToken",
     "BridgeRequest",
     "PilotRequest",
+    "InstallerRequest",
     "Unit",
     "ResidentIdentity",
     "UnitResident",

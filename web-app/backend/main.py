@@ -35,6 +35,7 @@ from app.routers import billing as billing_router
 from app.routers import compliance as compliance_router
 from app.routers import partners as partners_router
 from app.routers import residence as residence_router
+from app.routers import installer as installer_router
 from app.routers import residential as residential_router
 from app.routers import connections as connections_router
 from app.routers import agent as agent_router
@@ -147,6 +148,7 @@ app.include_router(connections_router.router)
 app.include_router(agent_router.router)
 app.include_router(abatement_router.router)
 app.include_router(pilot_router.router)
+app.include_router(installer_router.router)
 
 
 def get_azure_token() -> str:

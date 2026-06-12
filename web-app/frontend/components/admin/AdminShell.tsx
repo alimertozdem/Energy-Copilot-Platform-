@@ -13,6 +13,7 @@ import { AppChrome } from "@/components/AppChrome"
 import { ActivityTable } from "@/components/admin/ActivityTable"
 import { BridgeRequestsTable } from "@/components/admin/BridgeRequestsTable"
 import { PilotRequestsTable } from "@/components/admin/PilotRequestsTable"
+import { InstallerRequestsTable } from "@/components/admin/InstallerRequestsTable"
 import { BuildingsTable } from "@/components/admin/BuildingsTable"
 import { OrganizationsTable } from "@/components/admin/OrganizationsTable"
 import { StatsCards } from "@/components/admin/StatsCards"
@@ -26,6 +27,7 @@ import type {
 } from "@/lib/api/admin"
 import type { AdminBridgeRequestRow } from "@/lib/api/bridge"
 import type { AdminPilotRequestRow } from "@/lib/api/pilot"
+import type { AdminInstallerRequestRow } from "@/lib/api/installer"
 
 // Violet -- the same "special" hue Copilot uses, marking the admin surface as
 // distinct from the emerald customer-facing pages.
@@ -39,6 +41,7 @@ type AdminShellProps = {
   events: AdminAuditRow[] | null
   bridgeRequests: AdminBridgeRequestRow[] | null
   pilotRequests: AdminPilotRequestRow[] | null
+  installerRequests: AdminInstallerRequestRow[] | null
 }
 
 function SectionError({ label }: { label: string }) {
@@ -60,6 +63,7 @@ export function AdminShell({
   events,
   bridgeRequests,
   pilotRequests,
+  installerRequests,
 }: AdminShellProps) {
   return (
     <AppChrome
@@ -78,6 +82,7 @@ export function AdminShell({
         )}
 
         <PilotRequestsTable requests={pilotRequests} />
+        <InstallerRequestsTable requests={installerRequests} />
 
         {organizations ? (
           <OrganizationsTable organizations={organizations} />

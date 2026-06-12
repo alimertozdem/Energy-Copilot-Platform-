@@ -28,6 +28,7 @@ import { useState } from "react"
 import { Lock } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { RequestInstallerButton } from "@/components/installer/RequestInstallerButton"
 
 import type { ActionItem, ActionStatus } from "@/lib/api/actions"
 
@@ -206,6 +207,20 @@ function buildColumns(
             <Lock className="h-3 w-3 text-white/40" aria-label="Read-only" />
           </span>
         ),
+    },
+    {
+      id: "request_installer",
+      header: "Installer",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <RequestInstallerButton
+          compact
+          fabricBuildingId={row.original.fabric_building_id}
+          actionType={row.original.action_type}
+          measureLabel={row.original.title}
+          source="actions"
+        />
+      ),
     },
   ]
 }

@@ -24,6 +24,7 @@ import {
 } from "@/lib/api/admin"
 import { fetchAdminBridgeRequestsServer } from "@/lib/api/bridge"
 import { fetchAdminPilotRequestsServer } from "@/lib/api/pilot"
+import { fetchAdminInstallerRequestsServer } from "@/lib/api/installer"
 import { authOptions } from "@/lib/auth/options"
 
 export default async function AdminPage() {
@@ -40,7 +41,7 @@ export default async function AdminPage() {
     notFound()
   }
 
-  const [orgsResult, usersResult, buildingsResult, auditResult, bridgeResult, pilotResult] =
+  const [orgsResult, usersResult, buildingsResult, auditResult, bridgeResult, pilotResult, installerResult] =
     await Promise.all([
       fetchAdminOrganizations(token),
       fetchAdminUsers(token),
@@ -48,6 +49,7 @@ export default async function AdminPage() {
       fetchAdminAudit(token),
       fetchAdminBridgeRequestsServer(token),
       fetchAdminPilotRequestsServer(token),
+      fetchAdminInstallerRequestsServer(token),
     ])
 
   return (
@@ -59,6 +61,7 @@ export default async function AdminPage() {
       events={auditResult.ok ? auditResult.data.events : null}
       bridgeRequests={bridgeResult.ok ? bridgeResult.data.requests : null}
       pilotRequests={pilotResult.ok ? pilotResult.data.requests : null}
+      installerRequests={installerResult.ok ? installerResult.data.requests : null}
     />
   )
 }

@@ -77,6 +77,7 @@ export default async function BuildingResidentialPage({ params }: PageProps) {
         <LandlordInvestmentCase
           actions={actionsResult.ok ? actionsResult.data.actions : []}
           epcClass={building.epc_class ?? null}
+          fabricBuildingId={fabric_building_id}
         />
       </div>
     </AppChrome>
