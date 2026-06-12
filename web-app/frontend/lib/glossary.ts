@@ -36,6 +36,12 @@ export type TermKey =
   | "abatement_cost"
   | "anomaly_cost"
   | "retrofit_saving"
+  | "scope_1"
+  | "scope_2"
+  | "scope_3"
+  | "ghg_intensity"
+  | "subsidy"
+  | "uvi"
 
 export type GlossaryCategory = "Portfolio" | "Solar" | "Financial" | "Strategy" | "Compliance"
 
@@ -271,13 +277,13 @@ export const GLOSSARY: Record<TermKey, GlossaryEntry> = {
   anomaly_cost: {
     label: "Est. anomaly cost",
     short:
-      "Indicative € impact of an anomaly while it persists — always shown as an estimate.",
-    full: "The estimated cost of an anomaly is an indicative euro impact of the wasted energy while the anomaly persists. It multiplies the duration by an estimated power-waste and the local electricity price. It is always shown as an estimate, to size and prioritise alerts — not as a billed figure.",
+      "Indicative € impact of an anomaly — the excess energy above baseline priced at the grid tariff.",
+    full: "The estimated cost of an anomaly is an indicative euro impact of the excess energy it represents. For a consumption spike it prices the energy used above the alert's baseline at the local electricity tariff. It is always shown as an estimate — to size and prioritise alerts, not a billed figure — and only where the anomaly's metric is an energy quantity (other anomaly types show no cost).",
     category: "Portfolio",
-    method: "Duration × estimated power-waste (kW) × electricity price.",
-    assumptions: ["HVAC temp: 2–5 kW per °C deviation", "CO₂ spike >1500 ppm: 1–3 kW extra ventilation", "Power spike: measured excess", "Grid price DE €0.20 / TR €0.14 per kWh"],
+    method: "Excess energy (reading − baseline, kWh) × electricity price.",
+    assumptions: ["Shown only for energy anomalies (e.g. consumption spike)", "Excess measured above the alert threshold", "Electricity ≈ €0.20/kWh (DE default), €0.14 TR"],
     confidence: "screening",
-    sourceRef: "CLAUDE.md (Page-8 anomaly cost logic)",
+    sourceRef: "anomaly_detection",
   },
   retrofit_saving: {
     label: "Retrofit saving",
@@ -289,6 +295,72 @@ export const GLOSSARY: Record<TermKey, GlossaryEntry> = {
     assumptions: ["Gradtagzahl 3,500 Kd (DE reference)", "Condensing-gas η 0.90", "Savings NOT additive across measures"],
     confidence: "screening",
     sourceRef: "residential-retrofit-calculations.md",
+  },
+  scope_1: {
+    label: "Scope 1 (direct)",
+    short:
+      "Direct on-site emissions — fuel combustion (gas / diesel) plus fugitive refrigerant.",
+    full: "Scope 1 covers direct greenhouse-gas emissions from sources the building controls: on-site fuel combustion (gas, diesel) and fugitive refrigerant (F-gas) leakage. EnergyLens follows the GHG Protocol Corporate Standard; gas uses a metered or proxy factor, and refrigerant is 0 until an F-Gas logbook is loaded (method-correct, not yet populated).",
+    category: "Compliance",
+    method: "Σ(fuel kWh × fuel factor) + refrigerant leakage × GWP-100.",
+    assumptions: ["Natural gas 0.201 kg/kWh (DESNZ/DEFRA)", "Gas metered where available, else proxy", "Refrigerant 0 until F-Gas logbook loaded"],
+    confidence: "indicative",
+    sourceRef: "ghg_methodology",
+  },
+  scope_2: {
+    label: "Scope 2 (electricity)",
+    short:
+      "Indirect emissions from purchased electricity — reported both location- and market-based.",
+    full: "Scope 2 covers indirect emissions from purchased electricity. Following the GHG Protocol Scope 2 Guidance, EnergyLens reports both location-based (the country-and-year grid-average factor) and market-based (supplier / residual-mix factor). Until supply contracts or Guarantees of Origin are loaded, the market-based figure uses the national residual mix.",
+    category: "Compliance",
+    method: "Electricity kWh × grid factor (location) or supplier / residual-mix factor (market).",
+    assumptions: ["DE grid 0.363 kg/kWh (UBA 2024), TR 0.442 (TEİAŞ)", "DE residual mix 0.725 kg/kWh (AIB 2024)", "Market = residual mix until contracts / GoOs arrive"],
+    confidence: "indicative",
+    sourceRef: "ghg_methodology",
+  },
+  scope_3: {
+    label: "Scope 3 (value chain)",
+    short:
+      "Estimated value-chain emissions (embodied carbon, downstream) — material categories only.",
+    full: "Scope 3 covers value-chain emissions outside the building's direct control. EnergyLens estimates material categories only — Category 1 (embodied carbon, amortised from a building-type benchmark) and Category 13 (downstream leased assets). It is explicitly estimated, not disclosure-grade, and several buckets are 0 until pilot data arrives.",
+    category: "Compliance",
+    method: "Cat 1: floor area × embodied kgCO₂e/m² ÷ amortisation years. Cat 13: downstream estimate.",
+    assumptions: ["Embodied benchmark by building type (RICS / LETI / DGNB)", "Estimated, not disclosure-grade", "Several categories 0 until pilot consumption data"],
+    confidence: "screening",
+    sourceRef: "ghg_methodology",
+  },
+  ghg_intensity: {
+    label: "GHG intensity",
+    short:
+      "Total emissions per floor area — tCO₂e per m², for size-independent comparison.",
+    full: "GHG intensity normalises total greenhouse-gas emissions (Scope 1 + 2 + 3) by floor area, giving tCO₂e/m². It lets buildings of different sizes be compared on a level field and tracks decarbonisation progress over time.",
+    category: "Compliance",
+    method: "Total tCO₂e ÷ floor area (m²).",
+    assumptions: ["Total = Scope 1 + 2 (location) + 3", "Floor area = conditioned area"],
+    confidence: "indicative",
+    sourceRef: "ghg_methodology",
+  },
+  subsidy: {
+    label: "Subsidy (BAFA/KfW)",
+    short:
+      "Indicative public grant a measure may attract — BAFA BEG or KfW programme; screening-grade.",
+    full: "An indicative public subsidy is the grant a measure may attract under a German programme — BAFA BEG Einzelmaßnahme (envelope) or KfW (458 heat pump, 261 deep retrofit). EnergyLens maps each measure to its likely programme and an indicative grant from published rates. Eligibility and bonuses change, and you must apply BEFORE signing any contract — signing first forfeits the grant. Support, not financial advice.",
+    category: "Financial",
+    method: "Measure → eligible programme → grant % × eligible cost (per-programme cap).",
+    assumptions: ["BAFA BEG EM envelope ~15% + iSFP 5%", "KfW heat-pump 30–70% (capped)", "Apply before contract; rates change — verify live"],
+    confidence: "indicative",
+    sourceRef: "residential-retrofit-calculations.md",
+  },
+  uvi: {
+    label: "UVI (monthly info)",
+    short:
+      "Monthly consumption info residents must receive (HKVO §6a) — and the §12 3% penalty risk.",
+    full: "Unterjährige Verbrauchsinformation (UVI) is the monthly consumption information German law (HKVO §6a, from the EU EED) requires landlords to give residents from 1 Jan 2027 where remote-readable meters exist. Breaching the duty lets a resident cut 3% of their consumption-based heating cost (§12). EnergyLens tracks readiness and an indicative penalty exposure — decision-support, not legal advice.",
+    category: "Compliance",
+    method: "Readiness = unit coverage + recency of the latest UVI month; penalty exposure = 3% × annual heating cost.",
+    assumptions: ["Mandatory monthly UVI from 1 Jan 2027", "§12: resident may cut 3% if breached", "Heat tariff ≈ €0.12/kWh for the exposure estimate"],
+    confidence: "screening",
+    sourceRef: "residential-segment-architecture",
   },
 }
 

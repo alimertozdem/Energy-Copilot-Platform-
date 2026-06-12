@@ -7,6 +7,8 @@
  * notice while the Fabric SQL endpoint is still syncing those tables.
  */
 import { FetchErrorNotice } from "@/components/FetchErrorNotice"
+import { InfoTip } from "@/components/ui/info-tip"
+import type { TermKey } from "@/lib/glossary"
 import type {
   ResidentialBuildingResponse,
   UviStatus,
@@ -44,10 +46,13 @@ function EpcChip({ band }: { band: string | null }) {
   )
 }
 
-function Card({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
+function Card({ label, value, hint, term }: { label: string; value: string | number; hint?: string; term?: TermKey }) {
   return (
     <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">{label}</p>
+      <p className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+        {label}
+        {term && <InfoTip term={term} />}
+      </p>
       <p className="mt-2 text-2xl font-semibold text-text-primary">{value}</p>
       {hint && <p className="mt-1 text-xs text-text-muted">{hint}</p>}
     </div>
@@ -93,9 +98,10 @@ export function ResidentialDashboard({
               ? `kWh/m²·yr · climate-adj ×${rollup.climate_adjustment_factor.toFixed(2)}`
               : "kWh/m²·yr (heating + hot water)"
           }
+          term="eui"
         />
         <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">EPC mix</p>
+          <p className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">EPC mix <InfoTip term="epc" /></p>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {epcOrder.filter((b) => rollup.epc_distribution[b]).length === 0 ? (
               <span className="text-text-faint">—</span>
@@ -111,7 +117,7 @@ export function ResidentialDashboard({
             )}
           </div>
         </div>
-        <Card label="UVI status" value={uviLabel(rollup.uvi)} hint="Latest monthly consumption info" />
+        <Card label="UVI status" value={uviLabel(rollup.uvi)} hint="Latest monthly consumption info" term="uvi" />
       </div>
 
       {/* Per-unit table */}

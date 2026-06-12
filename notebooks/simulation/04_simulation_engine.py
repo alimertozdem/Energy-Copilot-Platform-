@@ -137,13 +137,30 @@ TR_AVG_HEATING_TEMP_C   = 8.0
 
 log_step("READ", "Loading Silver + Reference tables …")
 
-df_building = spark.read.format("delta").load(SILVER_PATHS["building_master"])
-df_sim_inp  = spark.read.format("delta").load(REF_PATHS["simulation_inputs"])
-df_tariffs  = spark.read.format("delta").load(REF_PATHS["tariffs"])
-df_profiles = spark.read.format("delta").load(REF_PATHS["building_type_profiles"])
-df_tech     = spark.read.format("delta").load(REF_PATHS["technology_catalog"])
-df_kpi_d    = spark.read.format("delta").load(GOLD_PATHS["kpi_daily"])
-df_kpi_m    = spark.read.format("delta").load(GOLD_PATHS["kpi_monthly"])
+def _read(path):
+    """Schema-enabled-safe read (MIXED lakehouse: catalog, Tables/dbo/<t>, or Tables/<t>).
+    Mirrors 06_recommendation_engine.read_delta — fixes PATH_NOT_FOUND when gold tables
+    were written via saveAsTable (catalog/dbo) but this notebook used a flat Tables/ path."""
+    name = path.rstrip("/").split("/")[-1]
+    try:
+        return spark.table(name)
+    except Exception:
+        pass
+    for _p in (f"Tables/dbo/{name}", f"Tables/{name}", path):
+        try:
+            return spark.read.format("delta").load(_p)
+        except Exception:
+            continue
+    raise Exception(name + " not found via catalog or Tables paths")
+
+
+df_building = _read(SILVER_PATHS["building_master"])
+df_sim_inp  = _read(REF_PATHS["simulation_inputs"])
+df_tariffs  = _read(REF_PATHS["tariffs"])
+df_profiles = _read(REF_PATHS["building_type_profiles"])
+df_tech     = _read(REF_PATHS["technology_catalog"])
+df_kpi_d    = _read(GOLD_PATHS["kpi_daily"])
+df_kpi_m    = _read(GOLD_PATHS["kpi_monthly"])
 
 log_step("READ", "All tables loaded", rows=df_building.count())
 

@@ -70,8 +70,9 @@ export function MepsRadar({ summary }: { summary: ComplianceSummary }) {
 
       {/* EPBD milestone context */}
       <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 p-5">
-        <h3 className="text-sm font-medium text-text-primary mb-1">
+        <h3 className="inline-flex items-center gap-1.5 text-sm font-medium text-text-primary mb-1">
           EPBD renovation milestones
+          <InfoTip term="epbd" />
         </h3>
         <p className="text-xs text-text-muted leading-relaxed">
           The revised EPBD asks member states to renovate the worst-performing{" "}

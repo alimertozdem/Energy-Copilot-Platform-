@@ -7,6 +7,7 @@
  * per-building work queue (at-risk first). Reads the server-authoritative
  * /residential/uvi-compliance. Honest footnote — decision-support, not legal advice.
  */
+import { InfoTip } from "@/components/ui/info-tip"
 import type { UviComplianceResponse } from "@/lib/api/residentialManager"
 
 const MONTHS = [
@@ -45,8 +46,9 @@ export function UviComplianceBand({ data }: { data: UviComplianceResponse }) {
     <section className="rounded-xl border border-border-subtle bg-bg-elevated/40 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-text-primary">
+          <h2 className="inline-flex items-center gap-1.5 text-sm font-semibold text-text-primary">
             UVI compliance readiness
+            <InfoTip term="uvi" />
           </h2>
           <p className="mt-0.5 text-xs text-text-muted">
             Monthly consumption information (HKVO §6a) is mandatory from{" "}

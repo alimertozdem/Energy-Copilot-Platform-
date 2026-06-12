@@ -15,6 +15,8 @@
  *     EPC mix, UVI status).
  */
 import Link from "next/link"
+import { InfoTip } from "@/components/ui/info-tip"
+import type { TermKey } from "@/lib/glossary"
 import {
   ArrowRight,
   BatteryCharging,
@@ -79,18 +81,23 @@ function Metric({
   unit,
   hint,
   tone,
+  term,
 }: {
   label: string
   value: string
   unit?: string
   hint?: string
   tone?: "danger" | "warning"
+  term?: TermKey
 }) {
   const valueColor =
     tone === "danger" ? "text-red-400" : tone === "warning" ? "text-amber-400" : "text-text-primary"
   return (
     <div className="rounded-lg border border-border-subtle bg-bg-elevated/40 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">{label}</p>
+      <p className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+        {label}
+        {term && <InfoTip term={term} />}
+      </p>
       <p className={`mt-1.5 text-2xl font-semibold ${valueColor}`}>
         {value}
         {unit && <span className="ml-1 text-xs font-normal text-text-muted">{unit}</span>}
@@ -231,6 +238,7 @@ export function BuildingOverview({
             value={fmt(residential.rollup.building_avg_eui_kwh_m2_yr)}
             unit="kWh/m²·yr"
             hint="Heating + hot water · not climate-adjusted"
+            term="eui"
           />
           <div className="rounded-lg border border-border-subtle bg-bg-elevated/40 p-4">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">EPC mix</p>
@@ -260,6 +268,7 @@ export function BuildingOverview({
             value={fmt(kpis.eui_kwh_m2_yr)}
             unit="kWh/m²·yr"
             hint="Annualized run-rate · not weather-corrected"
+            term="eui"
           />
           <Metric
             label="Energy used · 30d"
@@ -271,17 +280,20 @@ export function BuildingOverview({
             label="Energy cost · 30d"
             value={`€${fmt(kpis.cost_30d_eur)}`}
             hint="Estimated · last 30 days"
+            term="energy_cost"
           />
           <Metric
             label="Carbon · 30d"
             value={fmt(kpis.co2_30d_kg)}
             unit="kg CO₂e"
             hint="Scope 2 (grid) · last 30 days"
+            term="scope_2"
           />
           <Metric
             label="Open alerts"
             value={fmt(kpis.open_anomalies)}
             hint="High + critical"
+            term="anomaly"
             tone={kpis.open_anomalies > 0 ? "danger" : undefined}
           />
           <Metric

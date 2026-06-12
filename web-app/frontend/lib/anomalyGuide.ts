@@ -149,3 +149,22 @@ export function anomalyGuide(anomalyType: string | null): AnomalyGuide {
   if (/CONSUM|BASELINE|ENERGY|USAGE|KWH/.test(t)) return CONSUMPTION
   return GENERIC
 }
+
+
+// --- Anomaly cost (screening) -------------------------------------------------
+// Indicative € impact, shown ONLY where the metric is an energy quantity.
+// CONSUMPTION_SPIKE: metric=day kWh, threshold=baseline kWh -> excess kWh x price.
+// Other types (EUI ratios, ppm, PR) are not directly cost-able -> null.
+const ANOMALY_PRICE_EUR_KWH = 0.2 // DE default; see glossary `anomaly_cost`
+
+export function estAnomalyCostEur(
+  anomalyType: string | null,
+  metricValue: number | null,
+  thresholdValue: number | null,
+): number | null {
+  if (anomalyType !== "CONSUMPTION_SPIKE") return null
+  if (metricValue == null || thresholdValue == null) return null
+  const excessKwh = metricValue - thresholdValue
+  if (!(excessKwh > 0)) return null
+  return excessKwh * ANOMALY_PRICE_EUR_KWH
+}

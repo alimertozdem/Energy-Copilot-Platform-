@@ -13,7 +13,8 @@ import Link from "next/link"
 import { useEffect, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 
-import { anomalyGuide } from "@/lib/anomalyGuide"
+import { InfoTip } from "@/components/ui/info-tip"
+import { anomalyGuide, estAnomalyCostEur } from "@/lib/anomalyGuide"
 import type { AckStatus, AlertItem } from "@/lib/api/alerts"
 
 import { AlertAckDropdown } from "./AlertAckDropdown"
@@ -58,6 +59,11 @@ export function AlertDetailPanel({
   const guide = anomalyGuide(alert.anomaly_type)
   const aid = alert.anomaly_id
   const dev = alert.deviation_pct
+  const estCost = estAnomalyCostEur(
+    alert.anomaly_type,
+    alert.metric_value,
+    alert.threshold_value,
+  )
 
   // Portal to <body> so the overlay escapes any transformed/blurred ancestor
   // (otherwise a `fixed` panel gets trapped below the sticky app header).
@@ -116,6 +122,17 @@ export function AlertDetailPanel({
                 tone={dev !== null && dev > 0 ? "bad" : "ok"}
               />
             </div>
+            {estCost != null && (
+              <div className="flex items-center justify-between rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2">
+                <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.12em] text-amber-200/70">
+                  Est. impact
+                  <InfoTip term="anomaly_cost" />
+                </span>
+                <span className="text-sm font-semibold tabular-nums text-amber-200">
+                  ~€{estCost.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+            )}
           </div>
 
           {alert.description && (

@@ -10,6 +10,7 @@ import Link from "next/link"
 import { InfoTip } from "@/components/ui/info-tip"
 
 import type { EsrsReport } from "@/lib/api/esrs"
+import type { TermKey } from "@/lib/glossary"
 
 function n(v: number, d = 0): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: d }).format(v)
@@ -59,15 +60,16 @@ export function EsrsSummary({ report }: { report: EsrsReport }) {
               label="GHG intensity"
               value={report.ghg_intensity_tco2e_m2 != null ? `${n(report.ghg_intensity_tco2e_m2, 3)} tCO₂e/m²` : "—"}
               sub="per floor area"
+              term="ghg_intensity"
             />
           </div>
 
           {/* Scope breakdown (E1-6) */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card label="Scope 1" value={`${n(report.ghg.scope1_tco2e, 1)} tCO₂e`} sub="direct (gas / fuel)" />
-            <Card label="Scope 2 (location)" value={`${n(report.ghg.scope2_location_tco2e, 1)} tCO₂e`} sub="grid electricity" />
-            <Card label="Scope 2 (market)" value={`${n(report.ghg.scope2_market_tco2e, 1)} tCO₂e`} sub="contract-based" />
-            <Card label="Scope 3 (est.)" value={`${n(report.ghg.scope3_tco2e, 1)} tCO₂e`} sub="value-chain estimate" />
+            <Card label="Scope 1" value={`${n(report.ghg.scope1_tco2e, 1)} tCO₂e`} sub="direct (gas / fuel)" term="scope_1" />
+            <Card label="Scope 2 (location)" value={`${n(report.ghg.scope2_location_tco2e, 1)} tCO₂e`} sub="grid electricity" term="scope_2" />
+            <Card label="Scope 2 (market)" value={`${n(report.ghg.scope2_market_tco2e, 1)} tCO₂e`} sub="contract-based" term="scope_2" />
+            <Card label="Scope 3 (est.)" value={`${n(report.ghg.scope3_tco2e, 1)} tCO₂e`} sub="value-chain estimate" term="scope_3" />
           </div>
 
           {/* Coverage + data quality */}
@@ -139,17 +141,20 @@ function Card({
   value,
   sub,
   tone,
+  term,
 }: {
   label: string
   value: string
   sub: string
   tone?: "amber"
+  term?: TermKey
 }) {
   const valCls = tone === "amber" ? "text-amber-300" : "text-text-primary"
   return (
     <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 px-5 py-4">
-      <div className="text-[11px] uppercase tracking-[0.12em] text-text-muted">
+      <div className="inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.12em] text-text-muted">
         {label}
+        {term && <InfoTip term={term} />}
       </div>
       <div className={`text-2xl font-semibold mt-1 tabular-nums ${valCls}`}>
         {value}

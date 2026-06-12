@@ -48,24 +48,23 @@ runbook activates it and turns on the new **G1 climate-adjusted EUI** (the place
 
 ## 3. Expected climate result for B011 (sanity check, indicative)
 
-The sample data is **only Jan–Feb 2026** (2 winter months). Berlin deep-winter averages roughly
-**13–15 degree-days/day** (base-15), so:
+The sample data is now a **representative full year (2025, 12 months)** — building ≈ **156 kWh/m²·yr**
+(retrofit-candidate baseline), units ≈ EPC band **D** (RESIDENTIAL_MF 120–180). Berlin's annual
+average is roughly **8–9 heating-degree-days/day** (base-15), so:
 
 ```
-factor = REFERENCE_DD_DAY / avg_daily_DD ≈ 11 / ~14 ≈ 0.78–0.85
-eui_climate_adjusted ≈ raw_EUI × ~0.8
+factor = REFERENCE_DD_DAY / avg_daily_DD ≈ 11 / ~9 ≈ 1.15–1.25
+eui_climate_adjusted ≈ raw_EUI × ~1.2
 ```
 
-This is **correct and expected**: annualising 2 winter months (`×365/days`) inflates the raw EUI,
-and dividing by the cold-period degree-days scales it back toward a reference season — the ratio
-method **partly self-corrects the annualisation bias**. For a representative factor, load a fuller
-consumption year (the 2-month sample is a demo).
+The factor is **> 1** because the fixed reference (11 DD/day) is colder than Berlin's annual mean —
+the cross-climate normalisation expresses each building's EUI "as if" in a common reference climate
+(same method as the commercial `climate_adjusted_eui`). A full year removes the winter-only
+annualisation bias of the earlier 2-month sample.
 
-**Honesty note (surfaced in the UI footnote):** the factor is applied to the **whole EUI**
-(heating + hot water, per the 2026-06-12 product-owner decision). It therefore *lightly
-over-corrects* the weather-independent hot-water base load. Indicative, screening-grade.
-
----
+**Honesty note (UI footnote):** the factor is applied to the **whole EUI** (heating + hot water,
+per the 2026-06-12 decision); it lightly over-corrects the weather-independent hot-water base load.
+Indicative, screening-grade.
 
 ## 4. App / report verification
 
@@ -100,8 +99,10 @@ to `ref_simulation_inputs` (`00_reference_data_loader.py`) with a 1970s-MFH prof
 `docs/strategy/residential-retrofit-calculations.md` (6-measure T0–T2, 2026 BAFA/KfW 30–70 % cap,
 €30k/WE) — the card and the calc doc must tell the same story.
 
-> Note: the `RESIDENTIAL_MF` profile's `insulation_feasibility` is `LOW`; if `IMPROVE_INSULATION`
-> does not fire, that flag (in `00_reference_data_loader.py`) is the lever — flag if you want it raised.
+> Note: for `RESIDENTIAL_MF` the profile feasibilities are heat-pump **HIGH**, insulation **HIGH**,
+> solar **MEDIUM**, battery **LOW** — so HP, insulation and deep-retrofit all fire; battery is
+> intentionally not recommended for residential. (An earlier draft mis-read insulation as LOW — the
+> LOW flag is battery; column order is heat_pump / solar / battery / insulation.)
 
 ---
 

@@ -7,7 +7,9 @@
  * owner can pass on, and the tenant energy saving. Frontend-only; reads the same
  * /actions catalogue, filtered to residential buildings. Indicative.
  */
+import { InfoTip } from "@/components/ui/info-tip"
 import type { ActionItem } from "@/lib/api/actions"
+import type { TermKey } from "@/lib/glossary"
 
 const MODERNISIERUNG_RATE = 0.08 // §559 BGB, general case (see LandlordInvestmentCase)
 
@@ -39,11 +41,11 @@ export function LandlordPortfolioBand({
   const rentUplift = netCapex * MODERNISIERUNG_RATE
   const buildings = new Set(measures.map((a) => a.fabric_building_id)).size
 
-  const stats = [
+  const stats: { label: string; value: string; sub: string; tone: string; term?: TermKey }[] = [
     { label: "Net investment", value: eur(netCapex), sub: "after subsidy", tone: "text-text-primary" },
-    { label: "Subsidy", value: eur(subsidy), sub: "BAFA / KfW", tone: "text-brand-emerald" },
+    { label: "Subsidy", value: eur(subsidy), sub: "BAFA / KfW", tone: "text-brand-emerald", term: "subsidy" },
     { label: "Rent uplift", value: `${eur(rentUplift)}/yr`, sub: "Modernisierungsumlage", tone: "text-brand-emerald" },
-    { label: "Tenant saving", value: `${eur(tenantSaving)}/yr`, sub: "energy", tone: "text-text-primary" },
+    { label: "Tenant saving", value: `${eur(tenantSaving)}/yr`, sub: "energy", tone: "text-text-primary", term: "retrofit_saving" },
   ]
 
   return (
@@ -59,7 +61,7 @@ export function LandlordPortfolioBand({
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className="rounded-lg border border-border-subtle bg-white/[0.02] px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-wider text-text-faint">{s.label}</div>
+            <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-text-faint">{s.label}{s.term && <InfoTip term={s.term} />}</div>
             <div className={`mt-0.5 text-lg font-semibold ${s.tone}`}>{s.value}</div>
             <div className="text-[10px] text-text-muted">{s.sub}</div>
           </div>

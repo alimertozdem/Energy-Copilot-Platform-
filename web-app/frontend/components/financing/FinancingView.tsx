@@ -8,6 +8,8 @@
 import Link from "next/link"
 
 import type { ActionItem } from "@/lib/api/actions"
+import { InfoTip } from "@/components/ui/info-tip"
+import type { TermKey } from "@/lib/glossary"
 import { estimateSubsidy } from "@/lib/finance/subsidy"
 
 function eur(n: number | null): string {
@@ -23,15 +25,20 @@ function Card({
   value,
   hint,
   tone,
+  term,
 }: {
   label: string
   value: string
   hint?: string
   tone?: "good"
+  term?: TermKey
 }) {
   return (
     <div className="rounded-lg border border-border-subtle bg-bg-elevated/40 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">{label}</p>
+      <p className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+        {label}
+        {term && <InfoTip term={term} />}
+      </p>
       <p className={`mt-1.5 text-2xl font-semibold ${tone === "good" ? "text-brand-emerald" : "text-text-primary"}`}>
         {value}
       </p>
@@ -66,7 +73,7 @@ export function FinancingView({ actions }: { actions: ActionItem[] }) {
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card label="Indicative subsidy" value={eur(totalGrant)} hint="across eligible measures" tone="good" />
+        <Card label="Indicative subsidy" value={eur(totalGrant)} hint="across eligible measures" tone="good" term="subsidy" />
         <Card label="Eligible measures" value={String(rows.length)} />
         <Card label="Capex (eligible)" value={eur(totalCapex)} />
         <Card label="Net after subsidy" value={eur(totalCapex - totalGrant)} />
