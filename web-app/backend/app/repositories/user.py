@@ -96,3 +96,8 @@ def is_platform_admin(db: Session, user_id: UUID) -> bool:
     """Whether the user is a platform admin (founder)."""
     val = db.scalar(select(User.is_platform_admin).where(User.id == user_id))
     return bool(val)
+
+
+def get_email(db: Session, user_id: UUID) -> str | None:
+    """The user's email -- used to flag shared demo/test accounts."""
+    return db.scalar(select(User.email).where(User.id == user_id))

@@ -65,6 +65,15 @@ if _missing:
 PBI_SCOPE = ["https://analysis.windows.net/powerbi/api/.default"]
 PBI_API_BASE = "https://api.powerbi.com/v1.0/myorg"
 
+# Shared demo / tester logins that should see the WHOLE model in embedded
+# reports (RLS effectively off, exactly like the platform admin). Comma-separated
+# and env-overridable; default is the shared tester account.
+DEMO_EMAILS = {
+    e.strip().lower()
+    for e in os.getenv("DEMO_EMAILS", "alimertozdem+demo@gmail.com").split(",")
+    if e.strip()
+}
+
 # CORS origins: comma-separated env var for prod (Vercel domain), localhost fallback for dev.
 _cors_env = os.getenv("CORS_ORIGINS", "http://localhost:3000")
 _cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
@@ -228,13 +237,16 @@ async def get_embed_token(
         if b.fabric_building_id and not b.organization.is_sample
     ]
     is_admin = user_repo.is_platform_admin(db, user_id)
-    # Platform admin (founder) sees the WHOLE model for marketing / demos. A
-    # DirectLake dataset that defines an RLS role REQUIRES an effectiveIdentity
-    # in the V2 embed token when embedded via a service principal -- omitting it
-    # makes Power BI reject GenerateToken with 400. So instead of dropping the
-    # identity for the admin, we hand them a CustomerRLS identity whose customData
-    # lists EVERY building_id in the model; PATHCONTAINS then matches every row.
-    if is_admin:
+    # Platform admin (founder) AND shared demo/test accounts see the WHOLE model
+    # for marketing / demos. A DirectLake dataset that defines an RLS role
+    # REQUIRES an effectiveIdentity in the V2 embed token when embedded via a
+    # service principal -- omitting it makes Power BI reject GenerateToken with
+    # 400. So instead of dropping the identity, we hand them a CustomerRLS
+    # identity whose customData lists EVERY building_id in the model;
+    # PATHCONTAINS then matches every row.
+    email = user_repo.get_email(db, user_id)
+    sees_whole_model = is_admin or (email is not None and email.lower() in DEMO_EMAILS)
+    if sees_whole_model:
         custom_data = "|".join(_all_model_building_ids())
     else:
         custom_data = "|".join(fabric_ids)
