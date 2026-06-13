@@ -15,10 +15,13 @@ import { getServerSession } from "next-auth"
 import { AppChrome } from "@/components/AppChrome"
 import { BuildingAdvisorPanel } from "@/components/buildings/BuildingAdvisorPanel"
 import { BuildingOverview } from "@/components/buildings/BuildingOverview"
+import { BuildingReportsHub } from "@/components/buildings/BuildingReportsHub"
+import { DataScoreCard } from "@/components/buildings/DataScoreCard"
 import { fetchActions } from "@/lib/api/actions"
 import { fetchAlerts } from "@/lib/api/alerts"
 import { fetchBuilding } from "@/lib/api/buildings"
 import { fetchPortfolioBuildings } from "@/lib/api/portfolio"
+import { fetchBuildingReadiness } from "@/lib/api/readiness"
 import { fetchBuildingResidential } from "@/lib/api/residentialManager"
 import { authOptions } from "@/lib/auth/options"
 import { buildAdvisorInsights } from "@/lib/insights/buildingAdvisor"
@@ -46,7 +49,7 @@ export default async function BuildingDetailPage({ params }: PageProps) {
   const building = buildingResult.data
 
   const isResidential = (building.building_type || "").toLowerCase().includes("residential")
-  const [portfolioResult, residentialResult, actionsResult, alertsResult] =
+  const [portfolioResult, residentialResult, actionsResult, alertsResult, readinessResult] =
     await Promise.all([
       fetchPortfolioBuildings(session.accessToken),
       isResidential
@@ -58,6 +61,7 @@ export default async function BuildingDetailPage({ params }: PageProps) {
         limit: 8,
         resolution: "unresolved",
       }),
+      fetchBuildingReadiness(session.accessToken, building.id),
     ])
 
   const kpis = portfolioResult.ok
@@ -69,6 +73,7 @@ export default async function BuildingDetailPage({ params }: PageProps) {
     residentialResult && residentialResult.ok ? residentialResult.data : null
   const topActions = actionsResult.ok ? actionsResult.data.actions : []
   const topAlerts = alertsResult.ok ? alertsResult.data.alerts : []
+  const readiness = readinessResult.ok ? readinessResult.data : null
   const insights = buildAdvisorInsights({
     kpis,
     topActions,
@@ -91,6 +96,18 @@ export default async function BuildingDetailPage({ params }: PageProps) {
       accentColor={ACCENT}
     >
       <div className="relative z-10 mx-auto max-w-7xl px-6 py-8">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-text-muted">
+            Dashboards, compliance reports &amp; documents for this building.
+          </p>
+          <a
+            href="#reports-hub-heading"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-brand-emerald/40 bg-brand-emerald/5 px-3 py-1.5 text-sm font-medium text-brand-emerald transition-colors hover:border-brand-emerald hover:bg-brand-emerald/10"
+          >
+            Reports &amp; documents
+            <span aria-hidden>↓</span>
+          </a>
+        </div>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="min-w-0">
             <BuildingOverview building={building} kpis={kpis} residential={residential} />
@@ -101,6 +118,10 @@ export default async function BuildingDetailPage({ params }: PageProps) {
             buildingName={building.name}
           />
         </div>
+
+        {readiness && <DataScoreCard readiness={readiness} />}
+
+        <BuildingReportsHub building={building} />
       </div>
     </AppChrome>
   )

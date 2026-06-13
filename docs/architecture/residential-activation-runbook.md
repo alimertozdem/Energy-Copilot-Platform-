@@ -21,6 +21,10 @@ runbook activates it and turns on the new **G1 climate-adjusted EUI** (the place
 | **G4** | `/residential` portfolio page added to the primary nav (was nav-orphaned). | `components/AppChrome.tsx` |
 | **G5** | Seed `building_type` normalized `Residential_MF` → `RESIDENTIAL_MF` (exact-match-join safety). | `notebooks/transformation/21_residential_ingestion.py` |
 | **G2** | B011 added to `ref_simulation_inputs` (RADIATOR_LT@60, GEG U-targets, gas 0.11; reviewer-approved) so simulation→recommendation emits quantified residential measures + BAFA/KfW grants. | `notebooks/sustainability/reference/00_reference_data_loader.py` |
+| **G2.1** | B011 building-master **flags** set (`has_heat_pump=False`, `has_pv=False`, `has_battery=False`, `has_led_lighting=False`, `iso50001_certified=False`, `epc_class='E'`, `roof_area_m2`, grid factor). The 21 seed left them NULL and `col("has_heat_pump") == False` is NULL in Spark → HP/DEEP/SOLAR rows were silently dropped. Surgical idempotent patch + the seed dict itself. | `notebooks/transformation/21b_fix_B011_building_master.py`, `21_residential_ingestion.py` |
+| **G2.2** | `LandlordInvestmentCase` now scopes to **retrofit measures only** and de-duplicates: when `DEEP_RETROFIT` is present it IS the scope (HP+insulation already bundled), so the card no longer sums standalone HP + insulation + DEEP, nor folds in ops (BMS/HVAC) or solar. | `components/residential/LandlordInvestmentCase.tsx` |
+| **G2.3** | **NEW** `ref_envelope_u_by_vintage` table — typical as-built wall/roof/window U by construction era (TABULA + WSchV/EnEV/GEG). Replaces the one-size `WALL_U_CURRENT=0.60` constant. | `00_reference_data_loader.py`, `docs/strategy/envelope-u-values-by-vintage.md` |
+| **G2.4** | `04` now resolves per-building envelope U: current from `year_built`→vintage table, target from `ref_simulation_inputs`, module-constant fallback (zero regression). Also: residential MFH → ASHP (not GSHP); per-building gas/elec price preferred over country tariff (B011's approved 0.11 was ignored). B011 `year_built=1973` seeded. | `04_simulation_engine.py`, `21_residential_ingestion.py`, `21b_fix_B011_building_master.py` |
 
 ---
 
@@ -90,19 +94,41 @@ to `ref_simulation_inputs` (`00_reference_data_loader.py`) with a 1970s-MFH prof
 
 | # | Notebook | Produces |
 |---|---|---|
-| a | `00_reference_data_loader.py` | reloads `ref_simulation_inputs` **with B011** (+ profiles, tariffs) |
-| b | `04_simulation_engine.py` | `gold_simulation_results` — B011 HP / insulation / deep scenarios + BAFA/KfW grants |
-| c | `06_recommendation_engine.py` | `gold_recommendations` — B011 `INSTALL_HEAT_PUMP` / `IMPROVE_INSULATION` / `DEEP_RETROFIT` with `capex_eur` + `grant_eur` |
+| a | `00_reference_data_loader.py` | reloads `ref_simulation_inputs` **with B011** (+ profiles, tariffs) **and builds `ref_envelope_u_by_vintage`** (vintage→U table for the envelope fix) |
+| b | `21b_fix_B011_building_master.py` | **NEW — run once.** Sets B011's boolean flags + `epc_class='E'` + roof + grid factor. **Without it the flags are NULL and `has_heat_pump == False` is NULL in Spark → INSTALL_HEAT_PUMP / DEEP_RETROFIT / SOLAR are silently dropped.** |
+| c | `04_simulation_engine.py` | `gold_simulation_results` — B011 HP / insulation / deep scenarios + BAFA/KfW grants |
+| d | `05_compliance_checker.py` | `gold_compliance_results` — B011 GEG wall/roof compliance + `overall_score`. **Required:** `IMPROVE_INSULATION` is gated on `geg_wall/roof_compliant == False` and `DEEP_RETROFIT` on `overall_score < 60`; with no B011 compliance row both drop (only the heat pump fires). |
+| e | `06_recommendation_engine.py` | `gold_recommendations` — B011 `INSTALL_HEAT_PUMP` / `IMPROVE_INSULATION` / `DEEP_RETROFIT` with `capex_eur` + `grant_eur` |
 
-**Then verify** `/buildings/B011/residential` → `LandlordInvestmentCase` shows Investment / Subsidy
-/ Net cost / rent uplift, and **reconcile** the figures to
-`docs/strategy/residential-retrofit-calculations.md` (6-measure T0–T2, 2026 BAFA/KfW 30–70 % cap,
-€30k/WE) — the card and the calc doc must tell the same story.
+**Then verify** `/buildings/B011/residential` → `LandlordInvestmentCase` shows Investment / Subsidy /
+Net cost / rent uplift. The card now scopes to **retrofit measures only**; when `DEEP_RETROFIT` is
+present it uses that as the single scope (it already bundles HP + insulation), so it no longer
+double-counts standalone HP + insulation nor folds in ops (BMS/HVAC) or solar. **Reconcile** the
+figures to `docs/strategy/residential-retrofit-calculations.md` — the card and the calc doc must
+tell the same story.
 
-> Note: for `RESIDENTIAL_MF` the profile feasibilities are heat-pump **HIGH**, insulation **HIGH**,
-> solar **MEDIUM**, battery **LOW** — so HP, insulation and deep-retrofit all fire; battery is
-> intentionally not recommended for residential. (An earlier draft mis-read insulation as LOW — the
-> LOW flag is battery; column order is heat_pump / solar / battery / insulation.)
+> **Dependency, corrected:** for `RESIDENTIAL_MF` the profile feasibilities are heat-pump **HIGH**,
+> insulation **HIGH**, solar **MEDIUM**, battery **LOW** — but feasibility alone is not enough.
+> **HP** fires once the flag patch (step b) is in; **insulation + deep-retrofit** additionally need
+> the compliance row (step d). Battery is intentionally not recommended for residential. (Column
+> order in the profile is heat_pump / solar / battery / insulation — the LOW flag is battery.)
+
+> **Envelope physics — RESOLVED 2026-06-12 (G2.3/G2.4).** The hard-coded current-U constant and the
+> ignored target-U / GSHP-selection are fixed via the vintage table (see
+> `docs/strategy/envelope-u-values-by-vintage.md`). B011 now computes ~103 kWh/m²·yr (was 77),
+> insulation ~€20k/yr (payback ~1.6 y), ASHP +~€6.7k/yr (payback ~9 y) — reconciles with the calc doc.
+> **Commercial impact:** only B001/B002/B003 are simulated (they have `ref_simulation_inputs` rows);
+> their vintage U-values are better than the old 0.60 constant, so their insulation savings **drop**
+> (more correct). **Eyeball B001/B002/B003 recommendations after re-running.**
+>
+> **Remaining residuals (deferred):**
+> 1. Non-residential U-values use the residential TABULA bands as an approximation; the IWU
+>    ENOB:dataNWG typology would refine offices/retail/logistics.
+> 2. Heat-pump uses the building's flat electricity tariff (0.30), not a dedicated HP tariff (~0.25),
+>    so HP savings are conservative — its real lever is CO₂/ETS2 pricing (per the calc doc).
+> 3. Ops measures (BMS, HVAC scheduling) fire for B011 with **€0 saving** (B011 isn't in
+>    `gold_kpi_monthly`). Now excluded from the investment card, but still surface on `/actions` with
+>    €0 — separate cleanup.
 
 ---
 
@@ -111,7 +137,7 @@ to `ref_simulation_inputs` (`00_reference_data_loader.py`) with a 1970s-MFH prof
 - [ ] **KPI/climate track** (`21 → 02_weather → 30`) runs clean; 3 residential gold tables non-empty for B011.
 - [ ] `climate_adjustment_factor ≠ 1.0` for B011 (weather joined).
 - [ ] `/residential` reachable from nav; building view shows the adjusted EUI (the "adj" line).
-- [ ] **Investment-case track** (`00 → 04 → 06`): `gold_recommendations` for B011 populated → `LandlordInvestmentCase` shows numbers, reconciled to the calc doc.
+- [ ] **Investment-case track** (`00 → 21b → 04 → 05 → 06`): `gold_recommendations` for B011 carries `INSTALL_HEAT_PUMP` (+ `IMPROVE_INSULATION` / `DEEP_RETROFIT` after step 05) → `LandlordInvestmentCase` shows a single coherent retrofit scope, reconciled to the calc doc.
 
 ---
 

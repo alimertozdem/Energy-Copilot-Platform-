@@ -86,6 +86,19 @@ def log_step(step: str, msg: str = "", rows: int = -1):
     print(f"[05_COMP] {step:40s}{row_str}  {msg}")
 
 
+# =============================================================================
+# CELL 0 — PARAMETERS  (mark this cell as "Toggle parameter cell" in Fabric)
+# -----------------------------------------------------------------------------
+# Self-serve bridge: the orchestrator passes BRIDGE_BUILDING_ID (the freshly
+# bridged fabric_building_id, e.g. "B012"). The input reads are then scoped to
+# that one building and the MERGE on building_id (results) / building_id+rule_code
+# (issues) touches only its rows. Left EMPTY (default) → full batch, unchanged.
+# =============================================================================
+BRIDGE_BUILDING_ID = ""   # e.g. "B012" → single-building bridge; "" → full batch
+print(f"[05_COMP] BRIDGE_BUILDING_ID = {BRIDGE_BUILDING_ID!r} "
+      f"({'single-building bridge' if BRIDGE_BUILDING_ID else 'full batch'})")
+
+
 # ── 1. TABLE PATHS ─────────────────────────────────────────────────────────────
 
 SILVER_PATHS = {
@@ -242,9 +255,31 @@ log_step("READ", "Loading input tables …")
 
 df_building   = spark.read.format("delta").load(SILVER_PATHS["building_master"])
 df_kpi_m      = spark.read.format("delta").load(GOLD_PATHS["kpi_monthly"])
-df_sim_res    = spark.read.format("delta").load(GOLD_PATHS["simulation_results"])
+# 2026-06-12: 04 now writes gold_simulation_results via saveAsTable (dbo). Read catalog-first
+# (fall back to flat for older runs) so 05 sees the fresh table incl. the B011 residential row.
+try:
+    df_sim_res = spark.table("gold_simulation_results")
+except Exception:
+    df_sim_res = spark.read.format("delta").load(GOLD_PATHS["simulation_results"])
 df_profiles   = spark.read.format("delta").load(REF_PATHS["building_type_profiles"])
 df_sim_inp    = spark.read.format("delta").load(REF_PATHS["simulation_inputs"])
+
+# --- Bridge scoping: filter inputs to ONE building when BRIDGE_BUILDING_ID set.
+#     df_sim_res is left-joined downstream, so a bridged building with no
+#     simulation row survives (GEG insulation flag falls back to U-values). ---
+if BRIDGE_BUILDING_ID:
+    df_building = df_building.filter(f"building_id = '{BRIDGE_BUILDING_ID}'")
+    df_kpi_m    = df_kpi_m.filter(f"building_id = '{BRIDGE_BUILDING_ID}'")
+    try:
+        df_sim_res = df_sim_res.filter(f"building_id = '{BRIDGE_BUILDING_ID}'")
+    except Exception as _e:
+        log_step("BRIDGE", f"sim_res filter skipped: {type(_e).__name__}")
+    if df_building.count() == 0:
+        raise ValueError(
+            f"Bridge: building '{BRIDGE_BUILDING_ID}' not in silver_building_master — "
+            "run 40_bridge_baseline first."
+        )
+    log_step("BRIDGE", f"scoped to building_id={BRIDGE_BUILDING_ID}")
 
 log_step("READ", "All tables loaded", rows=df_building.count())
 

@@ -115,4 +115,10 @@ class BuildingCreateRequest(BaseModel):
     timezone: str = "Europe/Berlin"
     # Installed solar PV capacity in kWp (onboarding solar step). None = no PV.
     pv_capacity_kwp: float | None = Field(default=None, ge=0)
+    # Envelope + fuel (onboarding) — unlock GEG / EPC / CO₂ reports. None = unknown.
+    wall_u_value: float | None = Field(default=None, ge=0, le=5)
+    roof_u_value: float | None = Field(default=None, ge=0, le=5)
+    window_u_value: float | None = Field(default=None, ge=0, le=10)
+    insulation_year: int | None = Field(default=None, ge=1800, le=2100)
+    has_gas_heating: bool | None = None
     modules: list[BuildingModuleInput] = []

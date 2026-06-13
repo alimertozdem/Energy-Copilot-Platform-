@@ -12,6 +12,7 @@ import { getServerSession } from "next-auth"
 import { AppChrome } from "@/components/AppChrome"
 import { CitySkylineMotif } from "@/components/CitySkylineMotif"
 import { DataPendingBanner } from "@/components/DataPendingBanner"
+import { SampleDataToggle } from "@/components/SampleDataToggle"
 import { SustainabilityMotif } from "@/components/SustainabilityMotif"
 import {
   countOwnBuildings,
@@ -19,6 +20,7 @@ import {
   ownBuildingsAllPending,
 } from "@/lib/api/buildings"
 import { authOptions } from "@/lib/auth/options"
+import { fetchSampleDataState } from "@/lib/api/sampleData"
 
 import { BuildingsListClient } from "./BuildingsListClient"
 
@@ -36,6 +38,9 @@ export default async function BuildingsPage() {
     redirect("/onboarding")
   }
 
+  const sampleState = await fetchSampleDataState(session.accessToken)
+  const sampleEnabled = sampleState.ok ? sampleState.data.enabled : true
+
   return (
     <AppChrome
       breadcrumb={[{ label: "Buildings" }]}
@@ -50,6 +55,12 @@ export default async function BuildingsPage() {
       <CitySkylineMotif />
 
       <div className="relative z-10 px-6 py-8 max-w-7xl mx-auto">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <p className="text-xs text-text-faint">
+            Sample buildings carry full demo data — useful for previewing the reports.
+          </p>
+          <SampleDataToggle initialEnabled={sampleEnabled} />
+        </div>
         {!result.ok ? (
           <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-6 text-text-primary">
             <div className="text-sm font-medium mb-1">

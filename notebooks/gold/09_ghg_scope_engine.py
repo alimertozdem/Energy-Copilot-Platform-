@@ -3,6 +3,11 @@
 # Notebook: 09_ghg_scope_engine.py
 # Layer: GOLD — GHG Scope Emissions Engine
 # Updated: 2026-04-16
+# ⚠️ FABRIC NOTE: ~34KB → too big for ONE Fabric cell (~33KB paste limit). The LIVE
+#    Fabric 09 is the 3-cell split: 09_ghg_FABRIC_cell1_dataprep + cell2_scopecalc +
+#    cell3_breakdown_long (newer; cell3 also builds gold_ghg_breakdown_long). Add the
+#    bridge BRIDGE_BUILDING_ID param cell + read-filter to the 3-cell version, NOT here.
+#    This single file is readable reference only — do not paste it into Fabric as one cell.
 # =============================================================================
 #
 # GÖREV (Purpose):
@@ -96,6 +101,21 @@ print("✅ Spark konfigürasyonu tamamlandı")
 
 
 # =============================================================================
+# CELL 0 — PARAMETERS  (mark this cell as "Toggle parameter cell" in Fabric)
+# -----------------------------------------------------------------------------
+# Self-serve bridge: when the orchestrator runs this notebook for ONE freshly
+# bridged building it passes BRIDGE_BUILDING_ID (the fabric_building_id, e.g.
+# "B012"). The reference reads below are then filtered to that building and the
+# Delta MERGE touches only its rows — every other building's gold_ghg_scope is
+# left untouched. Left EMPTY (the default) the notebook runs the FULL batch
+# exactly as before, so the daily pipeline is unaffected.
+# =============================================================================
+BRIDGE_BUILDING_ID = ""   # e.g. "B012" → single-building bridge; "" → full batch
+print(f"📋 BRIDGE_BUILDING_ID = {BRIDGE_BUILDING_ID!r} "
+      f"({'single-building bridge' if BRIDGE_BUILDING_ID else 'full batch'})")
+
+
+# =============================================================================
 # BÖLÜM 2 — KONFİGÜRASYON VE SABİTLER
 # =============================================================================
 
@@ -169,6 +189,18 @@ print(f"✅ Motor parametresi: kazan verimi {GAS_BOILER_EFFICIENCY}. "
 
 df_kpi = spark.read.format("delta").load(GOLD_KPI_DAILY)
 df_building = spark.read.format("delta").load(SILVER_BUILDING)
+
+# --- Bridge scoping: filter sources to ONE building when BRIDGE_BUILDING_ID set.
+#     fabric_building_id is platform-minted ("B0NN"), so the literal is safe. ---
+if BRIDGE_BUILDING_ID:
+    df_kpi = df_kpi.filter(f"building_id = '{BRIDGE_BUILDING_ID}'")
+    df_building = df_building.filter(f"building_id = '{BRIDGE_BUILDING_ID}'")
+    if df_building.count() == 0:
+        raise ValueError(
+            f"Bridge: building '{BRIDGE_BUILDING_ID}' not in silver_building_master — "
+            "run 40_bridge_baseline first."
+        )
+    print(f"🔗 BRIDGE MODE: scoped to building_id={BRIDGE_BUILDING_ID}")
 
 print(f"✅ gold_kpi_daily: {df_kpi.count():,} satır okundu")
 print(f"✅ silver_building_master: {df_building.count()} satır okundu")

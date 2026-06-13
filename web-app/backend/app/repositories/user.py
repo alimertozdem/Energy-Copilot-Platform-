@@ -76,3 +76,23 @@ def create_auth_provider(
 def touch_last_login(db: Session, user: User) -> None:
     """Update user.last_login_at = NOW() (Python-side UTC timestamp)."""
     user.last_login_at = datetime.now(timezone.utc)
+
+
+def get_show_sample_data(db: Session, user_id: UUID) -> bool:
+    """Return the user's sample/demo visibility flag (default True)."""
+    val = db.scalar(select(User.show_sample_data).where(User.id == user_id))
+    return bool(val) if val is not None else True
+
+
+def set_show_sample_data(db: Session, user_id: UUID, enabled: bool) -> None:
+    """Set the user's sample/demo visibility flag. Commits."""
+    user = db.scalar(select(User).where(User.id == user_id))
+    if user is not None:
+        user.show_sample_data = enabled
+        db.commit()
+
+
+def is_platform_admin(db: Session, user_id: UUID) -> bool:
+    """Whether the user is a platform admin (founder)."""
+    val = db.scalar(select(User.is_platform_admin).where(User.id == user_id))
+    return bool(val)

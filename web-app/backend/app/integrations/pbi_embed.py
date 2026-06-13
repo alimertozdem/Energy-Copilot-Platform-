@@ -92,6 +92,7 @@ async def generate_embed_token(
     report_id: str,
     rls_username: str | None = None,
     rls_roles: Iterable[str] | None = None,
+    rls_custom_data: str | None = None,
 ) -> dict:
     """Generate a V2 embed token for a report, optionally with RLS identity.
 
@@ -133,13 +134,17 @@ async def generate_embed_token(
         }
 
         if rls_username and rls_roles:
-            body["identities"] = [
-                {
-                    "username": rls_username,
-                    "roles": list(rls_roles),
-                    "datasets": [dataset_id],
-                }
-            ]
+            identity: dict = {
+                "username": rls_username,
+                "roles": list(rls_roles),
+                "datasets": [dataset_id],
+            }
+            # CustomerRLS filters via PATHCONTAINS(CUSTOMDATA(), building_id);
+            # the caller passes a "|"-joined PATH of the building_ids this token
+            # may see. Omitted -> empty CUSTOMDATA() -> fail-closed (no rows).
+            if rls_custom_data is not None:
+                identity["customData"] = rls_custom_data
+            body["identities"] = [identity]
 
         token_url = f"{PBI_API_BASE}/GenerateToken"
         token_resp = await client.post(token_url, headers=headers, json=body)

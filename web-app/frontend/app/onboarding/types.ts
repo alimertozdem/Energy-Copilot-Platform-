@@ -17,6 +17,11 @@ export type OnboardingData = {
   epc_class: string
   floors_above_ground: string
   typical_occupants: string
+  // Envelope & efficiency (unlock the GEG check + sharpen retrofit advice)
+  wall_u_value: string
+  roof_u_value: string
+  window_u_value: string
+  insulation_year: string
   // Systems & data
   has_iot: boolean
   has_battery: boolean
@@ -47,6 +52,10 @@ export const INITIAL_DATA: OnboardingData = {
   epc_class: "",
   floors_above_ground: "",
   typical_occupants: "",
+  wall_u_value: "",
+  roof_u_value: "",
+  window_u_value: "",
+  insulation_year: "",
   has_iot: false,
   has_battery: false,
   has_solar: false,
@@ -64,7 +73,7 @@ export const INITIAL_DATA: OnboardingData = {
   data_method: "",
 }
 
-export const STEPS = ["Welcome", "Building", "Systems", "Review", "Done"] as const
+export const STEPS = ["Welcome", "Building", "Systems", "Envelope", "Review", "Done"] as const
 
 export const BUILDING_TYPES = [
   "Office",

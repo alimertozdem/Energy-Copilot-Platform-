@@ -221,8 +221,4 @@ else:
     df_with_ef = df_with_ef.withColumn("tenant_kwh", lit(None).cast("double"))
 
 if _has_org:
-    df_with_ef = df_with_ef.join(broadcast(df_org), col("building_id") == col("org_building"), "left").drop("org_building")
-else:
-    df_with_ef = df_with_ef.withColumn("headcount", lit(None).cast("int"))
-
-print("✅ CELL 1 tamam — df_with_ef hazır. Şimdi CELL 2'yi sonraki hücreye yapıştır.")
+    df_with_ef = df_with_ef.join(broadcast(df_org), col("building_id") == col("

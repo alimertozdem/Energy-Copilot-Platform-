@@ -238,6 +238,29 @@ def is_demo_building(fabric_building_id: str) -> bool:
     return fabric_building_id in DEMO_FABRIC_IDS
 
 
+def _all_demo_visible_building_ids() -> list[str]:
+    """Every building_id in the semantic model.
+
+    The public /demo is intentionally UNRESTRICTED -- testers must see the whole
+    sample/showcase portfolio, so the embed token's customData spans every
+    building_id (PATHCONTAINS then matches every row). Falls back to the
+    hardcoded DEMO_FABRIC_IDS when Fabric SQL is unreachable so the embed still
+    renders the core six.
+    """
+    try:
+        rows = fabric_sql.execute_query(
+            "SELECT DISTINCT building_id FROM [dbo].[silver_building_master] "
+            "WHERE building_id IS NOT NULL"
+        )
+        ids = [str(r["building_id"]) for r in rows if r.get("building_id")]
+        return ids or list(DEMO_FABRIC_IDS)
+    except pyodbc.Error as exc:
+        logger.warning(
+            "demo embed all-ids query failed (%s); using DEMO_FABRIC_IDS", exc
+        )
+        return list(DEMO_FABRIC_IDS)
+
+
 async def get_demo_embed_token(building_id: str | None = None) -> DemoEmbedTokenResponse:
     """Issue a short-lived Power BI embed token for the public demo page.
 
@@ -265,13 +288,26 @@ async def get_demo_embed_token(building_id: str | None = None) -> DemoEmbedToken
             detail="PBI_WORKSPACE_ID / PBI_REPORT_ID not configured",
         )
 
-    # DirectLake datasets reject identities[] (see module docstring).
-    # We deliberately omit rls_username / rls_roles -- the frontend hardcoded
-    # buildingIds filter + this service's whitelist check provide the V1
-    # security boundary.
+    # The semantic model now carries the CustomerRLS role (CP-2, 2026-06-11), so
+    # Power BI REQUIRES an effectiveIdentity in the V2 embed token -- omitting it
+    # returns 400 "requires effective identity to be provided". (The old
+    # "DirectLake rejects identities[]" limitation was resolved by binding the
+    # model OneLake source to a fixed-identity SP connection; the authed
+    # /embed/token has shipped identities[] in prod since 2026-06-11.)
+    #
+    # The public demo is intentionally UNRESTRICTED -- testers must see the whole
+    # sample/showcase portfolio. So we hand the token a customData PATH spanning
+    # EVERY building_id in the model; PATHCONTAINS then matches every row (same
+    # trick the platform-admin path uses). NOTE: this exposes the entire semantic
+    # model on the public demo -- once real customer data lives in the model,
+    # scope this to sample buildings only.
+    custom_data = "|".join(_all_demo_visible_building_ids())
     token_data = await pbi_embed.generate_embed_token(
         workspace_id=workspace_id,
         report_id=report_id,
+        rls_username="demo@energylens.app",
+        rls_roles=["CustomerRLS"],
+        rls_custom_data=custom_data,
     )
 
     return DemoEmbedTokenResponse(

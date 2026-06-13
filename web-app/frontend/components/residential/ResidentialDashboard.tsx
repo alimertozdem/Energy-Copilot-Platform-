@@ -91,11 +91,20 @@ export function ResidentialDashboard({
         <Card label="Units with data" value={rollup.units_with_data} />
         <Card
           label="Building avg EUI"
-          value={f(rollup.building_avg_eui_kwh_m2_yr)}
+          value={f(
+            rollup.building_avg_eui_climate_adjusted_kwh_m2_yr != null &&
+              rollup.climate_adjustment_factor != null &&
+              Math.abs(rollup.climate_adjustment_factor - 1) > 0.005
+              ? rollup.building_avg_eui_climate_adjusted_kwh_m2_yr
+              : rollup.building_avg_eui_kwh_m2_yr
+          )}
           hint={
+            rollup.building_avg_eui_climate_adjusted_kwh_m2_yr != null &&
             rollup.climate_adjustment_factor != null &&
-            rollup.climate_adjustment_factor !== 1
-              ? `kWh/m²·yr · climate-adj ×${rollup.climate_adjustment_factor.toFixed(2)}`
+            Math.abs(rollup.climate_adjustment_factor - 1) > 0.005
+              ? `kWh/m²·yr · climate-adj ×${rollup.climate_adjustment_factor.toFixed(
+                  2
+                )} (raw ${f(rollup.building_avg_eui_kwh_m2_yr)})`
               : "kWh/m²·yr (heating + hot water)"
           }
           term="eui"

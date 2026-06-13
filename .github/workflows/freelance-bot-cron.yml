@@ -88,4 +88,4 @@ jobs:
           if [ "${{ steps.mode.outputs.dry_run }}" = "true" ]; then
             ARGS="$ARGS --dry-run"
           fi
-          python -m src.main $ARGS
+      

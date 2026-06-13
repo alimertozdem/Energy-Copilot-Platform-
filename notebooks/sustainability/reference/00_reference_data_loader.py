@@ -14,6 +14,7 @@
 #   ref_building_type_profiles → 8 bina tipi: benchmark, yük profili, öncelikler
 #   ref_technology_catalog     → Isı pompası, batarya, yalıtım ürün kategorileri
 #   ref_simulation_inputs      → 4 bina için simülasyon girdi değerleri (B001-B003 + B011)
+#   ref_envelope_u_by_vintage  → yapım dönemine göre tipik zarf U-değerleri
 #
 # NOT: Bu notebook'u pipeline başında (Bronze öncesinde) veya
 #      bağımsız olarak çalıştırabilirsin. Veriler inline tanımlıdır —
@@ -41,6 +42,7 @@ REF_PATHS = {
     "building_type_profiles":"Tables/ref_building_type_profiles",
     "technology_catalog":    "Tables/ref_technology_catalog",
     "simulation_inputs":     "Tables/ref_simulation_inputs",
+    "envelope_u_by_vintage": "Tables/ref_envelope_u_by_vintage",
 }
 
 def write_ref_table(data, schema, path, table_name):
@@ -789,6 +791,54 @@ sim_data = [
 ]
 
 df_sim = write_ref_table(sim_data, sim_schema, REF_PATHS["simulation_inputs"], "ref_simulation_inputs")
+
+# =============================================================================
+# BÖLÜM 5.5 — ref_envelope_u_by_vintage
+# Bina yapım dönemine göre TİPİK (as-built) zarf U-değerleri [W/m²K].
+# 04_simulation_engine bunu building_master.year_built ile join eder → mevcut/
+# önceki U-değeri. Böylece 1970'ler binası ile 2018 binası AYNI sabitle
+# hesaplanmaz (eski WALL_U_CURRENT=0.60 sabiti artık yalnız fallback).
+# Screening-grade / indicative. KAYNAK: IWU TABULA German residential typology
+# (Episcope) + WSchV 1977/1984/1995 + EnEV 2002/2009/2014 + GEG 2020/2024
+# bileşen-U gereksinimleri (energie-experten.org, baunetzwissen.de, BBSR GEG).
+# Bina-spesifik denetim (gerçek U-ölçümü) bu aralıkların yerini alır.
+# NOT (Nichtwohngebäude): bileşen-U dönemsel mevzuatla belirlendiğinden bu tablo
+# ofis/perakende/lojistik için de makul yaklaşımdır; ENOB:dataNWG tipolojisi
+# ileride incelik katabilir. docs/strategy/envelope-u-values-by-vintage.md
+# =============================================================================
+
+print("\n" + "="*60)
+print("BÖLÜM 5.5 — Zarf U-Değerleri (Yapım Dönemine Göre)")
+print("="*60)
+
+vintage_u_schema = StructType([
+    StructField("vintage_min_year",   IntegerType(), False),
+    StructField("vintage_max_year",   IntegerType(), False),
+    StructField("era_label",          StringType(),  False),
+    StructField("regulatory_basis",   StringType(),  True),
+    StructField("current_wall_u",     DoubleType(),  False),  # W/m2K
+    StructField("current_roof_u",     DoubleType(),  False),
+    StructField("current_window_u",   DoubleType(),  False),
+    StructField("source",             StringType(),  True),
+])
+
+_SRC = "IWU TABULA (Episcope) + WSchV/EnEV/GEG component-U; screening-grade"
+vintage_u_data = [
+    (1800, 1918, "<=1918 Gruenderzeit",     "Pre-Norm (DIN 4108 1952)", 1.5, 1.0,  2.7, _SRC),
+    (1919, 1948, "1919-1948",               "Pre-Norm",                 1.4, 1.0,  2.7, _SRC),
+    (1949, 1968, "1949-1968 Nachkriegszeit","Pre-WSchV",                1.4, 0.9,  2.8, _SRC),
+    (1969, 1978, "1969-1978 (pre-WSchV)",   "Pre-WSchV / DIN 4108",     1.2, 0.8,  2.7, _SRC),
+    (1979, 1983, "1979-1983",               "WSchV 1977",               0.8, 0.5,  2.8, _SRC),
+    (1984, 1994, "1984-1994",               "WSchV 1984",               0.6, 0.45, 2.8, _SRC),
+    (1995, 2001, "1995-2001",               "WSchV 1995",               0.5, 0.30, 1.8, _SRC),
+    (2002, 2008, "2002-2008",               "EnEV 2002/2004",           0.40, 0.30, 1.7, _SRC),
+    (2009, 2013, "2009-2013",               "EnEV 2009",                0.28, 0.20, 1.4, _SRC),
+    (2014, 2019, "2014-2019",               "EnEV 2014/2016",           0.24, 0.20, 1.3, _SRC),
+    (2020, 2100, ">=2020",                  "GEG 2020/2024",            0.24, 0.20, 1.3, _SRC),
+]
+
+df_vintage_u = write_ref_table(vintage_u_data, vintage_u_schema, REF_PATHS["envelope_u_by_vintage"], "ref_envelope_u_by_vintage")
+
 
 
 # =============================================================================

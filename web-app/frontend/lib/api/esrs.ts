@@ -50,7 +50,8 @@ export type EsrsReport = {
 type FetchResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
 export async function fetchEsrsReport(
-  accessToken: string
+  accessToken: string,
+  buildingId?: string | null
 ): Promise<FetchResult<EsrsReport>> {
   const backendUrl = process.env.BACKEND_URL || null
   if (!backendUrl) {
@@ -61,8 +62,12 @@ export async function fetchEsrsReport(
     return { ok: false, error: "Missing access token" }
   }
 
+  const url = buildingId
+    ? `${backendUrl}/compliance/esrs?building_id=${encodeURIComponent(buildingId)}`
+    : `${backendUrl}/compliance/esrs`
+
   try {
-    const res = await fetch(`${backendUrl}/compliance/esrs`, {
+    const res = await fetch(url, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,

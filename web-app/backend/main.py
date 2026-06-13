@@ -46,6 +46,7 @@ from app.routers import pilot as pilot_router
 from app.db.database import get_db
 from app.utils.jwt import get_current_user_id
 from app.repositories import building as building_repo
+from app.repositories import user as user_repo
 
 # Read Power BI credentials from environment
 PBI_TENANT_ID = os.getenv("PBI_TENANT_ID")
@@ -184,6 +185,21 @@ def health():
     return {"status": "healthy"}
 
 
+def _all_model_building_ids() -> list[str]:
+    # Every building_id in the model's RLS table (silver_building_master).
+    # Grants a platform admin full visibility via the CustomerRLS role: a
+    # customData PATH containing all ids passes PATHCONTAINS on every row.
+    # Reads the Fabric SQL endpoint (same source the dashboards use); a
+    # pyodbc.Error here surfaces as the standard 503 'data unavailable'.
+    from app.integrations import fabric_sql
+
+    rows = fabric_sql.execute_query(
+        "SELECT DISTINCT building_id FROM [dbo].[silver_building_master] "
+        "WHERE building_id IS NOT NULL"
+    )
+    return [str(r["building_id"]) for r in rows if r.get("building_id")]
+
+
 @app.post("/embed/token", response_model=EmbedTokenResponse)
 async def get_embed_token(
     user_id: Annotated[UUID, Depends(get_current_user_id)],
@@ -211,7 +227,17 @@ async def get_embed_token(
         for b in buildings
         if b.fabric_building_id and not b.organization.is_sample
     ]
-    custom_data = "|".join(fabric_ids)
+    is_admin = user_repo.is_platform_admin(db, user_id)
+    # Platform admin (founder) sees the WHOLE model for marketing / demos. A
+    # DirectLake dataset that defines an RLS role REQUIRES an effectiveIdentity
+    # in the V2 embed token when embedded via a service principal -- omitting it
+    # makes Power BI reject GenerateToken with 400. So instead of dropping the
+    # identity for the admin, we hand them a CustomerRLS identity whose customData
+    # lists EVERY building_id in the model; PATHCONTAINS then matches every row.
+    if is_admin:
+        custom_data = "|".join(_all_model_building_ids())
+    else:
+        custom_data = "|".join(fabric_ids)
 
     azure_token = get_azure_token()
 
@@ -237,19 +263,24 @@ async def get_embed_token(
 
         # 2. Generate embed token via V2 API with RLS effectiveIdentity (customData).
         token_url = f"{PBI_API_BASE}/GenerateToken"
-        token_body = {
+        token_body: dict = {
             "datasets": [{"id": dataset_id}],
             "reports": [{"id": PBI_REPORT_ID}],
             "targetWorkspaces": [{"id": PBI_WORKSPACE_ID}],
-            "identities": [
-                {
-                    "username": "rls@energylens.app",
-                    "roles": ["CustomerRLS"],
-                    "datasets": [dataset_id],
-                    "customData": custom_data,
-                }
-            ],
         }
+        # Always attach an effectiveIdentity: the dataset carries the CustomerRLS
+        # role, and a service-principal V2 embed token for an RLS-enabled
+        # DirectLake model MUST include one (no identity -> 400). Non-admins are
+        # scoped to their own visible buildings (empty customData = fail-closed =
+        # empty report); the admin's customData (built above) spans the whole model.
+        token_body["identities"] = [
+            {
+                "username": "rls@energylens.app",
+                "roles": ["CustomerRLS"],
+                "datasets": [dataset_id],
+                "customData": custom_data,
+            }
+        ]
         token_resp = await client.post(token_url, headers=headers, json=token_body)
 
         if token_resp.status_code != 200:

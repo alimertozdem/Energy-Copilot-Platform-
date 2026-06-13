@@ -140,15 +140,47 @@ print(f"✅ Normalised to {n_months} monthly rows.")
 # module-gated pages stay locked until real device data arrives.
 # =============================================================================
 
+# Envelope / compliance fields for the downstream report notebooks (05 GEG §10
+# U-value check, 09 GHG Scope-1 gas flag). We MUST use the EXACT
+# silver_building_master column names — conform_to_target() drops any column whose
+# name doesn't match the target, so a typo here = silent null = locked GEG report.
+def _f(v):
+    try:
+        return float(v) if v is not None else None
+    except (TypeError, ValueError):
+        return None
+
+def _i(v):
+    try:
+        return int(v) if v is not None else None
+    except (TypeError, ValueError):
+        return None
+
+WALL_U     = _f(meta.get("wall_u_value"))
+ROOF_U     = _f(meta.get("roof_u_value"))
+WINDOW_U   = _f(meta.get("window_u_value"))
+INSUL_YR   = _i(meta.get("insulation_year"))
+YEAR_BUILT = _i(meta.get("construction_year"))
+EPC        = meta.get("epc_class") or None
+CITY       = meta.get("city") or None
+_gas       = meta.get("has_gas_heating")
+HAS_GAS    = bool(_gas) if _gas is not None else None
+print(f"   envelope: wall={WALL_U} roof={ROOF_U} window={WINDOW_U} "
+      f"insul={INSUL_YR} year_built={YEAR_BUILT} gas={HAS_GAS} epc={EPC}")
+
 # Build the dimension row with proper booleans via an explicit DDL schema.
 df_dim_new = spark.createDataFrame(
     [(fabric_building_id, meta.get("name") or fabric_building_id, COUNTRY, AREA_M2,
       PV_KWP, 0.0, PV_KWP > 0, False, bool(meta.get("has_heat_pump") or False),
-      EU_EF_FALLBACK_KG_KWH, SUB_TIER, BUILDING_TYPE)],
+      EU_EF_FALLBACK_KG_KWH, SUB_TIER, BUILDING_TYPE,
+      YEAR_BUILT, CITY, WALL_U, ROOF_U, WINDOW_U, INSUL_YR, EPC, HAS_GAS)],
     schema="building_id string, building_name string, country_code string, "
            "conditioned_area_m2 double, pv_capacity_kwp double, battery_capacity_kwh double, "
            "has_pv boolean, has_battery boolean, has_heat_pump boolean, "
-           "emission_factor_kg_kwh double, subscription_tier string, building_type string",
+           "emission_factor_kg_kwh double, subscription_tier string, building_type string, "
+           "year_built int, city string, wall_u_value double, roof_u_value double, "
+           "window_u_value double, insulation_year int, energy_certificate string, "
+           "has_gas_heating boolean",
 )
 
 

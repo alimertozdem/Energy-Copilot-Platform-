@@ -13,8 +13,11 @@ import { LogoCard } from "@/app/components/LogoCard"
 import { cn } from "@/lib/utils"
 import { BuildingBasicsStep } from "@/components/onboarding/BuildingBasicsStep"
 import { SystemsStep } from "@/components/onboarding/SystemsStep"
+import { EnvelopeStep } from "@/components/onboarding/EnvelopeStep"
 import { ReviewStep } from "@/components/onboarding/ReviewStep"
 import { DoneStep } from "@/components/onboarding/DoneStep"
+import { WizardScorePreview } from "@/components/onboarding/WizardScorePreview"
+import { previewReadiness } from "@/lib/readiness/preview"
 import {
   createBuilding,
   type BuildingCreateRequest,
@@ -26,6 +29,19 @@ import { type OnboardingData, INITIAL_DATA, STEPS } from "./types"
 function toNumber(s: string): number | null {
   const n = parseFloat(s)
   return Number.isFinite(n) ? n : null
+}
+
+function toIntOrNull(s: string): number | null {
+  const n = parseInt(s, 10)
+  return Number.isFinite(n) ? n : null
+}
+
+// On-site fossil combustion (drives Scope 1 + the CO₂ cost split). Unknown when
+// no heating is chosen or it's free-text "other".
+function gasFlag(d: OnboardingData): boolean | null {
+  const h = d.heating_system
+  if (!h || h === "other") return null
+  return h === "gas_boiler" || h === "oil"
 }
 
 export function OnboardingWizard({ userName }: { userName: string | null }) {
@@ -42,6 +58,9 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
 
   const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1))
   const back = () => setStep((s) => Math.max(s - 1, 0))
+
+  // Live Data Score mirror (consumption not yet uploaded → months = 0).
+  const preview = previewReadiness(data)
 
   async function submit() {
     setSubmitting(true)
@@ -99,6 +118,11 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
       floors_above_ground: toNumber(data.floors_above_ground),
       typical_occupants: toNumber(data.typical_occupants),
       pv_capacity_kwp: data.has_solar ? toNumber(data.pv_capacity_kwp) : null,
+      wall_u_value: toNumber(data.wall_u_value),
+      roof_u_value: toNumber(data.roof_u_value),
+      window_u_value: toNumber(data.window_u_value),
+      insulation_year: toIntOrNull(data.insulation_year),
+      has_gas_heating: gasFlag(data),
       modules,
     }
 
@@ -110,7 +134,7 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
     }
     setSavedName(result.data.name)
     setSavedId(result.data.id)
-    setStep(4)
+    setStep(5)
   }
 
   function resetForAnother() {
@@ -143,6 +167,9 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
             aria-hidden
           />
           <ProgressBar step={step} />
+          {step > 0 && step < STEPS.length - 1 && (
+            <WizardScorePreview preview={preview} />
+          )}
 
           <div key={step} className="el-fade-up">
           {step === 0 && <WelcomeStep userName={userName} onNext={next} />}
@@ -163,6 +190,14 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
             />
           )}
           {step === 3 && (
+            <EnvelopeStep
+              data={data}
+              update={update}
+              onNext={next}
+              onBack={back}
+            />
+          )}
+          {step === 4 && (
             <ReviewStep
               data={data}
               onSubmit={submit}
@@ -171,7 +206,7 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
               error={error}
             />
           )}
-          {step === 4 && (
+          {step === 5 && (
             <DoneStep
               buildingName={savedName}
               buildingId={savedId}

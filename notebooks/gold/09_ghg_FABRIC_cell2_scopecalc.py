@@ -152,5 +152,4 @@ except Exception:
     print(f"ℹ️  '{_tbl}' katalogda 1-2 dk içinde keşfedilir")
 
 df_check = spark.read.format("delta").load(OUTPUT_TABLE)
-print(f"\n📊 gold_ghg_scope: {df_check.count():,} satır, {df_check.select('building_id').distinct().count()} bina")
-print("✅ CELL 2 tamam — gold_ghg_scope güncel (full Scope 1/2/3, 6 kategori).")
+print(f"\n📊 gold_ghg_scope: {df_check.count():,

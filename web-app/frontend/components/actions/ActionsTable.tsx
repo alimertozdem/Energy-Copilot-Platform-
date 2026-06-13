@@ -58,6 +58,19 @@ function fmtPaybackYears(years: number | null): string {
   return `${years.toFixed(1)} yr`
 }
 
+// A measure with no quantified financial payback: either it saves nothing
+// (annual_saving_eur null/0) or its payback is the backend "no real payback"
+// sentinel (~99 yr). These are operational / no-capex tweaks — show them as an
+// "Operational" measure instead of a misleading "99.0 yr".
+const OPERATIONAL_PAYBACK_YEARS = 50
+
+function isOperationalMeasure(a: ActionItem): boolean {
+  const noSaving = a.annual_saving_eur === null || a.annual_saving_eur === 0
+  const noPayback =
+    a.payback_years === null || a.payback_years >= OPERATIONAL_PAYBACK_YEARS
+  return noSaving || noPayback
+}
+
 function priorityStyle(label: string | null): string {
   switch ((label ?? "").toLowerCase()) {
     case "high":
@@ -181,11 +194,19 @@ function buildColumns(
     {
       accessorKey: "payback_years",
       header: () => <TermLabel term="payback">Payback</TermLabel>,
-      cell: ({ row }) => (
-        <span className="tabular-nums text-white/80">
-          {fmtPaybackYears(row.original.payback_years)}
-        </span>
-      ),
+      cell: ({ row }) =>
+        isOperationalMeasure(row.original) ? (
+          <span className="inline-flex flex-col leading-tight">
+            <span className="tabular-nums text-white/50">—</span>
+            <span className="text-[10px] uppercase tracking-wider text-white/40">
+              Operational
+            </span>
+          </span>
+        ) : (
+          <span className="tabular-nums text-white/80">
+            {fmtPaybackYears(row.original.payback_years)}
+          </span>
+        ),
     },
     {
       id: "status",

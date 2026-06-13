@@ -120,6 +120,17 @@ LED_SAVING_PCT         = 0.30        # 30% lighting energy saving
 LIGHTING_SHARE_PCT     = 0.20        # 20% of total consumption is lighting
 LED_CO2_SAVING_KG_KWH  = 0.4        # kg CO2 per kWh avoided
 
+# ── Electricity-only EUI benchmarks (operational quick-win fallback) ───────────
+# Used ONLY to ESTIMATE consumption when a building has no metered
+# annual_consumption_kwh (e.g. residential buildings outside the commercial KPI
+# pipeline). ELECTRICITY-only kWh/m2.yr by type — NOT total energy (residential
+# total ~130 is heating-dominated; non-heating electricity is ~20-35). Midpoints
+# grounded in CIBSE TM46 (general office elec ~95), NL CBS (offices 60-100) and
+# German destatis/ODYSSEE residential non-heating (~25: ~10 lighting + ~15
+# appliances). Per-type values live in the _elec_eui_bench column below. Reviewer:
+# Mert (energy). Indicative screening ranges, NOT engineering guarantees.
+ELEC_EST_BAND = 0.30   # +/-30% range shown in the description around the estimate
+
 # ── NEW ACTION TYPE CONSTANTS — audit F3 fix: tarife ref_electricity_tariffs'ten ──
 # Inline RATE_* kaldırıldı → tek-doğru-kaynak. ref tablo yoksa fallback (Eurostat 2025).
 try:
@@ -196,6 +207,20 @@ PV_FEED_IN_DEFAULT          = 0.060    # EUR/kWh, other-market fallback
 PV_SELF_CONSUMPTION_DEFAULT = 0.55     # no-battery self-consumption fraction; type overrides in block (0.45-0.80)
 
 
+# =============================================================================
+# CELL 0 — PARAMETERS  (mark this cell as "Toggle parameter cell" in Fabric)
+# -----------------------------------------------------------------------------
+# Self-serve bridge: the orchestrator passes BRIDGE_BUILDING_ID (the freshly
+# bridged fabric_building_id, e.g. "B012"). Inputs are scoped to that building
+# and the write REPLACES only that building's rows (delete-by-building + append)
+# — never DROP/overwrite, which would wipe every other customer's
+# recommendations. Left EMPTY (default) → full batch rebuild, unchanged.
+# =============================================================================
+BRIDGE_BUILDING_ID = ""   # e.g. "B012" → single-building bridge; "" → full batch
+log_step("PARAM", f"BRIDGE_BUILDING_ID={BRIDGE_BUILDING_ID!r} "
+         f"({'single-building bridge' if BRIDGE_BUILDING_ID else 'full batch'})")
+
+
 # ── 3. READ INPUT TABLES ───────────────────────────────────────────────────────
 
 log_step("READ", "Loading input tables …")
@@ -219,6 +244,18 @@ def read_delta(name: str):
 
 df_building  = read_delta("silver_building_master")
 df_kpi_m     = read_delta("gold_kpi_monthly")
+
+# Bridge scoping: filter the join base (df_building) + KPIs to ONE building when
+# BRIDGE_BUILDING_ID is set, so the recommendation set is produced for it alone.
+if BRIDGE_BUILDING_ID:
+    df_building = df_building.filter(f"building_id = '{BRIDGE_BUILDING_ID}'")
+    df_kpi_m    = df_kpi_m.filter(f"building_id = '{BRIDGE_BUILDING_ID}'")
+    if df_building.count() == 0:
+        raise ValueError(
+            f"Bridge: building '{BRIDGE_BUILDING_ID}' not in silver_building_master — "
+            "run 40_bridge_baseline first."
+        )
+    log_step("BRIDGE", f"scoped to building_id={BRIDGE_BUILDING_ID}")
 
 # gold_simulation_results opsiyonel (04_simulation_engine çalışmamışsa yoktur)
 try:
@@ -424,6 +461,28 @@ _elec_rate = (
     .when(col("country_code") == "AT", lit(RATE_AT))
     .when(col("country_code") == "NL", lit(RATE_NL))
     .otherwise(lit(RATE_DEFAULT))
+)
+
+# Electricity-only EUI benchmark (kWh/m2.yr) by type — fallback ONLY (see ELEC_EST_BAND).
+df_base = (
+    df_base
+    .withColumn("_elec_eui_bench",
+        when(col("building_type_upper").contains("RESID"), lit(28.0))
+        .when(col("building_type_upper").contains("OFFICE"), lit(85.0))
+        .when(col("building_type_upper").contains("RETAIL") | col("building_type_upper").contains("SHOP"), lit(150.0))
+        .when(col("building_type_upper").contains("HOTEL"), lit(90.0))
+        .when(col("building_type_upper").contains("HOSPITAL") | col("building_type_upper").contains("HEALTH"), lit(130.0))
+        .when(col("building_type_upper").contains("SCHOOL") | col("building_type_upper").contains("EDUC"), lit(40.0))
+        .when(col("building_type_upper").contains("LOGIST") | col("building_type_upper").contains("WAREHOUSE"), lit(50.0))
+        .when(col("building_type_upper").contains("INDUSTR"), lit(120.0))
+        .otherwise(lit(70.0)))
+    # Estimated electricity use when metered consumption is missing: area x type benchmark.
+    .withColumn("est_consumption_kwh",
+        coalesce(col("annual_consumption_kwh"),
+                 spark_round(col("conditioned_area_m2") * col("_elec_eui_bench"), 0)))
+    # True when an operational saving below is a benchmark estimate (no metered data).
+    .withColumn("consumption_is_estimated",
+        col("annual_consumption_kwh").isNull() & col("conditioned_area_m2").isNotNull())
 )
 
 
@@ -895,7 +954,7 @@ df_led_rec = (
     .filter(col("has_led_lighting") == False)
     .withColumn("_led_saving_kwh",
         spark_round(
-            coalesce(col("annual_consumption_kwh"), lit(0.0))
+            coalesce(col("est_consumption_kwh"), lit(0.0))
             * LIGHTING_SHARE_PCT * LED_SAVING_PCT, 0))
     .withColumn("_led_saving_eur",
         spark_round(col("_led_saving_kwh") * 0.28, 0))
@@ -906,7 +965,7 @@ df_led_rec = (
     .withColumn("_led_payback",
         when(col("_led_saving_eur") > 0,
              spark_round(col("_led_capex") / col("_led_saving_eur"), 1))
-        .otherwise(lit(99.0)))
+        .otherwise(lit(None).cast("double")))
     .withColumn("_led_npv",
         spark_round(col("_led_saving_eur") * 7.0 - col("_led_capex"), 0))
     .withColumn("action_type",       lit("UPGRADE_LIGHTING"))
@@ -1044,7 +1103,7 @@ df_deep_rec = (
 df_bms_rec = (
     df_base
     .withColumn("_bms_saving_kwh",
-        spark_round(coalesce(col("annual_consumption_kwh"), lit(0.0)) * lit(BMS_SAVING_PCT), 0))
+        spark_round(coalesce(col("est_consumption_kwh"), lit(0.0)) * lit(BMS_SAVING_PCT), 0))
     .withColumn("_rate",  _elec_rate)
     .withColumn("_bms_saving_eur",
         spark_round(col("_bms_saving_kwh") * col("_rate"), 0))
@@ -1055,7 +1114,7 @@ df_bms_rec = (
     .withColumn("_bms_payback",
         when(col("_bms_saving_eur") > 0,
              spark_round(col("_bms_capex") / col("_bms_saving_eur"), 1))
-        .otherwise(lit(99.0)))
+        .otherwise(lit(None).cast("double")))
     .withColumn("_bms_npv",
         spark_round(col("_bms_saving_eur") * lit(8.0) - col("_bms_capex"), 0))
     .withColumn("action_type",       lit("BMS_OPTIMISATION"))
@@ -1146,7 +1205,7 @@ df_hvac_sched_rec = (
     .withColumn("_rate", _elec_rate)
     .withColumn("_hvac_saving_kwh",
         spark_round(
-            coalesce(col("annual_consumption_kwh"), lit(0.0))
+            coalesce(col("est_consumption_kwh"), lit(0.0))
             * col("_hvac_share") * lit(HVAC_SCHED_SAVING_PCT), 0))
     .withColumn("_hvac_saving_eur",
         spark_round(col("_hvac_saving_kwh") * col("_rate"), 0))
@@ -1157,7 +1216,7 @@ df_hvac_sched_rec = (
     .withColumn("_hvac_payback",
         when(col("_hvac_saving_eur") > 0,
              spark_round(col("_hvac_capex") / col("_hvac_saving_eur"), 1))
-        .otherwise(lit(99.0)))
+        .otherwise(lit(None).cast("double")))
     .withColumn("_hvac_npv",
         spark_round(col("_hvac_saving_eur") * lit(10.0) - col("_hvac_capex"), 0))
     .withColumn("action_type",       lit("HVAC_SCHEDULING"))
@@ -1244,7 +1303,7 @@ df_peak_rec = (
     .withColumn("_peak_payback",
         when(col("_peak_saving_eur") > 0,
              spark_round(col("_peak_capex") / col("_peak_saving_eur"), 1))
-        .otherwise(lit(99.0)))
+        .otherwise(lit(None).cast("double")))
     .withColumn("_peak_npv",
         spark_round(col("_peak_saving_eur") * lit(8.0) - col("_peak_capex"), 0))
     .withColumn("action_type",       lit("PEAK_DEMAND_MANAGEMENT"))
@@ -1322,7 +1381,7 @@ df_chp_rec = (
     .withColumn("_chp_payback",
         when(col("_chp_saving_eur") > 0,
              spark_round(col("_chp_capex") / col("_chp_saving_eur"), 1))
-        .otherwise(lit(99.0)))
+        .otherwise(lit(None).cast("double")))
     .withColumn("_chp_npv",
         spark_round(col("_chp_saving_eur") * lit(12.0) - col("_chp_capex"), 0))
     .withColumn("action_type",       lit("CHP_COGENERATION"))
@@ -1426,7 +1485,7 @@ df_solar_thermal_rec = (
     .withColumn("_st_payback",
         when(col("_st_saving_eur") > 0,
              spark_round(col("_st_capex") / col("_st_saving_eur"), 1))
-        .otherwise(lit(99.0)))
+        .otherwise(lit(None).cast("double")))
     .withColumn("_st_npv",
         spark_round(col("_st_saving_eur") * lit(20.0) - col("_st_capex"), 0))
     .withColumn("action_type",       lit("SOLAR_THERMAL"))
@@ -1531,7 +1590,7 @@ df_heat_recovery_rec = (
     .withColumn("_hr_payback",
         when(col("_hr_saving_eur") > 0,
              spark_round(col("_hr_capex") / col("_hr_saving_eur"), 1))
-        .otherwise(lit(99.0)))
+        .otherwise(lit(None).cast("double")))
     .withColumn("_hr_npv",
         spark_round(col("_hr_saving_eur") * lit(15.0) - col("_hr_capex"), 0))
     .withColumn("action_type",       lit("HEAT_RECOVERY"))
@@ -1623,7 +1682,7 @@ df_bat_exp_rec = (
     .withColumn("_batexp_payback",
         when(col("_batexp_saving_eur") > 0,
              spark_round(col("_batexp_capex") / col("_batexp_saving_eur"), 1))
-        .otherwise(lit(99.0)))
+        .otherwise(lit(None).cast("double")))
     .withColumn("_batexp_npv",
         spark_round(col("_batexp_saving_eur") * lit(12.0) - col("_batexp_capex"), 0))
     .withColumn("action_type",       lit("BATTERY_EXPANSION"))
@@ -1717,7 +1776,7 @@ df_pfc_rec = (
     .withColumn("_pfc_payback",
         when(col("_pfc_saving_eur") > 0,
              spark_round(lit(PFC_CAPEX_FIXED) / col("_pfc_saving_eur"), 1))
-        .otherwise(lit(99.0)))
+        .otherwise(lit(None).cast("double")))
     .withColumn("_pfc_npv",
         spark_round(col("_pfc_saving_eur") * lit(10.0) - lit(PFC_CAPEX_FIXED), 0))
     .withColumn("action_type",       lit("POWER_FACTOR_CORRECTION"))
@@ -1787,7 +1846,7 @@ df_submeter_rec = (
     .withColumn("_sm_payback",
         when(col("_sm_saving_eur") > 0,
              spark_round(col("_sm_capex") / col("_sm_saving_eur"), 1))
-        .otherwise(lit(99.0)))
+        .otherwise(lit(None).cast("double")))
     .withColumn("_sm_npv",
         spark_round(col("_sm_saving_eur") * lit(8.0) - col("_sm_capex"), 0))
     .withColumn("action_type",       lit("SUBMETERING_UPGRADE"))
@@ -1856,6 +1915,7 @@ COMMON_COLS = [
     "grant_programs",
     "title_en", "title_de", "title_tr",
     "description_en", "description_de", "description_tr",
+    "consumption_is_estimated",
 ]
 
 all_recs = [
@@ -1875,6 +1935,25 @@ for part in all_recs[1:]:
     df_all = df_all.union(part.select(COMMON_COLS))
 
 log_step("UNION", "All recommendations combined", rows=df_all.count())
+
+# Operational quick-wins (LED / BMS / HVAC scheduling) whose saving came from a
+# BENCHMARK estimate (no metered consumption) get a plain-language +/-band note
+# appended to description_en, so the midpoint figure is never read as precise.
+df_all = df_all.withColumn(
+    "description_en",
+    when(
+        col("consumption_is_estimated")
+        & col("action_type").isin("UPGRADE_LIGHTING", "BMS_OPTIMISATION", "HVAC_SCHEDULING")
+        & (col("annual_saving_eur") > 0),
+        concat_ws(" ",
+            col("description_en"),
+            lit("| Benchmark estimate (no metered consumption); plausible range EUR"),
+            spark_round(col("annual_saving_eur") * lit(1 - ELEC_EST_BAND), 0).cast("string"),
+            lit("-"),
+            spark_round(col("annual_saving_eur") * lit(1 + ELEC_EST_BAND), 0).cast("string"),
+            lit("/yr, midpoint shown.")),
+    ).otherwise(col("description_en")),
+)
 
 
 # ── 9. RANK WITHIN EACH BUILDING ──────────────────────────────────────────────
@@ -1950,18 +2029,38 @@ log_step("WRITE", "Writing gold_recommendations …")
 # refresh fails. saveAsTable writes through the catalog -> registers in the default lakehouse
 # dbo schema (same pattern as gold_anomaly_log). df_results is a full recompute, so overwrite
 # is correct and also clears stale rows the old MERGE could leave behind.
-# Clear any stale/flat registration so the catalog write lands cleanly in dbo
-# (avoids "location already exists" if a prior path-based run left a flat Tables/ folder).
-spark.sql("DROP TABLE IF EXISTS gold_recommendations")
 spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
-(
-    df_results.write.format("delta")
-    .mode("overwrite")
-    .option("overwriteSchema", "true")
-    .partitionBy("country_code")
-    .saveAsTable("gold_recommendations")
-)
-log_step("WRITE", "Saved gold_recommendations to catalog (dbo)")
+if BRIDGE_BUILDING_ID:
+    # Single-building bridge: REPLACE only this building's rows. The table is
+    # multi-row-per-building (ranked), so delete-by-building + append is the
+    # correct incremental — a DROP/overwrite here would wipe every other
+    # customer's recommendations.
+    if spark.catalog.tableExists("gold_recommendations"):
+        DeltaTable.forName(spark, "gold_recommendations").delete(
+            f"building_id = '{BRIDGE_BUILDING_ID}'"
+        )
+        (df_results.write.format("delta").mode("append")
+            .saveAsTable("gold_recommendations"))
+        log_step("WRITE", f"gold_recommendations — replaced rows for {BRIDGE_BUILDING_ID}")
+    else:
+        # Fresh tenant (no batch yet): create the table with just this building.
+        (df_results.write.format("delta").mode("overwrite")
+            .option("overwriteSchema", "true").partitionBy("country_code")
+            .saveAsTable("gold_recommendations"))
+        log_step("WRITE", f"gold_recommendations — created with {BRIDGE_BUILDING_ID}")
+else:
+    # Full batch (unchanged): df_results is a full recompute, overwrite is correct
+    # and also clears stale rows. Clear any stale/flat registration first so the
+    # catalog write lands cleanly in dbo.
+    spark.sql("DROP TABLE IF EXISTS gold_recommendations")
+    (
+        df_results.write.format("delta")
+        .mode("overwrite")
+        .option("overwriteSchema", "true")
+        .partitionBy("country_code")
+        .saveAsTable("gold_recommendations")
+    )
+    log_step("WRITE", "Saved gold_recommendations to catalog (dbo)")
 
 
 # ── 12. OPTIMIZE ───────────────────────────────────────────────────────────────

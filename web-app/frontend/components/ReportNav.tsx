@@ -162,6 +162,45 @@ export function ReportNav({
           />
           <span className="flex-1 truncate">Export PDF</span>
         </Link>
+        <Link
+          href={`/buildings/${encodeURIComponent(fabricBuildingId)}/co2-report`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
+        >
+          <Leaf
+            className="w-4 h-4 shrink-0"
+            style={{ color: "#1D9E75" }}
+            aria-hidden
+          />
+          <span className="flex-1 truncate">CO₂ Cost Split</span>
+        </Link>
+        <Link
+          href={`/buildings/${encodeURIComponent(fabricBuildingId)}/geg-report`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
+        >
+          <Building2
+            className="w-4 h-4 shrink-0"
+            style={{ color: "#1D9E75" }}
+            aria-hidden
+          />
+          <span className="flex-1 truncate">GEG conformity</span>
+        </Link>
+        <Link
+          href={`/buildings/${encodeURIComponent(fabricBuildingId)}/epc-report`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
+        >
+          <TrendingUp
+            className="w-4 h-4 shrink-0"
+            style={{ color: "#1D9E75" }}
+            aria-hidden
+          />
+          <span className="flex-1 truncate">EPC pre-assessment</span>
+        </Link>
       </div>
     </nav>
   )

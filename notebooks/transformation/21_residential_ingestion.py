@@ -39,7 +39,7 @@ if spark.catalog.tableExists("silver_building_master"):
     nm = [f.name for f in tgt]
     kn = {k: v for k, v in {"building_id": BID, "building_type": "RESIDENTIAL_MF",
           "country_code": "DE", "city": "Berlin", "name": "Musterstraße 12 (MFH)",
-          "conditioned_area_m2": 2400.0, "unit_count": 24, "common_area_m2": 180.0}.items() if k in nm}
+          "conditioned_area_m2": 2400.0, "unit_count": 24, "common_area_m2": 180.0, "year_built": 1973, "has_heat_pump": False, "has_pv": False, "has_battery": False, "has_led_lighting": False, "iso50001_certified": False, "has_ev_charging": False, "epc_class": "E", "roof_area_m2": 600.0, "emission_factor_kg_kwh": 0.363, "pv_capacity_kwp": 0.0, "battery_capacity_kwh": 0.0}.items() if k in nm}
     d = spark.createDataFrame([tuple(kn.values())], list(kn.keys()))
     for f in tgt:
         if f.name not in kn:

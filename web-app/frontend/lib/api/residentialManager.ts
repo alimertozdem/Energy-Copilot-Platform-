@@ -30,6 +30,7 @@ export type ResidentialBuildingRollup = {
   units_with_data: number
   building_avg_eui_kwh_m2_yr: number | null
   climate_adjustment_factor: number | null
+  building_avg_eui_climate_adjusted_kwh_m2_yr: number | null
   epc_distribution: Record<string, number>
   uvi: UviStatus
 }

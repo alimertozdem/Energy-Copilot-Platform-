@@ -151,3 +151,76 @@ Open questions for Mert:
 3. **Where does the wizard live?** A step in `/onboarding`, an action on the building detail
    page, or inside the in-app Copilot? (Leaning: an "Unlock full analytics" panel on the
    pending building detail page, powered by the Copilot.)
+
+
+---
+
+## 10. Phase 2 build — full report set per bridge (2026-06-13) ✅ built
+
+Phase 3.2 originally bridged only the **energy baseline** (`gold_kpi_monthly/daily`): a
+bridged building went live with KPIs but GHG / GEG / recommendation reports stayed empty.
+Phase 2 extends the bridge to populate the **full report set** for the one new building, by
+**reusing the existing batch notebooks** (single source of truth — no logic duplication, no
+drift), each made runnable for a single building.
+
+### 10.1 Notebook parameterisation (`BRIDGE_BUILDING_ID`)
+
+Three batch notebooks gained an optional **parameter cell** `BRIDGE_BUILDING_ID = ""`:
+
+| Notebook | Reads | Scoped write |
+|---|---|---|
+| `09_ghg_scope_engine` | `gold_kpi_daily`, dim, ref factors | MERGE on `(building_id, year_month)` |
+| `05_compliance_checker` | dim U-values/year, `gold_kpi_monthly` | MERGE on `building_id` (+ `rule_code` for issues) |
+| `06_recommendation_engine` | dim, `gold_kpi_monthly`, compliance | **delete-by-building + append** (multi-row/building) |
+
+- **Empty (default) → full batch, byte-for-byte unchanged** — the daily pipeline is unaffected.
+- **Set (e.g. `B012`) → single-building incremental:** reads filtered to that building, write
+  touches only its rows. Every other customer's gold rows stay intact (key-matched MERGE /
+  scoped delete — never a table overwrite).
+
+### 10.2 Dimension carries the compliance inputs
+
+`40_bridge_baseline` now writes the envelope/fuel fields into `silver_building_master` using
+the **exact** column names 05/09 read (`wall_u_value`, `roof_u_value`, `window_u_value`,
+`insulation_year`, `year_built`, `energy_certificate`, `has_gas_heating`). Without these the
+GEG check reads nulls and stays locked. Values flow from the onboarding wizard →
+orchestrator `_building_meta` → notebook param.
+
+### 10.3 Orchestrator chain (best-effort reports)
+
+`bridge_orchestrator` Step 3 runs, in order:
+
+```
+40 baseline (REQUIRED) -> 09 GHG -> 05 GEG/compliance -> 06 recommendations
+```
+
+- **Baseline required** — a failure aborts the bridge (no `fabric_building_id` write-back).
+- **Reports best-effort** — a failure is a `warning` step; the chain continues and the
+  building still goes live with the baseline + whatever succeeded. The readiness map / Data
+  Score then shows which reports are available. A transient GHG hiccup can't block go-live.
+- A report notebook whose **env id is unset is cleanly skipped** — wire ids in over time.
+- `fabric_jobs.trigger_notebook(id, params)` is the generic primitive; `trigger_bridge_notebook`
+  is now a thin wrapper over it.
+
+### 10.4 New env vars (all optional)
+
+```bash
+FABRIC_GHG_NOTEBOOK_ID=                 # 09_ghg_scope_engine item GUID
+FABRIC_COMPLIANCE_NOTEBOOK_ID=          # 05_compliance_checker item GUID
+FABRIC_RECOMMENDATION_NOTEBOOK_ID=      # 06_recommendation_engine item GUID
+```
+
+Unset -> that report is skipped (baseline still bridges). See `fabric-bridge-setup.md` 5b, 7.
+
+### 10.5 Trigger model (unchanged: founder-in-loop now, full-auto behind a flag)
+
+`BRIDGE_AUTOMATION_ENABLED=false` keeps the `/admin` "Go" gate — the safety valve at pilot
+scale. Flipping to full-auto later is a flag + a queue, no change to the chain. That decision
+is a **capacity/cost** one (always-on EUR vs on-demand resume + queue + abuse control).
+
+### 10.6 Energy honesty
+
+Bridged reports inherit each notebook's **stated assumptions** and `data_grade` /
+`disclosure_grade` flags (e.g. 09's Scope-1 gas proxy when no metered gas exists; 06's plus or
+minus 30% estimated band). Nothing is fabricated — bridged rows are flagged baseline/estimated
+where the underlying data is.

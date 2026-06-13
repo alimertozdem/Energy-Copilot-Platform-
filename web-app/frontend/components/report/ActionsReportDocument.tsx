@@ -38,7 +38,10 @@ const STATUS_META: Record<ActionStatus, { label: string; color: string }> = {
 }
 
 function payback(yrs: number | null): string {
-  return yrs === null ? "—" : `${yrs.toFixed(1)} yr`
+  // null or the backend "no real payback" sentinel (~99 yr) -> not a financial
+  // measure; show a dash rather than a misleading "99.0 yr".
+  if (yrs === null || yrs >= 50) return "—"
+  return `${yrs.toFixed(1)} yr`
 }
 
 export function ActionsReportDocument({

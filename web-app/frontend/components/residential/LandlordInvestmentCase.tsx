@@ -36,14 +36,31 @@ function netCapexOf(a: ActionItem): number {
 export function LandlordInvestmentCase({
   actions,
   epcClass,
+  fabricBuildingId,
 }: {
   actions: ActionItem[]
   epcClass: string | null
   fabricBuildingId: string
 }) {
-  const measures = actions.filter(
-    (a) => (a.capex_eur ?? a.net_capex_eur ?? 0) > 0
+  // Scope the investment case to ENVELOPE / HEATING retrofit measures only — the
+  // owner-side case the calc doc frames. Operational measures (BMS, HVAC
+  // scheduling, submetering) and generation (solar, battery) still appear on
+  // /actions, but folding them in here double-counts and dilutes the case.
+  const RETROFIT_TYPES = new Set([
+    "DEEP_RETROFIT",
+    "INSTALL_HEAT_PUMP",
+    "IMPROVE_INSULATION",
+    "IMPROVE_WINDOWS",
+    "INSTALL_WINDOWS",
+  ])
+  const hasCapex = (a: ActionItem) => (a.capex_eur ?? a.net_capex_eur ?? 0) > 0
+  const retrofit = actions.filter(
+    (a) => a.action_type != null && RETROFIT_TYPES.has(a.action_type) && hasCapex(a)
   )
+  // DEEP_RETROFIT already bundles heat pump + insulation; when it is present it
+  // IS the scope, so the standalone HP / insulation rows must not be added too.
+  const deep = retrofit.filter((a) => a.action_type === "DEEP_RETROFIT")
+  const measures = deep.length > 0 ? deep : retrofit
   const stranding = epcClass != null && STRANDING_BANDS.has(epcClass.toUpperCase())
 
   // Nothing to compute and no stranding signal → don't show an empty card.
@@ -99,7 +116,7 @@ export function LandlordInvestmentCase({
               ~{eur(rentUplift)}/yr
               <span className="text-text-muted">
                 {" "}onto rent (§559, 8% of net cost){recoveryYears
-                  ? ` — recovering the net cost in about ${Math.round(recoveryYears)} years`
+                  ? ` — at that rate the net cost is recovered in about ${Math.round(recoveryYears)} years`
                   : ""}.
               </span>
             </Line>

@@ -16,6 +16,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -23,6 +24,7 @@ from app.db.models import Building
 from app.repositories import audit as audit_repo
 from app.repositories import bridge as bridge_repo
 from app.repositories import building as building_repo
+from app.repositories import user as user_repo
 from app.repositories import connection as connection_repo
 from app.repositories import consumption as consumption_repo
 from app.repositories import organization as org_repo
@@ -45,10 +47,37 @@ from app.schemas.bridge import (
     BridgeRequestCreate,
     BridgeRequestState,
 )
-from app.services import access, baseline_kpi, bill_parser, bridge_readiness
+from app.schemas.readiness import BuildingReadiness
+from app.services import access, baseline_kpi, bill_parser, bridge_readiness, building_readiness
 from app.utils.jwt import get_current_org_id, get_current_user_id
 
 router = APIRouter(prefix="/buildings", tags=["buildings"])
+
+
+class _SampleDataState(BaseModel):
+    enabled: bool
+
+
+# NOTE: declared before GET /{fabric_building_id} so "/sample-data" is not captured
+# as a building id (FastAPI matches in declaration order).
+@router.get("/sample-data", response_model=_SampleDataState)
+def get_sample_data_visibility(
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> _SampleDataState:
+    """Whether the caller currently sees sample/demo buildings in their portfolio."""
+    return _SampleDataState(enabled=user_repo.get_show_sample_data(db, user_id))
+
+
+@router.put("/sample-data", response_model=_SampleDataState)
+def set_sample_data_visibility(
+    payload: _SampleDataState,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> _SampleDataState:
+    """Opt in/out of seeing sample/demo buildings (load/remove from the portfolio)."""
+    user_repo.set_show_sample_data(db, user_id, payload.enabled)
+    return _SampleDataState(enabled=payload.enabled)
 
 
 def _to_response(b: Building) -> BuildingResponse:
@@ -140,6 +169,11 @@ def create_building(
         typical_occupants=body.typical_occupants,
         timezone=body.timezone,
         pv_capacity_kwp=body.pv_capacity_kwp,
+        wall_u_value=body.wall_u_value,
+        roof_u_value=body.roof_u_value,
+        window_u_value=body.window_u_value,
+        insulation_year=body.insulation_year,
+        has_gas_heating=body.has_gas_heating,
     )
 
     # 'meters' is always present + enabled; merge any requested modules over it.
@@ -259,6 +293,31 @@ def get_baseline_kpis(
     building = _building_for_write(db, building_id, user_id)
     rows = consumption_repo.list_rows(db, building_id=building_id)
     return BaselineKPIs(**baseline_kpi.compute_baseline_kpis(rows, building))
+
+
+@router.get("/{building_id}/readiness", response_model=BuildingReadiness)
+def get_building_readiness(
+    building_id: UUID,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> BuildingReadiness:
+    """Data Score (0-100) + per-report readiness for a building the caller may see.
+
+    Measures DATA COMPLETENESS (what reports we can produce), not building
+    performance. UUID-addressed so it works before a Fabric bridge. Read-only.
+    """
+    building = building_repo.get_building_by_id_for_user(
+        db, building_id=building_id, user_id=user_id
+    )
+    if building is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Building not found"
+        )
+    months = len(consumption_repo.list_rows(db, building_id=building_id))
+    result = building_readiness.compute_readiness(
+        building_readiness.building_attrs(building), months
+    )
+    return BuildingReadiness(**result)
 
 
 @router.post("/{building_id}/consumption/parse-pdf", response_model=ParsedBillResponse)

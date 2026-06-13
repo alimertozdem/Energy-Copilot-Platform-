@@ -58,6 +58,19 @@ def automation_enabled() -> bool:
     }
 
 
+# Report notebooks chained AFTER the baseline, each scoped to the bridged building
+# via the notebook's BRIDGE_BUILDING_ID parameter. (env var holding the Fabric
+# notebook id, step name, human label). Best-effort: a failure here is recorded as
+# a warning and the bridge still goes live with the baseline + whatever succeeded —
+# the building's Data Score / readiness map then shows which reports are available.
+# A notebook whose env id is unset is cleanly skipped (lets Mert wire ids over time).
+_REPORT_CHAIN = [
+    ("FABRIC_GHG_NOTEBOOK_ID", "run_ghg", "GHG inventory (09)"),
+    ("FABRIC_COMPLIANCE_NOTEBOOK_ID", "run_compliance", "GEG / compliance (05)"),
+    ("FABRIC_RECOMMENDATION_NOTEBOOK_ID", "run_recommendations", "recommendations (06)"),
+]
+
+
 def next_free_fabric_id(db: Session) -> str:
     """Mint the next free `B0NN` id by scanning existing assignments.
 
@@ -87,6 +100,13 @@ def _building_meta(b: Building) -> dict:
         "pv_capacity_kwp": float(b.pv_capacity_kwp) if b.pv_capacity_kwp is not None else 0.0,
         "has_heat_pump": (b.heating_system or "").lower() in {"heat_pump", "heatpump"},
         "epc_class": b.epc_class,
+        "wall_u_value": float(b.wall_u_value) if b.wall_u_value is not None else None,
+        "roof_u_value": float(b.roof_u_value) if b.roof_u_value is not None else None,
+        "window_u_value": float(b.window_u_value) if b.window_u_value is not None else None,
+        "insulation_year": b.insulation_year,
+        "has_gas_heating": b.has_gas_heating,
+        "construction_year": b.construction_year,
+        "city": b.city,
     }
 
 
@@ -191,6 +211,10 @@ def run_automated_bridge(
     if dry_run:
         step("land_bronze", "skipped (dry-run)", rows=len(rows))
         step("run_job", "skipped (dry-run)", params=notebook_params)
+        for _env, _name, _label in _REPORT_CHAIN:
+            step(_name,
+                 "planned (dry-run)" if os.getenv(_env) else "skipped (id not configured)",
+                 label=_label, params={"BRIDGE_BUILDING_ID": fabric_id})
         step("refresh_model", "skipped (dry-run)")
         step("write_back", "skipped (dry-run)")
         _audit(
@@ -222,6 +246,24 @@ def run_automated_bridge(
     except fabric_jobs.FabricJobError as e:
         return fail("run_job", str(e))
     step("run_job", "ok", status=final.get("status"))
+
+    # --- Step 3b: report chain (best-effort, scoped to this building) --------
+    # The baseline above is REQUIRED (a failure already returned). These add the
+    # GHG / compliance / recommendation gold rows for the new building. A failure
+    # is a warning, not a hard stop: the building still goes live and the missing
+    # report simply shows as "needs data / unavailable" in the readiness map.
+    for _env, _name, _label in _REPORT_CHAIN:
+        nb_id = os.getenv(_env)
+        if not nb_id:
+            step(_name, "skipped", label=_label, message=f"{_env} not configured")
+            continue
+        try:
+            loc = fabric_jobs.trigger_notebook(nb_id, {"BRIDGE_BUILDING_ID": fabric_id})
+            rep = fabric_jobs.poll_until_done(loc)
+            step(_name, "ok", label=_label, status=rep.get("status"))
+        except fabric_jobs.FabricJobError as e:
+            step(_name, "warning", label=_label, message=str(e)[:300])
+            logger.warning("Report step %s failed (continuing): %s", _name, e)
 
     # --- Step 4: refresh semantic model (best-effort) -----------------------
     try:

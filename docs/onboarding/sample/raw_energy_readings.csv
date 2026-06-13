@@ -1,0 +1,13 @@
+building_id,timestamp_utc,raw_value,raw_unit,sensor_id,source_system
+PILOT01,2025-01-31 23:59:59,44800,kWh,main,utility-bill
+PILOT01,2025-02-28 23:59:59,42100,kWh,main,utility-bill
+PILOT01,2025-03-31 23:59:59,40500,kWh,main,utility-bill
+PILOT01,2025-04-30 23:59:59,37800,kWh,main,utility-bill
+PILOT01,2025-05-31 23:59:59,36900,kWh,main,utility-bill
+PILOT01,2025-06-30 23:59:59,39200,kWh,main,utility-bill
+PILOT01,2025-07-31 23:59:59,43500,kWh,main,utility-bill
+PILOT01,2025-08-31 23:59:59,43100,kWh,main,utility-bill
+PILOT01,2025-09-30 23:59:59,38600,kWh,main,utility-bill
+PILOT01,2025-10-31 23:59:59,37200,kWh,main,utility-bill
+PILOT01,2025-11-30 23:59:59,40900,kWh,main,utility-bill
+PILOT01,2025-12-31 23:59:59,45200,kWh,main,utility-bill

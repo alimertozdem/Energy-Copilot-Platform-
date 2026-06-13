@@ -44,6 +44,10 @@ class ResidentialBuildingRollup(BaseModel):
     climate_adjustment_factor: float | None = Field(
         default=None, description="Building HDD climate factor (same for all units; 1.0 = no weather)."
     )
+    building_avg_eui_climate_adjusted_kwh_m2_yr: float | None = Field(
+        default=None,
+        description="Building avg heating EUI normalised by the HDD climate factor (raw x factor).",
+    )
     epc_distribution: dict[str, int] = Field(
         default_factory=dict, description="Count of units per EPC band, e.g. {'C': 3}."
     )

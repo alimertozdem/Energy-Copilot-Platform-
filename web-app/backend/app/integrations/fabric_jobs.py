@@ -50,15 +50,17 @@ def _headers() -> dict:
     return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
 
-def trigger_bridge_notebook(parameters: dict) -> str:
-    """Start the bridge notebook job with the given parameters.
+def trigger_notebook(notebook_id: str, parameters: dict) -> str:
+    """Start a RunNotebook job for an EXPLICIT notebook id with parameters.
 
-    `parameters` is a flat {name: value} dict; values are passed as strings via
-    the notebook's parameter cell. Returns the job-instance polling URL (the
-    Location header). Raises FabricJobError (e.g. when no capacity is attached).
+    `parameters` is a flat {name: value} dict passed as strings via the notebook's
+    parameter cell. Returns the job-instance polling URL (the Location header).
+    Raises FabricJobError (e.g. bad id, or no capacity attached). This is the
+    generic primitive the orchestrator uses to chain baseline + report notebooks.
     """
     workspace = _require("FABRIC_WORKSPACE_ID")
-    notebook_id = _require("FABRIC_BRIDGE_NOTEBOOK_ID")
+    if not notebook_id:
+        raise FabricJobError("trigger_notebook: empty notebook_id")
     url = (
         f"{FABRIC_API_BASE}/workspaces/{workspace}"
         f"/items/{notebook_id}/jobs/instances?jobType=RunNotebook"
@@ -85,8 +87,13 @@ def trigger_bridge_notebook(parameters: dict) -> str:
     location = r.headers.get("Location")
     if not location:
         raise FabricJobError("Fabric job trigger returned no Location header.")
-    logger.info("Triggered bridge notebook job: %s", location)
+    logger.info("Triggered notebook %s job: %s", notebook_id, location)
     return location
+
+
+def trigger_bridge_notebook(parameters: dict) -> str:
+    """Start the baseline bridge notebook (env FABRIC_BRIDGE_NOTEBOOK_ID)."""
+    return trigger_notebook(_require("FABRIC_BRIDGE_NOTEBOOK_ID"), parameters)
 
 
 def get_job_status(location: str) -> dict:

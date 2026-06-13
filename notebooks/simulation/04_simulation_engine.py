@@ -50,7 +50,7 @@ from pyspark.sql.functions import (
     percentile_approx, count,
     round as spark_round, abs as spark_abs,
     current_timestamp, to_date, year, month,
-    concat_ws, greatest, least,
+    concat_ws, greatest, least, upper,
 )
 from pyspark.sql.types import (
     StructType, StructField,
@@ -87,6 +87,7 @@ REF_PATHS: Dict[str, str] = {
     "tariffs":                 "Tables/ref_tariffs",
     "building_type_profiles":  "Tables/ref_building_type_profiles",
     "technology_catalog":      "Tables/ref_technology_catalog",
+    "envelope_u_by_vintage":   "Tables/ref_envelope_u_by_vintage",
 }
 
 GOLD_PATHS: Dict[str, str] = {
@@ -159,6 +160,15 @@ df_sim_inp  = _read(REF_PATHS["simulation_inputs"])
 df_tariffs  = _read(REF_PATHS["tariffs"])
 df_profiles = _read(REF_PATHS["building_type_profiles"])
 df_tech     = _read(REF_PATHS["technology_catalog"])
+
+# Vintage-aware current envelope U-values (optional; module-constant fallback)
+try:
+    df_vintage_u = _read(REF_PATHS["envelope_u_by_vintage"])
+    HAS_VINTAGE_U = True
+    log_step("READ", f"ref_envelope_u_by_vintage loaded: {df_vintage_u.count()} bands")
+except Exception as _e:
+    HAS_VINTAGE_U = False
+    print(f"[04_SIM] WARN ref_envelope_u_by_vintage missing -> current U uses module constants: {_e}")
 df_kpi_d    = _read(GOLD_PATHS["kpi_daily"])
 df_kpi_m    = _read(GOLD_PATHS["kpi_monthly"])
 
@@ -196,7 +206,12 @@ df_base = (
     )
     .join(
         df_profile_bc.alias("p"),
-        on=col("b.building_type") == col("p.building_type"),
+        # Case-insensitive: silver_building_master may use Title/mixed case
+        # ("Office", "Residential_MF") while ref_building_type_profiles uses UPPER
+        # ("OFFICE", "RESIDENTIAL_MF"). A case-sensitive join silently nulls
+        # hp_feasibility/insulation_feasibility → hp_is_feasible/ins_is_feasible
+        # become False → HP/INS/DEEP recommendations drop. Mirrors 06's building_type_upper.
+        on=upper(col("b.building_type")) == upper(col("p.building_type")),
         how="left",
     )
     .select(
@@ -226,11 +241,18 @@ df_base = (
         col("s.discount_rate_pct"),
         col("s.energy_price_escalation_pct"),
         col("s.project_lifetime_years"),
+        # Envelope U-values: target from sim inputs; year_built drives current U
+        col("b.year_built"),
+        col("s.target_wall_u_value"),
+        col("s.target_window_u_value"),
+        col("s.target_roof_u_value"),
         # Tariff  (real column names from ref_tariffs schema)
-        col("t.electricity_flat_eur_kwh").alias("electricity_buy_eur_kwh"),
-        col("t.gas_eur_kwh"),
-        col("t.feed_in_tariff_eur_kwh").alias("electricity_sell_eur_kwh"),
-        col("t.demand_charge_eur_kw_month").alias("demand_charge_eur_kw"),
+        # Prices: prefer the per-building override in ref_simulation_inputs, fall
+        # back to the country tariff. (B011's approved gas 0.11 was being ignored.)
+        coalesce(col("s.electricity_tariff_eur_kwh"), col("t.electricity_flat_eur_kwh")).alias("electricity_buy_eur_kwh"),
+        coalesce(col("s.gas_price_eur_kwh"), col("t.gas_eur_kwh")).alias("gas_eur_kwh"),
+        coalesce(col("s.feed_in_tariff_eur_kwh"), col("t.feed_in_tariff_eur_kwh")).alias("electricity_sell_eur_kwh"),
+        coalesce(col("s.demand_charge_eur_kw_month"), col("t.demand_charge_eur_kw_month")).alias("demand_charge_eur_kw"),
         # Profile benchmarks  (heat_pump_feasibility = actual column name)
         col("p.eui_good_kwh_m2").alias("eui_benchmark_good"),
         col("p.eui_average_kwh_m2").alias("eui_benchmark_avg"),
@@ -269,6 +291,34 @@ df_base = df_base.join(broadcast(df_actuals), on="building_id", how="left")
 
 log_step("KPI_AGG", "Actuals joined", rows=df_base.count())
 
+# ── 5b. PER-BUILDING ENVELOPE U-VALUES (vintage-aware) ────────────────────────
+# current U: from year_built via ref_envelope_u_by_vintage (range join);
+# target U: from ref_simulation_inputs; both fall back to module constants so a
+# building without year_built / explicit targets behaves exactly as before.
+if HAS_VINTAGE_U:
+    _vu = broadcast(df_vintage_u.select(
+        "vintage_min_year", "vintage_max_year",
+        "current_wall_u", "current_roof_u", "current_window_u"))
+    df_base = df_base.join(
+        _vu,
+        (col("year_built") >= col("vintage_min_year")) &
+        (col("year_built") <= col("vintage_max_year")),
+        "left")
+else:
+    df_base = (df_base
+        .withColumn("current_wall_u",   lit(None).cast("double"))
+        .withColumn("current_roof_u",   lit(None).cast("double"))
+        .withColumn("current_window_u", lit(None).cast("double")))
+
+df_base = (df_base
+    .withColumn("cur_wall_u",   coalesce(col("current_wall_u"),       lit(WALL_U_CURRENT)))
+    .withColumn("cur_roof_u",   coalesce(col("current_roof_u"),       lit(ROOF_U_CURRENT)))
+    .withColumn("cur_window_u", coalesce(col("current_window_u"),     lit(WINDOW_U_CURRENT)))
+    .withColumn("tgt_wall_u",   coalesce(col("target_wall_u_value"),  lit(WALL_U_TARGET)))
+    .withColumn("tgt_roof_u",   coalesce(col("target_roof_u_value"),  lit(ROOF_U_TARGET)))
+    .withColumn("tgt_window_u", coalesce(col("target_window_u_value"),lit(WINDOW_U_TARGET))))
+log_step("ENVELOPE_U", "Per-building current/target U-values resolved")
+
 # ── 6. PHYSICS MODEL HELPERS ───────────────────────────────────────────────────
 # These are defined as column expressions to keep everything in Spark.
 # All calculations follow EN ISO 13790 simplified hourly method.
@@ -303,10 +353,10 @@ def calc_hlc_expr():
     window_area = facade_area * WINDOW_FRACTION
     roof_area   = floor_area_per_floor  # top floor only
 
-    # Transmission losses (W/K)
-    h_wall   = wall_area   * WALL_U_CURRENT
-    h_window = window_area * WINDOW_U_CURRENT
-    h_roof   = roof_area   * ROOF_U_CURRENT
+    # Transmission losses (W/K) — per-building current U (vintage-aware; const fallback)
+    h_wall   = wall_area   * col("cur_wall_u")
+    h_window = window_area * col("cur_window_u")
+    h_roof   = roof_area   * col("cur_roof_u")
 
     # Infiltration loss (W/K): n_ach × volume × 0.33
     volume = floor_area * FLOOR_HEIGHT_M
@@ -331,9 +381,9 @@ def calc_hlc_improved_expr():
     window_area = facade_area * WINDOW_FRACTION
     roof_area   = floor_area_per_floor
 
-    h_wall   = wall_area   * WALL_U_TARGET
-    h_window = window_area * WINDOW_U_TARGET
-    h_roof   = roof_area   * ROOF_U_TARGET
+    h_wall   = wall_area   * col("tgt_wall_u")
+    h_window = window_area * col("tgt_window_u")
+    h_roof   = roof_area   * col("tgt_roof_u")
     h_inf    = (INFILTRATION_ACH * 0.5) * col("conditioned_area_m2") * FLOOR_HEIGHT_M * 0.33
 
     return (h_wall + h_window + h_roof + h_inf).alias("hlc_improved_w_k")
@@ -430,8 +480,9 @@ df_hp = df_hp.withColumn("hp_is_feasible", hp_feasible)
 # GSHP if area > 2000 m² and not TR country, else ASHP best fit
 # We select product_id via a simple rule; real system would use scoring
 recommended_hp_product = when(
-    (col("conditioned_area_m2") > 2000) & (col("country_code") == "DE"),
-    lit("HP-GSHP-VIESSMANN")
+    (col("conditioned_area_m2") > 2000) & (col("country_code") == "DE")
+    & ~coalesce(col("building_type").isin("RESIDENTIAL_MF", "Residential_MF"), lit(False)),
+    lit("HP-GSHP-VIESSMANN")   # GSHP only for large non-residential DE (urban MFH -> ASHP)
 ).when(
     col("country_code") == "TR",
     lit("HP-ASHP-DAIKIN")   # Daikin strong in TR market
@@ -1167,52 +1218,40 @@ log_step("ASSEMBLE", "Final columns selected", rows=df_results.count())
 log_step("WRITE", "Writing gold_simulation_results …",
          table=GOLD_PATHS["simulation_results"])
 
-target_path = GOLD_PATHS["simulation_results"]
-
-if DeltaTable.isDeltaTable(spark, target_path):
-    # mergeSchema=true: allows new columns (e.g. ins_total_area_m2) to be added
-    # to the existing Delta table without a full overwrite
-    spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
-    delta_tbl = DeltaTable.forPath(spark, target_path)
-    (
-        delta_tbl.alias("tgt")
-        .merge(
-            df_results.alias("src"),
-            "tgt.building_id = src.building_id"
-        )
-        .whenMatchedUpdateAll()
-        .whenNotMatchedInsertAll()
-        .execute()
-    )
-    log_step("WRITE", "Delta MERGE (upsert) complete", table=target_path)
-else:
-    (
-        df_results
-        .write
-        .format("delta")
-        .mode("overwrite")
-        .option("overwriteSchema", "true")
-        .partitionBy("country_code")
-        .save(target_path)
-    )
-    log_step("WRITE", "Delta table created (initial write)", table=target_path)
+# 2026-06-12 FIX: schema-enabled lakehouse (Tables/dbo/). 04 previously wrote a FLAT
+# path ("Tables/gold_simulation_results") while 06 reads catalog-first (spark.table). A
+# stale dbo registration then made 06 read an OLD copy lacking the new B011 residential row
+# → INSTALL_HEAT_PUMP / IMPROVE_INSULATION / DEEP_RETROFIT never fired for B011. saveAsTable
+# writes through the catalog → registers in dbo, so 06 (and the SQL endpoint) read exactly
+# what 04 wrote. df_results is a full recompute of every building, so overwrite is correct and
+# clears stale rows. Same pattern as 06 (gold_recommendations) + 05 (gold_compliance_results).
+spark.sql("DROP TABLE IF EXISTS gold_simulation_results")
+spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
+(
+    df_results.write.format("delta")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
+    .partitionBy("country_code")
+    .saveAsTable("gold_simulation_results")
+)
+log_step("WRITE", "Saved gold_simulation_results to catalog (dbo)",
+         table="gold_simulation_results")
 
 # ── 14. OPTIMIZE ──────────────────────────────────────────────────────────────
 
 log_step("OPTIMIZE", "Running OPTIMIZE + Z-ORDER on gold_simulation_results …")
 
-spark.sql(f"""
-    OPTIMIZE delta.`{target_path}`
-    ZORDER BY (building_id)
-""")
-
-log_step("OPTIMIZE", "OPTIMIZE complete")
+try:
+    spark.sql("OPTIMIZE gold_simulation_results ZORDER BY (building_id)")
+    log_step("OPTIMIZE", "OPTIMIZE complete")
+except Exception as _e:
+    log_step("OPTIMIZE", f"skipped (non-critical): {str(_e)[:120]}")
 
 # ── 15. VALIDATION & SUMMARY REPORT ───────────────────────────────────────────
 
 log_step("VALIDATE", "Running validation checks …")
 
-df_val = spark.read.format("delta").load(target_path)
+df_val = spark.table("gold_simulation_results")
 total_buildings = df_val.count()
 
 # Per-building summary

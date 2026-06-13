@@ -41,6 +41,4 @@ def get_db() -> Generator[Session, None, None]:
     """FastAPI dependency: request basina bir session ac, sonunda kapat."""
     db = SessionLocal()
     try:
-        yield db
-    finally:
-        db.close()
+      

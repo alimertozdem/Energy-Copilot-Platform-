@@ -150,5 +150,4 @@ To show him the real portfolio, either:
 | Login: `redirect_uri_mismatch` | the callback URL in Google/Azure doesn't exactly match `https://<frontend>/api/auth/callback/<provider>`. |
 | Login spins / 401 | `INTERNAL_API_KEY` differs between Vercel and Railway, or `BACKEND_URL` wrong. |
 | CORS error in browser console | set `CORS_ORIGINS` in Railway to the exact Vercel URL, redeploy. |
-| Dashboard area blank / token error | service principal lacks workspace access, or capacity paused. |
-| DB calls hang then fail | using Supabase direct (IPv6) instead of the Session Pooler (IPv4). |
+| Dashboard area blank / token error | service p

@@ -78,6 +78,13 @@ class Building(Base, TimestampMixin):
     occupancy_pattern: Mapped[str | None] = mapped_column(String(40), nullable=True)
     floors_above_ground: Mapped[int | None] = mapped_column(Integer, nullable=True)
     typical_occupants: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Envelope U-values (W/m²K) + insulation year + gas-heating flag — collected at
+    # onboarding to unlock the GEG conformity, EPC and CO₂/Scope-1 reports. NULL = unknown.
+    wall_u_value: Mapped[Decimal | None] = mapped_column(Numeric(5, 3), nullable=True)
+    roof_u_value: Mapped[Decimal | None] = mapped_column(Numeric(5, 3), nullable=True)
+    window_u_value: Mapped[Decimal | None] = mapped_column(Numeric(5, 3), nullable=True)
+    insulation_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    has_gas_heating: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     # Geographic coordinates -- prepared for V1.5+ map UI.
     latitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)

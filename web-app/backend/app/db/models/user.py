@@ -45,6 +45,10 @@ class User(Base, TimestampMixin):
     is_platform_admin: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
+    # Per-user toggle: include sample/demo buildings in the visible portfolio.
+    show_sample_data: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
     last_login_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

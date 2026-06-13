@@ -121,6 +121,22 @@ After importing it into Fabric:
 4. The notebook is **idempotent** (MERGE on `building_id` + date), so a re-run for the same
    building overwrites rather than duplicates — safe to retry.
 
+### 5b. Report notebooks (full report set — Phase 2, 2026-06-13)
+
+To populate GHG / GEG / recommendations for a bridged building, import these three batch
+notebooks too. Each has an **optional** `BRIDGE_BUILDING_ID` parameter cell — empty = full
+batch (unchanged); set to a `fabric_building_id` = single-building incremental run.
+
+1. Import `notebooks/gold/09_ghg_scope_engine.py`, `notebooks/compliance/05_compliance_checker.py`,
+   `notebooks/recommendation/06_recommendation_engine.py` into the same workspace, attached to
+   the gold Lakehouse.
+2. In each, mark the **`BRIDGE_BUILDING_ID`** cell (top of the notebook) as the *Parameters* cell.
+3. Copy each notebook's **item ID** → `FABRIC_GHG_NOTEBOOK_ID` / `FABRIC_COMPLIANCE_NOTEBOOK_ID`
+   / `FABRIC_RECOMMENDATION_NOTEBOOK_ID` (§7). **All optional** — any left unset is simply
+   skipped, and the bridge still goes live with the baseline.
+4. Scoped runs are safe to re-run: 09/05 MERGE on the key, 06 deletes-then-appends the
+   building's rows. Other buildings are never touched.
+
 ---
 
 ## 6. ⛔ needs capacity — attach a capacity & run
@@ -149,7 +165,12 @@ Append to `web-app/backend/.env` (values from §3–§6). The SP creds are reuse
 BRIDGE_AUTOMATION_ENABLED=false          # master switch; keep false until capacity is live
 FABRIC_WORKSPACE_ID=                      # usually = PBI_WORKSPACE_ID (workspace GUID)
 FABRIC_LAKEHOUSE_ID=                      # gold Lakehouse item GUID (§4.1)
-FABRIC_BRIDGE_NOTEBOOK_ID=                # bridge notebook item GUID (§5.3)
+FABRIC_BRIDGE_NOTEBOOK_ID=                # baseline bridge notebook (40_bridge_baseline) GUID (§5.3)
+# --- report chain (Phase 2); each runs scoped to the bridged building.
+#     Any left UNSET is skipped — the baseline still bridges. ---
+FABRIC_GHG_NOTEBOOK_ID=                   # 09_ghg_scope_engine item GUID (§5b)
+FABRIC_COMPLIANCE_NOTEBOOK_ID=            # 05_compliance_checker item GUID (§5b)
+FABRIC_RECOMMENDATION_NOTEBOOK_ID=        # 06_recommendation_engine item GUID (§5b)
 FABRIC_ONELAKE_HOST=onelake.dfs.fabric.microsoft.com   # default; rarely changes
 
 # --- optional, deferred: capacity resume/pause (§6.2) ---
@@ -187,6 +208,7 @@ After editing `.env`: restart uvicorn (no migration needed for env changes).
 - [ ] `FABRIC_LAKEHOUSE_ID` captured (§4.1)
 - [ ] `Files/bridge_inbox/` reachable by the SP (§4)
 - [ ] Bridge notebook imported, parameters cell present, `FABRIC_BRIDGE_NOTEBOOK_ID` captured (§5)
+- [ ] (Optional) Report notebooks 09/05/06 imported, `BRIDGE_BUILDING_ID` cell marked, ids captured (§5b) — baseline works without them
 - [ ] ⛔ Active F-capacity (or Trial) attached to the workspace (§6)
 - [ ] `.env` vars added, uvicorn restarted (§7)
 - [ ] Dry-run passes (§8.2) before first live bridge (§8.3)

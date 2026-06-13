@@ -71,6 +71,11 @@ export type BuildingCreateRequest = {
   typical_occupants?: number | null
   timezone?: string
   pv_capacity_kwp?: number | null
+  wall_u_value?: number | null
+  roof_u_value?: number | null
+  window_u_value?: number | null
+  insulation_year?: number | null
+  has_gas_heating?: boolean | null
   modules?: BuildingModuleInput[]
 }
 

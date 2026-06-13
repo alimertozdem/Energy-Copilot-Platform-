@@ -235,9 +235,23 @@ export function BuildingOverview({
           <Metric label="Units" value={fmt(residential.rollup.units_with_data)} />
           <Metric
             label="Avg heating EUI"
-            value={fmt(residential.rollup.building_avg_eui_kwh_m2_yr)}
+            value={fmt(
+              residential.rollup.building_avg_eui_climate_adjusted_kwh_m2_yr != null &&
+                residential.rollup.climate_adjustment_factor != null &&
+                Math.abs(residential.rollup.climate_adjustment_factor - 1) > 0.005
+                ? residential.rollup.building_avg_eui_climate_adjusted_kwh_m2_yr
+                : residential.rollup.building_avg_eui_kwh_m2_yr
+            )}
             unit="kWh/m²·yr"
-            hint="Heating + hot water · not climate-adjusted"
+            hint={
+              residential.rollup.building_avg_eui_climate_adjusted_kwh_m2_yr != null &&
+              residential.rollup.climate_adjustment_factor != null &&
+              Math.abs(residential.rollup.climate_adjustment_factor - 1) > 0.005
+                ? `Heating + hot water · climate-adjusted ×${residential.rollup.climate_adjustment_factor.toFixed(
+                    2
+                  )} (raw ${fmt(residential.rollup.building_avg_eui_kwh_m2_yr)})`
+                : "Heating + hot water · not climate-adjusted"
+            }
             term="eui"
           />
           <div className="rounded-lg border border-border-subtle bg-bg-elevated/40 p-4">

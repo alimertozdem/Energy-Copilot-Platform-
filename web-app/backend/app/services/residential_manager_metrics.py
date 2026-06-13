@@ -107,10 +107,18 @@ def get_building_residential(fabric_building_id: str) -> ResidentialBuildingResp
             units_covered=_i(top.get("units")) or 0,
         )
 
+    # Climate-adjusted building EUI = raw avg x the building HDD factor (the factor
+    # is building-wide, so this equals the area-weighted mean of unit adjusted EUI).
+    building_climate_eui = (
+        round(building_avg * building_climate, 1)
+        if building_avg is not None and building_climate is not None
+        else None
+    )
     rollup = ResidentialBuildingRollup(
         units_with_data=len(units),
         building_avg_eui_kwh_m2_yr=building_avg,
         climate_adjustment_factor=building_climate,
+        building_avg_eui_climate_adjusted_kwh_m2_yr=building_climate_eui,
         epc_distribution=epc_dist,
         uvi=uvi,
     )

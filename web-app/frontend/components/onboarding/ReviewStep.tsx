@@ -97,6 +97,19 @@ export function ReviewStep({
               .join(" · ") || "—"
           }
         />
+        <ReviewRow
+          label="Envelope U-values"
+          value={
+            [
+              data.wall_u_value ? `wall ${data.wall_u_value}` : null,
+              data.roof_u_value ? `roof ${data.roof_u_value}` : null,
+              data.window_u_value ? `window ${data.window_u_value}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "—"
+          }
+        />
+        <ReviewRow label="Insulation year" value={data.insulation_year || "—"} />
         {isResidential && (
           <ReviewRow label="Residential units" value={data.residential_units || "—"} />
         )}
