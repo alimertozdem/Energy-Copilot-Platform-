@@ -4,11 +4,10 @@ Reads GEMINI_API_KEY from env. Falls back to GROQ_API_KEY → Llama 3.3 70B
 if Gemini errors. Never silently fails — caller sees an error and decides.
 
 Model is env-overridable via GEMINI_MODEL so a future model retirement is a
-config change, not a code edit. (gemini-2.0-flash was retired 2026-06-01.)
-
-Why this module exists: we keep prompt construction OUT of the LLM client.
-The client takes a fully-formed prompt and returns text. Filter/proposal/brief
-modules build prompts in their own files for clarity.
+config change, not a code edit. Two free-tier realities are handled here:
+  * gemini-2.5-flash is a *thinking* model — without thinkingBudget=0 it spends
+    the output budget on hidden reasoning and returns an empty body.
+  * the free tier rate-limits (429), so calls are throttled to a min interval.
 """
 from __future__ import annotations
 
@@ -21,12 +20,12 @@ from typing import Optional
 import httpx
 
 
-# Env-overridable; empty/unset falls back to the default. gemini-2.5-flash is
-# the current free-tier workhorse and is drop-in compatible with the REST
-# generateContent call below. To swap later, set a GEMINI_MODEL repo var/secret
-# (e.g. gemini-flash-latest) — no code change needed.
 GEMINI_MODEL = os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
 GROQ_MODEL = "llama-3.3-70b-versatile"  # fallback (still active as of 2026-06)
+
+# Free-tier throttle: minimum seconds between Gemini calls (env-tunable).
+_MIN_INTERVAL = float(os.getenv("GEMINI_MIN_INTERVAL_S", "6"))
+_last_gemini_ts = 0.0
 
 
 class LLMError(RuntimeError):
@@ -40,6 +39,14 @@ class LLMResponse:
     model: str
 
 
+def _throttle() -> None:
+    global _last_gemini_ts
+    gap = _MIN_INTERVAL - (time.time() - _last_gemini_ts)
+    if gap > 0:
+        time.sleep(gap)
+    _last_gemini_ts = time.time()
+
+
 def call_llm(
     prompt: str,
     *,
@@ -48,18 +55,9 @@ def call_llm(
     json_mode: bool = False,
     retries: int = 2,
 ) -> LLMResponse:
-    """Call Gemini Flash; on failure, fall back to Groq.
-
-    Args:
-        prompt: full user prompt (system context can be prepended by caller)
-        temperature: 0.0-1.0; we use 0.2 for filtering, 0.4-0.7 for writing
-        max_output_tokens: cap output size
-        json_mode: hint that response should be parseable JSON
-        retries: how many times to retry transient errors before fallback
-    """
+    """Call Gemini Flash; on failure (incl. rate limit), fall back to Groq."""
     last_err: Optional[Exception] = None
 
-    # Try Gemini
     api_key = os.getenv("GEMINI_API_KEY")
     if api_key:
         for attempt in range(retries + 1):
@@ -69,9 +67,8 @@ def call_llm(
             except Exception as e:
                 last_err = e
                 if attempt < retries:
-                    time.sleep(1.5 ** attempt)
+                    time.sleep(2.0 * (attempt + 1))  # back off on 429/transient
 
-    # Fall back to Groq
     groq_key = os.getenv("GROQ_API_KEY")
     if groq_key:
         try:
@@ -84,7 +81,9 @@ def call_llm(
 
 
 def _call_gemini(prompt: str, api_key: str, temperature: float, max_tokens: int, json_mode: bool) -> str:
-    """Direct REST call — avoids the google-generativeai SDK to keep deps minimal."""
+    """Direct REST call. Disables 'thinking' so the model returns real output
+    within the token budget (critical for gemini-2.5-flash)."""
+    _throttle()
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
     headers = {"Content-Type": "application/json"}
     params = {"key": api_key}
@@ -93,6 +92,7 @@ def _call_gemini(prompt: str, api_key: str, temperature: float, max_tokens: int,
         "generationConfig": {
             "temperature": temperature,
             "maxOutputTokens": max_tokens,
+            "thinkingConfig": {"thinkingBudget": 0},  # disable thinking -> non-empty output
         },
     }
     if json_mode:
@@ -103,7 +103,8 @@ def _call_gemini(prompt: str, api_key: str, temperature: float, max_tokens: int,
     data = resp.json()
 
     try:
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+        parts = data["candidates"][0]["content"]["parts"]
+        return "".join(p.get("text", "") for p in parts)
     except (KeyError, IndexError) as e:
         raise RuntimeError(f"Gemini response shape unexpected: {data}") from e
 
@@ -132,9 +133,8 @@ def _call_groq(prompt: str, api_key: str, temperature: float, max_tokens: int, j
 
 def parse_json_response(text: str) -> dict:
     """Best-effort parse of LLM JSON output. Strips markdown code fences."""
-    s = text.strip()
+    s = (text or "").strip()
     if s.startswith("```"):
-        # remove fence + optional language tag
         s = s.split("\n", 1)[1] if "\n" in s else s[3:]
         if s.endswith("```"):
             s = s[:-3]

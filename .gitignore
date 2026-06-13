@@ -80,4 +80,8 @@ linkedin_02_sustainability.png
 ~$*.docx
 ~$*.xlsx
 ~$*.pptx
-.~lock.*#
+.~lock.*#
+
+# Local credentials/password notes
+report-design/*sifre*
+report-design/*ifreler*

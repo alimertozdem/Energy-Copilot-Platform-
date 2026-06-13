@@ -10,4 +10,4 @@
 *.pptx binary
 *.xlsx binary
 *.pbix binary
-*.par
+*.parquet binary

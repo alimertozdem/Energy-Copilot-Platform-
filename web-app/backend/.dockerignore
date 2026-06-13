@@ -9,4 +9,6 @@ __pycache__/
 .env.*
 .pytest_cache/
 tests/
-test-results/
+test-results/
+*.md
+.git/

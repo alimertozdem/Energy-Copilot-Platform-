@@ -175,4 +175,7 @@ print(f"✅ silver_org_activity: {df_org.count()} bina (headcount → Cat 5/6/7)
 print("""
 📋 SONRAKI ADIM:
    → 09_ghg_scope_engine.py çalıştır. Bu 4 tabloyu okuyup tam Scope 1/2/3 üretir.
-   → Gerçek pilot verisi gelince: bu 4 tabl
+   → Gerçek pilot verisi gelince: bu 4 tabloyu AYNI ŞEMAYLA gerçek veriyle değiştir
+     (data_source='pilot'), motoru DEĞİŞTİRME. Sıfır rework.
+""")
+print("✅ 04_scope3_demo_activity_generator tamamlandı.")
