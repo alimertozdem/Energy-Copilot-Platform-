@@ -1,7 +1,7 @@
 """RSS-based job source.
 
-Generic RSS reader. Works for freelance.de, Indeed, and any future RSS feed.
-Uses feedparser (mature, handles malformed feeds gracefully).
+Generic RSS/Atom reader (feedparser). A browser-like User-Agent is set so
+boards that block default bot agents (e.g. RemoteOK) still serve the feed.
 """
 from __future__ import annotations
 
@@ -16,9 +16,11 @@ from .base import RawJob, to_utc_iso
 
 logger = logging.getLogger(__name__)
 
+_UA = "Mozilla/5.0 (compatible; EnergyLensBot/1.0; +https://github.com/alimertozdem)"
+
 
 class RSSSource:
-    """A single RSS feed."""
+    """A single RSS/Atom feed."""
 
     def __init__(self, name: str, url: str, job_id_prefix: str):
         self.name = name
@@ -27,7 +29,7 @@ class RSSSource:
 
     def fetch(self, lookback_hours: int) -> list[RawJob]:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
-        feed = feedparser.parse(self.url)
+        feed = feedparser.parse(self.url, agent=_UA)
 
         if feed.bozo and not feed.entries:
             logger.warning("RSS feed %s parse error: %s", self.url, feed.bozo_exception)
@@ -60,14 +62,12 @@ class RSSSource:
         return jobs
 
     def _make_job_id(self, entry) -> str:
-        # Prefer the entry's own id/guid; otherwise hash title+link.
         seed = entry.get("id") or entry.get("guid") or (entry.get("link") or "") + (entry.get("title") or "")
         h = hashlib.sha1(seed.encode("utf-8", errors="ignore")).hexdigest()[:14]
         return f"{self.job_id_prefix}{h}"
 
 
 def _entry_datetime(entry) -> Optional[datetime]:
-    """Extract a UTC datetime from an RSS entry, if possible."""
     for key in ("published_parsed", "updated_parsed", "created_parsed"):
         t = entry.get(key)
         if t:

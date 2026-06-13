@@ -1,27 +1,54 @@
-# Job source definitions — RSS feeds + email inboxes.
+# Job source definitions — RSS feeds + JSON APIs + email inboxes.
 # Use environment variables for any credentials; never hardcode.
 
 # ─────────────────────────────────────────────────────────────────────────────
-# RSS sources (public, no auth needed to read once you have the URL)
+# RSS sources (public, no auth). Niche is narrowed later by keyword filters.
 # ─────────────────────────────────────────────────────────────────────────────
 rss_sources:
+  - name: "RemoteOK — all remote jobs"
+    url: "https://remoteok.com/remote-jobs.rss"
+    enabled: true
+    job_id_prefix: "rok_"
+
+  - name: "WeWorkRemotely — all remote jobs"
+    url: "https://weworkremotely.com/remote-jobs.rss"
+    enabled: true
+    job_id_prefix: "wwr_"
+
+  - name: "Himalayas — all remote jobs"
+    url: "https://himalayas.app/jobs/rss"
+    enabled: true
+    job_id_prefix: "hima_"
+
   - name: "freelance.de — Data/BI (English-only saved search)"
     url: "https://www.freelance.de/projekte/skill-1234567-rss.xml"
-    # OPTIONAL secondary. ~70% German. Needs a freelance.de account.
-    # Log in -> Projektsuche -> filters (Englisch, Remote, Power BI/Data) -> RSS button -> copy URL.
-    enabled: false
+    enabled: false   # optional; needs a real saved-search RSS URL
     job_id_prefix: "fdde_"
 
   - name: "Indeed — Power BI remote EU"
     url: "https://de.indeed.com/rss?q=power+bi+csrd&l=remote&fromage=3"
-    enabled: false   # noisy + Indeed RSS often deprecated; enable only if desperate for volume
+    enabled: false   # Indeed public RSS verified EMPTY/deprecated (2026-06) — replaced by Arbeitnow
     job_id_prefix: "indeed_"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Email IMAP sources — the PRIMARY multi-platform path.
-# freelancermap project agent + Malt + Contra + LinkedIn all deliver by email.
-# Set up Gmail filters that LABEL each platform's alert emails, then point the
-# folders below at those labels (Gmail labels appear as IMAP folders).
+# JSON-API sources (config-driven field map; see src/sources/json_api.py).
+# Arbeitnow = Germany/EU board, English-friendly, includes Werkstudent/junior.
+# ─────────────────────────────────────────────────────────────────────────────
+json_sources:
+  - name: "Arbeitnow — Germany/EU jobs"
+    url: "https://www.arbeitnow.com/api/job-board-api"
+    enabled: true
+    job_id_prefix: "arbn_"
+    data_path: "data"
+    field_map:
+      title: "title"
+      description: "description"
+      url: "url"
+      client_name: "company_name"
+      posted_unix: "created_at"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Email IMAP sources — Gmail labels. The PRIMARY multi-platform inbound path.
 # Credentials via env: FREELANCE_GMAIL_USER + FREELANCE_GMAIL_APP_PASSWORD.
 # ─────────────────────────────────────────────────────────────────────────────
 email_sources:
@@ -29,10 +56,10 @@ email_sources:
     imap_host: "imap.gmail.com"
     imap_port: 993
     username_env: "FREELANCE_GMAIL_USER"
-    password_env: "FREELANCE_GMAIL_APP_PASSWORD"   # Gmail App Password, not the real password
+    password_env: "FREELANCE_GMAIL_APP_PASSWORD"
     enabled: true
     folders:
-      - name: "freelancermap"          # Gmail label applied to freelancermap project-agent emails
+      - name: "freelancermap"
         parser: "freelancermap"
         job_id_prefix: "fmap_"
       - name: "Malt"
@@ -49,6 +76,7 @@ email_sources:
 # Polling cadence
 # ─────────────────────────────────────────────────────────────────────────────
 poll:
-  rss_lookback_hours: 24      # only consider RSS items posted in the last N hours
-  email_lookback_hours: 48    # emails sometimes arrive late, scan a bit further back
-  dedup_window_days: 90       # remember job_ids for this long
+  rss_lookback_hours: 72      # boards post often; 72h window for a thin niche
+  json_lookback_hours: 72
+  email_lookback_hours: 48
+  dedup_window_days: 90

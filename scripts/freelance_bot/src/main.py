@@ -39,7 +39,7 @@ from src.notify import (  # noqa: E402
     format_match_message,
     format_weekly_digest,
 )
-from src.sources import EmailIMAPSource, RSSSource  # noqa: E402
+from src.sources import EmailIMAPSource, JSONAPISource, RSSSource  # noqa: E402
 from src.sources.base import RawJob  # noqa: E402
 from src.storage import JobRecord, JobsDB, ProposalRecord  # noqa: E402
 
@@ -107,6 +107,7 @@ def _run_scan(
     raw_jobs: list[RawJob] = []
     try:
         raw_jobs.extend(_collect_rss(sources_cfg, filters_cfg))
+        raw_jobs.extend(_collect_json(sources_cfg, filters_cfg))
         raw_jobs.extend(_collect_email(sources_cfg, filters_cfg))
     except Exception as e:
         logger.exception("Source collection error")
@@ -331,6 +332,27 @@ def _collect_email(sources_cfg: dict, filters_cfg: dict) -> list[RawJob]:
             out.extend(src.fetch(lookback))
         except Exception as e:
             logger.exception("Email source %s failed: %s", entry["name"], e)
+    return out
+
+
+def _collect_json(sources_cfg: dict, filters_cfg: dict) -> list[RawJob]:
+    poll = sources_cfg["poll"]
+    lookback = int(poll.get("json_lookback_hours", poll.get("rss_lookback_hours", 72)))
+    out: list[RawJob] = []
+    for entry in sources_cfg.get("json_sources", []):
+        if not entry.get("enabled", True):
+            continue
+        src = JSONAPISource(
+            name=entry["name"],
+            url=entry["url"],
+            job_id_prefix=entry["job_id_prefix"],
+            data_path=entry.get("data_path", "data"),
+            field_map=entry.get("field_map"),
+        )
+        try:
+            out.extend(src.fetch(lookback))
+        except Exception as e:
+            logger.exception("JSON source %s failed: %s", entry["name"], e)
     return out
 
 

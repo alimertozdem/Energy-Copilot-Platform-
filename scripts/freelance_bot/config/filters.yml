@@ -2,13 +2,10 @@
 # Edit these to tune what reaches your Telegram. See README for guidance.
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Tier 1 — Keyword filters (cheap, run first)
+# Tier 1 — Keyword filters (cheap, run first). A job must contain AT LEAST ONE.
 # ─────────────────────────────────────────────────────────────────────────────
-
-# A job must contain AT LEAST ONE of these include keywords (case-insensitive).
-# Listed in priority order — top matches surface higher LLM score later.
 include_keywords:
-  # Tier A — core niche (auto pass to LLM scoring)
+  # Tier A — core niche
   - "microsoft fabric"
   - "ms fabric"
   - "power bi"
@@ -46,7 +43,7 @@ include_keywords:
   - "sustainability data analyst"
   - "esg reporting analyst"
 
-  # Tier A2 — EU regulatory radar (2026 demand wave — high willingness to pay)
+  # Tier A2 — EU regulatory radar
   - "eu taxonomy"
   - "esrs e1"
   - "epbd"
@@ -59,7 +56,7 @@ include_keywords:
   - "decarbonization pathway"
   - "gresb"
 
-  # Tier A3 — Energy domain (backed by your EnergyLens app capabilities)
+  # Tier A3 — Energy domain
   - "measurement and verification"
   - "monitoring and targeting"
   - "energy audit"
@@ -77,7 +74,7 @@ include_keywords:
   - "heat pump"
   - "hvac analytics"
 
-  # Tier B — broader MS analytics (still relevant)
+  # Tier B — broader MS analytics
   - "direct lake"
   - "onelake"
   - "lakehouse"
@@ -88,7 +85,7 @@ include_keywords:
   - "semantic model"
   - "tabular editor"
 
-  # Tier C — adjacent (sustainability + analytics)
+  # Tier C — adjacent sustainability + analytics
   - "carbon emission"
   - "co2 emission"
   - "net zero"
@@ -96,6 +93,20 @@ include_keywords:
   - "decarbonisation"
   - "double materiality"
   - "sbti"
+
+  # Tier J — job-search / employment (LinkedIn + Arbeitnow + remote boards)
+  - "data analyst"
+  - "business intelligence"
+  - "bi developer"
+  - "bi analyst"
+  - "working student"
+  - "werkstudent"
+  - "sustainability analyst"
+  - "esg analyst"
+  - "energy analyst"
+  - "renewable energy"
+  - "data engineer"
+  - "analytics engineer"
 
 # A job is REJECTED if it contains ANY of these (case-insensitive).
 exclude_keywords:
@@ -125,11 +136,11 @@ exclude_keywords:
 # Tier 2 — Budget thresholds
 # ─────────────────────────────────────────────────────────────────────────────
 budget:
-  fixed_min_eur: 500        # skip fixed-price jobs below this
-  hourly_min_eur: 30        # skip hourly jobs below this (we bid 60, accept search threshold lower)
-  allow_no_budget: true     # if budget is not stated, pass to Tier 3 (LLM decides)
+  fixed_min_eur: 500
+  hourly_min_eur: 30
+  allow_no_budget: true     # employment/board posts rarely state budget -> let LLM decide
 
-# Approximate FX rates for budget normalization (refresh occasionally).
+# Approximate FX rates for budget normalization.
 fx_to_eur:
   USD: 0.92
   GBP: 1.17
@@ -140,9 +151,9 @@ fx_to_eur:
 # Tier 3 — LLM semantic score threshold
 # ─────────────────────────────────────────────────────────────────────────────
 llm_score:
-  min_score_to_push: 6        # 1-10 scale, push to Telegram at or above this
-  min_score_to_log: 4         # below this we don't even log details (save tokens)
-  prompt_temperature: 0.2     # low temperature = consistent scoring
+  min_score_to_push: 4        # LOOSENED 6->4: thin volume, surface more for triage
+  min_score_to_log: 3
+  prompt_temperature: 0.2
   retry_on_error: 2
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -150,12 +161,11 @@ llm_score:
 # ─────────────────────────────────────────────────────────────────────────────
 notifications:
   max_per_day: 10
-  # v2 — daily digest: scan only COLLECTS + drafts; one digest is sent at noon.
-  digest_mode: true           # true = no live per-match pushes; accumulate for the daily digest
-  digest_per_stream: 6        # max items per stream (Jobs / Freelance) in one daily digest
-  daily_summary_hour: 9       # local time, push a "X new matches" summary
-  weekly_digest_dow: "sun"    # Sunday
+  digest_mode: true
+  digest_per_stream: 8        # a bit higher now that we surface more
+  daily_summary_hour: 9
+  weekly_digest_dow: "sun"
   weekly_digest_hour: 20
-  quiet_hours_start: 22       # don't push between 22:00 and 07:00 local
+  quiet_hours_start: 22
   quiet_hours_end: 7
   timezone: "Europe/Berlin"
