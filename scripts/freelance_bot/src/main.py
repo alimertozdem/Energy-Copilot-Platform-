@@ -117,6 +117,8 @@ def _run_scan(
     matched = 0
     drafted = 0
     pushed = 0
+    llm_attempts = 0
+    llm_failures = 0
 
     tz = ZoneInfo(filters_cfg["notifications"].get("timezone", "Europe/Berlin"))
     daily_cap = int(filters_cfg["notifications"].get("max_per_day", 10))
@@ -173,7 +175,10 @@ def _run_scan(
             continue
 
         # Tier 3 — LLM score (costs tokens, do only after Tier 1+2 pass)
+        llm_attempts += 1
         score = score_job(raw.title, raw.description, temperature=float(filters_cfg["llm_score"]["prompt_temperature"]))
+        if str(score.reasoning).startswith("llm_unavailable"):
+            llm_failures += 1
         is_match = score.score >= int(filters_cfg["llm_score"]["min_score_to_push"])
         db.update_job_scoring(
             raw.job_id, kw.passed, bud.passed,
@@ -257,6 +262,19 @@ def _run_scan(
         if ok:
             pushed += 1
             remaining_today -= 1
+
+    # LLM health canary — if EVERY scoring call failed, the model/key is dead.
+    # Shout once a day instead of silently shipping an empty digest.
+    if not dry_run and llm_attempts > 0 and llm_failures >= llm_attempts:
+        if db.count_notifications_today("llm_down") == 0:
+            alert_ok = notifier.send(
+                "\u26a0\ufe0f *Bot brain down*\n"
+                f"LLM scoring failed on all {llm_attempts} job(s) this scan \u2014 the "
+                "model was likely retired or the API key/quota is dead.\n"
+                "Fix: set a `GEMINI_MODEL` secret (e.g. `gemini-flash-latest`) or add "
+                "`GROQ_API_KEY`. Until then the daily digest stays empty."
+            )
+            db.log_notification("llm_down", None, success=alert_ok)
 
     # Reliable daily digest: GitHub Actions' dedicated scheduled run is
     # unreliable on the free tier (slots get delayed or dropped), so any scan
@@ -374,6 +392,7 @@ def _send_daily_digest(db: JobsDB, notifier: TelegramNotifier, filters_cfg: dict
     # Look back 26h so we never miss the tail of yesterday's matches.
     since = (datetime.now(tz) - timedelta(hours=26)).astimezone(timezone.utc).isoformat(timespec="seconds")
     rows = db.get_pending_digest(since)
+    funnel = db.funnel_since(since)
 
     by_stream: dict[str, list[dict]] = {"job": [], "freelance": []}
     for r in rows:
@@ -391,7 +410,7 @@ def _send_daily_digest(db: JobsDB, notifier: TelegramNotifier, filters_cfg: dict
         })
 
     date_str = datetime.now(tz).strftime("%a %d %b %Y")
-    msg = format_daily_digest(by_stream, date_str)
+    msg = format_daily_digest(by_stream, date_str, funnel=funnel)
 
     if dry_run:
         logger.info("[dry-run] daily digest — job=%d freelance=%d",

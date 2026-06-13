@@ -107,11 +107,12 @@ def format_match_message(
     return "\n".join(parts)
 
 
-def format_daily_digest(items_by_stream: dict, date_str: str) -> str:
+def format_daily_digest(items_by_stream: dict, date_str: str, funnel: Optional[dict] = None) -> str:
     """One daily message with two sections: Jobs (cover letters) + Freelance (proposals).
 
     items_by_stream: {"job": [item, ...], "freelance": [item, ...]}.
     Each item is a dict with: title, url, source, score, budget_raw, draft.
+    `funnel` (optional) adds a self-diagnosing line so a '0' is never ambiguous.
     Long digests are split automatically by TelegramNotifier.send().
     """
     jobs = items_by_stream.get("job", [])
@@ -122,6 +123,13 @@ def format_daily_digest(items_by_stream: dict, date_str: str) -> str:
         "",
         f"💼 *JOBS (LinkedIn) — {len(jobs)}*",
     ]
+    if funnel is not None:
+        seen = funnel.get("seen", 0)
+        parts.insert(2, f"_Scan funnel (26h): seen {seen} · keyword-ok {funnel.get('keyword_ok', 0)} · matched {funnel.get('matched', 0)}._")
+        if seen == 0:
+            parts.insert(3, "_⚠️ 0 postings reached the bot — likely no alert emails landed in the Gmail labels. Check the platform alerts and that the labels are visible in IMAP._")
+        elif funnel.get("matched", 0) == 0:
+            parts.insert(3, "_⚠️ Postings seen but 0 matched — filters may be too strict, or LLM scoring is down._")
     if not jobs:
         parts.append("_No new job matches today._")
     for i, it in enumerate(jobs, 1):
@@ -170,7 +178,7 @@ def format_weekly_digest(stats: dict) -> str:
     return (
         f"📊 *Weekly Digest*\n"
         f"Jobs seen this week: {stats.get('jobs_seen', 0)}\n"
-        f"Matched (≥7): {stats.get('jobs_matched', 0)}\n"
+        f"Matched: {stats.get('jobs_matched', 0)}\n"
         f"Submitted: {stats.get('proposals_submitted', 0)}\n"
         f"Replies: {stats.get('proposals_replied', 0)}\n"
         f"Wins: {stats.get('proposals_won', 0)}\n\n"

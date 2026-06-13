@@ -179,6 +179,29 @@ class JobsDB:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def funnel_since(self, since_iso: str) -> dict:
+        """Funnel counts over a window: how many jobs were seen, passed each
+        filter tier, and finally matched. Powers the digest's self-diagnosing
+        line so a '0' is never ambiguous (no emails vs all filtered)."""
+        with get_connection(self.db_path) as conn:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS seen,
+                       COALESCE(SUM(keyword_pass), 0) AS keyword_ok,
+                       COALESCE(SUM(budget_pass), 0) AS budget_ok,
+                       COALESCE(SUM(matched), 0) AS matched
+                  FROM jobs
+                 WHERE seen_at >= ?
+                """,
+                (since_iso,),
+            ).fetchone()
+        return {
+            "seen": int(row["seen"] or 0),
+            "keyword_ok": int(row["keyword_ok"] or 0),
+            "budget_ok": int(row["budget_ok"] or 0),
+            "matched": int(row["matched"] or 0),
+        }
+
     # ────────────────────────── Runs ──────────────────────────
 
     def start_run(self) -> int:

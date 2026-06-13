@@ -3,6 +3,9 @@
 Reads GEMINI_API_KEY from env. Falls back to GROQ_API_KEY → Llama 3.3 70B
 if Gemini errors. Never silently fails — caller sees an error and decides.
 
+Model is env-overridable via GEMINI_MODEL so a future model retirement is a
+config change, not a code edit. (gemini-2.0-flash was retired 2026-06-01.)
+
 Why this module exists: we keep prompt construction OUT of the LLM client.
 The client takes a fully-formed prompt and returns text. Filter/proposal/brief
 modules build prompts in their own files for clarity.
@@ -18,8 +21,12 @@ from typing import Optional
 import httpx
 
 
-GEMINI_MODEL = "gemini-2.0-flash"  # free tier, 1500 req/day, fast + capable
-GROQ_MODEL = "llama-3.3-70b-versatile"  # fallback
+# Env-overridable; empty/unset falls back to the default. gemini-2.5-flash is
+# the current free-tier workhorse and is drop-in compatible with the REST
+# generateContent call below. To swap later, set a GEMINI_MODEL repo var/secret
+# (e.g. gemini-flash-latest) — no code change needed.
+GEMINI_MODEL = os.getenv("GEMINI_MODEL") or "gemini-2.5-flash"
+GROQ_MODEL = "llama-3.3-70b-versatile"  # fallback (still active as of 2026-06)
 
 
 class LLMError(RuntimeError):
