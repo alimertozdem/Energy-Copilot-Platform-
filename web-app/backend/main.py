@@ -74,6 +74,20 @@ DEMO_EMAILS = {
     if e.strip()
 }
 
+# Static fallback for the "see whole model" embed path (admin + demo accounts)
+# when the Fabric SQL endpoint is unreachable. Azure Container Apps (Consumption)
+# cannot open the Fabric SQL redirect ports, so the live DISTINCT-building_id
+# query raises pyodbc.Error there; without this fallback the embed 503s. These
+# are the seed/showcase building_ids (B001-B011). Env-overridable.
+_MODEL_BUILDING_IDS_FALLBACK = tuple(
+    e.strip()
+    for e in os.getenv(
+        "MODEL_BUILDING_IDS",
+        "B001,B002,B003,B004,B005,B006,B007,B008,B009,B010,B011",
+    ).split(",")
+    if e.strip()
+)
+
 # CORS origins: comma-separated env var for prod (Vercel domain), localhost fallback for dev.
 _cors_env = os.getenv("CORS_ORIGINS", "http://localhost:3000")
 _cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
@@ -196,17 +210,26 @@ def health():
 
 def _all_model_building_ids() -> list[str]:
     # Every building_id in the model's RLS table (silver_building_master).
-    # Grants a platform admin full visibility via the CustomerRLS role: a
-    # customData PATH containing all ids passes PATHCONTAINS on every row.
-    # Reads the Fabric SQL endpoint (same source the dashboards use); a
-    # pyodbc.Error here surfaces as the standard 503 'data unavailable'.
+    # Grants admin / demo accounts full visibility via the CustomerRLS role: a
+    # customData PATH containing all ids passes PATHCONTAINS on every row. Reads
+    # the Fabric SQL endpoint; when unreachable (Azure cannot reach Fabric SQL ->
+    # pyodbc.Error) fall back to the static seed/showcase set so the embed shows
+    # the whole sample portfolio instead of failing with 503.
     from app.integrations import fabric_sql
 
-    rows = fabric_sql.execute_query(
-        "SELECT DISTINCT building_id FROM [dbo].[silver_building_master] "
-        "WHERE building_id IS NOT NULL"
-    )
-    return [str(r["building_id"]) for r in rows if r.get("building_id")]
+    try:
+        rows = fabric_sql.execute_query(
+            "SELECT DISTINCT building_id FROM [dbo].[silver_building_master] "
+            "WHERE building_id IS NOT NULL"
+        )
+        ids = [str(r["building_id"]) for r in rows if r.get("building_id")]
+        if ids:
+            return ids
+    except Exception as exc:  # log + fallback, never 503 the embed token
+        logger.warning(
+            "all-model-ids Fabric query failed (%s); using static fallback", exc
+        )
+    return list(_MODEL_BUILDING_IDS_FALLBACK)
 
 
 @app.post("/embed/token", response_model=EmbedTokenResponse)
