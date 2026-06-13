@@ -12,19 +12,23 @@
  * StatCard strips) may stack rather than sit side-by-side. Content is faithful; if the
  * card layout matters we can convert those strips to tables.
  */
-import { renderToStaticMarkup } from "react-dom/server"
 import type { ReactElement } from "react"
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
 
-export function wordResponse(
+export async function wordResponse(
   filename: string,
   title: string,
   subtitle: string | null,
   body: ReactElement
-): Response {
+): Promise<Response> {
+  // Import the Node server renderer lazily: a top-level `import` of
+  // "react-dom/server" makes Turbopack fail the route bundle at build time
+  // ("Ecmascript file had an error"). A dynamic import resolves it at runtime
+  // in the Node route handler instead.
+  const { renderToStaticMarkup } = await import("react-dom/server")
   const inner = renderToStaticMarkup(body)
   const html =
     `<html xmlns:o="urn:schemas-microsoft-com:office:office" ` +

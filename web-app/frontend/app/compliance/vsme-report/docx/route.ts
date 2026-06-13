@@ -15,6 +15,7 @@ import { authOptions } from "@/lib/auth/options"
 import { wordResponse } from "@/lib/report/wordDoc"
 
 export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -42,7 +43,7 @@ export async function GET(req: Request) {
     ? `${esrs.buildings_total} building${esrs.buildings_total === 1 ? "" : "s"}`
     : null
 
-  return wordResponse(
+  return await wordResponse(
     comprehensive ? "VSME-Basic-Comprehensive" : "VSME-Basic-Module",
     comprehensive ? "VSME — Basic + Comprehensive" : "VSME — Basic Module",
     subtitle,
