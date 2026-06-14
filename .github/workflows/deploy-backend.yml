@@ -1,0 +1,72 @@
+name: deploy-backend
+
+# Builds the backend image from web-app/backend and deploys it to the EXISTING
+# Azure Container App (energylens-api).
+#
+# WHY THIS EXISTS
+#   The Azure backend deploys from SOURCE, not from git. Before this workflow,
+#   every backend change required a manual `az containerapp up --source .` from a
+#   laptop — and a plain `git push` updated the repo but NEVER the running backend
+#   (this caused a full day of "my fixes aren't live" confusion on 2026-06-14).
+#   Now: push to main (touching the backend) -> tests -> build -> deploy. Done.
+#
+# WHAT IT DOES
+#   1. Runs the pure energy-logic unit tests. A red suite blocks the deploy.
+#   2. Logs in to Azure with the AZURE_CREDENTIALS service principal.
+#   3. Cloud-builds web-app/backend/Dockerfile into ACR (cab42c1b7ac5acr) and
+#      updates the energylens-api Container App in place. Existing env vars /
+#      secrets / scale settings on the app are preserved (image-only update).
+#
+# ONE-TIME SETUP (see DEPLOYMENT.md)
+#   Add repo secret AZURE_CREDENTIALS = the JSON printed by:
+#     az ad sp create-for-rbac --name energylens-gha \
+#       --role Contributor \
+#       --scopes /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/rg-energylens \
+#       --sdk-auth
+#   (GitHub repo -> Settings -> Secrets and variables -> Actions -> New secret.)
+#
+# MANUAL RUN: Actions tab -> deploy-backend -> "Run workflow" (workflow_dispatch).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web-app/backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch: {}
+
+# Never let two deploys race; let an in-flight one finish rather than cancel it.
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Gate: do not ship a backend whose energy-logic tests fail.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run backend unit tests
+        working-directory: web-app/backend
+        run: |
+          pip install pytest
+          python -m pytest tests/ -q
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build image + deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          appSourcePath: ${{ github.workspace }}/web-app/backend
+          dockerfilePath: Dockerfile
+          acrName: cab42c1b7ac5acr
+          containerAppName: energylens-api
+          resourceGroup: rg-energylens
+          containerAppEnvironment: energylens-env
