@@ -98,6 +98,14 @@ def compute_npv(annual_savings: float, total_capex: float,
     return sum(cf / ((1 + discount) ** i) for i, cf in enumerate(cash_flows))
 
 
+# Screening display cap for IRR. A behind-the-meter battery realistically tops out
+# around 15-25% IRR; an IRR above ~35% implies <3yr payback, i.e. the scenario's
+# savings are overstated and the figure is outside this model's reliable range.
+# Capping the DISPLAY stops one edge-case scenario from showing 'IRR 450%' while
+# leaving every realistic case (well below the cap) untouched. Tune as needed.
+IRR_DISPLAY_CAP = 0.35   # = 35%
+
+
 def compute_irr(annual_savings: float, total_capex: float,
                 inflation: float = INFLATION_RATE,
                 years: int = NPV_HORIZON_YR,
@@ -119,7 +127,9 @@ def compute_irr(annual_savings: float, total_capex: float,
             break
         r -= f / df
         r = max(-0.99, min(5.0, r))
-    return round(r * 100.0, 2)
+    # Screening cap (see IRR_DISPLAY_CAP): keep one blow-up scenario from reading
+    # as an absurd 450%. Realistic scenarios are far below the cap and unaffected.
+    return round(min(r, IRR_DISPLAY_CAP) * 100.0, 2)
 
 
 def compute_payback(annual_savings: float, total_capex: float) -> float:

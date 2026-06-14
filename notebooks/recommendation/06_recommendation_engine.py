@@ -1974,6 +1974,65 @@ df_ranked = (
 log_step("RANK", "Ranking complete", rows=df_ranked.count())
 
 
+# ── 9b. PORTFOLIO-REALISM SAVINGS CAP ─────────────────────────────────────────
+# Each measure's saving is estimated INDEPENDENTLY off the same baseline, so
+# naively summing a building's measures can exceed its actual annual energy bill /
+# emissions (overlapping savings: CHP + BMS + heat-recovery all claim the same
+# kWh). We scale a building's measure savings down PROPORTIONALLY so their SUM
+# never exceeds a realistic fraction of that building's annual baseline. Effects:
+#   • intra-building ranking is preserved (same factor for every measure);
+#   • payback_years + npv_eur are RECOMPUTED from the scaled saving (via the row's
+#     implied annuity = (npv+net_capex)/saving) so each row stays self-consistent;
+#   • the portfolio total of annual_saving_eur / co2_saving_kg can no longer exceed
+#     the portfolio bill / emissions — the headline figure becomes honest.
+# Guarded by try/except: if the baseline is unavailable the cap is skipped, never
+# breaking the pipeline. Tune the two fractions to taste.
+SAVING_CAP_FRACTION_EUR = 0.65   # max realistic share of annual energy COST a retrofit stack saves
+SAVING_CAP_FRACTION_CO2 = 0.75   # max realistic share of annual EMISSIONS (electrification reaches higher)
+
+try:
+    df_base_cap = (
+        df_kpi_m.groupBy("building_id")
+        .agg(spark_sum("total_cost_eur").alias("_base_cost_eur"),
+             spark_sum("co2_emissions_kg").alias("_base_co2_kg"))
+    )
+    _w_cap = Window.partitionBy("building_id")
+    df_ranked = (
+        df_ranked
+        .join(df_base_cap, "building_id", "left")
+        .withColumn("_orig_saving", col("annual_saving_eur"))
+        .withColumn("_sum_eur", spark_sum(col("annual_saving_eur")).over(_w_cap))
+        .withColumn("_sum_co2", spark_sum(col("co2_saving_kg")).over(_w_cap))
+        .withColumn("_cap_eur", col("_base_cost_eur") * lit(SAVING_CAP_FRACTION_EUR))
+        .withColumn("_cap_co2", col("_base_co2_kg") * lit(SAVING_CAP_FRACTION_CO2))
+        .withColumn("_scale_eur",
+            when(col("_cap_eur").isNotNull() & (col("_sum_eur") > col("_cap_eur")) & (col("_sum_eur") > 0),
+                 col("_cap_eur") / col("_sum_eur")).otherwise(lit(1.0)))
+        .withColumn("_scale_co2",
+            when(col("_cap_co2").isNotNull() & (col("_sum_co2") > col("_cap_co2")) & (col("_sum_co2") > 0),
+                 col("_cap_co2") / col("_sum_co2")).otherwise(lit(1.0)))
+        .withColumn("_implied_annuity",
+            when(col("_orig_saving") > 0,
+                 (col("npv_eur") + col("net_capex_eur")) / col("_orig_saving")).otherwise(lit(0.0)))
+        .withColumn("annual_saving_eur", col("_orig_saving") * col("_scale_eur"))
+        .withColumn("co2_saving_kg", col("co2_saving_kg") * col("_scale_co2"))
+        .withColumn("npv_eur",
+            when((col("_scale_eur") < lit(1.0)) & (col("_orig_saving") > 0),
+                 col("annual_saving_eur") * col("_implied_annuity") - col("net_capex_eur"))
+            .otherwise(col("npv_eur")))
+        .withColumn("payback_years",
+            when((col("_scale_eur") < lit(1.0)) & (col("annual_saving_eur") > 0),
+                 col("net_capex_eur") / col("annual_saving_eur"))
+            .otherwise(col("payback_years")))
+        .drop("_base_cost_eur", "_base_co2_kg", "_orig_saving", "_sum_eur", "_sum_co2",
+              "_cap_eur", "_cap_co2", "_scale_eur", "_scale_co2", "_implied_annuity")
+    )
+    log_step("CAP", "Per-building savings capped to a realistic share of baseline")
+except Exception as _cap_e:
+    print(f"⚠️  Savings cap atlandı (baseline okunamadı?): {str(_cap_e)[:160]}")
+
+
+
 # ── 10. FINAL SELECT ───────────────────────────────────────────────────────────
 
 df_results = (

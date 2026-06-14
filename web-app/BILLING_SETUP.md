@@ -91,3 +91,23 @@ For a deployed environment instead: Developers → Webhooks → add an endpoint
 - If `STRIPE_SECRET_KEY` is unset, billing endpoints return `503` and the
   Subscription card surfaces a calm error — the rest of the app is unaffected.
 - `enterprise` is not self-serve: the card shows a "Contact sales" mailto.
+
+---
+
+## Created test-mode price IDs (2026-06-14, via Stripe MCP)
+
+Paste into `web-app/backend/.env` (and set the same on Railway/host). **Test-mode** (`livemode:false`) — safe to share; regenerate for live mode later.
+
+```
+STRIPE_PRICE_BASIC=price_1TiKtzC7z2vw2YPZACje0Vit
+STRIPE_PRICE_BASIC_ANNUAL=price_1TiKu1C7z2vw2YPZuZZmB6ZO
+STRIPE_PRICE_MONITOR=price_1TiKu2C7z2vw2YPZCZwgF8Cv
+STRIPE_PRICE_MONITOR_ANNUAL=price_1TiKu4C7z2vw2YPZhtYdbINu
+STRIPE_PRICE_RESIDENTIAL=price_1TiKu6C7z2vw2YPZtnVSqsL5
+STRIPE_PRICE_RESIDENTIAL_ANNUAL=price_1TiKu7C7z2vw2YPZIECdtS6M
+```
+
+Products: Basic `prod_UhkO3HtrpVxfeW` · Monitor `prod_UhkOPiPWh1hjUv` · Residential `prod_UhkOid48ujOmtK`.
+Amounts: Basic €99/mo · €1,010/yr · Monitor €299/mo · €3,050/yr · Residential €49/mo · €500/yr (annual = −15%).
+
+Still operator-only (I can't do these): `STRIPE_SECRET_KEY` (`sk_test_…`, Dashboard → Developers → API keys), `STRIPE_WEBHOOK_SECRET` (`whsec_…`, `stripe listen` or a webhook endpoint), and **activate the Customer Portal** (Settings → Billing → Customer portal) in test mode. Then restart uvicorn.

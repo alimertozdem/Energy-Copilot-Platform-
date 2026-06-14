@@ -27,6 +27,7 @@ import { FlexibilityPanel } from "@/components/compliance/FlexibilityPanel"
 import { MepsRadar } from "@/components/compliance/MepsRadar"
 import { SectionNav, type NavSection } from "@/components/compliance/SectionNav"
 import { TaxonomyScreen } from "@/components/compliance/TaxonomyScreen"
+import { ComplianceReportMenu } from "@/components/compliance/ComplianceReportMenu"
 import { fetchEsrsReport } from "@/lib/api/esrs"
 import { fetchPortfolioBuildings } from "@/lib/api/portfolio"
 import { authOptions } from "@/lib/auth/options"
@@ -96,143 +97,7 @@ export default async function CompliancePage({
         </PageIntro>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <BuildingSlicer buildings={slicerBuildings} value={scoped ? building_id! : null} />
-          <div className="flex items-center gap-2">
-            <Link
-              href="/compliance/esrs-editor"
-              title="Write the ESRS E-1 qualitative narrative"
-              className="inline-flex items-center gap-2 rounded-md border border-border-subtle px-3 py-1.5 text-sm font-medium text-text-muted transition-colors hover:border-brand-emerald hover:text-brand-emerald"
-            >
-              Edit ESRS narrative
-            </Link>
-            <Link
-              href="/compliance/vsme-editor"
-              title="Write the VSME Basic Module qualitative narrative"
-              className="inline-flex items-center gap-2 rounded-md border border-border-subtle px-3 py-1.5 text-sm font-medium text-text-muted transition-colors hover:border-brand-emerald hover:text-brand-emerald"
-            >
-              Edit VSME narrative
-            </Link>
-            <Link
-              href={`/compliance/esrs-report${reportQuery}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Print-ready ESRS E-1 (Climate Change) report"
-              className="inline-flex items-center gap-2 rounded-md border border-brand-emerald/40 bg-brand-emerald/5 px-3 py-1.5 text-sm font-medium text-brand-emerald transition-colors hover:border-brand-emerald hover:bg-brand-emerald/10"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              ESRS E-1
-            </Link>
-            <a
-              href={`/compliance/esrs-report/docx${reportQuery}`}
-              title="Download ESRS E-1 as editable Word (.doc)"
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-text-muted transition-colors hover:text-brand-emerald"
-            >
-              ⬇ Word
-            </a>
-            <Link
-              href={`/compliance/enefg-report${reportQuery}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Print-ready EnEfG audit / implementation plan"
-              className="inline-flex items-center gap-2 rounded-md border border-brand-emerald/40 bg-brand-emerald/5 px-3 py-1.5 text-sm font-medium text-brand-emerald transition-colors hover:border-brand-emerald hover:bg-brand-emerald/10"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              EnEfG plan
-            </Link>
-            <Link
-              href={`/compliance/ghg-report${reportQuery}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Print-ready GHG Inventory (GHG Protocol: Scope 1/2/3)"
-              className="inline-flex items-center gap-2 rounded-md border border-brand-emerald/40 bg-brand-emerald/5 px-3 py-1.5 text-sm font-medium text-brand-emerald transition-colors hover:border-brand-emerald hover:bg-brand-emerald/10"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              GHG Inventory
-            </Link>
-            <Link
-              href={`/compliance/vsme-report${reportQuery}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Print-ready VSME (Voluntary SME standard) Basic Module report"
-              className="inline-flex items-center gap-2 rounded-md border border-brand-emerald/40 bg-brand-emerald/5 px-3 py-1.5 text-sm font-medium text-brand-emerald transition-colors hover:border-brand-emerald hover:bg-brand-emerald/10"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              VSME report
-            </Link>
-            <a
-              href={`/compliance/vsme-report/docx${reportQuery}`}
-              title="Download VSME report as editable Word (.doc)"
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-text-muted transition-colors hover:text-brand-emerald"
-            >
-              ⬇ Word
-            </a>
-            <a
-              href="/compliance/vsme-report?level=comprehensive"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="VSME Comprehensive Module (Basic + C1–C9)"
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-text-muted transition-colors hover:text-brand-emerald"
-            >
-              + Comprehensive
-            </a>
-            <Link
-              href={`/compliance/crrem-report${reportQuery}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Print-ready CRREM-aligned stranding assessment (indicative pathways)"
-              className="inline-flex items-center gap-2 rounded-md border border-brand-emerald/40 bg-brand-emerald/5 px-3 py-1.5 text-sm font-medium text-brand-emerald transition-colors hover:border-brand-emerald hover:bg-brand-emerald/10"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              CRREM stranding
-            </Link>
-            <Link
-              href={`/compliance/gresb-report${reportQuery}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Print-ready GRESB-aligned Performance readiness (indicative)"
-              className="inline-flex items-center gap-2 rounded-md border border-brand-emerald/40 bg-brand-emerald/5 px-3 py-1.5 text-sm font-medium text-brand-emerald transition-colors hover:border-brand-emerald hover:bg-brand-emerald/10"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              GRESB readiness
-            </Link>
-            <Link
-              href="/compliance/report"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Print-ready PDF: MEPS, CRREM, EU Taxonomy and ESRS-E1"
-              className="inline-flex items-center gap-2 rounded-md border border-brand-emerald/40 bg-brand-emerald/5 px-3 py-1.5 text-sm font-medium text-brand-emerald transition-colors hover:border-brand-emerald hover:bg-brand-emerald/10"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Export PDF
-            </Link>
-          </div>
+          <ComplianceReportMenu reportQuery={reportQuery} />
         </div>
 
         <SectionNav sections={sections} />

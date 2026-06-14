@@ -969,128 +969,121 @@ else:
 
 
 # =============================================================================
-# BÖLÜM 7b — RESOLVED STATUS UPDATE (Gerçekçi Demo Verisi)
+# BÖLÜM 7b — RESOLVED STATUS UPDATE (Episode-Aware, Gerçekçi Operasyonel Görünüm)
 # =============================================================================
 #
-# AMAÇ:
-#   Gerçek bir operasyonel sistemde anomaly'lerin bir kısmı zaman içinde
-#   tespit + aksiyon + çözüm döngüsünden geçer. Sentetik verimizde
-#   is_resolved her zaman False → "hiçbir şey çözülmemiyor" izlenimi.
-#   Bu adım, 45 günden eski anomaly'lerin %15-40'ını severity bazlı resolved
-#   olarak işaretler.
+# SORUN:
+#   gold_anomalies (building_id, anomaly_type, detected_date) grain'inde tutulur:
+#   kronik bir arıza HER GÜN yeni bir satır üretir. Tek bir süregelen sorun bu
+#   yüzden yüzlerce "açık alarm" gibi görünür (demo'da bir bina 508 gösterdi) ve
+#   tesis yöneticisi listeyle baş edemez. Eski kural is_resolved'i current_date()
+#   + hash-fraction ile belirliyordu → sentetik tarihler sabit olduğundan çoğu kez
+#   HİÇBİR ŞEY resolved olmuyordu (Unresolved == Total).
 #
-# UYGULAMA (v2 — 2026-05-18 patch):
-#   spark.sql("UPDATE ...") Fabric'te sessizce exception fırlatıyordu
-#   → is_resolved %100 FALSE kalıyordu → C4/C5 kartları bozuluyordu.
-#   Bu versiyon DeltaTable.merge() API kullanıyor → Fabric'te güvenilir çalışır.
-#   (29b_anomaly_resolved_fix.py notebook'unun mantığı bu bölüme entegre edildi.)
+# YENİ MANTIK (2026-06-14 — episode-aware):
+#   Bir "sorun" = (building_id, anomaly_type). Her sorun için:
+#     • issue_last_seen = o sorunun en güncel occurrence tarihi
+#     • data_anchor     = veri kümesindeki en güncel tarih (sentetik "bugün")
+#     • issue_active    = issue_last_seen anchor'dan ACTIVE_WINDOW_DAYS içindeyse
+#                         (sorun yakın zamanda yine tekrarladı)
+#   Resolution:
+#     • AKTİF sorun → SADECE en güncel occurrence açık kalır (1 satır), geçmiş
+#                     günlük tekrarlar resolved.
+#     • PASİF sorun → (artık tekrarlamıyor) tüm occurrence'lar resolved.
 #
-# MANTIK:
-#   • Sadece RESOLVED_CUTOFF_DAYS (45) günden eski anomaly'ler hedef alınır
-#     (yeni anomaly'ler hâlâ aktif/open kalır — doğal davranış)
-#   • Hangi anomaly'lerin resolved olacağını ABS(HASH(anomaly_id)) % N
-#     ile deterministik seçiyoruz:
-#       - Random değil → notebook her çalışmada aynı sonucu verir
-#       - anomaly_id benzersiz string → hash iyi dağılım sağlar
-#   • Severity bazlı kural:
-#       critical : hash % 20 < 3  → ~%15  (zor çözülür)
-#       high     : hash % 20 < 5  → ~%25
-#       medium   : hash % 10 < 4  → ~%40  (kolay çözülür)
-#       low/info : hash % 10 < 4  → ~%40
-#
-# ETKİ: Power BI Page 3'te Unresolved < Total → gerçekçi operasyonel görünüm
-#       Resolution Rate %30-40 aralığında → C5 kartı anlamlı değer gösterir
+#   ETKİ: Açık (unresolved) satır sayısı ≈ AKTİF sorun sayısı (onlarca, yüzlerce
+#   değil). Web-app /alerts zaten (bina,tip) bazında grupluyor; bu adım kök veriyi
+#   de hizalar. Grain DEĞİŞMEZ → Power BI Page 3 yapısı korunur, yalnız is_resolved
+#   dağılımı gerçekçi olur (Unresolved ≪ Total).
 # =============================================================================
 
 if table_exists(PATHS["anomalies"]):
-    print("\n🔄 Resolved status güncelleniyor (DeltaTable API)...")
+    print("\n🔄 Resolved status güncelleniyor (episode-aware)...")
 
-    RESOLVED_CUTOFF_DAYS = 45   # Bu kadar günden eski anomaly'ler resolve adayı
+    ACTIVE_WINDOW_DAYS = 14   # Sorun bu kadar gün içinde tekrarladıysa "aktif"
     _anomaly_cat_name = PATHS["anomalies"].replace("Tables/", "")
 
     try:
-        # ── 1. Tabloyu oku ve resolved flag'i deterministik hesapla ──────────
-        from pyspark.sql.functions import hash as spark_hash
+        from pyspark.sql.window import Window
+        from pyspark.sql.functions import max as spark_max
 
-        df_before = spark.read.format("delta").load(PATHS["anomalies"])
+        # FIX 2026-06-14 (split-brain): CATALOG ile oku, path ile DEGIL. Path
+        # "Tables/gold_anomaly_log" eski/orphan non-schema tabloya (45k satir, eski
+        # tip taksonomisi) cozunuyor; saveAsTable gercek katalog tablosunu (Tables/dbo)
+        # yaziyor. Path okumasi => MERGE kaynak anomaly_id'leri katalog hedefiyle
+        # eslesmez => 0 satir resolved (Open %100 kalir). Katalog okumasi bunu giderir.
+        df_before = read_table_safe(PATHS["anomalies"])
         total_before    = df_before.count()
         resolved_before = df_before.filter(col("is_resolved") == lit(True)).count()
 
-        df_flagged = (
-            df_before
-            .withColumn("_age_days", datediff(current_date(), col("detected_date")))
-            .withColumn(
-                "_new_resolved",
-                # Zaten resolved → değiştirme
-                when(col("is_resolved") == lit(True), lit(True))
-                # Çok yeni → hâlâ open
-                .when(col("_age_days") < lit(RESOLVED_CUTOFF_DAYS), lit(False))
-                # CRITICAL: hash % 20 < 3  → ~%15
-                .when(
-                    col("severity") == lit("CRITICAL"),
-                    (spark_abs(spark_hash(col("anomaly_id"))) % lit(20)) < lit(3)
-                )
-                # HIGH: hash % 20 < 5  → ~%25
-                .when(
-                    col("severity") == lit("HIGH"),
-                    (spark_abs(spark_hash(col("anomaly_id"))) % lit(20)) < lit(5)
-                )
-                # MEDIUM / LOW / INFORMATIONAL: hash % 10 < 4 → ~%40
-                .when(
-                    col("severity").isin("MEDIUM", "LOW", "INFORMATIONAL"),
-                    (spark_abs(spark_hash(col("anomaly_id"))) % lit(10)) < lit(4)
-                )
-                .otherwise(lit(False))
-            )
-        )
+        # Veri kümesinin "bugün"ü = en güncel detected_date (wall-clock değil)
+        _anchor_row = df_before.agg(spark_max("detected_date").alias("a")).collect()
+        data_anchor = _anchor_row[0]["a"] if _anchor_row else None
 
-        # Sadece DEĞİŞECEK satırları MERGE kaynağı olarak hazırla
-        df_updates = (
-            df_flagged
-            .filter(col("_new_resolved") != col("is_resolved"))
-            .select(
-                col("anomaly_id"),
-                col("_new_resolved").alias("is_resolved_new")
-            )
-        )
-
-        will_resolve = df_updates.count()
-        print(f"   Değişecek satır sayısı  : {will_resolve:,}")
-
-        if will_resolve == 0:
-            print("   ℹ️  Güncelleme gerekmez (45+ gün eski yeterli anomaly yok veya zaten resolved).")
+        if data_anchor is None:
+            print("   ℹ️  Tarih yok — resolution atlandı.")
         else:
-            # ── 2. DeltaTable MERGE — Fabric'te güvenilir UPDATE deseni ──────
-            # spark.sql("UPDATE …") path-based çağrılarda Fabric'te susarak fail
-            # ediyor. forName + merge kombinasyonu kanıtlanmış (29b notebook).
-            try:
-                dt = DeltaTable.forName(spark, _anomaly_cat_name)
-            except Exception:
-                dt = DeltaTable.forPath(spark, PATHS["anomalies"])
-
-            (dt.alias("target")
-                .merge(
-                    df_updates.alias("src"),
-                    "target.anomaly_id = src.anomaly_id"
+            _w_issue = Window.partitionBy("building_id", "anomaly_type")
+            df_flagged = (
+                df_before
+                .withColumn("_issue_last_seen", spark_max("detected_date").over(_w_issue))
+                .withColumn("_anchor", lit(data_anchor))
+                .withColumn(
+                    "_issue_active",
+                    datediff(col("_anchor"), col("_issue_last_seen")) <= lit(ACTIVE_WINDOW_DAYS)
                 )
-                .whenMatchedUpdate(set={"is_resolved": "src.is_resolved_new"})
-                .execute()
+                .withColumn(
+                    "_new_resolved",
+                    # Aktif sorun: yalnız en güncel occurrence açık kalır
+                    when(
+                        col("_issue_active") & (col("detected_date") == col("_issue_last_seen")),
+                        lit(False)
+                    )
+                    # Aksi halde (pasif sorun ya da eski günlük tekrar) → resolved
+                    .otherwise(lit(True))
+                )
             )
 
-        # ── 3. Sonucu raporla ────────────────────────────────────────────────
-        df_after = spark.read.table(_anomaly_cat_name)
-        total_after    = df_after.count()
-        resolved_after = df_after.filter(col("is_resolved") == lit(True)).count()
-        open_after     = total_after - resolved_after
+            df_updates = (
+                df_flagged
+                .filter(col("_new_resolved") != col("is_resolved"))
+                .select(col("anomaly_id"), col("_new_resolved").alias("is_resolved_new"))
+            )
 
-        print(f"   Toplam anomaly  : {total_after:,}")
-        print(f"   Resolved (kapalı): {resolved_after:,}  ({100*resolved_after/max(total_after,1):.0f}%)")
-        print(f"   Open (aktif)     : {open_after:,}  ({100*open_after/max(total_after,1):.0f}%)")
-        print(f"   Bu çalışmada yeni resolved: {resolved_after - resolved_before:,}")
-        print("✅ Resolved status güncellendi (DeltaTable MERGE)")
+            will_change = df_updates.count()
+            print(f"   Değişecek satır sayısı  : {will_change:,}")
+
+            if will_change == 0:
+                print("   ℹ️  Güncelleme gerekmez (is_resolved zaten tutarlı).")
+            else:
+                # DeltaTable MERGE — Fabric'te güvenilir UPDATE deseni
+                # (path-based spark.sql UPDATE susarak fail eder — 29b dersi)
+                try:
+                    dt = DeltaTable.forName(spark, _anomaly_cat_name)
+                except Exception:
+                    dt = DeltaTable.forPath(spark, PATHS["anomalies"])
+
+                (dt.alias("target")
+                    .merge(df_updates.alias("src"), "target.anomaly_id = src.anomaly_id")
+                    .whenMatchedUpdate(set={"is_resolved": "src.is_resolved_new"})
+                    .execute()
+                )
+
+            # ── Rapor ────────────────────────────────────────────────────────
+            df_after = spark.read.table(_anomaly_cat_name)
+            total_after    = df_after.count()
+            resolved_after = df_after.filter(col("is_resolved") == lit(True)).count()
+            open_after     = total_after - resolved_after
+            open_issues    = (df_after.filter(col("is_resolved") == lit(False))
+                              .select("building_id", "anomaly_type").distinct().count())
+
+            print(f"   Toplam anomaly satırı : {total_after:,}")
+            print(f"   Resolved (kapalı)     : {resolved_after:,}  ({100*resolved_after/max(total_after,1):.0f}%)")
+            print(f"   Open (aktif satır)    : {open_after:,}  ({100*open_after/max(total_after,1):.0f}%)")
+            print(f"   Open AKTİF SORUN      : {open_issues:,}  (bina×tip — /alerts bunu gösterir)")
+            print("✅ Resolved status güncellendi (episode-aware MERGE)")
 
     except Exception as _re:
-        # Bu blok artık SESSİZCE atlamamalı — hata fırlatsın ki notebook kırılsın
         print(f"❌ Resolved update HATASI: {str(_re)[:200]}")
         raise
 else:
@@ -1106,7 +1099,7 @@ print("DOĞRULAMA RAPORU")
 print("="*60)
 
 try:
-    df_val = spark.read.format("delta").load(PATHS["anomalies"])
+    df_val = read_table_safe(PATHS["anomalies"])  # FIX 2026-06-14: catalog, orphan path degil
     total_in_table = df_val.count()
 
     print(f"\n📊 gold_anomalies toplam satır: {total_in_table:,}")

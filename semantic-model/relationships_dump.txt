@@ -1,0 +1,64 @@
+=== RELATIONSHIPS (from -> to) ===
+gold_anomaly_log[detected_date]  ->  'Date'[Date]   active=True  crossFilter=OneDirection
+gold_anomaly_log[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+gold_battery_dispatch[date]  ->  'Date'[Date]   active=True  crossFilter=OneDirection
+gold_battery_dispatch[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+gold_battery_hourly_dispatch[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+gold_compliance_results[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+gold_consumption_forecast[forecast_date]  ->  'Date'[Date]   active=True  crossFilter=OneDirection
+gold_consumption_forecast[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+gold_crrem_pathway[year_month]  ->  'Date'[Date]   active=True  crossFilter=OneDirection
+gold_ghg_breakdown_long[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+gold_ghg_scope[year_month]  ->  'Date'[Date]   active=True  crossFilter=OneDirection
+gold_ghg_scope[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+gold_hvac_analytics[year_month]  ->  'Date'[Date]   active=True  crossFilter=OneDirection
+gold_hvac_analytics[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+gold_iot_daily_summary[event_date]  ->  'Date'[Date]   active=True  crossFilter=OneDirection
+gold_iot_daily_summary[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+gold_iot_fdd[event_date]  ->  'Date'[Date]   active=True  crossFilter=OneDirection
+gold_iot_fdd[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+gold_iot_realtime[event_date]  ->  'Date'[Date]   active=True  crossFilter=OneDirection
+gold_iot_realtime[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+gold_kpi_daily[date]  ->  'Date'[Date]   active=True  crossFilter=OneDirection
+gold_kpi_daily[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+gold_kpi_hourly[date]  ->  'Date'[Date]   active=True  crossFilter=OneDirection
+gold_occupancy_profile[day_of_week]  ->  DayOfWeek_Dim[day_of_week]   active=True  crossFilter=OneDirection
+gold_occupancy_profile[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+gold_recommendations[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+silver_data_quality[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+silver_epc_ratings[building_id]  ->  silver_building_master[building_id]   active=True  crossFilter=OneDirection
+
+=== which slicer drives Page 8? -> list every column that looks like a building key ===
+gold_anomaly_log[building_id]   (dataType=String)
+gold_battery_daily_summary[building_id]   (dataType=String)
+gold_battery_daily_summary[building_name]   (dataType=String)
+gold_battery_dispatch[building_id]   (dataType=String)
+gold_battery_dispatch[building_name]   (dataType=String)
+gold_battery_hourly_dispatch[building_id]   (dataType=String)
+gold_battery_hourly_dispatch[building_name]   (dataType=String)
+gold_battery_simulation[building_id]   (dataType=String)
+gold_battery_simulation[building_name]   (dataType=String)
+gold_compliance_results[building_id]   (dataType=String)
+gold_compliance_results[building_name]   (dataType=String)
+gold_compliance_results[building_type]   (dataType=String)
+gold_consumption_forecast[building_id]   (dataType=String)
+gold_crrem_pathway[building_type]   (dataType=String)
+gold_ghg_breakdown_long[building_id]   (dataType=String)
+gold_ghg_scope[building_id]   (dataType=String)
+gold_hvac_analytics[building_id]   (dataType=String)
+gold_iot_daily_summary[building_id]   (dataType=String)
+gold_iot_fdd[building_id]   (dataType=String)
+gold_iot_fdd[building_type]   (dataType=String)
+gold_iot_realtime[building_id]   (dataType=String)
+gold_kpi_daily[building_id]   (dataType=String)
+gold_kpi_hourly[building_id]   (dataType=String)
+gold_occupancy_profile[building_id]   (dataType=String)
+gold_recommendations[building_id]   (dataType=String)
+gold_recommendations[building_name]   (dataType=String)
+gold_recommendations[building_type]   (dataType=String)
+gold_strategy_fitness[building_type]   (dataType=String)
+silver_building_master[building_id]   (dataType=String)
+silver_building_master[building_name]   (dataType=String)
+silver_building_master[building_type]   (dataType=String)
+silver_data_quality[building_id]   (dataType=String)
+silver_epc_ratings[building_id]   (dataType=String)

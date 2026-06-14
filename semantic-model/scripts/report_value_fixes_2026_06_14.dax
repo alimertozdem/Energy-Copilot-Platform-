@@ -1,0 +1,108 @@
+// =============================================================================
+// REPORT VALUE FIXES — 2026-06-14 review
+// =============================================================================
+// Fixes the absurd VALUES on the embedded report pages. Root cause for almost all
+// of them is the same DAX anti-pattern: a measure SUMS across a dimension
+// (buildings or reporting years) without dividing by that dimension's cardinality,
+// so portfolio/multi-year context inflates the number.
+//
+// Apply each measure in Tabular Editor (overwrite the existing measure of the same
+// name), Save, then Refresh the report. VALIDATE on the page — I cannot run Power
+// BI in my environment, so confirm each number looks right with a building/year
+// slicer set AND cleared.
+//
+// NOT DAX (already fixed in code): Battery IRR 450% -> capped in
+// notebooks/simulation/14_gold_battery_simulation_v2.py (IRR_DISPLAY_CAP = 35%).
+// Re-run that notebook so gold_battery_simulation.irr_percent is bounded.
+// =============================================================================
+
+
+// -----------------------------------------------------------------------------
+// FIX 1 — Page 5: "Avg Occupied Hours per Day" showed 69.1 (> 24, impossible)
+// -----------------------------------------------------------------------------
+// CAUSE: the measure divided occupied hours by 7 (days) but NOT by the number of
+// buildings in context. With the whole portfolio selected it counted occupied
+// hours across ALL buildings, so 7 buildings x ~9.9 h = ~69 "per day".
+// FIX: divide by 7 days x DISTINCTCOUNT(building_id) -> per-building hours/day.
+// (No harm with a single building: DISTINCTCOUNT = 1.)
+Avg Occupied Hours per Day =
+VAR _occupied_threshold = 0.30
+VAR _n_buildings =
+    MAX( 1, DISTINCTCOUNT( gold_occupancy_profile[building_id] ) )
+VAR _occupied_hours =
+    CALCULATE(
+        COUNTROWS( gold_occupancy_profile ),
+        gold_occupancy_profile[occupancy_probability] >= _occupied_threshold
+    )
+VAR _avg_per_day = DIVIDE( _occupied_hours, 7 * _n_buildings )
+RETURN
+    IF( NOT ISBLANK( _occupied_hours ), ROUND( _avg_per_day, 1 ), BLANK() )
+
+
+// -----------------------------------------------------------------------------
+// FIX 2 — Page 6: "Carbon Intensity S1S2 kgCO2 m2 yr" showed 497-2224 (too high)
+// -----------------------------------------------------------------------------
+// CAUSE: _s1s2_tonnes = SUMX(gold_ghg_scope, S1+S2) over the WHOLE filter context.
+// gold_ghg_scope is monthly per building per reporting_year. If the page year
+// slicer isn't set (or the model holds >1 year), the numerator sums EVERY year's
+// 12 months while the denominator (area) is static -> N-years inflation.
+// FIX: pin the numerator to a single reporting year (latest selected). Safe when
+// the data is single-year (MAXX returns that year; result unchanged).
+// VERIFY SEPARATELY (needs your data, my numbers are blind):
+//   * conditioned_area_m2 should be the right area basis. If it is much smaller
+//     than gross floor area, intensity inflates — confirm it's the intended basis.
+//   * An office at ~750 kgCO2/m2/yr is still high after this fix; sanity-check the
+//     building's Scope-1 (gas) tonnage in gold_ghg_scope.
+Carbon Intensity S1S2 kgCO2 m2 yr =
+VAR _yr =
+    MAXX( ALLSELECTED( gold_ghg_scope ), gold_ghg_scope[reporting_year] )
+VAR _s1s2_tonnes =
+    SUMX(
+        FILTER( gold_ghg_scope, gold_ghg_scope[reporting_year] = _yr ),
+        gold_ghg_scope[scope1_total_tco2] + gold_ghg_scope[scope2_location_tco2]
+    )
+VAR _area =
+    SUMX( silver_building_master, silver_building_master[conditioned_area_m2] )
+RETURN
+    DIVIDE( _s1s2_tonnes * 1000, _area )   // tCO2 -> kg, then / m2
+
+
+// -----------------------------------------------------------------------------
+// FIX 3 — Page 9: Battery "Payback" showed 230 yr (e.g. Wien Self-Consumption)
+// -----------------------------------------------------------------------------
+// CAUSE: the simulation notebook already CAPS payback at 25 yr in the
+// payback_years column, but the measure recomputes total_capex / annual_savings
+// itself (no cap), so an uneconomic scenario (tiny savings) explodes to 230.
+// FIX: read the capped column instead of recomputing. An uneconomic scenario then
+// reads ">= 25 yr" (the cap) rather than a fake precise 230.
+// Replace your Page-9 payback measure body with:
+Battery Payback Years =
+VAR _p = AVERAGE( gold_battery_simulation[payback_years] )   // already capped at 25 in notebook
+RETURN
+    IF( ISBLANK( _p ), BLANK(), MIN( _p, 25 ) )
+// (If a visual shows one scenario, AVERAGE over the single filtered row = that row.)
+
+
+// -----------------------------------------------------------------------------
+// FIX 4 — Page 9: Round-Trip Efficiency showed 0.9 or 9050% (should be ~90%)
+// -----------------------------------------------------------------------------
+// CAUSE: the source column is sometimes a fraction (0.90) and sometimes already a
+// percent (90). A blanket x100 then yields 9050%.
+// FIX: defensive — only scale when the value is clearly a fraction (<= 1.5).
+// (Already present in final_master_install.cs; included here for completeness.)
+Battery RTE Pct =
+VAR _r = AVERAGE( gold_battery_simulation[avg_round_trip_efficiency_pct] )
+RETURN
+    IF( _r <= 1.5, _r * 100, _r )
+
+
+// -----------------------------------------------------------------------------
+// FIX 5 — Page 7: "HVAC CO2" showed 10,164,510 (Frankfurt DC) — VERIFY UNIT
+// -----------------------------------------------------------------------------
+// notebook 11 (HVAC analytics) does NOT compute a CO2 column, so this is a DAX
+// measure = HVAC kWh x grid factor. 10.16M is plausible as kWh/yr for a dense
+// datacenter, but as "kg CO2" it implies ~10,000 tCO2 from HVAC alone — likely a
+// label/unit slip. CONFIRM the intended unit, then either:
+//   * label the card "HVAC kWh/yr" (if it's energy), or
+//   * divide by 1000 to show tonnes:  DIVIDE( [HVAC CO2 kg], 1000 )  -> tCO2/yr.
+// I can write the exact measure once you tell me which it should be.
