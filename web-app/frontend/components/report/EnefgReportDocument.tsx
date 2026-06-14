@@ -137,6 +137,11 @@ export function EnefgReportDocument({
             <StatCard label="Investment" value={eur(totalCapex)} hint="net capex (sum)" />
             <StatCard label="CO₂ saving" value={`${fmtInt(totalCo2 / 1000)} t`} color={GOOD} hint="tCO₂e/yr (sum)" />
           </div>
+          <div style={{ fontSize: 10, color: MUTED, marginBottom: 8 }}>
+            Figures sum independent per-measure estimates; overlapping measures are
+            capped to a realistic share of actual energy cost and emissions, so totals
+            are indicative, not strictly additive.
+          </div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
             <thead>
               <tr style={{ backgroundColor: "#f1f5f9" }}>

@@ -161,6 +161,13 @@ function DecarbBody({ data, scoped }: { data: MaccResponse; scoped: boolean }) {
         ))}
       </div>
 
+      <p className="-mt-2 text-[11px] leading-relaxed text-text-faint">
+        Abatable CO₂ sums each measure&apos;s independent estimate. Overlapping
+        measures (CHP, BMS and heat recovery can target the same kWh) are scaled to a
+        realistic share of {scopeWord}&apos;s actual emissions, so read this as an
+        indicative plan — not the literal arithmetic sum, and not audited finance.
+      </p>
+
       {/* MACC chart */}
       <section className="rounded-xl border border-border-subtle bg-bg-elevated/40 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">

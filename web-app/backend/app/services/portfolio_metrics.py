@@ -231,7 +231,11 @@ def get_portfolio_buildings(building_ids: list[str]) -> PortfolioBuildingsRespon
         GROUP BY building_id
     ) k ON k.building_id = b.building_id
     LEFT JOIN (
-        SELECT building_id, COUNT(*) AS open_anom
+        -- Distinct OPEN issue types, not raw daily events: gold_anomaly_log keys
+        -- by (building, type, DATE), so a chronic fault would otherwise count as
+        -- hundreds. COUNT(DISTINCT anomaly_type) gives the calm "N issues need
+        -- attention" number that matches the grouped /alerts view.
+        SELECT building_id, COUNT(DISTINCT anomaly_type) AS open_anom
         FROM [dbo].[gold_anomaly_log]
         WHERE building_id IN ({ph})
           AND is_resolved = 0

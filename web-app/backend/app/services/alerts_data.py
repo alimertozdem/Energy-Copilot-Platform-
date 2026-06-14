@@ -1,16 +1,32 @@
-"""Alerts service -- portfolio-wide READ over Fabric gold_anomaly_log, plus the
-Day 31 Postgres acknowledge overlay (alert_status).
+"""Alerts service -- portfolio-wide READ over Fabric gold_anomaly_log, collapsed
+into ongoing *issues*, plus the Day 31 Postgres acknowledge overlay (alert_status).
 
-Two independent state dimensions:
-  * Fabric is_resolved  -> analytical (did the data return to normal).
-  * Postgres ack_status -> operational (has a human acknowledged / dismissed it).
+Why grouping (2026-06-14 review)
+--------------------------------
+gold_anomaly_log keys every anomaly by (building_id, anomaly_type, DATE). A
+chronic fault therefore emits a brand-new row every single day, so a handful of
+real problems inflate into thousands of "alerts" (one demo building showed 508).
+A facility manager can't act on 508 rows. This service now folds those daily
+occurrences into one issue per (building_id, anomaly_type):
 
-"Unhandled" = unresolved AND not acknowledged/dismissed = the active triage
-queue + the nav badge source. Computing it correctly means intersecting the
-currently-unresolved anomaly ids (Fabric) with the org's acked/dismissed ids
-(Postgres): an acked alert may have since auto-resolved, so we only subtract
-acks that are STILL unresolved. The subtraction happens in Python to avoid an
-anomaly_id IN-clause whose Fabric SQL type we don't want to assume.
+  * representative  = the worst-severity, then most-recent occurrence (its id,
+    reading, description and recommended action are what the row shows);
+  * occurrence_count = how many days the issue spans (the "how chronic" signal);
+  * first/last_detected_at = active-since and latest.
+
+All the counts (chips, summary cards, nav badge) are likewise issue-level, so the
+numbers a user sees match the rows. The raw-event explosion is fixed at source in
+the Fabric notebook (anomaly_detection.py episode model); this layer makes even
+the current per-day data legible.
+
+Two independent state dimensions survive grouping:
+  * Fabric is_resolved  -> analytical (did the data return to normal). An issue
+    is "open" when ANY occurrence is still unresolved.
+  * Postgres ack_status -> operational (has a human acknowledged / dismissed the
+    issue). Keyed by the open representative's anomaly_id.
+
+"Unhandled" = open AND its representative not acknowledged/dismissed = the active
+triage queue + the nav badge source.
 
 Schema (verified via copilot get_anomalies, 2026-05-28):
     gold_anomaly_log(anomaly_id, building_id, anomaly_type, severity,
@@ -42,20 +58,18 @@ VALID_SEVERITIES: frozenset[str] = frozenset({"CRITICAL", "HIGH", "MEDIUM", "LOW
 VALID_ACK_STATUSES: frozenset[str] = frozenset({"new", "acknowledged", "dismissed"})
 _HANDLED: frozenset[str] = frozenset({"acknowledged", "dismissed"})
 
-# Defensive cap on the unresolved-id scan used for the unhandled counts.
-_UNRESOLVED_SCAN_CAP = 5000
-
 VALID_RESOLUTIONS: frozenset[str] = frozenset({"unresolved", "resolved", "all"})
 
-# Severity priority for ORDER BY (CRITICAL first). Shared across the row queries.
-_SEVERITY_RANK_SQL = (
-    "CASE severity "
-    "WHEN 'CRITICAL' THEN 0 "
-    "WHEN 'HIGH' THEN 1 "
-    "WHEN 'MEDIUM' THEN 2 "
-    "WHEN 'LOW' THEN 3 "
-    "ELSE 4 END"
-)
+# Severity ordering (lower rank = worse). Drives "worst occurrence" selection and
+# the table sort.
+_SEVERITY_RANK: dict[str, int] = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+_RANK_TO_SEVERITY: dict[int, str] = {0: "CRITICAL", 1: "HIGH", 2: "MEDIUM", 3: "LOW"}
+
+# Defensive cap on the raw-occurrence scan we group in Python. Realistic portfolios
+# (post episode-model) sit in the low thousands; 50k keeps a pathological feed from
+# blowing memory while never biting normal data. Ordered newest-first so a cap hit
+# drops the oldest occurrences, not the active head of an issue.
+_RAW_SCAN_CAP = 50000
 
 
 def _safe_float(v: Any) -> float | None:
@@ -75,6 +89,94 @@ def _deviation_pct(metric: Any, threshold: Any) -> float | None:
     return (m - t) / t * 100
 
 
+def _rank(severity: Any) -> int:
+    return _SEVERITY_RANK.get((severity or "").upper(), 4)
+
+
+def _sort_key(detected_at: Any) -> Any:
+    """A comparable key for 'most recent' that tolerates datetime or ISO string."""
+    if detected_at is None:
+        return ""
+    if isinstance(detected_at, datetime):
+        # Drop tz so naive/aware don't collide during max().
+        return detected_at.replace(tzinfo=None)
+    return str(detected_at)
+
+
+class _NegStr:
+    """Wraps a value so that ordering is reversed (descending)."""
+
+    __slots__ = ("v",)
+
+    def __init__(self, v: str) -> None:
+        self.v = v
+
+    def __lt__(self, other: "_NegStr") -> bool:
+        return self.v > other.v
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, _NegStr) and self.v == other.v
+
+
+def _neg(ts: Any) -> _NegStr:
+    """Invert a timestamp sort key so 'larger ts' compares as 'smaller'."""
+    return _NegStr(str(ts))
+
+
+class _Issue:
+    """Accumulator for one (building_id, anomaly_type) group."""
+
+    __slots__ = (
+        "building_id", "anomaly_type", "occ_total", "occ_open",
+        "first_at", "last_at", "worst_rank", "worst_open_rank",
+        "rep", "rep_key", "open_rep", "open_rep_key",
+    )
+
+    def __init__(self, building_id: str, anomaly_type: Any) -> None:
+        self.building_id = building_id
+        self.anomaly_type = anomaly_type
+        self.occ_total = 0
+        self.occ_open = 0
+        self.first_at: Any = None
+        self.last_at: Any = None
+        self.worst_rank = 99
+        self.worst_open_rank = 99
+        self.rep: dict[str, Any] | None = None        # worst-then-latest overall
+        self.rep_key: tuple = (99, _NegStr(""))
+        self.open_rep: dict[str, Any] | None = None    # worst-then-latest among open
+        self.open_rep_key: tuple = (99, _NegStr(""))
+
+    def add(self, r: dict[str, Any]) -> None:
+        rank = _rank(r.get("severity"))
+        ts = _sort_key(r.get("detected_at"))
+        resolved = bool(r.get("is_resolved"))
+
+        self.occ_total += 1
+        if self.first_at is None or ts < self.first_at:
+            self.first_at = ts
+        if self.last_at is None or ts > self.last_at:
+            self.last_at = ts
+        if rank < self.worst_rank:
+            self.worst_rank = rank
+
+        # Representative = worst severity, then most recent. Lower key wins:
+        # smaller rank first, then larger ts (via the descending _NegStr wrapper).
+        cand_key = (rank, _neg(ts))
+        if self.rep is None or cand_key < self.rep_key:
+            self.rep, self.rep_key = r, cand_key
+
+        if not resolved:
+            self.occ_open += 1
+            if rank < self.worst_open_rank:
+                self.worst_open_rank = rank
+            if self.open_rep is None or cand_key < self.open_rep_key:
+                self.open_rep, self.open_rep_key = r, cand_key
+
+    @property
+    def has_open(self) -> bool:
+        return self.occ_open > 0
+
+
 def get_alerts_for_user(
     db: Session,
     *,
@@ -85,7 +187,7 @@ def get_alerts_for_user(
     resolution: str | None = None,
     limit: int = 500,
 ) -> AlertsResponse:
-    """Portfolio-wide anomaly view (Fabric) merged with the ack overlay (Postgres)."""
+    """Portfolio-wide issue view (Fabric, grouped) merged with the ack overlay."""
     visible_buildings = building_repo.list_buildings_for_user(db, user_id=user_id)
     fabric_ids = [b.fabric_building_id for b in visible_buildings if b.fabric_building_id]
     name_by_fid = {
@@ -120,172 +222,192 @@ def get_alerts_for_user(
     if sev_norm == "ALL":
         sev_norm = None
 
-    sev_clause = ""
-    sev_params: tuple = ()
-    if sev_norm in VALID_SEVERITIES:
-        sev_clause = " AND severity = ?"
-        sev_params = (sev_norm,)
-
-    # ---- Resolution filter (tri-state) -----------------------------------------
-    # `resolution` (unresolved | resolved | all) is the modern param; the legacy
-    # `unresolved_only` bool is kept for the nav badge poll. `resolution` wins
-    # when both are supplied. Ordering is tuned per mode so the row cap never
-    # starves the set the caller asked for:
-    #   * unresolved -> active triage: most-severe, then newest.
-    #   * resolved   -> recently-resolved first, so "Show resolved" is never
-    #                   empty under the cap (the Day 33 bug).
-    #   * all        -> unresolved first, then severity, then newest (legacy).
     res_norm = (resolution or "").lower() or None
     if res_norm not in VALID_RESOLUTIONS:
         res_norm = "unresolved" if unresolved_only else "all"
 
-    if res_norm == "unresolved":
-        resolved_clause = " AND is_resolved = 0"
-        order_clause = f"ORDER BY {_SEVERITY_RANK_SQL} ASC, detected_at DESC"
-    elif res_norm == "resolved":
-        resolved_clause = " AND is_resolved = 1"
-        order_clause = "ORDER BY detected_at DESC"
-    else:  # all
-        resolved_clause = ""
-        order_clause = (
-            f"ORDER BY is_resolved ASC, {_SEVERITY_RANK_SQL} ASC, detected_at DESC"
-        )
-
-    # ---- Row query (capped) ----------------------------------------------------
-    row_sql = f"""
-    SELECT TOP (?)
-        anomaly_id,
-        building_id,
-        anomaly_type,
-        severity,
-        detected_at,
-        is_resolved,
-        metric_value,
-        threshold_value,
-        description_en,
-        recommended_action_en
+    # ---- One scan of the raw occurrences; group + count in Python -------------
+    # We fetch the full visible scope once (no severity/resolution WHERE) so the
+    # issue-level counts can see every occurrence, then derive the table from the
+    # same rows. Realistic volumes are small; _RAW_SCAN_CAP guards the pathological.
+    scan_sql = f"""
+    SELECT TOP ({_RAW_SCAN_CAP})
+        anomaly_id, building_id, anomaly_type, severity, detected_at,
+        is_resolved, metric_value, threshold_value,
+        description_en, recommended_action_en
     FROM [dbo].[gold_anomaly_log]
-    WHERE building_id IN ({ph}){resolved_clause}{sev_clause}
-    {order_clause}
+    WHERE building_id IN ({ph})
+    ORDER BY detected_at DESC
     """
-    rows = fabric_sql.execute_query(row_sql, (limit, *ids_params, *sev_params))
+    all_rows = fabric_sql.execute_query(scan_sql, ids_params)
 
-    # ---- Acknowledge overlay (Postgres), keyed by fabric_anomaly_id ----
+    # Group every occurrence into issues (all resolutions, all severities).
+    issues: dict[tuple, _Issue] = {}
+    for r in all_rows:
+        key = (r.get("building_id"), r.get("anomaly_type"))
+        g = issues.get(key)
+        if g is None:
+            g = _Issue(r.get("building_id"), r.get("anomaly_type"))
+            issues[key] = g
+        g.add(r)
+
+    # ---- Acknowledge overlay (Postgres), keyed by representative anomaly_id ----
     overlay: dict[str, AlertStatus] = {}
     if org_ids:
         stmt = select(AlertStatus).where(AlertStatus.organization_id.in_(org_ids))
         for a in db.scalars(stmt).all():
             overlay[a.fabric_anomaly_id] = a
 
-    alerts: list[AlertItem] = []
-    for r in rows:
-        bid = r["building_id"]
-        aid = str(r["anomaly_id"]) if r.get("anomaly_id") is not None else None
+    # ---- Build the table (issues matching the severity + resolution scope) -----
+    items = _build_issue_items(
+        issues, res_norm, sev_norm, overlay, name_by_fid, can_manage_by_fid
+    )
+    items = items[: max(limit, 0)]
+
+    # ---- Issue-level counts (independent of the row cap) -----------------------
+    counts = _issue_counts(issues, overlay)
+
+    return AlertsResponse(alerts=items, severity_counts=counts)
+
+
+def _build_issue_items(
+    issues: dict[tuple, _Issue],
+    res_norm: str | None,
+    sev_norm: str | None,
+    overlay: dict[str, AlertStatus],
+    name_by_fid: dict[str, str],
+    can_manage_by_fid: dict[str, bool],
+) -> list[AlertItem]:
+    """One AlertItem per in-scope issue, sorted worst-severity then most-recent."""
+    rows: list[tuple[int, Any, AlertItem]] = []
+    for issue in issues.values():
+        # Resolution scope.
+        if res_norm == "unresolved" and not issue.has_open:
+            continue
+        if res_norm == "resolved" and issue.has_open:
+            # An issue with any open occurrence belongs to the open queue, not the
+            # resolved view -- keeps "Show resolved" to genuinely closed issues.
+            continue
+
+        if res_norm == "unresolved":
+            rep = issue.open_rep
+            rep_rank = issue.worst_open_rank
+            occ = issue.occ_open
+        else:
+            rep = issue.rep
+            rep_rank = issue.worst_rank
+            occ = issue.occ_total
+        if rep is None:
+            continue
+
+        # Severity filter applies to the issue's (scoped) worst severity.
+        if sev_norm in VALID_SEVERITIES and _RANK_TO_SEVERITY.get(rep_rank) != sev_norm:
+            continue
+
+        bid = issue.building_id
+        aid = str(rep["anomaly_id"]) if rep.get("anomaly_id") is not None else None
         ov = overlay.get(aid) if aid is not None else None
-        alerts.append(
+        worst_sev = _RANK_TO_SEVERITY.get(rep_rank, (rep.get("severity") or None))
+
+        rows.append((
+            rep_rank,
+            _neg(_sort_key(issue.last_at)),
             AlertItem(
                 anomaly_id=aid,
                 fabric_building_id=bid,
                 building_name=name_by_fid.get(bid, bid),
-                anomaly_type=r.get("anomaly_type"),
-                severity=(r.get("severity") or None),
-                detected_at=r.get("detected_at"),
-                is_resolved=bool(r.get("is_resolved")),
-                metric_value=_safe_float(r.get("metric_value")),
-                threshold_value=_safe_float(r.get("threshold_value")),
-                deviation_pct=_deviation_pct(r.get("metric_value"), r.get("threshold_value")),
-                description=r.get("description_en"),
-                recommended_action=r.get("recommended_action_en"),
+                anomaly_type=rep.get("anomaly_type"),
+                severity=worst_sev,
+                detected_at=rep.get("detected_at"),
+                is_resolved=bool(rep.get("is_resolved")),
+                metric_value=_safe_float(rep.get("metric_value")),
+                threshold_value=_safe_float(rep.get("threshold_value")),
+                deviation_pct=_deviation_pct(
+                    rep.get("metric_value"), rep.get("threshold_value")
+                ),
+                description=rep.get("description_en"),
+                recommended_action=rep.get("recommended_action_en"),
+                occurrence_count=int(occ),
+                first_detected_at=_as_dt(issue.first_at),
+                last_detected_at=_as_dt(issue.last_at),
                 ack_status=(ov.ack_status if ov else "new"),  # type: ignore[arg-type]
                 acknowledged_at=(ov.acknowledged_at if ov else None),
                 ack_notes=(ov.notes if ov else None),
                 can_manage=can_manage_by_fid.get(bid, False),
-            )
-        )
+            ),
+        ))
 
-    # ---- Counts (accurate regardless of the row cap) ----
-    dist_sql = f"""
-    SELECT severity, is_resolved, COUNT(*) AS n
-    FROM [dbo].[gold_anomaly_log]
-    WHERE building_id IN ({ph})
-    GROUP BY severity, is_resolved
-    """
-    dist_rows = fabric_sql.execute_query(dist_sql, ids_params)
-    counts = _aggregate_counts(dist_rows)
+    rows.sort(key=lambda t: (t[0], t[1]))
+    return [it for _, _, it in rows]
 
-    # Overlay tallies (operational).
+
+def _issue_counts(
+    issues: dict[tuple, _Issue], overlay: dict[str, AlertStatus]
+) -> AlertSeverityCounts:
+    """Fold issues into issue-level severity counts (chips, cards, nav badge)."""
+    counts = AlertSeverityCounts()
+    acked = {fid for fid, a in overlay.items() if a.ack_status in _HANDLED}
+
+    for issue in issues.values():
+        counts.total += 1
+        _bump_total(counts, issue.worst_rank)
+
+        if issue.has_open:
+            counts.unresolved_total += 1
+            _bump_unresolved(counts, issue.worst_open_rank)
+
+            # Unhandled = open issue whose open representative isn't acked/dismissed.
+            rep = issue.open_rep or {}
+            aid = str(rep["anomaly_id"]) if rep.get("anomaly_id") is not None else None
+            if aid is None or aid not in acked:
+                counts.unhandled_total += 1
+                if issue.worst_open_rank == 0:
+                    counts.unhandled_critical += 1
+                elif issue.worst_open_rank == 1:
+                    counts.unhandled_high += 1
+
+    # Operational overlay tallies -- count issues whose representative is handled.
     for a in overlay.values():
         if a.ack_status == "acknowledged":
             counts.acknowledged += 1
         elif a.ack_status == "dismissed":
             counts.dismissed += 1
 
-    # Unhandled = unresolved minus (acked/dismissed AND still unresolved).
-    _fill_unhandled_counts(counts, ph, ids_params, overlay)
-
-    return AlertsResponse(alerts=alerts, severity_counts=counts)
-
-
-def _aggregate_counts(dist_rows: list[dict[str, Any]]) -> AlertSeverityCounts:
-    """Fold a `severity x is_resolved` GROUP BY result into base counts."""
-    counts = AlertSeverityCounts()
-    for r in dist_rows:
-        sev = (r.get("severity") or "").upper()
-        n = int(r.get("n") or 0)
-        resolved = bool(r.get("is_resolved"))
-
-        counts.total += n
-        if sev == "CRITICAL":
-            counts.critical += n
-        elif sev == "HIGH":
-            counts.high += n
-        elif sev == "MEDIUM":
-            counts.medium += n
-        elif sev == "LOW":
-            counts.low += n
-
-        if not resolved:
-            counts.unresolved_total += n
-            if sev == "CRITICAL":
-                counts.unresolved_critical += n
-            elif sev == "HIGH":
-                counts.unresolved_high += n
-            elif sev == "MEDIUM":
-                counts.unresolved_medium += n
-            elif sev == "LOW":
-                counts.unresolved_low += n
-
     return counts
 
 
-def _fill_unhandled_counts(
-    counts: AlertSeverityCounts,
-    ph: str,
-    ids_params: tuple,
-    overlay: dict[str, AlertStatus],
-) -> None:
-    """Set unhandled_* by scanning currently-unresolved ids and subtracting acks.
+def _bump_total(counts: AlertSeverityCounts, rank: int) -> None:
+    if rank == 0:
+        counts.critical += 1
+    elif rank == 1:
+        counts.high += 1
+    elif rank == 2:
+        counts.medium += 1
+    elif rank == 3:
+        counts.low += 1
 
-    Only acks whose anomaly is STILL unresolved are subtracted, so an acked alert
-    that later auto-resolved doesn't double-count.
-    """
-    acked = {fid for fid, a in overlay.items() if a.ack_status in _HANDLED}
-    sql = f"""
-    SELECT TOP ({_UNRESOLVED_SCAN_CAP}) anomaly_id, severity
-    FROM [dbo].[gold_anomaly_log]
-    WHERE building_id IN ({ph}) AND is_resolved = 0
-    """
-    rows = fabric_sql.execute_query(sql, ids_params)
-    for r in rows:
-        aid = str(r["anomaly_id"]) if r.get("anomaly_id") is not None else None
-        if aid is not None and aid in acked:
-            continue
-        sev = (r.get("severity") or "").upper()
-        counts.unhandled_total += 1
-        if sev == "CRITICAL":
-            counts.unhandled_critical += 1
-        elif sev == "HIGH":
-            counts.unhandled_high += 1
+
+def _bump_unresolved(counts: AlertSeverityCounts, rank: int) -> None:
+    if rank == 0:
+        counts.unresolved_critical += 1
+    elif rank == 1:
+        counts.unresolved_high += 1
+    elif rank == 2:
+        counts.unresolved_medium += 1
+    elif rank == 3:
+        counts.unresolved_low += 1
+
+
+def _as_dt(ts: Any) -> datetime | None:
+    """Coerce the grouping sort-key back to a datetime for the schema, if possible."""
+    if ts is None or ts == "":
+        return None
+    if isinstance(ts, datetime):
+        return ts
+    try:
+        return datetime.fromisoformat(str(ts))
+    except (ValueError, TypeError):
+        return None
 
 
 def update_alert_ack_for_user(

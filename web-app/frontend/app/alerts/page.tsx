@@ -84,8 +84,9 @@ export default async function AlertsPage({ searchParams }: PageProps) {
 
       <div className="relative z-10 px-6 py-8 max-w-7xl mx-auto">
         <PageIntro id="alerts">
-          Automated fault detection across your buildings — each anomaly is estimated
-          in €/day so you fix the costliest first. Click a row for what it means and
+          Automated fault detection across your buildings. Recurring anomalies are
+          grouped into one ongoing issue — not one alert per day — so the list stays
+          actionable. Click a row for what it means, how often it has recurred, and
           what to check. Filter by building if needed.
         </PageIntro>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
@@ -147,7 +148,7 @@ export default async function AlertsPage({ searchParams }: PageProps) {
 function subtitleFor(unresolved: number, scoped: boolean): string {
   const where = scoped ? "for this building" : "across the portfolio"
   if (unresolved === 0) {
-    return `No unresolved anomalies ${where}`
+    return `No open issues ${where}`
   }
-  return `${unresolved} unresolved ${unresolved === 1 ? "anomaly" : "anomalies"} ${where}`
+  return `${unresolved} open ${unresolved === 1 ? "issue" : "issues"} ${where}`
 }

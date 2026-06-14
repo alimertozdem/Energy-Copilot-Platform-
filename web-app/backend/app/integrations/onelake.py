@@ -54,7 +54,10 @@ def build_bronze_path(building_uuid: str) -> str:
     workspace = _require("FABRIC_WORKSPACE_ID")
     lakehouse = _require("FABRIC_LAKEHOUSE_ID")
     rel = f"Files/bridge_inbox/{building_uuid}/consumption.csv"
-    return f"https://{host}/{workspace}/{lakehouse}/{rel}"
+    # Spark reads OneLake via the abfss:// scheme. The https:// form is the DFS
+    # REST endpoint used to WRITE the file (write_bronze_csv) — it is NOT a
+    # Spark-readable filesystem path, so the notebook must get the abfss form.
+    return f"abfss://{workspace}@{host}/{lakehouse}/{rel}"
 
 
 def rows_to_csv_bytes(rows: list[dict]) -> bytes:

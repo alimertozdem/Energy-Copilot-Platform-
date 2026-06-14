@@ -29,8 +29,14 @@ export type AlertItem = {
 
   anomaly_type: string | null
   severity: string | null // CRITICAL / HIGH / MEDIUM / LOW (uppercase)
-  detected_at: string | null // ISO datetime
+  detected_at: string | null // ISO datetime (representative = worst+latest occurrence)
   is_resolved: boolean
+
+  // Issue rollup — one row collapses N daily occurrences of the same
+  // (building, anomaly_type) into a single ongoing issue.
+  occurrence_count: number // 1 = one-off; >1 = recurring/chronic
+  first_detected_at: string | null // active since
+  last_detected_at: string | null // most recent occurrence
 
   // Unit-neutral — an anomaly may be kWh, CO2 ppm, °C, or a ratio.
   metric_value: number | null

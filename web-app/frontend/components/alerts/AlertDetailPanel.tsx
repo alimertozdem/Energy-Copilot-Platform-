@@ -122,6 +122,20 @@ export function AlertDetailPanel({
                 tone={dev !== null && dev > 0 ? "bad" : "ok"}
               />
             </div>
+            {alert.occurrence_count > 1 && (
+              <div className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
+                <span className="font-semibold">Recurring issue</span> —{" "}
+                {alert.occurrence_count} daily occurrences
+                {alert.first_detected_at
+                  ? ` since ${alert.first_detected_at.slice(0, 10)}`
+                  : ""}
+                {alert.last_detected_at
+                  ? `, latest ${alert.last_detected_at.slice(0, 10)}`
+                  : ""}
+                . This row groups them into one issue so you track the fix, not the
+                daily noise.
+              </div>
+            )}
             {estCost != null && (
               <div className="flex items-center justify-between rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2">
                 <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.12em] text-amber-200/70">

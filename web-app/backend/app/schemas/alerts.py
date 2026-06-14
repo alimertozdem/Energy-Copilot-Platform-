@@ -1,10 +1,13 @@
 """Pydantic models for /alerts endpoints.
 
-/alerts is a portfolio-wide monitoring surface over Fabric `gold_anomaly_log`.
+/alerts is a portfolio-wide monitoring surface over Fabric `gold_anomaly_log`,
+collapsed into ongoing *issues* (one row per building+anomaly_type) instead of
+one row per daily occurrence -- see services/alerts_data.py for the rationale.
 
 Two independent state dimensions:
   * Fabric `is_resolved`  -> analytical: did the data return to normal
-    (pipeline-driven, read-only here).
+    (pipeline-driven, read-only here). An issue is "open" when ANY occurrence is
+    still unresolved.
   * Postgres `ack_status` -> operational: has a human acknowledged / dismissed
     it (Day 31 overlay -> alert_status table). 'new' = no row yet.
 
@@ -23,12 +26,14 @@ AckStatus = Literal["new", "acknowledged", "dismissed"]
 
 
 class AlertItem(BaseModel):
-    """One row on the /alerts table -- a single anomaly event."""
+    """One row on the /alerts table -- an ongoing issue (grouped occurrences)."""
 
     # gold_anomaly_log has a real surrogate key (unlike gold_recommendations,
-    # which forced the synthetic "building|rank" id used by /actions).
+    # which forced the synthetic "building|rank" id used by /actions). After
+    # grouping, this is the representative (worst+latest) occurrence's id, which
+    # is also what the acknowledge overlay is keyed on.
     anomaly_id: str | None = Field(
-        default=None, description="gold_anomaly_log.anomaly_id (stable surrogate)."
+        default=None, description="Representative gold_anomaly_log.anomaly_id."
     )
 
     fabric_building_id: str
@@ -43,6 +48,21 @@ class AlertItem(BaseModel):
     detected_at: datetime | None = None
     is_resolved: bool = Field(
         default=False, description="From Fabric is_resolved bit (pipeline-driven)."
+    )
+
+    # ---- Issue rollup (grouping: one row per ongoing (building, type) issue) ----
+    # gold_anomaly_log keys each anomaly by (building, type, DATE), so a chronic
+    # problem spawns a fresh row every day. The service collapses those into one
+    # "issue": the worst+latest occurrence is the representative, and these three
+    # fields summarise the rest. occurrence_count == 1 means a one-off event.
+    occurrence_count: int = Field(
+        default=1, description="How many daily occurrences this ongoing issue spans."
+    )
+    first_detected_at: datetime | None = Field(
+        default=None, description="Earliest occurrence in the issue (active since)."
+    )
+    last_detected_at: datetime | None = Field(
+        default=None, description="Most recent occurrence in the issue."
     )
 
     # Unit-neutral on purpose -- see module docstring.
@@ -82,27 +102,26 @@ class AlertItem(BaseModel):
 
 
 class AlertSeverityCounts(BaseModel):
-    """Severity distribution across the visible set -- drives chips, cards, badge.
-
-    Computed via GROUP BY over the full visible set (NOT the row cap), so the
-    numbers and the nav badge stay accurate even when the table is truncated.
+    """Severity distribution across the visible *issues* -- drives chips, cards,
+    nav badge. Computed over the grouped issue set (NOT raw occurrences and NOT
+    the row cap), so the numbers and the table stay consistent.
     """
 
-    # Totals across resolved + unresolved.
+    # Totals across resolved + unresolved issues.
     critical: int = 0
     high: int = 0
     medium: int = 0
     low: int = 0
     total: int = 0
 
-    # Unresolved-only breakdown (Fabric is_resolved = 0).
+    # Open-issue breakdown (>= 1 unresolved occurrence).
     unresolved_total: int = 0
     unresolved_critical: int = 0
     unresolved_high: int = 0
     unresolved_medium: int = 0
     unresolved_low: int = 0
 
-    # Unhandled = unresolved AND not acknowledged/dismissed = triage queue + badge.
+    # Unhandled = open issue AND representative not acknowledged/dismissed.
     unhandled_total: int = 0
     unhandled_critical: int = 0
     unhandled_high: int = 0

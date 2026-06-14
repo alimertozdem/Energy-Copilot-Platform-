@@ -147,6 +147,19 @@ function buildColumns(
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border tracking-wider uppercase bg-white/5 text-white/70 border-white/15">
             {row.original.anomaly_type ?? "—"}
           </span>
+          {row.original.occurrence_count > 1 && (
+            <span
+              className="ml-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-amber-500/10 text-amber-200 border-amber-500/25 align-middle"
+              title={
+                `One ongoing issue — ${row.original.occurrence_count} daily occurrences` +
+                (row.original.first_detected_at
+                  ? ` since ${row.original.first_detected_at.slice(0, 10)}`
+                  : "")
+              }
+            >
+              ↻ {row.original.occurrence_count}× recurring
+            </span>
+          )}
           {row.original.description && (
             <p className="text-sm text-white/90 leading-snug line-clamp-2 mt-1">
               {row.original.description}
