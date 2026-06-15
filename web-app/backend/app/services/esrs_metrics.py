@@ -10,7 +10,7 @@ Reporting period = the latest reporting_year present in gold_ghg_scope (annual).
 """
 from typing import Any
 
-from app.integrations import fabric_sql
+from app.integrations import fabric_sql, pg_gold
 from app.schemas.esrs import (
     EsrsBuildingRow,
     EsrsDataQuality,
@@ -52,24 +52,22 @@ def _empty_report(buildings_total: int) -> EsrsReport:
     )
 
 
-def get_esrs_report(building_ids: list[str]) -> EsrsReport:
-    """Energy + Scope 1/2/3 GHG summary for the visible portfolio's latest year."""
-    if not building_ids:
-        return _empty_report(0)
+def _fetch(reader, ghg_t, bldg_t, kpi_t, year_expr, building_ids):
+    """Run the three ESRS reads against `reader` (pg_gold or fabric_sql).
 
-    ph, ids_params = fabric_sql.format_in_clause(building_ids)
-
-    # Reporting period = latest year present for any visible building.
-    year_val = fabric_sql.execute_scalar(
-        f"SELECT MAX(reporting_year) FROM [dbo].[gold_ghg_scope] "
-        f"WHERE building_id IN ({ph})",
+    Returns (year, rows, energy_rows), or None when the source has no GHG data.
+    Same SQL skeleton for both sources -- only the table names and the year-extract
+    expression differ (Postgres EXTRACT vs T-SQL YEAR([date])).
+    """
+    ph, ids_params = reader.format_in_clause(building_ids)
+    year_val = reader.execute_scalar(
+        f"SELECT MAX(reporting_year) FROM {ghg_t} WHERE building_id IN ({ph})",
         ids_params,
     )
     if year_val is None:
-        return _empty_report(len(building_ids))
+        return None
     year = int(year_val)
 
-    # Per-building GHG totals for that year (worst monthly data-quality flag wins).
     rows_sql = f"""
     SELECT
         b.building_id,
@@ -83,7 +81,7 @@ def get_esrs_report(building_ids: list[str]) -> EsrsReport:
         g.total_location_tco2,
         g.total_market_tco2,
         g.dq_flag
-    FROM [dbo].[silver_building_master] b
+    FROM {bldg_t} b
     INNER JOIN (
         SELECT
             building_id,
@@ -94,34 +92,62 @@ def get_esrs_report(building_ids: list[str]) -> EsrsReport:
             SUM(total_ghg_location_tco2) AS total_location_tco2,
             SUM(total_ghg_market_tco2)   AS total_market_tco2,
             MAX(data_quality_flag)       AS dq_flag
-        FROM [dbo].[gold_ghg_scope]
+        FROM {ghg_t}
         WHERE building_id IN ({ph}) AND reporting_year = ?
         GROUP BY building_id
     ) g ON g.building_id = b.building_id
     WHERE b.building_id IN ({ph})
     ORDER BY g.total_location_tco2 DESC
     """
-    rows_params = (*ids_params, year, *ids_params)
-    rows = fabric_sql.execute_query(rows_sql, rows_params)
+    rows = reader.execute_query(rows_sql, (*ids_params, year, *ids_params))
 
-    # Portfolio energy for the same calendar year.
-    energy_rows = fabric_sql.execute_query(
+    energy_rows = reader.execute_query(
         f"""
         SELECT
             SUM(total_consumption_kwh)   AS kwh,
             SUM(solar_self_consumed_kwh) AS solar_self
-        FROM [dbo].[gold_kpi_daily]
-        WHERE building_id IN ({ph}) AND YEAR([date]) = ?
+        FROM {kpi_t}
+        WHERE building_id IN ({ph}) AND {year_expr} = ?
         """,
         (*ids_params, year),
     )
+    return year, rows, energy_rows
+
+
+# Source priority: Postgres-materialized mv_ tables first (reachable from Azure,
+# fast); Fabric SQL fallback (local dev). On Azure Fabric is unreachable, so a
+# pyodbc failure is caught and the report cleanly degrades to "no data".
+_PG_TABLES = ("mv_ghg_scope", "mv_building_master", "mv_kpi_daily", "EXTRACT(YEAR FROM date)::int")
+_FABRIC_TABLES = ("[dbo].[gold_ghg_scope]", "[dbo].[silver_building_master]", "[dbo].[gold_kpi_daily]", "YEAR([date])")
+
+
+def get_esrs_report(building_ids: list[str]) -> EsrsReport:
+    """Energy + Scope 1/2/3 GHG summary for the visible portfolio's latest year."""
+    if not building_ids:
+        return _empty_report(0)
+
+    data = None
+    try:
+        data = _fetch(pg_gold, *_PG_TABLES, building_ids=building_ids)
+    except Exception:
+        data = None  # mv_ not populated / pg error -> fall back to Fabric
+    if data is None:
+        import pyodbc
+        try:
+            data = _fetch(fabric_sql, *_FABRIC_TABLES, building_ids=building_ids)
+        except pyodbc.Error:
+            return _empty_report(len(building_ids))
+    if data is None:
+        return _empty_report(len(building_ids))
+
+    year, rows, energy_rows = data
+
     e = energy_rows[0] if energy_rows else {}
     total_kwh = _safe_float(e.get("kwh"))
     solar_self = _safe_float(e.get("solar_self"))
     energy_mwh = total_kwh * KWH_TO_MWH
     renewable_pct = (solar_self / total_kwh * 100) if total_kwh > 0 else None
 
-    # Per-building rows + portfolio roll-up + data-quality counts.
     out_rows: list[EsrsBuildingRow] = []
     s1 = s2l = s2m = s3 = tl = tm = 0.0
     area_reported = 0.0
