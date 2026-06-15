@@ -70,6 +70,7 @@ export function BuildingReportShell({ building }: BuildingReportShellProps) {
       backHref="/buildings"
       backLabel="All buildings"
       accentColor={config.color}
+      quietBackdrop
     >
       {/* Per-page motif set, low-opacity ambient watermarks at the corners. */}
       {config.motifs.map((Motif, i) => (

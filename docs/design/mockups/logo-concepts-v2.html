@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EnergyLens — logo concepts v2 (Rise direction)</title>
+<style>
+  :root{--bg:#091324;--card:#0f1f35;--line:rgba(148,163,184,.16);--em:#1D9E75;--mint:#5DCAA5;--glow:#C0DD97;--cyan:#38BDF8;--text:#EAF1F8;--muted:#9DB0C4;--faint:#64798F}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:34px 28px 60px}
+  h1{font-size:22px;font-weight:600;letter-spacing:-.3px;margin:0 0 4px}
+  .lede{color:var(--muted);font-size:14px;margin:0 0 26px;max-width:760px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+  .card{border:1px solid var(--line);border-radius:18px;background:var(--card);padding:24px 22px 18px}
+  .top{display:flex;align-items:center;gap:20px}
+  .mk{width:66px;height:66px;flex:none}
+  .ttl{font-size:25px;font-weight:600;letter-spacing:-.4px;line-height:1}
+  .ttl b{color:var(--mint);font-weight:600}
+  .slo{font-size:11px;letter-spacing:.05em;color:var(--faint);margin-top:5px}
+  .meta{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
+  .name{font-size:13px;font-weight:600}
+  .vibe{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .grow{transform-origin:32px 58px;animation:grow 3.6s ease-in-out infinite}
+  @keyframes grow{0%,100%{transform:scaleY(.92)}50%{transform:scaleY(1)}}
+  .hero{margin-top:24px;border:1px solid rgba(29,158,117,.4);border-radius:18px;background:linear-gradient(180deg,rgba(29,158,117,.12),rgba(15,31,53,.6));padding:24px}
+  .hero h3{margin:0 0 14px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mint);font-weight:600}
+  .ctx{display:flex;align-items:center;gap:26px;flex-wrap:wrap}
+  .fav{display:flex;align-items:center;gap:10px}
+  .favbox{width:34px;height:34px;border-radius:9px;background:#0b1a30;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+  .lockup{display:flex;align-items:center;gap:12px;background:#0b1a30;border:1px solid var(--line);border-radius:12px;padding:10px 16px}
+  .foot{margin-top:22px;color:var(--faint);font-size:12px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>EnergyLens — logo, "Rise" direction refined</h1>
+  <p class="lede">Building on concept 5 you picked: <b style="color:var(--mint);font-weight:600">rising efficiency → leaf → energy</b>, but now one integrated mark, more original. Slogan kept: "Smart energy for smart buildings". Pick the one that's closest and I'll push it further (proportions, weight, animated favicon, in-app lockup).</p>
+
+  <div class="grid">
+
+    <!-- A Bar-Leaf -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <defs><clipPath id="lf"><path d="M32 5 C45 17 47 35 32 59 C17 35 19 17 32 5 Z"/></clipPath></defs>
+          <g clip-path="url(#lf)" class="grow">
+            <rect x="17" y="40" width="7.5" height="20" fill="#0F6E56"/>
+            <rect x="26" y="30" width="7.5" height="30" fill="#1D9E75"/>
+            <rect x="35" y="21" width="7.5" height="39" fill="#2DD4BF"/>
+          </g>
+          <path d="M32 5 C45 17 47 35 32 59 C17 35 19 17 32 5 Z" stroke="#5DCAA5" stroke-width="2.4"/>
+          <path d="M32 8 V57" stroke="#091324" stroke-width="1.6" opacity=".55"/>
+        </svg>
+        <div><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div class="name">A · Bar-Leaf</div><div class="vibe">a leaf filled with rising energy bars — one shape, "efficiency growing". Subtly grows.</div></div>
+    </div>
+
+    <!-- B Sprout -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <rect x="16" y="46" width="6.5" height="11" rx="2.5" fill="#0F6E56"/>
+          <rect x="25" y="40" width="6.5" height="17" rx="2.5" fill="#1D9E75"/>
+          <rect x="34" y="33" width="6.5" height="24" rx="2.5" fill="#2DD4BF"/>
+          <path d="M36 41 C33 28 39 17 52 11 C54 24 47 37 36 41 Z" fill="rgba(93,202,165,.18)" stroke="#5DCAA5" stroke-width="2.2"/>
+          <path d="M38 37 C40 29 45 22 51 14" stroke="#C0DD97" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <div><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div class="name">B · Sprout</div><div class="vibe">efficiency bars from which a leaf grows — organic, optimistic</div></div>
+    </div>
+
+    <!-- C Upturn -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <circle cx="12" cy="50" r="3.2" fill="#38BDF8"/>
+          <path d="M12 50 C24 48 28 36 35 28" stroke="#1D9E75" stroke-width="3.4" fill="none" stroke-linecap="round"/>
+          <path d="M35 28 C40 19 51 18 53 9 C44 11 37 18 35 28 Z" fill="rgba(45,212,191,.20)" stroke="#5DCAA5" stroke-width="2.4"/>
+        </svg>
+        <div><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div class="name">C · Upturn</div><div class="vibe">a performance line rising and unfurling into a leaf — improvement + eco, very ownable</div></div>
+    </div>
+
+    <!-- D Hexa-rise -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <path d="M32 6 L53 18 L53 42 L32 54 L11 42 L11 18 Z" stroke="#1D9E75" stroke-width="2.4"/>
+          <rect x="22" y="34" width="5.5" height="10" rx="2" fill="#1D9E75"/>
+          <rect x="29.5" y="29" width="5.5" height="15" rx="2" fill="#2DD4BF"/>
+          <path d="M37 39 C35 30 39 23 47 19 C48 28 44 35 37 39 Z" fill="rgba(93,202,165,.20)" stroke="#5DCAA5" stroke-width="1.9"/>
+        </svg>
+        <div><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div class="name">D · Hexa-rise</div><div class="vibe">the rise + leaf inside a hex frame — adds a tech / innovation edge</div></div>
+    </div>
+
+  </div>
+
+  <div class="hero">
+    <h3>How "A · Bar-Leaf" feels small &amp; in context</h3>
+    <div class="ctx">
+      <div class="fav">
+        <div class="favbox">
+          <svg width="22" height="22" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+            <defs><clipPath id="lf2"><path d="M32 5 C45 17 47 35 32 59 C17 35 19 17 32 5 Z"/></clipPath></defs>
+            <g clip-path="url(#lf2)"><rect x="17" y="40" width="7.5" height="20" fill="#0F6E56"/><rect x="26" y="30" width="7.5" height="30" fill="#1D9E75"/><rect x="35" y="21" width="7.5" height="39" fill="#2DD4BF"/></g>
+            <path d="M32 5 C45 17 47 35 32 59 C17 35 19 17 32 5 Z" stroke="#5DCAA5" stroke-width="3"/>
+          </svg>
+        </div>
+        <span style="font-size:12px;color:var(--muted)">favicon / app icon</span>
+      </div>
+      <div class="lockup">
+        <svg width="30" height="30" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <defs><clipPath id="lf3"><path d="M32 5 C45 17 47 35 32 59 C17 35 19 17 32 5 Z"/></clipPath></defs>
+          <g clip-path="url(#lf3)"><rect x="17" y="40" width="7.5" height="20" fill="#0F6E56"/><rect x="26" y="30" width="7.5" height="30" fill="#1D9E75"/><rect x="35" y="21" width="7.5" height="39" fill="#2DD4BF"/></g>
+          <path d="M32 5 C45 17 47 35 32 59 C17 35 19 17 32 5 Z" stroke="#5DCAA5" stroke-width="2.6"/>
+        </svg>
+        <div style="font-size:18px;font-weight:600;letter-spacing:-.3px">Energy<b style="color:var(--mint)">Lens</b></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">Closest one? Or "A's leaf-of-bars but C's upward line"? Say the word — I refine the chosen mark to final, export the favicon, and replace the heavy white logo box in the app with a clean lockup.</p>
+</div>
+</body>
+</html>

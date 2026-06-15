@@ -9,7 +9,7 @@ import { getServerSession } from "next-auth"
 
 import { AppChrome } from "@/components/AppChrome"
 import { FetchErrorNotice } from "@/components/FetchErrorNotice"
-import { SustainabilityMotif } from "@/components/SustainabilityMotif"
+import { SolarMotif } from "@/components/motifs/SolarMotif"
 import { authOptions } from "@/lib/auth/options"
 import { fetchSolarDetail } from "@/lib/api/solar"
 import { SolarDetail } from "@/components/solar/SolarDetail"
@@ -31,7 +31,7 @@ export default async function SolarPage() {
       subtitle="On-site generation, self-consumption & performance"
       accentColor={SOLAR_ACCENT}
     >
-      <SustainabilityMotif />
+      <SolarMotif />
 
       <div className="relative z-10 px-6 py-8 max-w-7xl mx-auto">
         {!result.ok ? (

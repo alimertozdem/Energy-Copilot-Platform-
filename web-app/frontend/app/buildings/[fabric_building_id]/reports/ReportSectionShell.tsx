@@ -84,6 +84,7 @@ export function ReportSectionShell({
       backHref={fabricId ? `/buildings/${fabricId}` : "/buildings"}
       backLabel="Building"
       accentColor={page.accent}
+      quietBackdrop
     >
       <div className="relative z-10 flex h-[calc(100vh-7rem)]">
         <ReportNav
@@ -112,6 +113,7 @@ export function ReportSectionShell({
               <ReportClient
                 buildingIds={[fabricId]}
                 pageName={embedPageName}
+                pageIndex={locked ? undefined : REPORT_PAGES.findIndex((p) => p.slug === page.slug)}
                 hidePageNav
               />
               {locked && (

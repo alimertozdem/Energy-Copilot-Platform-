@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EnergyLens — logo concepts v1</title>
+<style>
+  :root{--bg:#091324;--card:#0f1f35;--line:rgba(148,163,184,.16);--em:#1D9E75;--mint:#5DCAA5;--glow:#C0DD97;--cyan:#38BDF8;--text:#EAF1F8;--muted:#9DB0C4;--faint:#64798F}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:34px 28px 60px}
+  h1{font-size:22px;font-weight:600;letter-spacing:-.3px;margin:0 0 4px}
+  .lede{color:var(--muted);font-size:14px;margin:0 0 26px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+  .card{border:1px solid var(--line);border-radius:18px;background:var(--card);padding:22px 22px 18px}
+  .top{display:flex;align-items:center;gap:18px}
+  .mk{width:60px;height:60px;flex:none}
+  .lk{display:flex;flex-direction:column}
+  .ttl{font-size:24px;font-weight:600;letter-spacing:-.4px;line-height:1}
+  .ttl b{color:var(--mint);font-weight:600}
+  .slo{font-size:11px;letter-spacing:.06em;color:var(--faint);margin-top:5px;text-transform:none}
+  .meta{margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+  .name{font-size:13px;font-weight:600}
+  .vibe{font-size:11.5px;color:var(--muted)}
+  .pick{font-size:11px;color:var(--mint);border:1px solid rgba(29,158,117,.4);background:rgba(29,158,117,.08);padding:4px 10px;border-radius:999px}
+  .mono{display:flex;gap:10px;margin-top:14px;align-items:center}
+  .mono span{display:inline-flex;width:28px;height:28px;border-radius:7px;align-items:center;justify-content:center;border:1px solid var(--line)}
+  .ecg{stroke-dasharray:7 9;animation:flow 1.6s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-32}}
+  .spin{transform-origin:32px 32px;animation:spin 9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .foot{margin-top:24px;color:var(--faint);font-size:12px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>EnergyLens — logo concepts</h1>
+  <p class="lede">Built around the brand's own word: a <b style="color:var(--mint);font-weight:600">lens</b> that focuses energy. Energy + eco + innovation. Slogan kept: "Smart energy for smart buildings". Pick a direction (or mix) and I'll refine it + build an animated favicon/app version.</p>
+
+  <div class="grid">
+
+    <!-- 1 Lens Pulse -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <circle cx="28" cy="28" r="19" stroke="#1D9E75" stroke-width="3.5"/>
+          <path d="M42 42 L55 55" stroke="#1D9E75" stroke-width="5" stroke-linecap="round"/>
+          <path d="M16 29 L23 29 L27 20 L31 37 L35 24 L39 29 L41 29" stroke="#5DCAA5" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path class="ecg" d="M16 29 L23 29 L27 20 L31 37 L35 24 L39 29 L41 29" stroke="#C0DD97" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="lk"><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div><div class="name">1 · Lens Pulse</div><div class="vibe">a lens reading a live energy pulse — monitoring + clarity</div></div><div class="pick">most on-brand</div></div>
+    </div>
+
+    <!-- 2 Leaf Pulse -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <path d="M14 44 C14 24 32 12 50 14 C52 32 40 50 20 50 C18 50 16 48 14 44 Z" stroke="#1D9E75" stroke-width="3" fill="rgba(29,158,117,.10)"/>
+          <path d="M19 45 L27 33 L31 39 L37 27 L45 19" stroke="#C0DD97" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="45" cy="19" r="2.6" fill="#C0DD97"/>
+        </svg>
+        <div class="lk"><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div><div class="name">2 · Leaf Pulse</div><div class="vibe">a leaf whose vein is an energy curve — eco + efficiency</div></div></div>
+    </div>
+
+    <!-- 3 Aperture -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <g class="spin">
+            <path d="M32 9 A23 23 0 0 1 51.9 20.5 L34 30 Z" fill="#0F6E56"/>
+            <path d="M51.9 20.5 A23 23 0 0 1 51.9 43.5 L34 34 Z" fill="#1D9E75"/>
+            <path d="M51.9 43.5 A23 23 0 0 1 32 55 L34 34 Z" fill="#2DD4BF"/>
+            <path d="M32 55 A23 23 0 0 1 12.1 43.5 L30 34 Z" fill="#1D9E75"/>
+            <path d="M12.1 43.5 A23 23 0 0 1 12.1 20.5 L30 30 Z" fill="#0F6E56"/>
+            <path d="M12.1 20.5 A23 23 0 0 1 32 9 L30 30 Z" fill="#1D9E75"/>
+          </g>
+          <circle cx="32" cy="32" r="6.5" fill="#091324"/><circle cx="32" cy="32" r="2.6" fill="#C0DD97"/>
+        </svg>
+        <div class="lk"><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div><div class="name">3 · Aperture</div><div class="vibe">a camera-iris lens focusing on an energy core — innovation/tech</div></div><div class="pick">most innovative</div></div>
+    </div>
+
+    <!-- 4 Energy Orbit -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <ellipse cx="32" cy="32" rx="22" ry="9" stroke="#1D9E75" stroke-width="2.4" transform="rotate(-28 32 32)"/>
+          <circle cx="32" cy="32" r="8.5" fill="rgba(29,158,117,.18)" stroke="#5DCAA5" stroke-width="2.4"/>
+          <path d="M29 35 L33 28 L31 32 L35 31" stroke="#C0DD97" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="50" cy="22" r="3" fill="#38BDF8"/>
+        </svg>
+        <div class="lk"><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div><div class="name">4 · Energy Orbit</div><div class="vibe">a focal core with live data orbiting — real-time + connected</div></div></div>
+    </div>
+
+    <!-- 5 Rise -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <rect x="13" y="40" width="7" height="12" rx="2" fill="#0F6E56"/>
+          <rect x="24" y="33" width="7" height="19" rx="2" fill="#1D9E75"/>
+          <rect x="35" y="25" width="7" height="27" rx="2" fill="#2DD4BF"/>
+          <path d="M46 30 C50 22 49 16 45 12 C43 18 44 24 46 30 Z" fill="#5DCAA5"/>
+          <path d="M46 30 C46 24 44 18 45 12" stroke="#091324" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        <div class="lk"><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div><div class="name">5 · Rise</div><div class="vibe">efficiency bars growing into a leaf — improvement + green</div></div></div>
+    </div>
+
+    <!-- 6 EL Spark -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <path d="M18 16 H44" stroke="#1D9E75" stroke-width="4" stroke-linecap="round"/>
+          <path d="M18 32 H36" stroke="#5DCAA5" stroke-width="4" stroke-linecap="round"/>
+          <path d="M18 48 H44" stroke="#1D9E75" stroke-width="4" stroke-linecap="round"/>
+          <path d="M18 14 V50" stroke="#1D9E75" stroke-width="4" stroke-linecap="round"/>
+          <path d="M40 26 L34 34 L39 34 L33 42" stroke="#C0DD97" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="50" cy="48" r="3" fill="#38BDF8"/>
+        </svg>
+        <div class="lk"><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div><div class="name">6 · E-Spark monogram</div><div class="vibe">an "E" of energy lines + a bolt — modern, compact mark</div></div></div>
+    </div>
+
+  </div>
+
+  <p class="foot">Concepts 1 &amp; 3 lean hardest on the "lens" idea (most ownable). 2 &amp; 5 are the greenest/eco. 4 &amp; 6 the most tech. Tell me which mark + which vibe → I refine that one, build the animated favicon + the in-app lockup (no heavy white box), and wire it in.</p>
+</div>
+</body>
+</html>

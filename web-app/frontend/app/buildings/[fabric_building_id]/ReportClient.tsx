@@ -33,6 +33,8 @@ type ReportClientProps = {
   onPageChanged?: (pageName: string) => void
   /** Pin the embed to a single PBI page (by displayName). Used by /reports/[page]. */
   pageName?: string
+  /** Fallback: navigate by tab order/index when displayName does not match. */
+  pageIndex?: number
   /** Hide PBI's own tab bar (per-page routes drive nav from ReportNav). */
   hidePageNav?: boolean
 }
@@ -41,6 +43,7 @@ export function ReportClient({
   buildingIds,
   onPageChanged,
   pageName,
+  pageIndex,
   hidePageNav,
 }: ReportClientProps) {
   return (
@@ -48,6 +51,7 @@ export function ReportClient({
       buildingIds={buildingIds}
       onPageChanged={onPageChanged}
       pageName={pageName}
+      pageIndex={pageIndex}
       hidePageNav={hidePageNav}
     />
   )

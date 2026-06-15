@@ -85,3 +85,8 @@ linkedin_02_sustainability.png
 # Local credentials/password notes
 report-design/*sifre*
 report-design/*ifreler*
+
+# never commit env backups (they contain secrets)
+.env.bak
+.env.bak*
+*.bak

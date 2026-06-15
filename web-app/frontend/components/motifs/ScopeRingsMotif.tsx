@@ -18,7 +18,7 @@ type ScopeRingsMotifProps = {
 
 export function ScopeRingsMotif({
   className,
-  opacity = 0.1,
+  opacity = 0.2,
 }: ScopeRingsMotifProps) {
   return (
     <div
@@ -26,7 +26,7 @@ export function ScopeRingsMotif({
         "fixed top-28 left-72 pointer-events-none select-none z-0",
         className
       )}
-      style={{ opacity }}
+      style={{ opacity, filter: "grayscale(1) brightness(1.7)", transform: "scale(1.25)", transformOrigin: "top left" }}
       aria-hidden
     >
       <svg
@@ -45,6 +45,8 @@ export function ScopeRingsMotif({
           strokeWidth="0.5"
           strokeDasharray="3 4"
           opacity="0.6"
+          className="el-scan"
+          style={{ transformOrigin: "160px 160px", transformBox: "view-box" }}
         />
 
         {/* Concentric rings — gradually tightening */}
@@ -65,7 +67,7 @@ export function ScopeRingsMotif({
         </g>
 
         {/* Spotlight pulse beam — vertical column emerging upward */}
-        <g opacity="0.5">
+        <g className="el-breathe" opacity="0.5">
           <line
             x1="160"
             y1="160"

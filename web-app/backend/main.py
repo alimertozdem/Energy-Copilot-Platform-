@@ -54,6 +54,7 @@ PBI_CLIENT_ID = os.getenv("PBI_CLIENT_ID")
 PBI_CLIENT_SECRET = os.getenv("PBI_CLIENT_SECRET")
 PBI_WORKSPACE_ID = os.getenv("PBI_WORKSPACE_ID")
 PBI_REPORT_ID = os.getenv("PBI_REPORT_ID")
+print(f"[startup] PBI ready workspace={PBI_WORKSPACE_ID} report={PBI_REPORT_ID}", flush=True)
 
 # Verify all credentials are loaded
 _required = ["PBI_TENANT_ID", "PBI_CLIENT_ID", "PBI_CLIENT_SECRET", "PBI_WORKSPACE_ID", "PBI_REPORT_ID"]
@@ -71,6 +72,14 @@ PBI_API_BASE = "https://api.powerbi.com/v1.0/myorg"
 DEMO_EMAILS = {
     e.strip().lower()
     for e in os.getenv("DEMO_EMAILS", "alimertozdem+demo@gmail.com").split(",")
+    if e.strip()
+}
+
+# Platform-admin (founder) accounts -- SEPARATE from demo accounts. Same
+# whole-model visibility, but kept distinct so demo != admin.
+ADMIN_EMAILS = {
+    e.strip().lower()
+    for e in os.getenv("ADMIN_EMAILS", "").split(",")
     if e.strip()
 }
 
@@ -268,11 +277,19 @@ async def get_embed_token(
     # identity whose customData lists EVERY building_id in the model;
     # PATHCONTAINS then matches every row.
     email = user_repo.get_email(db, user_id)
-    sees_whole_model = is_admin or (email is not None and email.lower() in DEMO_EMAILS)
+    sees_whole_model = is_admin or (
+        email is not None
+        and (email.lower() in DEMO_EMAILS or email.lower() in ADMIN_EMAILS)
+    )
     if sees_whole_model:
         custom_data = "|".join(_all_model_building_ids())
     else:
         custom_data = "|".join(fabric_ids)
+    print(
+        f"[embed] email={email!r} is_admin={is_admin} whole={sees_whole_model} "
+        f"n_ids={len(custom_data.split('|')) if custom_data else 0} ids={custom_data[:90]!r}",
+        flush=True,
+    )
 
     azure_token = get_azure_token()
 
@@ -296,27 +313,40 @@ async def get_embed_token(
         embed_url = report_data["embedUrl"]
         dataset_id = report_data["datasetId"]
 
-        # 2. Generate embed token via V2 API with RLS effectiveIdentity (customData).
+        # 2. Generate embed token (V2).
+        #    Whole-model (admin/demo) -> NO effectiveIdentity = no RLS, full data.
+        #    Real customers -> CustomerRLS identity scoped to their buildings.
+        #    Fallback: if the no-RLS whole-model token is rejected (dataset still
+        #    enforces an RLS role), retry with an all-ids identity (matches all rows).
         token_url = f"{PBI_API_BASE}/GenerateToken"
-        token_body: dict = {
+        base_body: dict = {
             "datasets": [{"id": dataset_id}],
             "reports": [{"id": PBI_REPORT_ID}],
             "targetWorkspaces": [{"id": PBI_WORKSPACE_ID}],
         }
-        # Always attach an effectiveIdentity: the dataset carries the CustomerRLS
-        # role, and a service-principal V2 embed token for an RLS-enabled
-        # DirectLake model MUST include one (no identity -> 400). Non-admins are
-        # scoped to their own visible buildings (empty customData = fail-closed =
-        # empty report); the admin's customData (built above) spans the whole model.
-        token_body["identities"] = [
-            {
-                "username": "rls@energylens.app",
-                "roles": ["CustomerRLS"],
-                "datasets": [dataset_id],
-                "customData": custom_data,
-            }
-        ]
-        token_resp = await client.post(token_url, headers=headers, json=token_body)
+        rls_identity = {
+            "username": "rls@energylens.app",
+            "roles": ["CustomerRLS"],
+            "datasets": [dataset_id],
+            "customData": custom_data,
+        }
+        if sees_whole_model:
+            token_resp = await client.post(token_url, headers=headers, json=base_body)
+            if token_resp.status_code != 200:
+                print(
+                    f"[embed] no-RLS token rejected ({token_resp.status_code}: "
+                    f"{token_resp.text[:140]}); retrying with all-ids identity",
+                    flush=True,
+                )
+                token_resp = await client.post(
+                    token_url, headers=headers,
+                    json={**base_body, "identities": [rls_identity]},
+                )
+        else:
+            token_resp = await client.post(
+                token_url, headers=headers,
+                json={**base_body, "identities": [rls_identity]},
+            )
 
         if token_resp.status_code != 200:
             raise HTTPException(

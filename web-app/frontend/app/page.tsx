@@ -13,7 +13,7 @@ import {
   TriangleAlert,
 } from "lucide-react"
 
-import { LogoCard } from "@/app/components/LogoCard"
+import { Logo } from "@/components/Logo"
 
 const FEATURES = [
   { icon: Building2, color: "#1D9E75", title: "Portfolio intelligence", body: "EUI benchmarking with cost and carbon across every building." },
@@ -86,7 +86,7 @@ export default function Home() {
 
       {/* ===== Hero ===== */}
       <section className="el-fade-up relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col items-center px-6 pt-10 pb-16 text-center sm:pt-16">
-        <LogoCard iconSize={104} className="mb-8" />
+        <Logo size={54} className="mb-8" />
 
         <span className="inline-flex items-center gap-2 rounded-full border border-brand-emerald/40 bg-brand-emerald/10 px-3 py-1 text-xs font-medium text-brand-emerald">
           <span className="relative inline-flex h-1.5 w-1.5">

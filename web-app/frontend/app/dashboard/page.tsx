@@ -12,6 +12,7 @@ import { AppChrome } from "@/components/AppChrome"
 import { CitySkylineMotif } from "@/components/CitySkylineMotif"
 import { DataBasisNote } from "@/components/DataBasisNote"
 import { DataPendingBanner } from "@/components/DataPendingBanner"
+import { PageIntro } from "@/components/PageIntro"
 import { SustainabilityMotif } from "@/components/SustainabilityMotif"
 import { HomeCockpit } from "@/components/dashboard/HomeCockpit"
 import { fetchActions } from "@/lib/api/actions"
@@ -84,6 +85,14 @@ export default async function DashboardPage() {
           Welcome back{firstName ? `, ${firstName}` : ""}. Here&apos;s what needs you
           today — and where to act.
         </p>
+
+        <PageIntro id="dashboard">
+          Your home base. The KPI strip is your whole portfolio today vs the previous period; the
+          four cards jump straight to <span className="text-text-primary">Monitor</span>,{" "}
+          <span className="text-text-primary">Act</span>,{" "}
+          <span className="text-text-primary">Comply</span> and{" "}
+          <span className="text-text-primary">Copilot</span>. Click any building or alert below to act on it.
+        </PageIntro>
 
         {showPending && <DataPendingBanner />}
 

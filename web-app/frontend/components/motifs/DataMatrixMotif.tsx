@@ -36,7 +36,7 @@ const CELL = 22
 
 export function DataMatrixMotif({
   className,
-  opacity = 0.1,
+  opacity = 0.2,
 }: DataMatrixMotifProps) {
   const width = COLS * CELL
   const height = ROWS * CELL
@@ -64,7 +64,7 @@ export function DataMatrixMotif({
         "fixed top-24 right-0 pointer-events-none select-none z-0",
         className
       )}
-      style={{ opacity }}
+      style={{ opacity, filter: "grayscale(1) brightness(1.7)", transform: "scale(1.2)", transformOrigin: "top right" }}
       aria-hidden
     >
       <svg
@@ -101,7 +101,7 @@ export function DataMatrixMotif({
 
         {/* Active nodes — brighter, larger, glow-tinted */}
         {ACTIVE_CELLS.map(([c, r], i) => (
-          <g key={`active-${i}`}>
+          <g key={`active-${i}`} className="el-twinkle" style={{ animationDelay: `${i * 0.32}s` }}>
             <circle
               cx={c * CELL + CELL / 2}
               cy={r * CELL + CELL / 2}

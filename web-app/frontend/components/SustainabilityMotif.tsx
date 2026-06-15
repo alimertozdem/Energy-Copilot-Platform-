@@ -22,7 +22,7 @@ type SustainabilityMotifProps = {
 
 export function SustainabilityMotif({
   className,
-  opacity = 0.1,
+  opacity = 0.22,
 }: SustainabilityMotifProps) {
   return (
     <div
@@ -33,7 +33,7 @@ export function SustainabilityMotif({
         "fixed bottom-0 left-0 pointer-events-none select-none z-0",
         className
       )}
-      style={{ opacity }}
+      style={{ opacity, filter: "grayscale(1) brightness(1.7)", transform: "scale(1.3)", transformOrigin: "bottom left" }}
       aria-hidden
     >
       <svg
@@ -44,7 +44,7 @@ export function SustainabilityMotif({
         fill="none"
       >
         {/* ── Wind rotor (apex) ─────────────────────────────────────── */}
-        <g stroke="#5DCAA5" strokeWidth="1.25" strokeLinecap="round">
+        <g className="el-rotor" style={{ transformOrigin: "70px 50px", transformBox: "view-box" }} stroke="#5DCAA5" strokeWidth="1.25" strokeLinecap="round">
           {/* Blade 1 — 12 o'clock, slight S-curve twist */}
           <path d="M 70 47 Q 68 32 72 20 Q 73 18 71 15" />
           {/* Blade 2 — 4 o'clock (120°) */}
@@ -78,7 +78,7 @@ export function SustainabilityMotif({
         />
 
         {/* ── Solar rays — 10 equal angular steps (skipping stem overlap) ── */}
-        <g stroke="#5DCAA5" strokeWidth="0.75" strokeLinecap="round">
+        <g className="el-breathe" stroke="#5DCAA5" strokeWidth="0.75" strokeLinecap="round">
           {/*   0° */} <line x1="88" y1="135" x2="96" y2="135" />
           {/*  30° */} <line x1="85.6" y1="144" x2="92.5" y2="148" />
           {/*  60° */} <line x1="79" y1="150.6" x2="83" y2="157.5" />

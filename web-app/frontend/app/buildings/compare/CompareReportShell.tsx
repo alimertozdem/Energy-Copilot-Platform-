@@ -73,6 +73,7 @@ export function CompareReportShell({ buildings }: CompareReportShellProps) {
       backHref="/buildings"
       backLabel="All buildings"
       accentColor={config.color}
+      quietBackdrop
     >
       {config.motifs.map((Motif, i) => (
         <Motif key={`${activePageName}-${i}`} opacity={0.12} />

@@ -9,13 +9,16 @@
  */
 
 import Link from "next/link"
+import type { CSSProperties } from "react"
 import { useSession } from "next-auth/react"
 import { ArrowLeft, ChevronRight, Search } from "lucide-react"
 
 import { AccountMenu } from "@/components/AccountMenu"
 import { CommandPalette } from "@/components/CommandPalette"
-import { LogoCard } from "@/app/components/LogoCard"
+import { Logo } from "@/components/Logo"
 import { DesktopNav, MobileNav } from "@/components/NavClusters"
+import { EnergyParticles } from "@/components/EnergyParticles"
+import { SectionAmbience } from "@/components/SectionAmbience"
 import { TourReturnButton } from "@/components/tour/TourReturnButton"
 
 export type BreadcrumbItem = {
@@ -30,6 +33,7 @@ type AppChromeProps = {
   backHref?: string
   backLabel?: string
   accentColor?: string
+  quietBackdrop?: boolean
   children: React.ReactNode
 }
 
@@ -40,6 +44,7 @@ export function AppChrome({
   backHref,
   backLabel = "Back",
   accentColor,
+  quietBackdrop,
   children,
 }: AppChromeProps) {
   const { data: session } = useSession()
@@ -50,22 +55,15 @@ export function AppChrome({
       <TourReturnButton />
       <CommandPalette />
       <div className="absolute inset-0 bg-dot-grid pointer-events-none" aria-hidden />
-      {accentColor && (
-        <div
-          className="absolute inset-0 pointer-events-none transition-all duration-700"
-          aria-hidden
-          style={{
-            background: `radial-gradient(circle at 50% 0%, ${accentColor}1A 0%, transparent 45%)`,
-          }}
-        />
-      )}
+      {!quietBackdrop && accentColor && <SectionAmbience color={accentColor} />}
+      {!quietBackdrop && <EnergyParticles color={accentColor} />}
       <header className="sticky top-0 z-40 border-b border-border-subtle bg-bg-elevated/80 backdrop-blur-md">
         {/* Row 1 — brand + primary nav + account */}
         <div className="px-4 md:px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4 md:gap-6 min-w-0">
-            <LogoCard iconSize={72} className="shrink-0" />
+            <Logo size={34} className="shrink-0" />
             <MobileNav />
-            <div className="hidden md:block min-w-0 overflow-x-auto">
+            <div className="hidden md:block min-w-0">
               <DesktopNav />
             </div>
           </div>
@@ -125,6 +123,11 @@ export function AppChrome({
             </div>
           </div>
         )}
+        <div
+          className="el-energy-line"
+          style={accentColor ? ({ "--el-accent": accentColor } as CSSProperties) : undefined}
+          aria-hidden
+        />
       </header>
 
       <main id="main-content" className="flex-1 relative">{children}</main>

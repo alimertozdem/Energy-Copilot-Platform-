@@ -33,6 +33,7 @@ import json
 import logging
 import os
 import re
+import time
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -245,25 +246,49 @@ def run_automated_bridge(
         final = fabric_jobs.poll_until_done(location)
     except fabric_jobs.FabricJobError as e:
         return fail("run_job", str(e))
-    step("run_job", "ok", status=final.get("status"))
+    step("run_job", "ok", job_status=final.get("status"))
 
     # --- Step 3b: report chain (best-effort, scoped to this building) --------
     # The baseline above is REQUIRED (a failure already returned). These add the
     # GHG / compliance / recommendation gold rows for the new building. A failure
     # is a warning, not a hard stop: the building still goes live and the missing
     # report simply shows as "needs data / unavailable" in the readiness map.
+    # Trial Spark capacity is easily exhausted by back-to-back notebook jobs, so
+    # SPACE OUT the chain: wait before each report notebook (let the previous Spark
+    # session release) and retry on capacity / rate-limit errors. Tunable via env;
+    # the building stays 'pending' meanwhile — that's fine. One finishes, then next.
+    _delay = int(os.getenv("BRIDGE_CHAIN_DELAY_SECONDS", "120") or 120)
+    _cap_retries = int(os.getenv("BRIDGE_CAPACITY_RETRIES", "3") or 3)
+
+    def _is_capacity(err) -> bool:
+        s = str(err)
+        return "TooManyRequestsForCapacity" in s or "Failed to create Livy session" in s
+
     for _env, _name, _label in _REPORT_CHAIN:
         nb_id = os.getenv(_env)
         if not nb_id:
             step(_name, "skipped", label=_label, message=f"{_env} not configured")
             continue
-        try:
-            loc = fabric_jobs.trigger_notebook(nb_id, {"BRIDGE_BUILDING_ID": fabric_id})
-            rep = fabric_jobs.poll_until_done(loc)
-            step(_name, "ok", label=_label, status=rep.get("status"))
-        except fabric_jobs.FabricJobError as e:
-            step(_name, "warning", label=_label, message=str(e)[:300])
-            logger.warning("Report step %s failed (continuing): %s", _name, e)
+        if _delay > 0:
+            logger.info("Bridge chain: waiting %ss before %s (free Spark slot)...", _delay, _name)
+            time.sleep(_delay)
+        _attempt = 0
+        while True:
+            _attempt += 1
+            try:
+                loc = fabric_jobs.trigger_notebook(nb_id, {"BRIDGE_BUILDING_ID": fabric_id})
+                rep = fabric_jobs.poll_until_done(loc)
+                step(_name, "ok", label=_label, job_status=rep.get("status"))
+                break
+            except fabric_jobs.FabricJobError as e:
+                if _is_capacity(e) and _attempt <= _cap_retries:
+                    logger.warning("%s capacity-limited (try %d/%d) — wait %ss & retry",
+                                   _name, _attempt, _cap_retries, _delay)
+                    time.sleep(_delay)
+                    continue
+                step(_name, "warning", label=_label, message=str(e)[:300])
+                logger.warning("Report step %s failed (continuing): %s", _name, e)
+                break
 
     # --- Step 4: refresh semantic model (best-effort) -----------------------
     try:

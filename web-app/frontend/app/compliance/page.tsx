@@ -18,6 +18,7 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 
 import { AppChrome } from "@/components/AppChrome"
+import { ComplianceMotif } from "@/components/motifs/ComplianceMotif"
 import { BuildingSlicer } from "@/components/BuildingSlicer"
 import { FetchErrorNotice } from "@/components/FetchErrorNotice"
 import { PageIntro } from "@/components/PageIntro"
@@ -89,6 +90,7 @@ export default async function CompliancePage({
       subtitle="EPBD / MEPS · CRREM · flexibility · EU Taxonomy · ESRS-E1"
       accentColor={COMPLIANCE_ACCENT}
     >
+      <ComplianceMotif />
       <div className="relative z-10 px-6 py-8 max-w-7xl mx-auto space-y-10">
         <PageIntro id="compliance">
           How your portfolio stands against the EU rules that increasingly drive

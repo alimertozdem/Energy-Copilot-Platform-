@@ -26,6 +26,7 @@
 import { useEffect, useRef, useState } from "react"
 import { PowerBIEmbed } from "powerbi-client-react"
 import { models, type Report } from "powerbi-client"
+import { RefreshCw } from "lucide-react"
 
 /**
  * Power BI's SDK often throws/returns a PLAIN object (not an Error), so
@@ -79,6 +80,8 @@ type PowerBIReportProps = {
    * default page and the user navigates freely between all tabs.
    */
   pageName?: string
+  /** Fallback page navigation by tab index when displayName does not match. */
+  pageIndex?: number
   /**
    * Hide Power BI's own page-navigation tab bar. The per-page routes drive
    * navigation from the app's ReportNav instead, so the embed shows a single
@@ -133,11 +136,50 @@ function makeBuildingFilter(buildingIds: string[]): models.IBasicFilter {
   }
 }
 
+/**
+ * Clear any *building* slicer on the report's active page. The .pbix ships saved
+ * slicer selections (e.g. "Frankfurt") that AND-conflict with our report-level
+ * building filter (building_id IN [...]) -> empty intersection -> blank page.
+ * Clearing the building slicer lets the report-level filter scope cleanly.
+ * Best-effort: any failure leaves the report as-is (no regression).
+ */
+async function clearBuildingSlicers(report: Report): Promise<void> {
+  try {
+    const page = await report.getActivePage()
+    if (!page) return
+    const visuals = await page.getVisuals()
+    await Promise.all(
+      visuals
+        .filter((v) => v.type === "slicer")
+        .map(async (v) => {
+          try {
+            const state = await v.getSlicerState()
+            const targets = (state?.targets ?? []) as Array<{
+              column?: string
+              hierarchy?: string
+            }>
+            const isBuilding = targets.some((t) =>
+              (t?.column ?? t?.hierarchy ?? "").toLowerCase().includes("building")
+            )
+            if (isBuilding && state?.filters && state.filters.length > 0) {
+              await v.setSlicerState({ filters: [] })
+            }
+          } catch {
+            /* per-slicer best-effort */
+          }
+        })
+    )
+  } catch {
+    /* page/visuals not ready -- skip */
+  }
+}
+
 export default function PowerBIReport({
   buildingIds,
   onPageChanged,
   useDemo = false,
   pageName,
+  pageIndex,
   hidePageNav = false,
 }: PowerBIReportProps) {
   const [embedConfig, setEmbedConfig] = useState<EmbedConfig | null>(null)
@@ -146,6 +188,13 @@ export default function PowerBIReport({
   // (e.g. getActivePage() on first render -- PBI does NOT fire pageChanged
   // for the initial page; we have to read it ourselves).
   const reportRef = useRef<Report | null>(null)
+  // Always-current page target so the (memoised) PBI "rendered" handler never
+  // navigates to a STALE page -- the "click page 3 -> flips to another page"
+  // glitch. The imperative effect below already reads the latest via deps.
+  const pageNameRef = useRef(pageName)
+  pageNameRef.current = pageName
+  const pageIndexRef = useRef(pageIndex)
+  pageIndexRef.current = pageIndex
 
   // Stable key for the building set. Depending on the raw `buildingIds` array
   // would re-run the token fetch (and thus FULLY re-embed the report → flicker)
@@ -197,10 +246,13 @@ export default function PowerBIReport({
     void (async () => {
       try {
         const pages = await report.getPages()
-        const target = pages.find((p) => p.displayName === pageName)
+        const target =
+          pages.find((p) => p.displayName === pageName) ??
+          (pageIndex != null ? pages[pageIndex] : undefined)
         if (!cancelled && target && !target.isActive) {
           await target.setActive()
         }
+        if (!cancelled) await clearBuildingSlicers(report)
       } catch (e) {
         // Best-effort page nav — not fatal (the report still renders). warn,
         // not error, so it doesn't trip the dev error overlay.
@@ -250,6 +302,10 @@ export default function PowerBIReport({
           embedUrl: embedConfig.embed_url,
           accessToken: embedConfig.embed_token,
           tokenType: models.TokenType.Embed,
+          // Force English PBI chrome (slicer "All", filter pane, dates) regardless
+          // of the viewer's / SP's Turkish locale. Report-DESIGN text (measure
+          // strings like "Boş"/"Hedef") is baked in the .pbix -> Desktop only.
+          localeSettings: { language: "en-US", formatLocale: "en-US" },
           filters,
           settings: {
             panes: {
@@ -296,11 +352,13 @@ export default function PowerBIReport({
                   // If a specific page was requested, land on it before
                   // reporting state. Covers the initial embed; later in-place
                   // pageName changes are handled by the imperative effect.
-                  if (pageName) {
+                  const wantName = pageNameRef.current
+                  const wantIndex = pageIndexRef.current
+                  if (wantName) {
                     const pages = await report.getPages()
-                    const target = pages.find(
-                      (p) => p.displayName === pageName
-                    )
+                    const target =
+                      pages.find((p) => p.displayName === wantName) ??
+                      (wantIndex != null ? pages[wantIndex] : undefined)
                     if (target && !target.isActive) {
                       await target.setActive()
                     }
@@ -310,6 +368,7 @@ export default function PowerBIReport({
                     const displayName = page?.displayName
                     if (displayName) onPageChanged(displayName)
                   }
+                  await clearBuildingSlicers(report)
                 } catch (e) {
                   // Landing on a specific page is a best-effort enhancement; if
                   // the report's pages aren't ready / renamed, the report still
@@ -355,6 +414,15 @@ export default function PowerBIReport({
             embeddedReport as Report
         }}
       />
+      <button
+        type="button"
+        onClick={() => { void reportRef.current?.reload() }}
+        title="Refresh — load the latest published report"
+        aria-label="Refresh report"
+        className="absolute top-2 right-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-md border border-border-subtle bg-bg-base/70 text-text-muted backdrop-blur-sm transition-colors hover:border-brand-emerald hover:text-brand-emerald"
+      >
+        <RefreshCw className="h-4 w-4" aria-hidden />
+      </button>
     </div>
   )
 }

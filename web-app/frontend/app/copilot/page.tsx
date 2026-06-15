@@ -20,7 +20,7 @@ import { getServerSession } from "next-auth"
 
 import { AppChrome } from "@/components/AppChrome"
 import { CopilotShell } from "@/components/copilot/CopilotShell"
-import { SustainabilityMotif } from "@/components/SustainabilityMotif"
+import { CopilotMotif } from "@/components/motifs/CopilotMotif"
 import { authOptions } from "@/lib/auth/options"
 import { fetchConversations } from "@/lib/api/copilot"
 
@@ -53,7 +53,7 @@ export default async function CopilotPage({ searchParams }: PageProps) {
       subtitle="AI assistant for your portfolio"
       accentColor={COPILOT_ACCENT}
     >
-      <SustainabilityMotif />
+      <CopilotMotif />
       <div className="px-6 py-6">
         {loadError && (
           <div className="max-w-6xl mx-auto mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">

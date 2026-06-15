@@ -29,7 +29,7 @@ import { AppChrome } from "@/components/AppChrome"
 import { BuildingSlicer } from "@/components/BuildingSlicer"
 import { FetchErrorNotice } from "@/components/FetchErrorNotice"
 import { PageIntro } from "@/components/PageIntro"
-import { SustainabilityMotif } from "@/components/SustainabilityMotif"
+import { EnergyFlowMotif } from "@/components/motifs/EnergyFlowMotif"
 import { authOptions } from "@/lib/auth/options"
 import { fetchActions } from "@/lib/api/actions"
 import { fetchBuildings } from "@/lib/api/buildings"
@@ -95,7 +95,7 @@ export default async function ActionsPage({ searchParams }: PageProps) {
       backHref={scoped ? `/buildings/${encodeURIComponent(building_id!)}` : "/portfolio"}
       backLabel={scoped ? "Building" : "Portfolio"}
     >
-      <SustainabilityMotif />
+      <EnergyFlowMotif />
 
       <div className="relative z-10 px-6 py-8 max-w-7xl mx-auto">
         <PageIntro id="actions">

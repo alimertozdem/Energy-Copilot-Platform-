@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EnergyLens — Hexa-rise, enriched</title>
+<style>
+  :root{--bg:#091324;--card:#0f1f35;--line:rgba(148,163,184,.16);--em:#1D9E75;--mint:#5DCAA5;--glow:#C0DD97;--cyan:#38BDF8;--amber:#F5B73B;--text:#EAF1F8;--muted:#9DB0C4;--faint:#64798F}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:34px 28px 60px}
+  h1{font-size:22px;font-weight:600;letter-spacing:-.3px;margin:0 0 4px}
+  .lede{color:var(--muted);font-size:14px;margin:0 0 24px;max-width:780px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+  .card{border:1px solid var(--line);border-radius:18px;background:var(--card);padding:24px 22px 18px}
+  .top{display:flex;align-items:center;gap:20px}
+  .mk{width:70px;height:70px;flex:none}
+  .ttl{font-size:25px;font-weight:600;letter-spacing:-.4px;line-height:1}
+  .ttl b{color:var(--mint);font-weight:600}
+  .slo{font-size:11px;letter-spacing:.05em;color:var(--faint);margin-top:5px}
+  .meta{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+  .name{font-size:13px;font-weight:600}
+  .cues{margin-top:8px;display:flex;gap:7px;flex-wrap:wrap}
+  .cue{font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px solid}
+  .c-an{color:#9CC9F6;border-color:rgba(56,189,248,.4);background:rgba(56,189,248,.10)}
+  .c-re{color:#F3CE86;border-color:rgba(245,183,59,.4);background:rgba(245,183,59,.10)}
+  .c-pr{color:#8FE3C4;border-color:rgba(29,158,117,.5);background:rgba(29,158,117,.12)}
+  .hero{margin-top:24px;border:1px solid rgba(29,158,117,.4);border-radius:18px;background:linear-gradient(180deg,rgba(29,158,117,.12),rgba(15,31,53,.6));padding:22px 24px}
+  .hero h3{margin:0 0 14px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mint);font-weight:600}
+  .lockrow{display:flex;align-items:center;gap:26px;flex-wrap:wrap}
+  .lockup{display:flex;align-items:center;gap:12px;background:#0b1a30;border:1px solid var(--line);border-radius:12px;padding:10px 16px}
+  .favbox{width:34px;height:34px;border-radius:9px;background:#0b1a30;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+  .foot{margin-top:22px;color:var(--faint);font-size:12px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>EnergyLens — Hexa-rise, enriched</h1>
+  <p class="lede">The hexagon you chose, now carrying three messages: <b style="color:#9CC9F6;font-weight:600">analysis</b> (chart / data), <b style="color:#F3CE86;font-weight:600">renewable energy</b> (sun · leaf), <b style="color:#8FE3C4;font-weight:600">profit</b> (the upward move ↑). Four balances below — pick the one whose mix feels right.</p>
+
+  <div class="grid">
+
+    <!-- D1 Chart + Arrow + Sun -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <path d="M32 6 L53 18 L53 42 L32 54 L11 42 L11 18 Z" stroke="#1D9E75" stroke-width="2.4"/>
+          <g stroke="#F5B73B" stroke-width="1.7" stroke-linecap="round"><path d="M44 15 v-3.5"/><path d="M49.5 17.5 l2.4-2.4"/><path d="M38.5 17.5 l-2.4-2.4"/></g>
+          <circle cx="44" cy="20" r="4.4" fill="rgba(245,183,59,.22)" stroke="#F5B73B" stroke-width="1.7"/>
+          <rect x="17" y="38" width="5.5" height="9" rx="1.6" fill="#0F6E56"/>
+          <rect x="24.5" y="33" width="5.5" height="14" rx="1.6" fill="#1D9E75"/>
+          <rect x="32" y="27" width="5.5" height="20" rx="1.6" fill="#2DD4BF"/>
+          <path d="M16 41 L26 33 L33 36 L44 25" stroke="#C0DD97" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M44 25 l-5 0 m5 0 l0 5" stroke="#C0DD97" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+        <div><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div class="name">D1 · Chart + Arrow + Sun</div>
+        <div class="cues"><span class="cue c-an">analysis: bars + trend</span><span class="cue c-re">renewable: sun</span><span class="cue c-pr">profit: ↗ arrow</span></div></div>
+    </div>
+
+    <!-- D2 Trend-leaf + Sun -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <path d="M32 6 L53 18 L53 42 L32 54 L11 42 L11 18 Z" stroke="#1D9E75" stroke-width="2.4"/>
+          <path d="M22 15 a9 9 0 0 1 18 0" stroke="#F5B73B" stroke-width="1.8" fill="none"/>
+          <g stroke="#F5B73B" stroke-width="1.5" stroke-linecap="round"><path d="M31 9 v-2.6"/><path d="M21.5 12 l-1.8-1.8"/><path d="M40.5 12 l1.8-1.8"/></g>
+          <path d="M17 44 C24 42 28 33 34 27" stroke="#38BDF8" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+          <path d="M34 27 C39 20 49 20 50 13 C42 14 36 19 34 27 Z" fill="rgba(45,212,191,.20)" stroke="#5DCAA5" stroke-width="2"/>
+        </svg>
+        <div><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div class="name">D2 · Trend-leaf + Sun</div>
+        <div class="cues"><span class="cue c-an">analysis: trend line</span><span class="cue c-re">renewable: sun + leaf</span><span class="cue c-pr">profit: rising line</span></div></div>
+    </div>
+
+    <!-- D3 Solar-cell rise -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <path d="M32 6 L53 18 L53 42 L32 54 L11 42 L11 18 Z" stroke="#1D9E75" stroke-width="2.4" fill="rgba(29,158,117,.06)"/>
+          <path d="M11 26 L53 26 M11 34 L53 34 M25 13 L25 49 M39 13 L39 49" stroke="rgba(93,202,165,.30)" stroke-width="1"/>
+          <rect x="18" y="38" width="5" height="8" rx="1.5" fill="#0F6E56"/>
+          <rect x="25" y="33" width="5" height="13" rx="1.5" fill="#1D9E75"/>
+          <rect x="32" y="28" width="5" height="18" rx="1.5" fill="#2DD4BF"/>
+          <path d="M39 25 l5 -5 m-5 0 l5 0 m0 0 l0 5" stroke="#C0DD97" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div class="name">D3 · Solar-cell rise</div>
+        <div class="cues"><span class="cue c-an">analysis: bars</span><span class="cue c-re">renewable: solar panel</span><span class="cue c-pr">profit: ↗ arrow</span></div></div>
+    </div>
+
+    <!-- D4 All-in hero -->
+    <div class="card">
+      <div class="top">
+        <svg class="mk" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <path d="M32 6 L53 18 L53 42 L32 54 L11 42 L11 18 Z" stroke="#1D9E75" stroke-width="2.4"/>
+          <circle cx="32" cy="16" r="3.4" fill="rgba(245,183,59,.25)" stroke="#F5B73B" stroke-width="1.5"/>
+          <g stroke="#F5B73B" stroke-width="1.3" stroke-linecap="round"><path d="M32 9.5 v-2"/><path d="M26.5 12 l-1.4-1.4"/><path d="M37.5 12 l1.4-1.4"/></g>
+          <rect x="20" y="38" width="5" height="8" rx="1.5" fill="#0F6E56"/>
+          <rect x="27" y="34" width="5" height="12" rx="1.5" fill="#1D9E75"/>
+          <rect x="34" y="38" width="5" height="8" rx="1.5" fill="#0F6E56"/>
+          <path d="M21 36 L29 30 L36 33 L44 25" stroke="#2DD4BF" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M44 25 l-5.2 .3 m5.2 -.3 l-.3 5.2" stroke="#C0DD97" stroke-width="2.4" stroke-linecap="round"/>
+        </svg>
+        <div><div class="ttl">Energy<b>Lens</b></div><div class="slo">Smart energy for smart buildings</div></div>
+      </div>
+      <div class="meta"><div class="name">D4 · All-in (balanced)</div>
+        <div class="cues"><span class="cue c-an">analysis: bars + trend</span><span class="cue c-re">renewable: sun</span><span class="cue c-pr">profit: ↗ to a peak</span></div></div>
+    </div>
+
+  </div>
+
+  <div class="hero">
+    <h3>D1 small &amp; in context</h3>
+    <div class="lockrow">
+      <div class="favbox">
+        <svg width="24" height="24" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <path d="M32 6 L53 18 L53 42 L32 54 L11 42 L11 18 Z" stroke="#5DCAA5" stroke-width="3"/>
+          <circle cx="44" cy="20" r="4.4" fill="#F5B73B"/>
+          <rect x="17" y="38" width="5.5" height="9" fill="#0F6E56"/><rect x="24.5" y="33" width="5.5" height="14" fill="#1D9E75"/><rect x="32" y="27" width="5.5" height="20" fill="#2DD4BF"/>
+        </svg>
+      </div>
+      <div class="lockup">
+        <svg width="30" height="30" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <path d="M32 6 L53 18 L53 42 L32 54 L11 42 L11 18 Z" stroke="#1D9E75" stroke-width="2.6"/>
+          <circle cx="44" cy="20" r="4.2" fill="rgba(245,183,59,.25)" stroke="#F5B73B" stroke-width="1.6"/>
+          <rect x="17" y="38" width="5.5" height="9" fill="#0F6E56"/><rect x="24.5" y="33" width="5.5" height="14" fill="#1D9E75"/><rect x="32" y="27" width="5.5" height="20" fill="#2DD4BF"/>
+          <path d="M16 41 L26 33 L33 36 L44 25" stroke="#C0DD97" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div style="font-size:18px;font-weight:600;letter-spacing:-.3px">Energy<b style="color:var(--mint)">Lens</b></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">Color legend: green = energy/efficiency · cyan = the data trend · amber = the sun (renewable). Pick the balance (D1 analysis-forward · D2 eco-forward · D3 solar-forward · D4 all-in) and I finalise + export the favicon + wire the lockup into the app.</p>
+</div>
+</body>
+</html>

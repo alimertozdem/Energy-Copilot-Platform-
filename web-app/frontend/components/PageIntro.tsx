@@ -31,7 +31,7 @@ export function PageIntro({
   if (dismissed) return null
 
   return (
-    <div className="flex items-start gap-2.5 rounded-lg border border-border-subtle bg-bg-elevated/40 px-4 py-2.5 text-sm text-text-muted">
+    <div className="relative flex items-start gap-2.5 overflow-hidden rounded-lg border border-border-subtle border-l-2 border-l-brand-emerald/60 bg-gradient-to-r from-brand-emerald/[0.07] via-bg-elevated/40 to-transparent px-4 py-2.5 text-sm text-text-muted">
       <Info size={15} className="mt-0.5 shrink-0 text-brand-emerald" aria-hidden />
       <div className="flex-1 leading-relaxed">{children}</div>
       <button

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EnergyLens — Dashboard redesign concept v1</title>
+<style>
+  :root{
+    --bg:#091324; --bg2:#0f1f35; --line:rgba(29,158,117,.22); --line2:rgba(148,163,184,.14);
+    --emerald:#1D9E75; --mint:#5DCAA5; --glow:#C0DD97; --deep:#0F6E56;
+    --cyan:#38BDF8; --blue:#3B82F6; --amber:#EAB308; --purple:#A78BFA; --teal:#2DD4BF;
+    --text:#EAF1F8; --muted:#9DB0C4; --faint:#64798F;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .wrap{position:relative;min-height:100vh;overflow:hidden}
+  /* living energy ambience */
+  .aura{position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0;animation:drift 22s ease-in-out infinite}
+  .aura.a{top:-160px;left:42%;width:680px;height:680px;background:radial-gradient(circle,rgba(29,158,117,.42),transparent 70%)}
+  .aura.b{bottom:-200px;left:-120px;width:560px;height:560px;background:radial-gradient(circle,rgba(45,212,191,.30),transparent 70%);animation-duration:28s;animation-delay:-7s}
+  .aura.c{top:30%;right:-140px;width:480px;height:480px;background:radial-gradient(circle,rgba(56,189,248,.20),transparent 70%);animation-duration:32s;animation-delay:-12s}
+  .grid-tex{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
+    background-image:radial-gradient(circle,rgba(29,158,117,.08) 1px,transparent 1px);background-size:26px 26px}
+  @keyframes drift{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(4%,-3%) scale(1.12)}}
+  .shell{position:relative;z-index:2;max-width:1180px;margin:0 auto;padding:0 28px 64px}
+  /* header */
+  header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px 0 16px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .mark{width:42px;height:42px;flex:none}
+  .word{font-size:20px;font-weight:600;letter-spacing:-.2px}
+  .word b{color:var(--mint);font-weight:600}
+  .word small{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:500;margin-top:1px}
+  nav{display:flex;gap:6px;align-items:center}
+  nav a{padding:8px 14px;border-radius:9px;font-size:14px;color:var(--muted);transition:.2s}
+  nav a:hover{color:var(--text);background:rgba(255,255,255,.05)}
+  nav a.on{color:var(--mint);background:rgba(29,158,117,.12)}
+  .live{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--mint);padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:rgba(29,158,117,.07)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 0 rgba(93,202,165,.6);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(93,202,165,.55)}70%{box-shadow:0 0 0 8px rgba(93,202,165,0)}100%{box-shadow:0 0 0 0 rgba(93,202,165,0)}}
+  /* hero */
+  .hero{margin-top:18px;border:1px solid var(--line);border-radius:20px;
+    background:linear-gradient(180deg,rgba(29,158,117,.10),rgba(15,31,53,.55));padding:26px 28px;position:relative;overflow:hidden}
+  .heyrow{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .h-eyebrow{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mint);font-weight:600}
+  .h-title{font-size:30px;font-weight:600;letter-spacing:-.6px;margin:6px 0 2px;line-height:1.1}
+  .h-sub{color:var(--muted);font-size:14px}
+  .ontrack{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#0a1628;background:var(--mint);padding:8px 14px;border-radius:999px}
+  /* energy pulse line */
+  .pulse-wrap{margin:22px 0 4px;height:54px}
+  .pulse-line{width:100%;height:54px;display:block}
+  .flow{stroke-dasharray:8 10;animation:flow 1.6s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-36}}
+  /* kpis */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px}
+  .kpi{border:1px solid var(--line2);border-radius:15px;background:rgba(15,31,53,.6);padding:16px 16px 14px;backdrop-filter:blur(4px)}
+  .kpi .k-lab{display:flex;align-items:center;gap:7px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .kpi .k-ico{width:15px;height:15px}
+  .kpi .k-val{font-size:30px;font-weight:600;letter-spacing:-.5px;margin-top:9px;line-height:1}
+  .kpi .k-unit{font-size:12px;color:var(--muted);font-weight:400}
+  .kpi .k-delta{margin-top:7px;font-size:12.5px;font-weight:600}
+  .good{color:var(--mint)} .data{color:var(--cyan)}
+  .kpi.feature{background:linear-gradient(180deg,rgba(29,158,117,.18),rgba(15,31,53,.6));border-color:rgba(93,202,165,.4)}
+  /* intent cards */
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px}
+  .card{position:relative;border:1px solid var(--line2);border-radius:15px;background:rgba(15,31,53,.55);padding:18px;transition:.22s;overflow:hidden}
+  .card:hover{transform:translateY(-3px);border-color:rgba(93,202,165,.5);box-shadow:0 14px 40px rgba(0,0,0,.4),0 0 0 1px rgba(93,202,165,.15)}
+  .c-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+  .c-top{display:flex;align-items:center;justify-content:space-between}
+  .c-badge{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;border:1px solid}
+  .b-red{color:#FCA5A5;background:rgba(239,68,68,.14);border-color:rgba(239,68,68,.4)}
+  .b-amber{color:#FCD34D;background:rgba(234,179,8,.14);border-color:rgba(234,179,8,.4)}
+  .c-h{font-size:15px;font-weight:600;margin:13px 0 3px}
+  .c-p{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .c-go{margin-top:13px;font-size:12.5px;color:var(--mint);font-weight:600;display:inline-flex;gap:5px;align-items:center}
+  /* section identity preview */
+  .ident{margin-top:26px;border-top:1px solid var(--line2);padding-top:18px}
+  .ident-h{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:12px}
+  .chips{display:flex;gap:10px;flex-wrap:wrap}
+  .chip{flex:1;min-width:150px;border-radius:13px;padding:13px 15px;border:1px solid;position:relative;overflow:hidden}
+  .chip h4{margin:0;font-size:14px;font-weight:600}
+  .chip span{font-size:11.5px;opacity:.85}
+  .chip::after{content:"";position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;filter:blur(34px);opacity:.6}
+  .foot{margin-top:26px;display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px;color:var(--faint)}
+  .foot span{display:flex;align-items:center;gap:6px}
+  .sw{width:8px;height:8px;border-radius:50%}
+  @media(max-width:880px){.kpis,.cards{grid-template-columns:repeat(2,1fr)}.h-title{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="aura a"></div><div class="aura b"></div><div class="aura c"></div>
+  <div class="grid-tex"></div>
+
+  <div class="shell">
+    <header>
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <circle cx="20" cy="20" r="15" stroke="#5DCAA5" stroke-width="3"/>
+          <path d="M31 31 L41 41" stroke="#5DCAA5" stroke-width="4" stroke-linecap="round"/>
+          <path d="M14 24 L18 18 L22 22 L27 14" stroke="#C0DD97" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <circle cx="27" cy="14" r="2.4" fill="#C0DD97"/>
+        </svg>
+        <div class="word">Energy<b>Lens</b><small>low-carbon building intelligence</small></div>
+      </div>
+      <nav>
+        <a class="on">Monitor</a><a>Act</a><a>Comply</a><a>Copilot</a>
+      </nav>
+      <div class="live"><span class="dot"></span> live</div>
+    </header>
+
+    <section class="hero">
+      <div class="heyrow">
+        <div>
+          <div class="h-eyebrow">Berlin portfolio · last 30 days</div>
+          <div class="h-title">Your portfolio is improving</div>
+          <div class="h-sub">12 buildings · energy down, carbon down, on pace for the 2030 target</div>
+        </div>
+        <div class="ontrack"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="#0a1628" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> CRREM: on track</div>
+      </div>
+
+      <div class="pulse-wrap">
+        <svg class="pulse-line" viewBox="0 0 1100 54" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0 38 L150 38 L185 14 L215 44 L245 26 L280 38 L520 38 L555 10 L588 46 L620 30 L655 38 L1100 38"
+                fill="none" stroke="rgba(93,202,165,.20)" stroke-width="2"/>
+          <path class="flow" d="M0 38 L150 38 L185 14 L215 44 L245 26 L280 38 L520 38 L555 10 L588 46 L620 30 L655 38 L1100 38"
+                fill="none" stroke="#5DCAA5" stroke-width="2.4" stroke-linecap="round"/>
+          <circle r="4" fill="#C0DD97"><animateMotion dur="6s" repeatCount="indefinite"
+            path="M0 38 L150 38 L185 14 L215 44 L245 26 L280 38 L520 38 L555 10 L588 46 L620 30 L655 38 L1100 38"/></circle>
+        </svg>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi feature">
+          <div class="k-lab"><svg class="k-ico" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3c4 4 6 7 6 10a6 6 0 1 1-12 0c0-3 2-6 6-10Z" stroke="#5DCAA5" stroke-width="1.8"/></svg> CO₂ avoided</div>
+          <div class="k-val"><span data-count="310">0</span> <span class="k-unit">t this year</span></div>
+          <div class="k-delta good">▲ on the cheapest-abatement path first</div>
+        </div>
+        <div class="kpi">
+          <div class="k-lab"><svg class="k-ico" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" stroke="#5DCAA5" stroke-width="1.8" stroke-linejoin="round"/></svg> Energy</div>
+          <div class="k-val"><span data-count="2142712">0</span> <span class="k-unit">kWh</span></div>
+          <div class="k-delta good">▼ 22.3% vs prev. period</div>
+        </div>
+        <div class="kpi">
+          <div class="k-lab"><svg class="k-ico" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2v20M5 9h14M5 15h14" stroke="#38BDF8" stroke-width="1.8" stroke-linecap="round"/></svg> Cost</div>
+          <div class="k-val">€<span data-count="443211">0</span></div>
+          <div class="k-delta good">▼ 21.5% vs prev. period</div>
+        </div>
+        <div class="kpi">
+          <div class="k-lab"><svg class="k-ico" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" stroke="#38BDF8" stroke-width="1.8"/><path d="M8 14l3-4 2 2 3-5" stroke="#38BDF8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Avg EUI</div>
+          <div class="k-val"><span data-count="142">0</span> <span class="k-unit">kWh/m²·yr</span></div>
+          <div class="k-delta data">benchmarked vs building type</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="cards">
+      <a class="card">
+        <div class="c-top">
+          <div class="c-ico" style="background:rgba(29,158,117,.16);border:1px solid rgba(29,158,117,.4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12h4l3 8 4-16 3 8h4" stroke="#5DCAA5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span class="c-badge b-red">9 alerts</span>
+        </div>
+        <div class="c-h">Monitor</div>
+        <div class="c-p">12 buildings · energy, cost &amp; carbon, live</div>
+        <div class="c-go">Open <span>→</span></div>
+      </a>
+      <a class="card">
+        <div class="c-top">
+          <div class="c-ico" style="background:rgba(234,179,8,.16);border:1px solid rgba(234,179,8,.4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9" stroke="#EAB308" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+          <span class="c-badge b-amber">8 measures</span>
+        </div>
+        <div class="c-h">Act</div>
+        <div class="c-p">Prioritised retrofits — best €/tCO₂ first</div>
+        <div class="c-go">Open <span>→</span></div>
+      </a>
+      <a class="card">
+        <div class="c-top">
+          <div class="c-ico" style="background:rgba(45,212,191,.16);border:1px solid rgba(45,212,191,.4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4Z" stroke="#2DD4BF" stroke-width="1.7"/></svg></div>
+        </div>
+        <div class="c-h">Comply</div>
+        <div class="c-p">EPBD/MEPS · CRREM stranding · ESRS-E1</div>
+        <div class="c-go">Open <span>→</span></div>
+      </a>
+      <a class="card">
+        <div class="c-top">
+          <div class="c-ico" style="background:rgba(167,139,250,.16);border:1px solid rgba(167,139,250,.4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z" stroke="#A78BFA" stroke-width="1.7" stroke-linejoin="round"/></svg></div>
+        </div>
+        <div class="c-h">Ask Copilot</div>
+        <div class="c-p">Natural-language answers across the portfolio</div>
+        <div class="c-go">Open <span>→</span></div>
+      </a>
+    </div>
+
+    <div class="ident">
+      <div class="ident-h">Each section transforms to its own identity</div>
+      <div class="chips">
+        <div class="chip" style="background:rgba(29,158,117,.10);border-color:rgba(29,158,117,.4)"><h4 style="color:#5DCAA5">Portfolio</h4><span style="color:#9DB0C4">emerald · energy</span><i style="background:#1D9E75" class="sw"></i></div>
+        <div class="chip" style="background:rgba(45,212,191,.10);border-color:rgba(45,212,191,.4)"><h4 style="color:#2DD4BF">Compliance</h4><span style="color:#9DB0C4">teal · regulation</span></div>
+        <div class="chip" style="background:rgba(234,179,8,.10);border-color:rgba(234,179,8,.4)"><h4 style="color:#EAB308">Solar</h4><span style="color:#9DB0C4">amber · generation</span></div>
+        <div class="chip" style="background:rgba(167,139,250,.10);border-color:rgba(167,139,250,.4)"><h4 style="color:#A78BFA">Copilot</h4><span style="color:#9DB0C4">violet · intelligence</span></div>
+      </div>
+      <div class="foot">
+        <span><i class="sw" style="background:#1D9E75"></i> Green = energy / sustainability (primary)</span>
+        <span><i class="sw" style="background:#38BDF8"></i> Blue/cyan = data &amp; tech detail (accent)</span>
+        <span>Concept mockup · not the live app</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function animateCount(el){
+    var target=+el.getAttribute('data-count'), dur=1400, start=performance.now();
+    function tick(now){
+      var p=Math.min((now-start)/dur,1); var e=1-Math.pow(1-p,3);
+      el.textContent=Math.round(target*e).toLocaleString('en-US');
+      if(p<1)requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+  document.querySelectorAll('[data-count]').forEach(function(el){ setTimeout(function(){animateCount(el)},250); });
+</script>
+</body>
+</html>

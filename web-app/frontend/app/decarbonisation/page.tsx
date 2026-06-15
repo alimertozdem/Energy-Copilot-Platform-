@@ -16,7 +16,7 @@ import { getServerSession } from "next-auth"
 
 import { AppChrome } from "@/components/AppChrome"
 import { FetchErrorNotice } from "@/components/FetchErrorNotice"
-import { SustainabilityMotif } from "@/components/SustainabilityMotif"
+import { EnergyFlowMotif } from "@/components/motifs/EnergyFlowMotif"
 import { MaccChart } from "@/components/abatement/MaccChart"
 import { InfoTip } from "@/components/ui/info-tip"
 import { BuildingSlicer } from "@/components/BuildingSlicer"
@@ -79,7 +79,7 @@ export default async function DecarbonisationPage({
       backHref="/portfolio"
       backLabel="Portfolio"
     >
-      <SustainabilityMotif />
+      <EnergyFlowMotif />
 
       <div className="relative z-10 mx-auto max-w-7xl px-6 py-8 space-y-6">
         <PageIntro id="decarbonisation">

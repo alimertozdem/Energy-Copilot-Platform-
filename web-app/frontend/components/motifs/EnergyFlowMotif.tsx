@@ -17,7 +17,7 @@ type EnergyFlowMotifProps = {
 
 export function EnergyFlowMotif({
   className,
-  opacity = 0.1,
+  opacity = 0.2,
 }: EnergyFlowMotifProps) {
   return (
     <div
@@ -25,7 +25,7 @@ export function EnergyFlowMotif({
         "fixed top-32 left-0 pointer-events-none select-none z-0",
         className
       )}
-      style={{ opacity }}
+      style={{ opacity, filter: "grayscale(1) brightness(1.7)", transform: "scale(1.2)", transformOrigin: "top left" }}
       aria-hidden
     >
       <svg
@@ -36,7 +36,7 @@ export function EnergyFlowMotif({
         fill="none"
       >
         {/* Cascading flow lines — 8 bezier streams */}
-        <g stroke="#5DCAA5" strokeLinecap="round" fill="none">
+        <g className="el-flow" strokeDasharray="5 9" stroke="#5DCAA5" strokeLinecap="round" fill="none">
           <path d="M -20 40 C 120 50, 200 90, 320 80 S 480 60, 540 100" strokeWidth="0.75" opacity="0.9" />
           <path d="M -20 70 C 100 90, 220 110, 320 110 S 480 100, 540 130" strokeWidth="0.6" opacity="0.7" />
           <path d="M -20 110 C 140 130, 240 150, 320 150 S 460 140, 540 170" strokeWidth="0.5" opacity="0.6" />
@@ -48,7 +48,7 @@ export function EnergyFlowMotif({
         </g>
 
         {/* Data nodes — sparse glow points along the streams */}
-        <g fill="#C0DD97">
+        <g className="el-breathe" fill="#C0DD97">
           <circle cx="80" cy="55" r="1.8" opacity="0.9" />
           <circle cx="320" cy="80" r="1.4" opacity="0.7" />
           <circle cx="180" cy="150" r="1.5" opacity="0.8" />

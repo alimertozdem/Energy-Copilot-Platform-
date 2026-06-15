@@ -9,6 +9,8 @@
  */
 
 import Link from "next/link"
+
+import { CountUp } from "@/components/CountUp"
 import {
   Activity,
   ArrowRight,
@@ -54,10 +56,11 @@ function deltaArrow(direction: KPITile["direction"]): string {
 
 function Kpi({ label, tile }: { label: string; tile: KPITile }) {
   return (
-    <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 p-4">
+    <div className="relative overflow-hidden rounded-xl border border-border-subtle bg-bg-elevated/40 p-4">
+      <span className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-brand-emerald via-brand-mint to-accent-cyan" aria-hidden />
       <div className="text-[11px] uppercase tracking-wider text-text-faint">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-text-primary">
-        {fmt(tile.value)}{" "}
+      <div className="mt-1 text-2xl font-semibold font-display tabular-nums text-text-primary">
+        <CountUp value={tile.value} />{" "}
         <span className="text-xs font-normal text-text-muted">{tile.unit}</span>
       </div>
       {tile.delta_pct != null && (
@@ -136,7 +139,7 @@ export function HomeCockpit({
     <div className="space-y-8">
       {/* KPI area — three states */}
       {kpis ? (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="el-stagger grid grid-cols-2 gap-4 md:grid-cols-4">
           <Kpi label="Energy" tile={kpis.total_energy} />
           <Kpi label="Avg EUI" tile={kpis.avg_eui} />
           <Kpi label="Cost" tile={kpis.total_cost} />
@@ -172,16 +175,16 @@ export function HomeCockpit({
       )}
 
       {/* Intent cards (equal height) */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="el-fade-stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
           <Link
             key={c.title}
             href={c.href}
-            className="group flex flex-col rounded-xl border border-border-subtle bg-bg-elevated/40 p-5 transition-all hover:-translate-y-0.5 hover:border-brand-emerald/50"
+            className="group flex flex-col rounded-xl border border-border-subtle bg-bg-elevated/40 p-5 transition-all hover:-translate-y-0.5 hover:border-brand-emerald/50 hover:shadow-[0_12px_34px_-14px_rgba(29,158,117,0.45)]"
           >
             <div className="flex items-center justify-between">
               <span
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-110"
                 style={{ background: `${c.color}1A`, border: `1px solid ${c.color}40` }}
               >
                 <c.icon size={20} style={{ color: c.color }} aria-hidden />

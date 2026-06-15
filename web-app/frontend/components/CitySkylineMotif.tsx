@@ -18,7 +18,7 @@ type CitySkylineMotifProps = {
 
 export function CitySkylineMotif({
   className,
-  opacity = 0.08,
+  opacity = 0.22,
 }: CitySkylineMotifProps) {
   return (
     <div
@@ -26,7 +26,7 @@ export function CitySkylineMotif({
         "fixed bottom-0 right-0 pointer-events-none select-none z-0",
         className
       )}
-      style={{ opacity }}
+      style={{ opacity, filter: "grayscale(1) brightness(1.7)", transform: "scale(1.4)", transformOrigin: "bottom right" }}
       aria-hidden
     >
       <svg
@@ -88,7 +88,7 @@ export function CitySkylineMotif({
           </g>
           {/* antenna tip */}
           <line x1="195" y1="90" x2="195" y2="72" stroke="#5DCAA5" strokeWidth="0.6" />
-          <circle cx="195" cy="70" r="1.5" fill="#C0DD97" stroke="none" />
+          <circle className="el-twinkle" cx="195" cy="70" r="1.5" fill="#C0DD97" stroke="none" />
         </g>
 
         {/* Tower 4 — short office block */}

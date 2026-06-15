@@ -1,0 +1,122 @@
+<svg viewBox="0 0 1600 1040" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <radialGradient id="bg" cx="52%" cy="20%" r="90%">
+      <stop offset="0%" stop-color="#0E2438"/>
+      <stop offset="42%" stop-color="#0A1626"/>
+      <stop offset="100%" stop-color="#060D18"/>
+    </radialGradient>
+    <linearGradient id="gTower" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0F6E56"/>
+      <stop offset="55%" stop-color="#1D9E75"/>
+      <stop offset="100%" stop-color="#2DD4BF"/>
+    </linearGradient>
+    <linearGradient id="gRise" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#5DCAA5"/>
+      <stop offset="55%" stop-color="#C8E66B"/>
+      <stop offset="100%" stop-color="#F5D061"/>
+    </linearGradient>
+    <radialGradient id="gSun" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F7E08A"/>
+      <stop offset="100%" stop-color="#F5B73B"/>
+    </radialGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+    <filter id="soft2" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="26"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="1040" fill="url(#bg)"/>
+  <g opacity="0.10" fill="#5DCAA5">
+    <rect x="0" y="0" width="1600" height="1040" fill="none"/>
+  </g>
+  <g stroke="#1D9E75" stroke-width="1" opacity="0.06">
+    <path d="M0 200H1600M0 400H1600M0 600H1600M0 800H1600M200 0V1040M400 0V1040M600 0V1040M800 0V1040M1000 0V1040M1200 0V1040M1400 0V1040"/>
+  </g>
+  <ellipse cx="820" cy="330" rx="460" ry="300" fill="#1D9E75" opacity="0.16" filter="url(#soft2)"/>
+
+  <text x="92" y="96" fill="#8FA3B8" font-size="20" letter-spacing="7" font-weight="400">E N E R G Y L E N S &#8212; B R A N D&#160;&#160;S Y S T E M</text>
+  <text x="92" y="124" fill="#5A6B7E" font-size="15" letter-spacing="3">Living Grid &#183; concept v4 &#183; 2026</text>
+  <line x1="92" y1="148" x2="1508" y2="148" stroke="#1D9E75" stroke-width="1" opacity="0.16"/>
+
+  <g>
+    <path d="M636 690 C 720 686 824 700 936 720" stroke="#7E8C77" stroke-width="2.5" stroke-dasharray="2 12" stroke-linecap="round" opacity="0.5" fill="none"/>
+    <g fill="none" stroke="#7E8C77" stroke-width="2" opacity="0.4">
+      <circle cx="690" cy="700" r="6"/><circle cx="724" cy="703" r="6"/><circle cx="758" cy="706" r="6"/>
+      <path d="M696 700 H718 M696 703 H718 M730 703 H752 M730 706 H752"/>
+    </g>
+
+    <path d="M636 600 C 712 548 762 472 824 432 C 868 404 902 392 980 318" stroke="#0A1626" stroke-width="20" fill="none" stroke-linecap="round" opacity="0.6" filter="url(#soft)"/>
+
+    <g>
+      <rect x="648" y="470" width="46" height="130" rx="7" fill="url(#gTower)"/>
+      <rect x="702" y="420" width="46" height="180" rx="7" fill="url(#gTower)"/>
+      <rect x="756" y="352" width="46" height="248" rx="7" fill="url(#gTower)"/>
+      <rect x="810" y="412" width="46" height="188" rx="7" fill="url(#gTower)"/>
+      <rect x="864" y="476" width="46" height="124" rx="7" fill="url(#gTower)"/>
+    </g>
+    <g fill="#9FE0FF" opacity="0.55">
+      <circle cx="662" cy="500" r="3"/><circle cx="680" cy="500" r="3"/><circle cx="662" cy="524" r="3"/><circle cx="680" cy="524" r="3"/><circle cx="662" cy="548" r="3"/><circle cx="680" cy="548" r="3"/>
+      <circle cx="716" cy="452" r="3"/><circle cx="734" cy="452" r="3"/><circle cx="716" cy="478" r="3"/><circle cx="734" cy="478" r="3"/><circle cx="716" cy="504" r="3"/><circle cx="734" cy="504" r="3"/><circle cx="716" cy="530" r="3"/><circle cx="734" cy="530" r="3"/>
+      <circle cx="770" cy="386" r="3"/><circle cx="788" cy="386" r="3"/><circle cx="770" cy="412" r="3"/><circle cx="788" cy="412" r="3"/><circle cx="770" cy="438" r="3"/><circle cx="788" cy="438" r="3"/><circle cx="770" cy="464" r="3"/><circle cx="788" cy="464" r="3"/><circle cx="770" cy="490" r="3"/><circle cx="788" cy="490" r="3"/>
+      <circle cx="824" cy="444" r="3"/><circle cx="842" cy="444" r="3"/><circle cx="824" cy="470" r="3"/><circle cx="842" cy="470" r="3"/><circle cx="824" cy="496" r="3"/><circle cx="842" cy="496" r="3"/>
+      <circle cx="878" cy="508" r="3"/><circle cx="896" cy="508" r="3"/><circle cx="878" cy="534" r="3"/><circle cx="896" cy="534" r="3"/>
+    </g>
+
+    <path d="M636 600 C 712 548 762 472 824 432 C 868 404 902 392 980 318" stroke="url(#gRise)" stroke-width="7.5" fill="none" stroke-linecap="round"/>
+    <path d="M980 318 C 1012 286 1058 300 1064 262 C 1026 268 992 286 980 318 Z" fill="#7FD9A6" opacity="0.9"/>
+    <path d="M980 318 C 1006 300 1034 286 1058 268" stroke="#0A1626" stroke-width="2" fill="none" opacity="0.5" stroke-linecap="round"/>
+
+    <circle cx="1064" cy="222" r="34" fill="url(#gSun)" opacity="0.30" filter="url(#soft)"/>
+    <circle cx="1064" cy="222" r="22" fill="none" stroke="#F5D061" stroke-width="3"/>
+    <g stroke="#F5D061" stroke-width="3" stroke-linecap="round">
+      <path d="M1064 188 v-12"/><path d="M1064 256 v12"/><path d="M1030 222 h-12"/><path d="M1098 222 h12"/><path d="M1040 198 l-8 -8"/><path d="M1088 246 l8 8"/><path d="M1088 198 l8 -8"/><path d="M1040 246 l-8 8"/>
+    </g>
+
+    <circle cx="779" cy="352" r="16" fill="#9FE0FF" opacity="0.18" filter="url(#soft)"/>
+    <circle cx="779" cy="352" r="6" fill="#9FE0FF"/>
+  </g>
+
+  <g>
+    <text x="92" y="846" fill="#EAF1F8" font-size="78" font-weight="500" letter-spacing="-1.5">Energy<tspan fill="#5DCAA5">Lens</tspan></text>
+    <text x="96" y="888" fill="#8FA3B8" font-size="22" letter-spacing="1">Smart energy for smart buildings</text>
+  </g>
+
+  <g transform="translate(1064,812)">
+    <rect x="0" y="0" width="92" height="92" rx="20" fill="#0B1A2E" stroke="#1D9E75" stroke-width="1.5"/>
+    <g transform="translate(46,46) scale(0.78) translate(-779,-470)">
+      <rect x="700" y="452" width="20" height="44" rx="3" fill="#0F6E56"/>
+      <rect x="724" y="430" width="20" height="66" rx="3" fill="#1D9E75"/>
+      <rect x="748" y="404" width="20" height="92" rx="3" fill="#2DD4BF"/>
+      <rect x="772" y="438" width="20" height="58" rx="3" fill="#0F6E56"/>
+      <path d="M698 470 C 730 448 752 420 800 396" stroke="#C8E66B" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <circle cx="806" cy="392" r="7" fill="#F5D061"/>
+    </g>
+  </g>
+
+  <g transform="translate(1192,820)">
+    <rect x="0" y="0" width="284" height="76" rx="16" fill="#0B1A2E" stroke="#22364C" stroke-width="1.5"/>
+    <g transform="translate(50,38) scale(0.52) translate(-779,-470)">
+      <rect x="700" y="452" width="20" height="44" rx="3" fill="#0F6E56"/>
+      <rect x="724" y="430" width="20" height="66" rx="3" fill="#1D9E75"/>
+      <rect x="748" y="404" width="20" height="92" rx="3" fill="#2DD4BF"/>
+      <rect x="772" y="438" width="20" height="58" rx="3" fill="#0F6E56"/>
+      <path d="M698 470 C 730 448 752 420 800 396" stroke="#C8E66B" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <circle cx="806" cy="392" r="7" fill="#F5D061"/>
+    </g>
+    <text x="92" y="48" fill="#EAF1F8" font-size="28" font-weight="500" letter-spacing="-0.5">Energy<tspan fill="#5DCAA5">Lens</tspan></text>
+  </g>
+
+  <line x1="92" y1="952" x2="1508" y2="952" stroke="#1D9E75" stroke-width="1" opacity="0.14"/>
+  <g fill="#7C8EA0" font-size="15" letter-spacing="1.5">
+    <text x="92" y="984">skyline &#61; building + data</text>
+    <text x="392" y="984">rising line &#8594; leaf &#61; renewable growth</text>
+    <text x="812" y="984">sun &#61; solar &amp; value</text>
+    <text x="1052" y="984">cyan pulse &#61; live</text>
+    <text x="1252" y="984">fading dots &#61; carbon&#8595;</text>
+  </g>
+  <g fill="#5DCAA5" opacity="0.85">
+    <circle cx="84" cy="979" r="3"/><circle cx="384" cy="979" r="3" fill="#C8E66B"/><circle cx="804" cy="979" r="3" fill="#F5D061"/><circle cx="1044" cy="979" r="3" fill="#9FE0FF"/><circle cx="1244" cy="979" r="3" fill="#7E8C77"/>
+  </g>
+</svg>

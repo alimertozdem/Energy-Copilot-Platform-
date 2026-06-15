@@ -126,28 +126,33 @@ async def generate_embed_token(
         embed_url = report_data["embedUrl"]
         dataset_id = report_data["datasetId"]
 
-        # 2) Build V2 GenerateToken body
-        body: dict = {
+        # 2) Build V2 GenerateToken body. Prefer NO effectiveIdentity (no RLS =
+        # full data -- what the public demo wants). Only if the dataset ENFORCES
+        # an RLS role (non-200 without an identity) AND the caller supplied one
+        # do we retry WITH it as a fallback. (The authed /embed/token path in
+        # main.py has its own copy of this logic.)
+        base_body: dict = {
             "datasets": [{"id": dataset_id}],
             "reports": [{"id": report_id}],
             "targetWorkspaces": [{"id": workspace_id}],
         }
-
+        identity: dict | None = None
         if rls_username and rls_roles:
-            identity: dict = {
+            identity = {
                 "username": rls_username,
                 "roles": list(rls_roles),
                 "datasets": [dataset_id],
             }
-            # CustomerRLS filters via PATHCONTAINS(CUSTOMDATA(), building_id);
-            # the caller passes a "|"-joined PATH of the building_ids this token
-            # may see. Omitted -> empty CUSTOMDATA() -> fail-closed (no rows).
             if rls_custom_data is not None:
                 identity["customData"] = rls_custom_data
-            body["identities"] = [identity]
 
         token_url = f"{PBI_API_BASE}/GenerateToken"
-        token_resp = await client.post(token_url, headers=headers, json=body)
+        token_resp = await client.post(token_url, headers=headers, json=base_body)
+        if token_resp.status_code != 200 and identity is not None:
+            token_resp = await client.post(
+                token_url, headers=headers,
+                json={**base_body, "identities": [identity]},
+            )
         if token_resp.status_code != 200:
             raise HTTPException(
                 status_code=token_resp.status_code,

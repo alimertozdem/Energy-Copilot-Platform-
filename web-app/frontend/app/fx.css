@@ -1,0 +1,47 @@
+/* fx.css — EnergyLens motion/animation layer (design language v3.1, 2026-06-15).
+   Imported by layout.tsx. Every animation here is auto-damped by the global
+   prefers-reduced-motion block in globals.css. */
+
+/* ---- header energy sweep (bolder + glow) ---- */
+@keyframes el-sweep { 0% { transform: translateX(-130%); } 100% { transform: translateX(130%); } }
+.el-energy-line {
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  overflow: hidden; pointer-events: none; opacity: 1;
+}
+.el-energy-line::after {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 40%;
+  background: linear-gradient(90deg, transparent, var(--el-accent, #1D9E75) 30%, #2DD4BF 55%, #06B6D4 75%, transparent);
+  box-shadow: 0 0 10px 1px var(--el-accent, #1D9E75);
+  animation: el-sweep 5s linear infinite;
+}
+
+/* ---- card entrance ---- */
+@keyframes el-fadeup2 { 0% { opacity: 0; transform: translateY(16px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes el-fadein2 { 0% { opacity: 0; } 100% { opacity: 1; } }
+.el-stagger > * { animation: el-fadeup2 .55s ease-out both; }
+.el-stagger > *:nth-child(1){animation-delay:.03s}
+.el-stagger > *:nth-child(2){animation-delay:.09s}
+.el-stagger > *:nth-child(3){animation-delay:.15s}
+.el-stagger > *:nth-child(4){animation-delay:.21s}
+.el-stagger > *:nth-child(5){animation-delay:.27s}
+.el-stagger > *:nth-child(6){animation-delay:.33s}
+.el-fade-stagger > * { animation: el-fadein2 .5s ease-out both; }
+.el-fade-stagger > *:nth-child(1){animation-delay:.05s}
+.el-fade-stagger > *:nth-child(2){animation-delay:.12s}
+.el-fade-stagger > *:nth-child(3){animation-delay:.19s}
+.el-fade-stagger > *:nth-child(4){animation-delay:.26s}
+
+/* ---- accent glow pulse ---- */
+@keyframes el-glow { 0%,100% { box-shadow: 0 0 0 0 rgba(29,158,117,0); } 50% { box-shadow: 0 0 16px 0 rgba(29,158,117,.30); } }
+.el-glow-pulse { animation: el-glow 3.4s ease-in-out infinite; }
+
+/* ---- motif animations (per-page background life) ---- */
+@keyframes el-spin360 { to { transform: rotate(360deg); } }
+.el-rotor { animation: el-spin360 11s linear infinite; }
+.el-scan  { animation: el-spin360 36s linear infinite; }
+@keyframes el-breathe { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
+.el-breathe { animation: el-breathe 4.5s ease-in-out infinite; }
+@keyframes el-flow { to { stroke-dashoffset: -56; } }
+.el-flow { animation: el-flow 2.4s linear infinite; }
+@keyframes el-twinkle { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+.el-twinkle { animation: el-twinkle 3s ease-in-out infinite; }
