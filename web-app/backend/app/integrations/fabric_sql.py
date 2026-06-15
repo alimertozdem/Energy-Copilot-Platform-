@@ -39,6 +39,25 @@ _CACHE_LOCK = threading.Lock()
 _CACHE: dict[tuple[str, tuple], tuple[float, list]] = {}
 _CACHE_MAX = 256  # hard cap on distinct cached queries (cheap memory guard)
 
+# --- Circuit breaker (perf) -------------------------------------------------
+# When the Fabric SQL endpoint is unreachable (e.g. Azure Container Apps egress
+# cannot complete the TDS Redirect handshake), pyodbc.connect() hangs for the
+# full login-timeout x retry (~13s observed) before failing -- on EVERY call,
+# so every data-backed page blocked ~13s on a doomed connection. The breaker
+# records the last connection failure; for FABRIC_SQL_BREAKER_COOLDOWN seconds
+# after a failure, execute_query() fast-fails (raises OperationalError) so the
+# caller falls back to cache/static data in ~1ms instead of hanging. One probe
+# per cooldown re-tests the endpoint; on a successful connect the breaker closes.
+_BREAKER_LOCK = threading.Lock()
+_BREAKER = {"open_until": 0.0}
+
+
+def _breaker_cooldown() -> float:
+    try:
+        return float(os.getenv("FABRIC_SQL_BREAKER_COOLDOWN", "60") or 60)
+    except ValueError:
+        return 60.0
+
 
 def _cache_ttl() -> float:
     try:
@@ -150,6 +169,16 @@ def execute_query(sql: str, params: tuple = ()) -> list[dict[str, Any]]:
                 # Return a copy so callers can't mutate the cached list.
                 return [dict(r) for r in hit[1]]
 
+    # Circuit breaker: while open (Fabric recently unreachable) skip the doomed
+    # connect and fast-fail so callers fall back instantly. Cache was already
+    # consulted above, so cached reads keep serving even while the breaker is open.
+    with _BREAKER_LOCK:
+        if _BREAKER["open_until"] > time.time():
+            raise pyodbc.OperationalError(
+                "08001",
+                "Fabric SQL circuit open (recent connection failure); fast-failing",
+            )
+
     last_error: Exception | None = None
     for attempt in (1, 2):
         try:
@@ -158,6 +187,8 @@ def execute_query(sql: str, params: tuple = ()) -> list[dict[str, Any]]:
                 cursor.execute(sql, params)
                 columns = [d[0] for d in cursor.description]
                 rows = cursor.fetchall()
+                with _BREAKER_LOCK:
+                    _BREAKER["open_until"] = 0.0  # connect succeeded -> close
                 result = [dict(zip(columns, row)) for row in rows]
                 if ttl > 0:
                     with _CACHE_LOCK:
@@ -167,6 +198,8 @@ def execute_query(sql: str, params: tuple = ()) -> list[dict[str, Any]]:
                 return [dict(r) for r in result] if ttl > 0 else result
         except pyodbc.OperationalError as e:
             last_error = e
+            with _BREAKER_LOCK:
+                _BREAKER["open_until"] = time.time() + _breaker_cooldown()
             logger.warning(
                 "Fabric SQL connection failure (attempt %d/2): %s",
                 attempt, e,

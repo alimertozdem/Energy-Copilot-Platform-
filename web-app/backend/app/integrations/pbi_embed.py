@@ -24,6 +24,7 @@ Why V2 GenerateToken?
 from __future__ import annotations
 
 import os
+import threading
 from typing import Iterable
 
 import httpx
@@ -45,18 +46,35 @@ def _require_env(key: str) -> str:
     return val
 
 
-def acquire_service_principal_token() -> str:
-    """Authenticate to Azure AD as the EnergyLens backend service principal."""
-    tenant_id = _require_env("PBI_TENANT_ID")
-    client_id = _require_env("PBI_CLIENT_ID")
-    client_secret = _require_env("PBI_CLIENT_SECRET")
+# Module-level singletons (perf). Building a fresh ConfidentialClientApplication
+# on every call threw away MSAL's in-memory token cache -> a full Azure AD round
+# trip per embed token. A shared app reuses the cached SP token until ~5 min
+# before expiry, then refreshes automatically. Report embedUrl/datasetId never
+# change either, so they are cached per (workspace, report).
+_MSAL_APP: msal.ConfidentialClientApplication | None = None
+_MSAL_LOCK = threading.Lock()
+_REPORT_META_CACHE: dict[tuple[str, str], tuple[str, str]] = {}
 
-    msal_app = msal.ConfidentialClientApplication(
-        client_id=client_id,
-        client_credential=client_secret,
-        authority=f"https://login.microsoftonline.com/{tenant_id}",
-    )
-    result = msal_app.acquire_token_for_client(scopes=PBI_SCOPE)
+
+def _get_msal_app() -> msal.ConfidentialClientApplication:
+    global _MSAL_APP
+    if _MSAL_APP is None:
+        with _MSAL_LOCK:
+            if _MSAL_APP is None:
+                tenant_id = _require_env("PBI_TENANT_ID")
+                client_id = _require_env("PBI_CLIENT_ID")
+                client_secret = _require_env("PBI_CLIENT_SECRET")
+                _MSAL_APP = msal.ConfidentialClientApplication(
+                    client_id=client_id,
+                    client_credential=client_secret,
+                    authority=f"https://login.microsoftonline.com/{tenant_id}",
+                )
+    return _MSAL_APP
+
+
+def acquire_service_principal_token() -> str:
+    """Bearer token for the Power BI REST API (cached SP token via shared MSAL app)."""
+    result = _get_msal_app().acquire_token_for_client(scopes=PBI_SCOPE)
 
     if "access_token" not in result:
         err = (
@@ -113,18 +131,27 @@ async def generate_embed_token(
         "Content-Type": "application/json",
     }
 
+    # embedUrl + datasetId never change for a report -> serve from module cache
+    # and skip the GET /reports/{id} round-trip on every token request.
+    meta_key = (workspace_id, report_id)
+    cached_meta = _REPORT_META_CACHE.get(meta_key)
+
     async with httpx.AsyncClient(timeout=30) as client:
-        # 1) Get report metadata (datasetId + embedUrl)
-        report_url = f"{PBI_API_BASE}/groups/{workspace_id}/reports/{report_id}"
-        report_resp = await client.get(report_url, headers=headers)
-        if report_resp.status_code != 200:
-            raise HTTPException(
-                status_code=report_resp.status_code,
-                detail=f"Power BI get-report failed: {report_resp.text}",
-            )
-        report_data = report_resp.json()
-        embed_url = report_data["embedUrl"]
-        dataset_id = report_data["datasetId"]
+        if cached_meta is not None:
+            embed_url, dataset_id = cached_meta
+        else:
+            # 1) Get report metadata (datasetId + embedUrl)
+            report_url = f"{PBI_API_BASE}/groups/{workspace_id}/reports/{report_id}"
+            report_resp = await client.get(report_url, headers=headers)
+            if report_resp.status_code != 200:
+                raise HTTPException(
+                    status_code=report_resp.status_code,
+                    detail=f"Power BI get-report failed: {report_resp.text}",
+                )
+            report_data = report_resp.json()
+            embed_url = report_data["embedUrl"]
+            dataset_id = report_data["datasetId"]
+            _REPORT_META_CACHE[meta_key] = (embed_url, dataset_id)
 
         # 2) Build V2 GenerateToken body. Prefer NO effectiveIdentity (no RLS =
         # full data -- what the public demo wants). Only if the dataset ENFORCES

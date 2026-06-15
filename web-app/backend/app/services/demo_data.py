@@ -301,7 +301,7 @@ async def get_demo_embed_token(building_id: str | None = None) -> DemoEmbedToken
     # trick the platform-admin path uses). NOTE: this exposes the entire semantic
     # model on the public demo -- once real customer data lives in the model,
     # scope this to sample buildings only.
-    custom_data = "|".join(_all_demo_visible_building_ids())
+    custom_data = "|".join(DEMO_FABRIC_IDS)
     token_data = await pbi_embed.generate_embed_token(
         workspace_id=workspace_id,
         report_id=report_id,
