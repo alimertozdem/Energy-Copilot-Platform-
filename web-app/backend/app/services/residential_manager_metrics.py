@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.integrations import fabric_sql
+from app.integrations import gold_read
 from app.schemas.residential import (
     ResidentialBuildingResponse,
     ResidentialBuildingRollup,
@@ -42,7 +43,7 @@ def _i(v: Any) -> int | None:
 
 def get_building_residential(fabric_building_id: str) -> ResidentialBuildingResponse:
     """Per-unit KPIs + a building rollup for one building."""
-    kpi_rows = fabric_sql.execute_query(
+    kpi_rows = gold_read.query(
         """
         SELECT unit_id, area_m2, is_heated, eui_kwh_m2_yr,
                eui_climate_adjusted_kwh_m2_yr, climate_adjustment_factor, epc_band,
@@ -56,13 +57,13 @@ def get_building_residential(fabric_building_id: str) -> ResidentialBuildingResp
     )
     common = {
         r["unit_id"]: r
-        for r in fabric_sql.execute_query(
+        for r in gold_read.query(
             "SELECT unit_id, unit_allocated_kwh, allocation_share "
             "FROM [dbo].[gold_residential_common_split] WHERE building_id = ?",
             (fabric_building_id,),
         )
     }
-    uvi_rows = fabric_sql.execute_query(
+    uvi_rows = gold_read.query(
         "SELECT [year] AS y, [month] AS m, COUNT(DISTINCT unit_id) AS units "
         "FROM [dbo].[gold_residential_uvi_monthly] WHERE building_id = ? "
         "GROUP BY [year], [month] ORDER BY [year] DESC, [month] DESC",
@@ -133,12 +134,12 @@ def get_portfolio_rollups(building_ids: list[str]) -> dict[str, ResidentialBuild
     if not building_ids:
         return {}
     ph, params = fabric_sql.format_in_clause(building_ids)
-    kpi = fabric_sql.execute_query(
+    kpi = gold_read.query(
         "SELECT building_id, epc_band, building_avg_eui_kwh_m2_yr "
         f"FROM [dbo].[gold_residential_unit_kpi] WHERE building_id IN ({ph})",
         params,
     )
-    uvi = fabric_sql.execute_query(
+    uvi = gold_read.query(
         "SELECT building_id, [year] AS y, [month] AS m, COUNT(DISTINCT unit_id) AS units "
         f"FROM [dbo].[gold_residential_uvi_monthly] WHERE building_id IN ({ph}) "
         "GROUP BY building_id, [year], [month]",
@@ -202,14 +203,14 @@ def get_uvi_compliance(
         return empty
 
     ph, params = fabric_sql.format_in_clause(building_ids)
-    kpi = fabric_sql.execute_query(
+    kpi = gold_read.query(
         "SELECT building_id, COUNT(*) AS units, "
         "SUM(heating_dhw_kwh_annual) AS heat_kwh "
         f"FROM [dbo].[gold_residential_unit_kpi] WHERE building_id IN ({ph}) "
         "GROUP BY building_id",
         params,
     )
-    uvi = fabric_sql.execute_query(
+    uvi = gold_read.query(
         "SELECT building_id, [year] AS y, [month] AS m, COUNT(DISTINCT unit_id) AS units "
         f"FROM [dbo].[gold_residential_uvi_monthly] WHERE building_id IN ({ph}) "
         "GROUP BY building_id, [year], [month]",

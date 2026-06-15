@@ -14,6 +14,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from app.integrations import fabric_sql
+from app.integrations import gold_read
 from app.schemas.portfolio import (
     KPITile,
     PortfolioBuildingRow,
@@ -37,7 +38,7 @@ def _get_anchor_date(building_ids: list[str]) -> date | None:
         f"FROM [dbo].[gold_kpi_daily] "
         f"WHERE building_id IN ({ph})"
     )
-    return fabric_sql.execute_scalar(sql, params)
+    return gold_read.scalar(sql, params)
 
 
 def _delta_pct(current: float, prior: float) -> float | None:
@@ -130,7 +131,7 @@ def get_portfolio_kpis(building_ids: list[str]) -> PortfolioKPIs:
         *ids_params, prev_start, prev_end,
         *ids_params,
     )
-    rows = fabric_sql.execute_query(sql, params)
+    rows = gold_read.query(sql, params)
     row = rows[0] if rows else {}
 
     cur_kwh = _safe_float(row.get("cur_kwh"))
@@ -265,7 +266,7 @@ def get_portfolio_buildings(building_ids: list[str]) -> PortfolioBuildingsRespon
         *ids_params,
     )
 
-    rows = fabric_sql.execute_query(sql, params)
+    rows = gold_read.query(sql, params)
     return PortfolioBuildingsResponse(buildings=[_row_to_building(r) for r in rows])
 
 
@@ -307,7 +308,7 @@ def _buildings_without_kpi(building_ids: list[str]) -> PortfolioBuildingsRespons
     FROM [dbo].[silver_building_master] b
     WHERE b.building_id IN ({ph})
     """
-    rows = fabric_sql.execute_query(sql, ids_params)
+    rows = gold_read.query(sql, ids_params)
     buildings = [
         PortfolioBuildingRow(
             fabric_building_id=r["building_id"],

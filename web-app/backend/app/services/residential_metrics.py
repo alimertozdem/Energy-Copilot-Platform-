@@ -18,6 +18,7 @@ from datetime import date
 from typing import Any
 
 from app.integrations import fabric_sql
+from app.integrations import gold_read
 from app.schemas.residence import (
     ResidenceCommonArea,
     ResidenceKpi,
@@ -47,7 +48,7 @@ def _read_unit_kpi(unit_ids: list[str]) -> dict[str, dict]:
     FROM [dbo].[gold_residential_unit_kpi]
     WHERE unit_id IN ({ph})
     """
-    return {r["unit_id"]: r for r in fabric_sql.execute_query(sql, params)}
+    return {r["unit_id"]: r for r in gold_read.query(sql, params)}
 
 
 def _read_common_split(unit_ids: list[str]) -> dict[str, dict]:
@@ -60,7 +61,7 @@ def _read_common_split(unit_ids: list[str]) -> dict[str, dict]:
     FROM [dbo].[gold_residential_common_split]
     WHERE unit_id IN ({ph})
     """
-    return {r["unit_id"]: r for r in fabric_sql.execute_query(sql, params)}
+    return {r["unit_id"]: r for r in gold_read.query(sql, params)}
 
 
 def _read_uvi_monthly(unit_ids: list[str]) -> dict[str, list[dict]]:
@@ -73,7 +74,7 @@ def _read_uvi_monthly(unit_ids: list[str]) -> dict[str, list[dict]]:
     ORDER BY unit_id, [year], [month], energy_type
     """
     grouped: dict[str, list[dict]] = {}
-    for r in fabric_sql.execute_query(sql, params):
+    for r in gold_read.query(sql, params):
         grouped.setdefault(r["unit_id"], []).append(r)
     return grouped
 

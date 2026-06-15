@@ -8,6 +8,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from app.integrations import fabric_sql
+from app.integrations import gold_read
 from app.schemas.solar import SolarDetailResponse, SolarSeriesPoint, SolarSummary
 
 WINDOW_DAYS = 90
@@ -25,7 +26,7 @@ def get_solar_detail(building_ids: list[str]) -> SolarDetailResponse:
 
     ph, params = fabric_sql.format_in_clause(building_ids)
 
-    anchor = fabric_sql.execute_scalar(
+    anchor = gold_read.scalar(
         f"SELECT MAX([date]) FROM [dbo].[gold_kpi_daily] WHERE building_id IN ({ph})",
         params,
     )
@@ -44,7 +45,7 @@ def get_solar_detail(building_ids: list[str]) -> SolarDetailResponse:
     GROUP BY [date]
     ORDER BY [date]
     """
-    rows = fabric_sql.execute_query(series_sql, (*params, start, anchor))
+    rows = gold_read.query(series_sql, (*params, start, anchor))
 
     series = [
         SolarSeriesPoint(
@@ -70,7 +71,7 @@ def get_solar_detail(building_ids: list[str]) -> SolarDetailResponse:
     days = len(series) or 1
 
     cap = _f(
-        fabric_sql.execute_scalar(
+        gold_read.scalar(
             f"SELECT SUM(pv_capacity_kwp) FROM [dbo].[silver_building_master] "
             f"WHERE building_id IN ({ph}) AND has_pv = 1",
             params,

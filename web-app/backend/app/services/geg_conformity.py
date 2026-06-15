@@ -26,6 +26,7 @@ silver_building_master. Visibility is enforced by the router (404) before callin
 from typing import Any
 
 from app.integrations import fabric_sql
+from app.integrations import gold_read
 from app.schemas.geg_conformity import GegComponent, GegConformityResponse
 
 # GEG Anlage 7 component U-value limits (W/m²K).
@@ -81,7 +82,7 @@ def _base(fabric_building_id: str) -> GegConformityResponse:
 
 def get_geg_conformity(fabric_building_id: str) -> GegConformityResponse:
     """GEG conformity screening for one building."""
-    master = fabric_sql.execute_query(
+    master = gold_read.query(
         """
         SELECT building_id, building_name, building_type, country_code
         FROM [dbo].[silver_building_master]
@@ -98,7 +99,7 @@ def get_geg_conformity(fabric_building_id: str) -> GegConformityResponse:
     resp.country_code = b.get("country_code")
     resp.applies = (b.get("country_code") or "").upper() == "DE"
 
-    comp = fabric_sql.execute_query(
+    comp = gold_read.query(
         """
         SELECT geg_score, geg_status, geg_heating_compliant,
                geg_wall_compliant, geg_roof_compliant, geg_window_compliant,

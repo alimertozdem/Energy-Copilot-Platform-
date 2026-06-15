@@ -24,6 +24,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.integrations import fabric_sql
+from app.integrations import gold_read
 from app.repositories import building as building_repo
 from app.schemas.abatement import MaccMeasure, MaccResponse, MaccTotals
 
@@ -99,7 +100,7 @@ def get_macc_for_user(
     FROM [dbo].[gold_recommendations]
     WHERE building_id IN ({ph})
     """
-    rows = fabric_sql.execute_query(sql, (limit, *params))
+    rows = gold_read.query(sql, (limit, *params))
 
     measures: list[MaccMeasure] = []
     for r in rows:

@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Building, OrgMember
 from app.db.models.recommendation import RecommendationStatus
 from app.integrations import fabric_sql
+from app.integrations import gold_read
 from app.repositories import building as building_repo
 from app.services import access
 from app.schemas.actions import (
@@ -147,7 +148,7 @@ def get_actions_for_user(
              priority_sort_order ASC,
              ISNULL(priority_score, 0) DESC
     """
-    rows = fabric_sql.execute_query(sql, (limit, *params, *cat_params))
+    rows = gold_read.query(sql, (limit, *params, *cat_params))
 
     # Postgres overlay — fetch every recommendation_status row for the user's
     # orgs in one query, then build a dict keyed by fabric_recommendation_id.

@@ -36,6 +36,7 @@ Visibility is enforced by the router (get_building_for_user → 404) before call
 from typing import Any
 
 from app.integrations import fabric_sql
+from app.integrations import gold_read
 from app.schemas.co2_cost import (
     Co2CostAllocationResponse,
     Co2StairTier,
@@ -129,7 +130,7 @@ def _base(fabric_building_id: str) -> Co2CostAllocationResponse:
 
 def get_co2_cost_allocation(fabric_building_id: str) -> Co2CostAllocationResponse:
     """Heating-fuel CO₂ cost split (CO2KostAufG) for one building."""
-    master = fabric_sql.execute_query(
+    master = gold_read.query(
         """
         SELECT building_id, building_name, building_type, country_code, gross_floor_area_m2
         FROM [dbo].[silver_building_master]
@@ -159,7 +160,7 @@ def get_co2_cost_allocation(fabric_building_id: str) -> Co2CostAllocationRespons
     # build the per-dwelling area-pro-rata breakdown further down.
     unit_rows: list[dict[str, Any]] = []
     if is_residential:
-        unit_rows = fabric_sql.execute_query(
+        unit_rows = gold_read.query(
             """
             SELECT unit_id, area_m2, heating_dhw_kwh_annual
             FROM [dbo].[gold_residential_unit_kpi]
@@ -179,13 +180,13 @@ def get_co2_cost_allocation(fabric_building_id: str) -> Co2CostAllocationRespons
 
     # Non-residential, or residential without unit data → gold_ghg_scope Scope-1 fuels.
     if heating_t is None:
-        year_val = fabric_sql.execute_scalar(
+        year_val = gold_read.scalar(
             "SELECT MAX(reporting_year) FROM [dbo].[gold_ghg_scope] WHERE building_id = ?",
             (fabric_building_id,),
         )
         if year_val is not None:
             year = int(year_val)
-            rows = fabric_sql.execute_query(
+            rows = gold_read.query(
                 """
                 SELECT SUM(COALESCE(scope1_gas_tco2, 0) + COALESCE(scope1_diesel_tco2, 0))
                        AS heating_co2_tonnes

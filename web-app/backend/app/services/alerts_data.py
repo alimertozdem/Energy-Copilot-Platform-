@@ -45,6 +45,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models.alert_status import AlertStatus
 from app.integrations import fabric_sql
+from app.integrations import gold_read
 from app.repositories import building as building_repo
 from app.services import access
 from app.schemas.alerts import (
@@ -239,7 +240,7 @@ def get_alerts_for_user(
     WHERE building_id IN ({ph})
     ORDER BY detected_at DESC
     """
-    all_rows = fabric_sql.execute_query(scan_sql, ids_params)
+    all_rows = gold_read.query(scan_sql, ids_params)
 
     # Group every occurrence into issues (all resolutions, all severities).
     issues: dict[tuple, _Issue] = {}
