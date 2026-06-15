@@ -302,12 +302,12 @@ export default function PowerBIReport({
           embedUrl: embedConfig.embed_url,
           accessToken: embedConfig.embed_token,
           tokenType: models.TokenType.Embed,
-          // Force English PBI chrome (slicer "All", filter pane, dates) regardless
-          // of the viewer's / SP's Turkish locale. Report-DESIGN text (measure
-          // strings like "Boş"/"Hedef") is baked in the .pbix -> Desktop only.
-          localeSettings: { language: "en-US", formatLocale: "en-US" },
           filters,
           settings: {
+            // Force English PBI chrome (slicer "All", filter pane, dates) regardless
+            // of the viewer's / SP's Turkish locale. Report-DESIGN text (measure
+            // strings like "Boş"/"Hedef") is baked in the .pbix -> Desktop only.
+            localeSettings: { language: "en-US", formatLocale: "en-US" },
             panes: {
               filters: { expanded: false, visible: true },
               // Hidden on the per-page report routes -- the app's ReportNav
