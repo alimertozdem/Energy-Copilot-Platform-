@@ -282,7 +282,7 @@ async def get_embed_token(
         and (email.lower() in DEMO_EMAILS or email.lower() in ADMIN_EMAILS)
     )
     if sees_whole_model:
-        custom_data = "|".join(_all_model_building_ids())
+        custom_data = "|".join(_MODEL_BUILDING_IDS_FALLBACK)
     else:
         custom_data = "|".join(fabric_ids)
     print(
