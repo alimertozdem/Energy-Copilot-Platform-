@@ -9,7 +9,12 @@ import Link from "next/link"
 
 import { InfoTip } from "@/components/ui/info-tip"
 
-import { RISK_BANDS, type ComplianceSummary, type RiskBand } from "@/lib/compliance"
+import {
+  MEPS_MILESTONES,
+  RISK_BANDS,
+  type ComplianceSummary,
+  type RiskBand,
+} from "@/lib/compliance"
 
 const BAND_ORDER: RiskBand[] = ["high", "watch", "epc_needed", "lower"]
 
@@ -19,7 +24,7 @@ function pct(n: number, total: number): string {
 }
 
 export function MepsRadar({ summary }: { summary: ComplianceSummary }) {
-  const { total, counts, priority } = summary
+  const { total, counts, priority, scope2030, scope2033 } = summary
 
   return (
     <div className="space-y-8">
@@ -46,7 +51,7 @@ export function MepsRadar({ summary }: { summary: ComplianceSummary }) {
           return (
             <div
               key={band}
-              className="rounded-xl border border-border-subtle bg-bg-elevated/40 px-5 py-4"
+              className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur-xl ring-1 ring-inset ring-white/[0.04] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] px-5 py-4"
             >
               <div className="flex items-center gap-2 mb-2">
                 <span className={`size-2 rounded-full ${meta.dotClass}`} />
@@ -63,13 +68,23 @@ export function MepsRadar({ summary }: { summary: ComplianceSummary }) {
               <div className="text-[11px] text-text-faint mt-2 leading-snug">
                 {meta.blurb}
               </div>
+              {band === "high" && n > 0 && (
+                <div className="mt-2.5 flex flex-wrap gap-1.5 text-[10px] font-medium">
+                  <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-red-200/90">
+                    G → 2030: {scope2030}
+                  </span>
+                  <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-200/90">
+                    F → 2033: {scope2033}
+                  </span>
+                </div>
+              )}
             </div>
           )
         })}
       </div>
 
       {/* EPBD milestone context */}
-      <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 p-5">
+      <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur-xl ring-1 ring-inset ring-white/[0.04] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] p-5">
         <h3 className="inline-flex items-center gap-1.5 text-sm font-medium text-text-primary mb-1">
           EPBD renovation milestones
           <InfoTip term="epbd" />
@@ -88,7 +103,7 @@ export function MepsRadar({ summary }: { summary: ComplianceSummary }) {
       </div>
 
       {/* Priority buildings */}
-      <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 overflow-hidden">
+      <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur-xl ring-1 ring-inset ring-white/[0.04] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] overflow-hidden">
         <div className="px-5 py-3 border-b border-border-subtle">
           <h3 className="text-sm font-medium text-text-primary">
             Priority buildings
@@ -110,12 +125,13 @@ export function MepsRadar({ summary }: { summary: ComplianceSummary }) {
                   <th className="px-5 py-2 font-medium">Building</th>
                   <th className="px-5 py-2 font-medium">Type</th>
                   <th className="px-5 py-2 font-medium">EPC</th>
+                  <th className="px-5 py-2 font-medium">MEPS scope</th>
                   <th className="px-5 py-2 font-medium">EUI</th>
                   <th className="px-5 py-2 font-medium">Why</th>
                 </tr>
               </thead>
               <tbody>
-                {priority.map(({ building: b, band, reason }) => {
+                {priority.map(({ building: b, band, milestone, reason }) => {
                   const meta = RISK_BANDS[band]
                   return (
                     <tr
@@ -142,6 +158,21 @@ export function MepsRadar({ summary }: { summary: ComplianceSummary }) {
                         >
                           {b.epc_class ?? "—"}
                         </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        {milestone ? (
+                          <span
+                            className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${
+                              milestone === "2030"
+                                ? "border-red-500/40 bg-red-500/10 text-red-200"
+                                : "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                            }`}
+                          >
+                            {MEPS_MILESTONES[milestone].label}
+                          </span>
+                        ) : (
+                          <span className="text-text-faint">—</span>
+                        )}
                       </td>
                       <td className="px-5 py-3 tabular-nums text-text-muted">
                         {b.eui_kwh_m2_yr != null

@@ -27,6 +27,11 @@
  *      here, so the screen NEVER asserts a building is "Taxonomy-aligned" or
  *      "Taxonomy-compliant". The portfolio share is a count and a
  *      floor-area-weighted proxy — NOT a turnover/CapEx/OpEx Taxonomy KPI.
+ *   6. EPC validity (added 2026-06-16): under the EPBD an EPC is valid for 10
+ *      years. An expired certificate is not valid evidence for any Taxonomy
+ *      route, so we flag stale/expiring EPCs ("renew") rather than silently
+ *      crediting a decade-old rating. The flag is advisory and does NOT change
+ *      the route counts (the recorded class is still shown, just caveated).
  *
  * Indicative, swappable: national PED top-15% tables / NZEB values would be
  * added in this one module once licensed/sourced. Pure + dependency-free so it
@@ -89,6 +94,11 @@ export const TAXONOMY_ROUTES: Record<TaxonomyRoute, TaxonomyRouteMeta> = {
   },
 }
 
+/** EPBD EPC validity period (years). */
+export const EPC_VALIDITY_YEARS = 10
+
+export type EpcValidity = "valid" | "expiring" | "expired" | "unknown"
+
 /**
  * Large non-residential floor-area proxy for the ">290 kW HVAC" monitoring
  * criterion. The Taxonomy criterion is an HVAC effective rated-output threshold,
@@ -107,6 +117,18 @@ function epcLetter(epc: string | null): string | null {
   return /^[A-G]$/.test(c) ? c : null
 }
 
+/** EPC validity status from its issue year against the 10-year EPBD window. */
+export function epcValidity(
+  epcYear: number | null | undefined,
+  nowYear: number = new Date().getFullYear()
+): EpcValidity {
+  if (epcYear == null || epcYear < 1900) return "unknown"
+  const age = nowYear - epcYear
+  if (age > EPC_VALIDITY_YEARS) return "expired"
+  if (age >= EPC_VALIDITY_YEARS - 1) return "expiring"
+  return "valid"
+}
+
 export type BuildingTaxonomy = {
   building: PortfolioBuildingRow
   route: TaxonomyRoute
@@ -115,14 +137,23 @@ export type BuildingTaxonomy = {
   bacsRelevant: boolean
   /** has_iot satisfies the monitoring note (only meaningful if bacsRelevant). */
   bacsMet: boolean
+  /** EPC issue year (from the certificate), if known. */
+  epcYear: number | null
+  /** EPC validity vs the 10-year EPBD window. */
+  validity: EpcValidity
 }
 
 /** Indicative activity-7.7 SC-mitigation route for a single building. */
-export function assessTaxonomy(b: PortfolioBuildingRow): BuildingTaxonomy {
+export function assessTaxonomy(
+  b: PortfolioBuildingRow,
+  nowYear: number = new Date().getFullYear()
+): BuildingTaxonomy {
   const letter = epcLetter(b.epc_class)
   const isResidential = RESIDENTIAL_TYPES.has(b.building_type)
   const bacsRelevant = !isResidential && (b.floor_area_m2 ?? 0) >= LARGE_BUILDING_AREA_M2
   const bacsMet = bacsRelevant && b.has_iot
+  const epcYear = b.epc_year ?? null
+  const validity = letter ? epcValidity(epcYear, nowYear) : "unknown"
 
   let route: TaxonomyRoute
   let reason: string
@@ -141,7 +172,13 @@ export function assessTaxonomy(b: PortfolioBuildingRow): BuildingTaxonomy {
     reason = "No EPC on file — required before any Taxonomy route can be evaluated."
   }
 
-  return { building: b, route, reason, bacsRelevant, bacsMet }
+  if (validity === "expired") {
+    reason += ` EPC issued ${epcYear} is past its 10-year validity — renew before it counts as Taxonomy evidence.`
+  } else if (validity === "expiring") {
+    reason += ` EPC issued ${epcYear} is nearing its 10-year expiry — plan a renewal.`
+  }
+
+  return { building: b, route, reason, bacsRelevant, bacsMet, epcYear, validity }
 }
 
 export type TaxonomySummary = {
@@ -158,14 +195,17 @@ export type TaxonomySummary = {
   bacsRelevantCount: number
   /** Of those, how many already have monitoring (has_iot). */
   bacsMetCount: number
+  /** Buildings with an EPC that is past (or near) its 10-year validity. */
+  staleEpcCount: number
   /** Buildings to surface (EPC-A first, then potential), best first. */
   highlights: BuildingTaxonomy[]
 }
 
 export function summarizeTaxonomy(
-  buildings: PortfolioBuildingRow[]
+  buildings: PortfolioBuildingRow[],
+  nowYear: number = new Date().getFullYear()
 ): TaxonomySummary {
-  const results = buildings.map(assessTaxonomy)
+  const results = buildings.map((b) => assessTaxonomy(b, nowYear))
   const counts: Record<TaxonomyRoute, number> = {
     epc_a: 0,
     top15_potential: 0,
@@ -186,6 +226,9 @@ export function summarizeTaxonomy(
 
   const bacsRelevantCount = results.filter((r) => r.bacsRelevant).length
   const bacsMetCount = results.filter((r) => r.bacsMet).length
+  const staleEpcCount = results.filter(
+    (r) => r.validity === "expired" || r.validity === "expiring"
+  ).length
 
   const highlights = results
     .filter((r) => r.route === "epc_a" || r.route === "top15_potential")
@@ -202,6 +245,7 @@ export function summarizeTaxonomy(
     onRouteAreaShare,
     bacsRelevantCount,
     bacsMetCount,
+    staleEpcCount,
     highlights,
   }
 }

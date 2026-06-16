@@ -36,7 +36,7 @@ export function EsrsSummary({ report }: { report: EsrsReport }) {
       </div>
 
       {!report.has_data ? (
-        <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 px-5 py-8 text-center text-sm text-text-muted">
+        <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur-xl ring-1 ring-inset ring-white/[0.04] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] px-5 py-8 text-center text-sm text-text-muted">
           No GHG data for the reporting period yet. Once the GHG pipeline
           (gold_ghg_scope) is populated, energy and Scope 1/2/3 emissions appear here.
         </div>
@@ -73,7 +73,7 @@ export function EsrsSummary({ report }: { report: EsrsReport }) {
           </div>
 
           {/* Coverage + data quality */}
-          <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 p-5 text-xs text-text-muted">
+          <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur-xl ring-1 ring-inset ring-white/[0.04] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] p-5 text-xs text-text-muted">
             Reported{" "}
             <span className="text-text-primary font-medium">
               {report.buildings_reported}
@@ -85,7 +85,7 @@ export function EsrsSummary({ report }: { report: EsrsReport }) {
           </div>
 
           {/* Per-building breakdown (tCO₂e) */}
-          <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 overflow-hidden">
+          <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur-xl ring-1 ring-inset ring-white/[0.04] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -151,7 +151,7 @@ function Card({
 }) {
   const valCls = tone === "amber" ? "text-amber-300" : "text-text-primary"
   return (
-    <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 px-5 py-4">
+    <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur-xl ring-1 ring-inset ring-white/[0.04] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] px-5 py-4">
       <div className="inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.12em] text-text-muted">
         {label}
         {term && <InfoTip term={term} />}

@@ -43,17 +43,20 @@ export function FlexibilityPanel({
       </div>
 
       <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 px-4 py-3 text-sm text-violet-200/90">
-        <span className="font-medium">Indicative.</span> Readiness is inferred from
-        each building&apos;s asset inventory (battery, on-site solar, IoT controls)
-        and a typical shiftable-load share by type — not a metered load-shift or
-        guaranteed-savings figure. Price/carbon-aware optimisation for battery
-        sites is modelled in Battery Strategy.
+        <span className="font-medium">Indicative.</span> Flexibility is the
+        ability to shift load in time, so &quot;ready&quot; needs both
+        orchestration (IoT controls) and dispatchable storage (battery). On-site
+        solar is generation, not a demand-shift mechanism, so it never makes a
+        building ready on its own. Inferred from the asset inventory plus a typical
+        shiftable-load share by type — not a metered load-shift or guaranteed-savings
+        figure. Price/carbon-aware optimisation for battery sites is modelled in
+        Battery Strategy.
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card label="Flexibility-ready" value={`${s.ready}`} tone="emerald" sub="battery + controls" />
+        <Card label="Flexibility-ready" value={`${s.ready}`} tone="emerald" sub="battery + IoT controls" />
         <Card label="Partial" value={`${s.partial}`} tone="amber" sub="some enablers" />
-        <Card label="Limited" value={`${s.limited}`} sub="meters only" />
+        <Card label="Limited" value={`${s.limited}`} sub="meters / solar only" />
         <Card
           label="Avg shiftable load"
           value={s.avg_shiftable_pct != null ? `${s.avg_shiftable_pct} %` : "—"}
@@ -61,7 +64,7 @@ export function FlexibilityPanel({
         />
       </div>
 
-      <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 overflow-hidden">
+      <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur-xl ring-1 ring-inset ring-white/[0.04] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -139,7 +142,7 @@ function Card({
         ? "text-amber-300"
         : "text-text-primary"
   return (
-    <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 px-5 py-4">
+    <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur-xl ring-1 ring-inset ring-white/[0.04] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] px-5 py-4">
       <div className="text-[11px] uppercase tracking-[0.12em] text-text-muted">
         {label}
       </div>

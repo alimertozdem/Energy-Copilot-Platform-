@@ -61,7 +61,9 @@ export function TaxonomyScreen({
         verification, and full Taxonomy alignment also requires
         do-no-significant-harm (DNSH) and minimum-safeguards checks that are out
         of scope here. This screen shows a route, not a statement of Taxonomy
-        alignment or compliance.
+        alignment or compliance. EPCs are valid for 10 years under the EPBD —
+        an expired or expiring certificate is flagged and is not valid route
+        evidence until renewed.
       </div>
 
       {/* Indicative share cards */}
@@ -110,7 +112,7 @@ export function TaxonomyScreen({
       </div>
 
       {/* Per-building table */}
-      <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 overflow-hidden">
+      <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur-xl ring-1 ring-inset ring-white/[0.04] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -159,11 +161,18 @@ function TaxRow({ r }: { r: BuildingTaxonomy }) {
         {b.building_type.replace(/_/g, " ")}
       </td>
       <td className="px-5 py-3">
-        <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold border ${m.badgeClass}`}
-        >
-          {b.epc_class ?? "—"}
-        </span>
+        <div className="flex flex-col items-start gap-1">
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold border ${m.badgeClass}`}
+          >
+            {b.epc_class ?? "—"}
+          </span>
+          {(r.validity === "expired" || r.validity === "expiring") && (
+            <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-200">
+              {r.validity === "expired" ? "EPC expired" : "EPC expiring"}
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-5 py-3">
         <span className={`text-xs font-medium ${m.textClass}`}>{m.label}</span>
@@ -196,7 +205,7 @@ function Stat({
           ? "text-sky-300"
           : "text-text-primary"
   return (
-    <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 px-5 py-4">
+    <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur-xl ring-1 ring-inset ring-white/[0.04] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] px-5 py-4">
       <div className="text-[11px] uppercase tracking-[0.12em] text-text-muted">
         {label}
       </div>

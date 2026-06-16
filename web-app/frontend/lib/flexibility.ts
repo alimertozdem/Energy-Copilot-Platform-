@@ -6,12 +6,20 @@
  * shift load to low-price / low-carbon hours stand to cut those costs and
  * emissions (studies cite materially lower bills on the shifted portion).
  *
- * This module gives an INDICATIVE readiness signal from the portfolio's asset
- * inventory (battery / on-site solar / IoT controls) plus a typical
- * shiftable-load share by building type. It is NOT a metered load-shift or
- * savings calculation — price/carbon-aware optimisation for battery sites is
- * modelled separately (battery dispatch / Page 9). Shiftable-share values are
- * illustrative and conservative.
+ * Energy-logic (refined 2026-06-16): flexibility = the ability to SHIFT load in
+ * time, which needs BOTH (a) something to shift or store and (b) controls to
+ * orchestrate it. So readiness is gated on controls:
+ *   ready   = IoT controls AND battery storage (orchestrated, dispatchable)
+ *   partial = exactly one of IoT controls / battery (an enabler, not orchestrated)
+ *   limited = neither (meters only, or on-site solar with no controls/storage)
+ * On-site PV is generation, not a demand-shift mechanism, so it is shown as a
+ * minor enabler but NEVER makes a building "ready" on its own.
+ *
+ * This is an INDICATIVE readiness signal from the portfolio's asset inventory
+ * plus a typical shiftable-load share by building type. It is NOT a metered
+ * load-shift or savings calculation — price/carbon-aware optimisation for
+ * battery sites is modelled separately (battery dispatch / Page 9).
+ * Shiftable-share values are illustrative and conservative.
  */
 import type { PortfolioBuildingRow } from "@/lib/api/portfolio"
 
@@ -55,30 +63,27 @@ const DEFAULT_SHIFTABLE = 15
 export type FlexResult = {
   building: PortfolioBuildingRow
   readiness: FlexReadiness
-  score: number
   enablers: string[]
   shiftable_share_pct: number
+  /** True when the only enabler is PV (generation, not demand-shift). */
+  pvOnly: boolean
 }
 
 export function assessFlex(b: PortfolioBuildingRow): FlexResult {
   const enablers: string[] = []
-  let score = 0
-  if (b.has_battery) {
-    score += 2
-    enablers.push("Battery storage")
-  }
-  if (b.has_iot) {
-    score += 2
-    enablers.push("IoT controls")
-  }
-  if (b.has_pv) {
-    score += 1
-    enablers.push("On-site solar")
-  }
-  const readiness: FlexReadiness =
-    score >= 3 ? "ready" : score >= 1 ? "partial" : "limited"
+  if (b.has_battery) enablers.push("Battery storage")
+  if (b.has_iot) enablers.push("IoT controls")
+  if (b.has_pv) enablers.push("On-site solar")
+
+  // Controls are the gate: orchestration (IoT) + something to dispatch (battery).
+  let readiness: FlexReadiness
+  if (b.has_iot && b.has_battery) readiness = "ready"
+  else if (b.has_iot || b.has_battery) readiness = "partial"
+  else readiness = "limited"
+
+  const pvOnly = b.has_pv && !b.has_iot && !b.has_battery
   const share = SHIFTABLE_SHARE[b.building_type] ?? DEFAULT_SHIFTABLE
-  return { building: b, readiness, score, enablers, shiftable_share_pct: share }
+  return { building: b, readiness, enablers, shiftable_share_pct: share, pvOnly }
 }
 
 export type FlexSummary = {
@@ -88,6 +93,7 @@ export type FlexSummary = {
   limited: number
   with_battery: number
   with_iot: number
+  with_pv: number
   avg_shiftable_pct: number | null
 }
 
@@ -98,6 +104,7 @@ export function summarizeFlex(buildings: PortfolioBuildingRow[]): FlexSummary {
   const limited = results.filter((r) => r.readiness === "limited").length
   const with_battery = buildings.filter((b) => b.has_battery).length
   const with_iot = buildings.filter((b) => b.has_iot).length
+  const with_pv = buildings.filter((b) => b.has_pv).length
   const avg_shiftable_pct = results.length
     ? Math.round(
         results.reduce((a, r) => a + r.shiftable_share_pct, 0) / results.length
@@ -110,6 +117,7 @@ export function summarizeFlex(buildings: PortfolioBuildingRow[]): FlexSummary {
     limited,
     with_battery,
     with_iot,
+    with_pv,
     avg_shiftable_pct,
   }
 }

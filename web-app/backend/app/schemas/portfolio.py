@@ -63,6 +63,10 @@ class PortfolioBuildingRow(BaseModel):
     building_type: str
     floor_area_m2: float
     epc_class: str | None
+    epc_year: int | None = Field(
+        default=None,
+        description="Year the EPC was issued; used for the 10-year EPBD validity flag.",
+    )
 
     kwh_30d: float
     cost_30d_eur: float

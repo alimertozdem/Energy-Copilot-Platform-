@@ -211,6 +211,7 @@ def get_portfolio_buildings(building_ids: list[str]) -> PortfolioBuildingsRespon
         b.building_type,
         b.gross_floor_area_m2,
         b.energy_certificate,
+        b.energy_certificate_year,
         b.has_pv,
         b.has_battery,
         b.subscription_tier,
@@ -270,6 +271,17 @@ def get_portfolio_buildings(building_ids: list[str]) -> PortfolioBuildingsRespon
     return PortfolioBuildingsResponse(buildings=[_row_to_building(r) for r in rows])
 
 
+def _safe_year(v: Any) -> int | None:
+    """EPC certificate year as int (mv stores it as float); None if absent/invalid."""
+    try:
+        if v is None:
+            return None
+        y = int(float(v))
+        return y if 1900 <= y <= 2100 else None
+    except (TypeError, ValueError):
+        return None
+
+
 def _row_to_building(r: dict) -> PortfolioBuildingRow:
     """Map a SQL row dict to the Pydantic response model."""
     area = _safe_float(r.get("gross_floor_area_m2"))
@@ -284,6 +296,7 @@ def _row_to_building(r: dict) -> PortfolioBuildingRow:
         building_type=r["building_type"] or "",
         floor_area_m2=area,
         epc_class=r.get("energy_certificate"),
+        epc_year=_safe_year(r.get("energy_certificate_year")),
         kwh_30d=kwh,
         cost_30d_eur=_safe_float(r.get("cost_30d")),
         co2_30d_kg=_safe_float(r.get("co2_30d")),
@@ -303,7 +316,7 @@ def _buildings_without_kpi(building_ids: list[str]) -> PortfolioBuildingsRespons
     sql = f"""
     SELECT
         b.building_id, b.building_name, b.city, b.country_code, b.building_type,
-        b.gross_floor_area_m2, b.energy_certificate, b.has_pv, b.has_battery,
+        b.gross_floor_area_m2, b.energy_certificate, b.energy_certificate_year, b.has_pv, b.has_battery,
         b.subscription_tier
     FROM [dbo].[silver_building_master] b
     WHERE b.building_id IN ({ph})
@@ -318,6 +331,7 @@ def _buildings_without_kpi(building_ids: list[str]) -> PortfolioBuildingsRespons
             building_type=r["building_type"] or "",
             floor_area_m2=_safe_float(r.get("gross_floor_area_m2")),
             epc_class=r.get("energy_certificate"),
+            epc_year=_safe_year(r.get("energy_certificate_year")),
             kwh_30d=0.0,
             cost_30d_eur=0.0,
             co2_30d_kg=0.0,

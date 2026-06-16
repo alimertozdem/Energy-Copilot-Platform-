@@ -9,6 +9,7 @@
 import Link from "next/link"
 
 import { InfoTip } from "@/components/ui/info-tip"
+import { CrremSparkline } from "@/components/compliance/CrremSparkline"
 
 import type { PortfolioBuildingRow } from "@/lib/api/portfolio"
 import {
@@ -95,7 +96,10 @@ export function CrremStranding({ buildings }: { buildings: PortfolioBuildingRow[
         <span className="font-medium">Illustrative pathways.</span> These 1.5°C
         curves are indicative, not the official licensed CRREM dataset (available
         via a CRREM License Partner agreement). The method is CRREM-standard; only
-        the curve values are placeholders, swappable from one module.
+        the curve values are placeholders, swappable from one module. Carbon
+        intensity is annualised from a 30-day window, so a heating- or
+        cooling-heavy month can shift the stranding year — read it as
+        indicative.
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -109,7 +113,7 @@ export function CrremStranding({ buildings }: { buildings: PortfolioBuildingRow[
         />
       </div>
 
-      <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 overflow-hidden">
+      <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur-xl ring-1 ring-inset ring-white/[0.04] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -157,16 +161,13 @@ export function CrremStranding({ buildings }: { buildings: PortfolioBuildingRow[
                       </span>
                     </td>
                     <td className="px-5 py-3">
-                      {r.status === "unknown" ? (
-                        <span className="text-text-faint text-xs">—</span>
-                      ) : (
-                        <div className="relative h-1.5 w-full rounded-full bg-white/10">
-                          <div
-                            className={`absolute left-0 top-0 h-full rounded-full ${m.bar}`}
-                            style={{ width: `${Math.max(3, Math.min(100, m.frac * 100))}%` }}
-                          />
-                        </div>
-                      )}
+                      <CrremSparkline
+                        buildingType={b.building_type}
+                        intensity={r.intensity}
+                        strandingYear={r.strandingYear}
+                        status={r.status}
+                        className="h-9 w-[132px]"
+                      />
                     </td>
                   </tr>
                 )
@@ -197,7 +198,7 @@ function Stat({
         ? "text-amber-300"
         : "text-text-primary"
   return (
-    <div className="rounded-xl border border-border-subtle bg-bg-elevated/40 px-5 py-4">
+    <div className="rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] backdrop-blur-xl ring-1 ring-inset ring-white/[0.04] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] px-5 py-4">
       <div className="text-[11px] uppercase tracking-[0.12em] text-text-muted">
         {label}
       </div>
