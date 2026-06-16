@@ -27,13 +27,17 @@ love to", "passionate", "leverage", "robust", "seamless", "cutting-edge", "delve
 tools, numbers, or certifications that are not in the personal context."""
 
 PROPOSAL_SYSTEM_PROMPT = (
-    "You write short FREELANCE proposals on behalf of Ali Mert Ozdemir, who works "
-    "with Microsoft Fabric + Power BI on energy and ESG data.\n\n"
+    "You write short FREELANCE proposals on behalf of Ali Mert Ozdemir, who delivers "
+    "energy & ESG analytics using his EnergyLens platform (Microsoft Fabric + Power BI).\n\n"
     + _NATURAL_TONE
-    + "\n\nFollow the structure in the master template. Pick the ONE proof artifact "
-    "closest to the job. Suggest the package that fits best (or hourly). Keep it "
-    "150-230 words. Present EnergyLens as a personal project he built to learn the "
-    "stack, not client work. Sign off: Best, Mert"
+    + "\n\nGoal: make the client feel understood and confident he can solve their "
+    "problem. Follow the master template. LEAD with their problem, then give a clear "
+    "solution roadmap (3-4 concrete steps) using the ONE closest EnergyLens capability. "
+    "Do NOT quote a price or name a package; the priority is solving their problem. If "
+    "money must be mentioned, only a soft minimum, briefly and last. Do NOT propose a "
+    "call or meeting -- invite them to share more and let them choose the next step. "
+    "Present EnergyLens as a platform he built (proof he can do the work). 150-220 words. "
+    "Sign off: Best, Mert"
 )
 
 COVER_LETTER_SYSTEM_PROMPT = (
@@ -41,8 +45,10 @@ COVER_LETTER_SYSTEM_PROMPT = (
     "is applying for energy / data / sustainability roles. This is an EMPLOYMENT "
     "application — no prices, no packages, no freelance pitch language.\n\n"
     + _NATURAL_TONE
-    + "\n\nFollow the structure in the template. Keep it 150-210 words. Honest, "
-    "early-career framing. Sign off: Best regards, Ali Mert Ozdemir"
+    + "\n\nCore message: he is early-career (junior) and honest about it, but genuinely "
+    "driven -- he works hard, keeps learning, and is investing in himself to grow. "
+    "Confident about effort and direction, humble about seniority; never inflated. "
+    "Follow the template. 150-200 words. Sign off: Best regards, Ali Mert Ozdemir"
 )
 
 
@@ -165,7 +171,6 @@ Productized packages:
 Proof artifacts (pick ONE that best matches this gig):
 {artifacts_block}
 
-Sign-off CTA: {personal.get('call_signoff', {}).get('cta', '')}
 
 ## FEW-SHOT EXAMPLES (style reference for naturalness only)
 

@@ -1,11 +1,11 @@
-# Filter rules — Tier 1 (keyword), Tier 2 (budget), Tier 3 (LLM score)
-# Edit these to tune what reaches your Telegram. See README for guidance.
+# Filter rules — Tier 1 (keyword), Tier 2 (budget), Tier 3 (LLM EnergyLens-fit).
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Tier 1 — Keyword filters (cheap, run first). A job must contain AT LEAST ONE.
+# Tier 1 — Keyword pre-filter (cheap). Must contain AT LEAST ONE. Kept to
+# EnergyLens-deliverable territory only (no generic data/BI/job keywords).
 # ─────────────────────────────────────────────────────────────────────────────
 include_keywords:
-  # Tier A — core niche
+  # Core niche
   - "microsoft fabric"
   - "ms fabric"
   - "power bi"
@@ -26,6 +26,8 @@ include_keywords:
   - "energy dashboard"
   - "energy analytics"
   - "energy management"
+  - "energy data analyst"
+  - "energy analyst"
   - "epc rating"
   - "epc compliance"
   - "energy performance certificate"
@@ -33,17 +35,14 @@ include_keywords:
   - "enpi"
   - "building energy"
   - "building performance"
-  - "energy data analyst"
-  - "energy management analyst"
   - "bms data"
   - "bacnet"
   - "modbus"
   - "smart building"
   - "esg data analyst"
   - "sustainability data analyst"
-  - "esg reporting analyst"
-
-  # Tier A2 — EU regulatory radar
+  - "esg analyst"
+  # EU regulatory radar
   - "eu taxonomy"
   - "esrs e1"
   - "epbd"
@@ -55,8 +54,7 @@ include_keywords:
   - "decarbonisation pathway"
   - "decarbonization pathway"
   - "gresb"
-
-  # Tier A3 — Energy domain
+  # Energy domain (EnergyLens modules)
   - "measurement and verification"
   - "monitoring and targeting"
   - "energy audit"
@@ -73,42 +71,15 @@ include_keywords:
   - "building automation"
   - "heat pump"
   - "hvac analytics"
-
-  # Tier B — broader MS analytics
+  # MS analytics (only meaningful alongside the above in scoring)
   - "direct lake"
   - "onelake"
   - "lakehouse"
-  - "delta lake"
   - "kql"
-  - "azure data factory"
-  - "data warehouse"
   - "semantic model"
   - "tabular editor"
 
-  # Tier C — adjacent sustainability + analytics
-  - "carbon emission"
-  - "co2 emission"
-  - "net zero"
-  - "decarbonization"
-  - "decarbonisation"
-  - "double materiality"
-  - "sbti"
-
-  # Tier J — job-search / employment (LinkedIn + Arbeitnow + remote boards)
-  - "data analyst"
-  - "business intelligence"
-  - "bi developer"
-  - "bi analyst"
-  - "working student"
-  - "werkstudent"
-  - "sustainability analyst"
-  - "esg analyst"
-  - "energy analyst"
-  - "renewable energy"
-  - "data engineer"
-  - "analytics engineer"
-
-# A job is REJECTED if it contains ANY of these (case-insensitive).
+# Rejected if it contains ANY of these.
 exclude_keywords:
   - "tableau only"
   - "tableau specialist"
@@ -138,9 +109,8 @@ exclude_keywords:
 budget:
   fixed_min_eur: 500
   hourly_min_eur: 30
-  allow_no_budget: true     # employment/board posts rarely state budget -> let LLM decide
+  allow_no_budget: true
 
-# Approximate FX rates for budget normalization.
 fx_to_eur:
   USD: 0.92
   GBP: 1.17
@@ -148,11 +118,11 @@ fx_to_eur:
   CHF: 1.05
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Tier 3 — LLM semantic score threshold
+# Tier 3 — LLM EnergyLens-fit threshold
 # ─────────────────────────────────────────────────────────────────────────────
 llm_score:
-  min_score_to_push: 4        # LOOSENED 6->4: thin volume, surface more for triage
-  min_score_to_log: 3
+  min_score_to_push: 7        # ONLY strong EnergyLens-deliverable jobs (7-10)
+  min_score_to_log: 5
   prompt_temperature: 0.2
   retry_on_error: 2
 
@@ -162,7 +132,7 @@ llm_score:
 notifications:
   max_per_day: 10
   digest_mode: true
-  digest_per_stream: 8        # a bit higher now that we surface more
+  digest_per_stream: 6
   daily_summary_hour: 9
   weekly_digest_dow: "sun"
   weekly_digest_hour: 20

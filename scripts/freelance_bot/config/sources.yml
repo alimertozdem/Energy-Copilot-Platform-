@@ -1,43 +1,32 @@
-# Job source definitions — RSS feeds + JSON APIs + email inboxes.
-# Use environment variables for any credentials; never hardcode.
+# Job source definitions. Focus: places where relevant clients actually appear.
+# Broad remote/JSON boards are DISABLED on purpose — they flooded the bot with
+# irrelevant dev jobs. We keep targeted, inbound sources only.
 
 # ─────────────────────────────────────────────────────────────────────────────
-# RSS sources (public, no auth). Niche is narrowed later by keyword filters.
+# RSS sources — ALL DISABLED (broad boards = mostly irrelevant dev roles).
+# Re-enable only if a niche, relevant feed is found.
 # ─────────────────────────────────────────────────────────────────────────────
 rss_sources:
   - name: "RemoteOK — all remote jobs"
     url: "https://remoteok.com/remote-jobs.rss"
-    enabled: true
+    enabled: false   # disabled: dev-heavy, ~95% irrelevant to EnergyLens
     job_id_prefix: "rok_"
-
   - name: "WeWorkRemotely — all remote jobs"
     url: "https://weworkremotely.com/remote-jobs.rss"
-    enabled: true
+    enabled: false   # disabled: same reason
     job_id_prefix: "wwr_"
-
   - name: "Himalayas — all remote jobs"
     url: "https://himalayas.app/jobs/rss"
-    enabled: true
+    enabled: false   # disabled: same reason
     job_id_prefix: "hima_"
 
-  - name: "freelance.de — Data/BI (English-only saved search)"
-    url: "https://www.freelance.de/projekte/skill-1234567-rss.xml"
-    enabled: false   # optional; needs a real saved-search RSS URL
-    job_id_prefix: "fdde_"
-
-  - name: "Indeed — Power BI remote EU"
-    url: "https://de.indeed.com/rss?q=power+bi+csrd&l=remote&fromage=3"
-    enabled: false   # Indeed public RSS verified EMPTY/deprecated (2026-06) — replaced by Arbeitnow
-    job_id_prefix: "indeed_"
-
 # ─────────────────────────────────────────────────────────────────────────────
-# JSON-API sources (config-driven field map; see src/sources/json_api.py).
-# Arbeitnow = Germany/EU board, English-friendly, includes Werkstudent/junior.
+# JSON-API sources — DISABLED (broad German jobs board, not EnergyLens-focused).
 # ─────────────────────────────────────────────────────────────────────────────
 json_sources:
   - name: "Arbeitnow — Germany/EU jobs"
     url: "https://www.arbeitnow.com/api/job-board-api"
-    enabled: true
+    enabled: false   # disabled: generic employment, not inbound freelance
     job_id_prefix: "arbn_"
     data_path: "data"
     field_map:
@@ -48,7 +37,10 @@ json_sources:
       posted_unix: "created_at"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Email IMAP sources — Gmail labels. The PRIMARY multi-platform inbound path.
+# Email IMAP sources — the PRIMARY path. Gmail labels:
+#   freelancermap = Freelancermap project-agent (tune the alert to energy/ESG/Fabric)
+#   Malt / Contra = inbound platform alerts
+#   LinkedIn      = job-alert emails (employment stream; also curated manually)
 # Credentials via env: FREELANCE_GMAIL_USER + FREELANCE_GMAIL_APP_PASSWORD.
 # ─────────────────────────────────────────────────────────────────────────────
 email_sources:
@@ -72,11 +64,8 @@ email_sources:
         parser: "linkedin"
         job_id_prefix: "li_"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Polling cadence
-# ─────────────────────────────────────────────────────────────────────────────
 poll:
-  rss_lookback_hours: 72      # boards post often; 72h window for a thin niche
+  rss_lookback_hours: 72
   json_lookback_hours: 72
   email_lookback_hours: 48
   dedup_window_days: 90
