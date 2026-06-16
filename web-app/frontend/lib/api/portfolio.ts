@@ -42,7 +42,7 @@ export type PortfolioBuildingRow = {
   building_type: string
   floor_area_m2: number
   epc_class: string | null
-  epc_year: number | null
+  epc_year?: number | null
   kwh_30d: number
   cost_30d_eur: number
   co2_30d_kg: number
