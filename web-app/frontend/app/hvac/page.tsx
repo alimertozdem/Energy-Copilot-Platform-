@@ -30,10 +30,10 @@ export default async function HvacPage({ searchParams }: PageProps) {
 
   const { building_id } = await searchParams
   const result = await fetchBuildings(session.accessToken)
-  const own = result.ok ? result.data.buildings.filter((b) => !b.is_sample_org) : []
-  const slicer = own.map((b) => ({ id: b.id, name: b.name }))
+  const visible = result.ok ? result.data.buildings : []  // own + sample, so the demo account showcases HVAC too
+  const slicer = visible.map((b) => ({ id: b.id, name: b.name }))
   const selected =
-    building_id && own.some((b) => b.id === building_id) ? building_id : own[0]?.id ?? null
+    building_id && visible.some((b) => b.id === building_id) ? building_id : visible[0]?.id ?? null
 
   if (!selected) {
     return (
@@ -53,7 +53,7 @@ export default async function HvacPage({ searchParams }: PageProps) {
     fetchBuildingCopServer(session.accessToken, selected),
     fetchBuildingComfortServer(session.accessToken, selected),
   ])
-  const buildingName = own.find((b) => b.id === selected)?.name ?? "Building"
+  const buildingName = visible.find((b) => b.id === selected)?.name ?? "Building"
 
   return (
     <AppChrome
