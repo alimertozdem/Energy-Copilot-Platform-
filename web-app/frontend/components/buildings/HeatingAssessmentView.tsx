@@ -3,6 +3,7 @@
  * Heating & HVAC page. Honest by design: every figure is screening-grade, the
  * basis (measured vs estimated) is shown, and the assumptions are surfaced.
  */
+import Link from "next/link"
 import { Flame, Snowflake, Square } from "lucide-react"
 
 import type { HeatingAssessment, HeatingMeasure } from "@/lib/api/heating"
@@ -54,7 +55,7 @@ function EnvChip({ el }: { el: HeatingAssessment["envelope"][number] }) {
   )
 }
 
-export function HeatingAssessmentView({ data }: { data: HeatingAssessment }) {
+export function HeatingAssessmentView({ data, buildingId }: { data: HeatingAssessment; buildingId?: string }) {
   const d = data.demand
   const s = data.supply
   const estimated = d.basis !== "measured"
@@ -149,6 +150,17 @@ export function HeatingAssessmentView({ data }: { data: HeatingAssessment }) {
         <p className="mt-2 text-[11px] leading-relaxed text-text-faint">
           {data.package.note} Net CapEx is after subsidy. {data.assumptions.subsidy} {data.assumptions.method}{" "}
           <span className="text-text-muted">{data.assumptions.grade}</span>
+        </p>
+        <p className="mt-1 text-[11px] text-text-faint">
+          Subsidy &amp; financing detail:{" "}
+          <Link href="/financing" className="text-brand-emerald hover:underline">Financing</Link>{" "}
+          · Portfolio CO₂ plan:{" "}
+          <Link
+            href={buildingId ? `/decarbonisation?building_id=${encodeURIComponent(buildingId)}` : "/decarbonisation"}
+            className="text-brand-emerald hover:underline"
+          >
+            Decarbonisation
+          </Link>
         </p>
       </section>
     </div>

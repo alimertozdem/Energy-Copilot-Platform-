@@ -7,6 +7,7 @@
  * advisor panel — the same engine the card teaser uses, but the complete set.
  * If the building turns out to be bridged, we redirect to the live detail page.
  */
+import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 
@@ -130,6 +131,14 @@ export default async function PendingBuildingPage({
           <DataPendingBanner />
         </div>
 
+        <div className="mb-5">
+          <Link
+            href={`/hvac?building_id=${encodeURIComponent(building.id)}`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/30 bg-amber-400/5 px-3 py-1.5 text-xs text-amber-200 transition-colors hover:border-amber-400/60"
+          >
+            Heating &amp; HVAC deep-dive — demand, envelope, retrofit ROI, COP &amp; comfort →
+          </Link>
+        </div>
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-5">
             <div>

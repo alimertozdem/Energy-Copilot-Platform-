@@ -70,7 +70,7 @@ export default async function HvacPage({ searchParams }: PageProps) {
         )}
 
         {heating ? (
-          <HeatingAssessmentView data={heating} />
+          <HeatingAssessmentView data={heating} buildingId={selected} />
         ) : (
           <FetchErrorNotice error="Could not load the heating assessment." label="heating data" />
         )}

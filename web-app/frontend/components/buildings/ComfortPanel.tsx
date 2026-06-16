@@ -104,7 +104,7 @@ export function ComfortPanel({
           <div className="rounded-lg border border-border-subtle bg-white/[0.02] p-3">
             <span className="text-[11px] uppercase tracking-wide text-text-faint">Supply − return ΔT</span>
             <div className="mt-1 text-sm font-semibold tabular-nums text-text-primary">{comfort.delta_t} °C</div>
-            <div className="text-[11px] text-text-faint">emitter / distribution indicator</div>
+            <div className="text-[11px] text-text-faint">context-dependent — heat pumps favour a low ΔT (~5°C); radiator systems run higher</div>
           </div>
         )}
 
