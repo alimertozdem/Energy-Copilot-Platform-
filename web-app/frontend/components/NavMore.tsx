@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 
 const MORE_ITEMS: { href: string; label: string }[] = [
+  { href: "/hvac", label: "Heating & HVAC" },
   { href: "/connections", label: "Connections" },
   { href: "/financing", label: "Financing" },
   { href: "/partners", label: "Partners" },

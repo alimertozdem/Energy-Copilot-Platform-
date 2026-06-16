@@ -55,7 +55,8 @@ from app.schemas.bridge import (
 )
 from app.schemas.readiness import BuildingReadiness
 from app.schemas.monitoring import MonitoringResponse
-from app.services import access, baseline_estimate, baseline_kpi, bill_parser, bridge_readiness, building_readiness, cop as cop_service, monitoring as monitoring_service
+from app.schemas.heating import HeatingAssessmentResponse
+from app.services import access, baseline_estimate, baseline_kpi, bill_parser, bridge_readiness, building_readiness, cop as cop_service, monitoring as monitoring_service, heating_assessment
 from app.utils.jwt import get_current_org_id, get_current_user_id
 
 router = APIRouter(prefix="/buildings", tags=["buildings"])
@@ -476,6 +477,31 @@ def get_building_monitoring(
             status_code=status.HTTP_404_NOT_FOUND, detail="Building not found"
         )
     return MonitoringResponse(**monitoring_service.latest_monitoring(db, building, hours))
+
+
+@router.get("/{building_id}/heating", response_model=HeatingAssessmentResponse)
+def get_building_heating(
+    building_id: UUID,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> HeatingAssessmentResponse:
+    """Heating & envelope assessment (demand, fuel cost/CO2, GEG, retrofit ROI).
+
+    Postgres-native (no Fabric): works for pending buildings. Uses uploaded
+    consumption when present, else an archetype estimate. Screening-grade.
+    """
+    building = building_repo.get_building_by_id_for_user(
+        db, building_id=building_id, user_id=user_id
+    )
+    if building is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Building not found"
+        )
+    rows = consumption_repo.list_rows(db, building_id=building_id)
+    annual = None
+    if rows:
+        annual = baseline_kpi.compute_baseline_kpis(rows, building).get("annual_energy_kwh")
+    return HeatingAssessmentResponse(**heating_assessment.assess(building, annual))
 
 
 @router.post("/{building_id}/consumption/parse-pdf", response_model=ParsedBillResponse)
