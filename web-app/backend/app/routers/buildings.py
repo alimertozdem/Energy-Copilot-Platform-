@@ -42,6 +42,7 @@ from app.schemas.consumption import (
     BaselineEstimate,
     BaselineEstimateResponse,
     BaselineKPIs,
+    BuildingCopResponse,
     ConsumptionSummary,
     ParsePdfRequest,
     ParsedBillResponse,
@@ -53,7 +54,8 @@ from app.schemas.bridge import (
     BridgeRequestState,
 )
 from app.schemas.readiness import BuildingReadiness
-from app.services import access, baseline_estimate, baseline_kpi, bill_parser, bridge_readiness, building_readiness
+from app.schemas.monitoring import MonitoringResponse
+from app.services import access, baseline_estimate, baseline_kpi, bill_parser, bridge_readiness, building_readiness, cop as cop_service, monitoring as monitoring_service
 from app.utils.jwt import get_current_org_id, get_current_user_id
 
 router = APIRouter(prefix="/buildings", tags=["buildings"])
@@ -429,6 +431,51 @@ def get_baseline_estimate(
     if est is None:
         return BaselineEstimateResponse(available=False, estimate=None)
     return BaselineEstimateResponse(available=True, estimate=BaselineEstimate(**est))
+
+
+@router.get("/{building_id}/cop", response_model=BuildingCopResponse)
+def get_building_cop(
+    building_id: UUID,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    db: Annotated[Session, Depends(get_db)],
+    days: int = 30,
+) -> BuildingCopResponse:
+    """Measured heat-pump COP from landed telemetry (heat meter / electricity).
+
+    Returns status 'measured' only when BOTH a heat meter and the pump electricity
+    are present; 'device_reported' if the controller reports COP directly; else
+    'needs_heat_meter'. UUID-addressed, read-only. See services/cop.py.
+    """
+    building = building_repo.get_building_by_id_for_user(
+        db, building_id=building_id, user_id=user_id
+    )
+    if building is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Building not found"
+        )
+    return BuildingCopResponse(**cop_service.compute_cop(db, building, days))
+
+
+@router.get("/{building_id}/monitoring", response_model=MonitoringResponse)
+def get_building_monitoring(
+    building_id: UUID,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    db: Annotated[Session, Depends(get_db)],
+    hours: int = 24,
+) -> MonitoringResponse:
+    """Latest live telemetry per sensor_type for a building (bronze_iot_readings).
+
+    App-native monitoring (no Fabric): powers the building page's live panel from
+    the same source the COP + verify-panel use. UUID-addressed, read-only.
+    """
+    building = building_repo.get_building_by_id_for_user(
+        db, building_id=building_id, user_id=user_id
+    )
+    if building is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Building not found"
+        )
+    return MonitoringResponse(**monitoring_service.latest_monitoring(db, building, hours))
 
 
 @router.post("/{building_id}/consumption/parse-pdf", response_model=ParsedBillResponse)

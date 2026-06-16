@@ -24,6 +24,8 @@ SENSOR_TYPES: list[SensorTypeOption] = [
     SensorTypeOption(value="lighting_kwh", label="Lighting power", unit="kW"),
     SensorTypeOption(value="plug_load_kwh", label="Plug-load power", unit="kW"),
     SensorTypeOption(value="building_energy_kwh", label="Building energy (cumulative)", unit="kWh"),
+    SensorTypeOption(value="heat_output_kwh", label="Heat output / delivered (thermal)", unit="kWh"),
+    SensorTypeOption(value="heatpump_elec_kwh", label="Heat-pump electricity input", unit="kWh"),
     SensorTypeOption(value="HVAC_temp", label="Zone temperature", unit="°C"),
     SensorTypeOption(value="HVAC_supply_temp", label="HVAC supply temp", unit="°C"),
     SensorTypeOption(value="HVAC_return_temp", label="HVAC return temp", unit="°C"),

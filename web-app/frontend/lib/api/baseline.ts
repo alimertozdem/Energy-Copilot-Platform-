@@ -131,3 +131,83 @@ export async function fetchBaselineEstimateServer(
     return null
   }
 }
+
+/**
+ * Measured heat-pump COP from telemetry (heat meter ÷ electricity). Mirrors
+ * backend schemas/consumption.py::BuildingCopResponse. status:
+ *   measured | device_reported | needs_heat_meter
+ */
+export type BuildingCop = {
+  status: "measured" | "device_reported" | "needs_heat_meter"
+  cop: number | null
+  heat_kwh: number | null
+  elec_kwh: number | null
+  window_days: number
+  basis: string | null
+  simulated: boolean
+}
+
+export async function fetchBuildingCopServer(
+  accessToken: string,
+  buildingId: string
+): Promise<BuildingCop | null> {
+  const backendUrl = process.env.BACKEND_URL
+  if (!backendUrl || !accessToken) return null
+  try {
+    const res = await fetch(
+      `${backendUrl}/buildings/${encodeURIComponent(buildingId)}/cop`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+        cache: "no-store",
+      }
+    )
+    if (!res.ok) return null
+    return (await res.json()) as BuildingCop
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Live telemetry monitoring (latest per sensor_type) from bronze_iot_readings.
+ * Mirrors backend schemas/monitoring.py. App-native (no Fabric).
+ */
+export type MonitoringSensor = {
+  sensor_type: string
+  value: number | null
+  unit: string | null
+  zone: string | null
+  received_at: string
+  simulated: boolean
+}
+
+export type BuildingMonitoring = {
+  sensors: MonitoringSensor[]
+  reading_count: number
+  window_hours: number
+  last_reading_at: string | null
+  basis: "live" | "simulated" | "none"
+}
+
+export async function fetchBuildingMonitoringServer(
+  accessToken: string,
+  buildingId: string
+): Promise<BuildingMonitoring | null> {
+  const backendUrl = process.env.BACKEND_URL
+  if (!backendUrl || !accessToken) return null
+  try {
+    const res = await fetch(
+      `${backendUrl}/buildings/${encodeURIComponent(buildingId)}/monitoring`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+        cache: "no-store",
+      }
+    )
+    if (!res.ok) return null
+    return (await res.json()) as BuildingMonitoring
+  } catch {
+    return null
+  }
+}

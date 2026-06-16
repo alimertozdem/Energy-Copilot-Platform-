@@ -15,8 +15,10 @@ import { BuildingAdvisorPanel } from "@/components/buildings/BuildingAdvisorPane
 import { BridgeUnlockPanel } from "@/components/buildings/BridgeUnlockPanel"
 import { UploadDataButton } from "@/components/buildings/UploadDataButton"
 import { EstimatedBaselineCard } from "@/components/buildings/EstimatedBaselineCard"
+import { CopCard } from "@/components/buildings/CopCard"
+import { LiveMonitoringPanel } from "@/components/buildings/LiveMonitoringPanel"
 import { DataPendingBanner } from "@/components/DataPendingBanner"
-import { type BaselineKpis, fetchBuildingBaselineKpisServer, fetchBaselineEstimateServer } from "@/lib/api/baseline"
+import { type BaselineKpis, fetchBuildingBaselineKpisServer, fetchBaselineEstimateServer, fetchBuildingCopServer, fetchBuildingMonitoringServer } from "@/lib/api/baseline"
 import { fetchBridgeReadinessServer } from "@/lib/api/bridge"
 import { type Building, fetchBuildingByUuid } from "@/lib/api/buildings"
 import type { PortfolioBuildingRow } from "@/lib/api/portfolio"
@@ -96,11 +98,14 @@ export default async function PendingBuildingPage({
     redirect(`/buildings/${encodeURIComponent(building.fabric_building_id)}`)
   }
 
-  const [kpis, bridgeReadiness, estimate] = await Promise.all([
+  const [kpis, bridgeReadiness, estimate, cop, monitoring] = await Promise.all([
     fetchBuildingBaselineKpisServer(session.accessToken, building_id),
     fetchBridgeReadinessServer(session.accessToken, building_id),
     fetchBaselineEstimateServer(session.accessToken, building_id),
+    fetchBuildingCopServer(session.accessToken, building_id),
+    fetchBuildingMonitoringServer(session.accessToken, building_id),
   ])
+  const hasIot = building.modules.some((m) => m.module_key === "iot" && m.enabled)
   const insights = buildAdvisorInsights({
     kpis: toRow(building, kpis),
     topActions: [],
@@ -182,6 +187,14 @@ export default async function PendingBuildingPage({
                 </div>
               )}
             </div>
+
+            {cop && (building.heating_system === "heat_pump" || cop.status !== "needs_heat_meter") && (
+              <CopCard cop={cop} buildingId={building.id} />
+            )}
+
+            {monitoring && (monitoring.basis !== "none" || hasIot) && (
+              <LiveMonitoringPanel monitoring={monitoring} buildingId={building.id} />
+            )}
 
             <div className="rounded-xl border border-border-subtle bg-bg-elevated/30 p-4">
               <h2 className="mb-2 text-sm font-semibold text-text-primary">About this building</h2>

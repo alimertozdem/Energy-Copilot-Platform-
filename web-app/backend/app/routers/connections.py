@@ -301,6 +301,11 @@ _SIM_DEFAULTS = [
 def _sim_reading(sensor_type: str, unit: str | None) -> tuple[float, str | None]:
     """A plausible synthetic value for a sensor_type (clearly-marked test data)."""
     st = (sensor_type or "").lower()
+    # Heat-pump pair first (both contain "kwh"): plausible so a test batch shows COP ~3.
+    if "heat_output" in st:
+        return round(random.uniform(10, 24), 2), unit or "kWh"
+    if "heatpump_elec" in st:
+        return round(random.uniform(3, 8), 2), unit or "kWh"
     if "co2" in st:
         return round(random.uniform(450, 900), 1), unit or "ppm"
     if "humid" in st:

@@ -115,3 +115,15 @@ class BaselineEstimateResponse(BaseModel):
 
     available: bool
     estimate: BaselineEstimate | None = None
+
+
+class BuildingCopResponse(BaseModel):
+    """GET /buildings/{id}/cop -- measured COP from telemetry, or why it's absent."""
+
+    status: str  # measured | device_reported | needs_heat_meter
+    cop: float | None
+    heat_kwh: float | None
+    elec_kwh: float | None
+    window_days: int
+    basis: str | None
+    simulated: bool
