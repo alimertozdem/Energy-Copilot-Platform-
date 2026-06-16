@@ -95,38 +95,50 @@ def assess(building, consumption_annual_kwh: float | None) -> dict:
     year = datetime.now(dt_timezone.utc).year
     sens = HEATING_SENS.get(btype, _DEFAULT_SENS)
 
-    # --- demand -----------------------------------------------------------
+    # --- demand (heating energy AS METERED in the building's fuel) --------
     if consumption_annual_kwh and consumption_annual_kwh > 0:
         total_kwh = float(consumption_annual_kwh)
+        heating_kwh = total_kwh * sens                 # measured total is already metered fuel
         demand_basis = "measured"
     elif area and area > 0:
         total_kwh = area * _EUI_MID.get(btype, _DEFAULT_EUI)
+        thermal_demand = total_kwh * sens              # archetype HEAT demand (thermal)
+        # convert to METERED fuel: heat pump draws electricity (/JAZ); else gas-equiv (/eta)
+        heating_kwh = (thermal_demand / JAZ) if _is_heat_pump(building) else (thermal_demand / ETA_GAS)
         demand_basis = "estimated"
     else:
         total_kwh = 0.0
+        heating_kwh = 0.0
         demand_basis = "unknown"
-    heating_kwh = total_kwh * sens
     heating_eui = (heating_kwh / area) if area else None
 
-    # --- supply (fuel cost/CO2 of the heating energy) ---------------------
+    # --- fuel model -------------------------------------------------------
+    # heating_kwh is the heating energy AS METERED in the building's fuel (gas kWh
+    # for gas; electricity kWh for a heat pump). Cost/CO2 = metered energy x the
+    # fuel price/factor. Fabric measures reduce THERMAL demand; we convert that to
+    # the metered fuel saved per the building's system (so HP savings are /JAZ,
+    # not gas-fuel-equivalent — fixes a ~3x overstatement for non-gas heat).
     gas = _is_gas(building)
     hp = _is_heat_pump(building)
     gf = reference_factors.grid_emission_factor(country, year)
-    if gas:
-        fuel_type, price, factor = "gas", GAS_PRICE, GAS_CO2
-        heat_cost = heating_kwh * price
-        heat_co2 = heating_kwh * factor
-    elif hp:
+    if hp:
         fuel_type, price, factor = "heat_pump", HP_ELEC_PRICE, gf.emission_factor_kg_kwh
-        elec = heating_kwh / JAZ
-        heat_cost = elec * price
-        heat_co2 = elec * factor
+    elif gas:
+        fuel_type, price, factor = "gas", GAS_PRICE, GAS_CO2
     else:
-        # district / electric / biomass / unknown -> electricity-equivalent proxy
-        tf = reference_factors.electricity_tariff_avg(country, year)
-        fuel_type, price, factor = (getattr(building, "heating_system", None) or "other"), tf.avg_eur_kwh, gf.emission_factor_kg_kwh
-        heat_cost = heating_kwh * price
-        heat_co2 = heating_kwh * factor
+        # district / biomass / electric / unknown -> gas-equivalent proxy (DE heat
+        # is gas-dominated; conservative, avoids overstating retrofit savings).
+        fuel_type = getattr(building, "heating_system", None) or "other"
+        price, factor = GAS_PRICE, GAS_CO2
+
+    heat_cost = heating_kwh * price
+    heat_co2 = heating_kwh * factor
+
+    def _fuel_saved_from_thermal(thermal_kwh: float) -> float:
+        """Metered fuel / electricity saved by reducing heat demand by thermal_kwh."""
+        if hp:
+            return thermal_kwh / JAZ      # electricity drawn by the pump
+        return thermal_kwh / ETA_GAS      # gas-equivalent fuel
 
     # --- envelope vs GEG --------------------------------------------------
     u_now = {
@@ -141,57 +153,59 @@ def assess(building, consumption_annual_kwh: float | None) -> dict:
         status = "unknown" if cur is None else ("pass" if cur <= limit else "fail")
         envelope.append({"element": el, "u_current": cur, "u_target": limit, "status": status})
 
-    # --- measures (approved transmission method) --------------------------
+    # --- measures ---------------------------------------------------------
     measures: list[dict] = []
     co2_price_kwh = CARBON_PRICE_T / 1000.0  # EUR per kg
 
-    def add_measure(key, label, tier, saving_kwh, capex_gross, subsidy, note=""):
-        saving_kwh = max(0.0, saving_kwh)
-        saving_eur = saving_kwh * price
-        saving_co2 = saving_kwh * factor
+    def add_measure(key, label, tier, fuel_saved_kwh, capex_gross, subsidy, note=""):
+        fuel_saved_kwh = max(0.0, fuel_saved_kwh)
+        saving_eur = fuel_saved_kwh * price
+        saving_co2 = fuel_saved_kwh * factor
         capex_net = capex_gross * (1.0 - subsidy)
-        annual_value = saving_eur + saving_co2 * co2_price_kwh  # energy + carbon cost avoided
+        annual_value = saving_eur + saving_co2 * co2_price_kwh
         payback = (capex_net / annual_value) if annual_value > 0 else None
         measures.append({
             "key": key, "label": label, "tier": tier,
-            "saving_kwh": round(saving_kwh), "saving_eur": round(saving_eur),
+            "saving_kwh": round(fuel_saved_kwh), "saving_eur": round(saving_eur),
             "saving_co2_kg": round(saving_co2), "capex_gross": round(capex_gross),
             "capex_net": round(capex_net),
             "payback_years": round(payback, 1) if payback else None, "note": note,
         })
 
-    # T0 operational (always applicable when there is heating demand)
+    # T0 operational -- 10% of the metered heating energy
     if heating_kwh > 0 and area:
         add_measure("operational", "Hydraulic balancing + heating curve", "T0",
                     heating_kwh * 0.10, area * OP_CAPEX_PER_M2_FLOOR, 0.0,
                     "Empirical 7-11% (ITG Dresden); fastest payback.")
 
-    # T1/T2 fabric measures per element
+    # T1/T2 fabric measures (thermal demand reduction -> metered fuel saved)
     if area:
         for el, tier in (("roof", "T1"), ("wall", "T2"), ("window", "T2")):
             u_after = U_AFTER[el]
             cur = u_now[el] if u_now[el] is not None else U_BEFORE_DEFAULT[el]
             if cur <= u_after:
-                continue  # already good
+                continue
             d_u = cur - u_after
             el_area = area * AREA_RATIO[el]
-            saving_kwh = d_u * el_area * GT * 24.0 / 1000.0 / ETA_GAS
+            thermal = d_u * el_area * GT * 24.0 / 1000.0
+            fuel_saved = _fuel_saved_from_thermal(thermal)
             assumed = " (U assumed: 1970s)" if u_now[el] is None else ""
             label = {"wall": "Facade insulation (WDVS)", "roof": "Top-floor / roof insulation",
                      "window": "Triple-glazed windows"}[el]
-            add_measure(f"fabric_{el}", label, tier, saving_kwh,
+            add_measure(f"fabric_{el}", label, tier, fuel_saved,
                         el_area * CAPEX_PER_M2[el], ENVELOPE_SUBSIDY,
                         f"dU {d_u:.2f} x {round(el_area)} m2{assumed}")
 
-    # Heat-pump fuel switch (only when currently on fossil heat)
+    # Heat-pump fuel switch (only when currently on gas/oil)
     if gas and heating_kwh > 0 and area:
-        elec = heating_kwh / JAZ
+        thermal = heating_kwh * ETA_GAS   # gas fuel -> delivered heat
+        elec = thermal / JAZ              # electricity the pump would draw
         new_cost = elec * HP_ELEC_PRICE
         new_co2 = elec * gf.emission_factor_kg_kwh
         save_eur = heating_kwh * GAS_PRICE - new_cost
         save_co2 = heating_kwh * GAS_CO2 - new_co2
         capex_gross = area * 140.0
-        capex_net = capex_gross * 0.50  # KfW up to 70%; 50% mid assumption
+        capex_net = capex_gross * 0.50
         annual_value = save_eur + save_co2 * co2_price_kwh
         payback = (capex_net / annual_value) if annual_value > 0 else None
         measures.append({
