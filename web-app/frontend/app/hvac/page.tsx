@@ -14,11 +14,11 @@ import { BuildingSlicer } from "@/components/BuildingSlicer"
 import { FetchErrorNotice } from "@/components/FetchErrorNotice"
 import { HeatingAssessmentView } from "@/components/buildings/HeatingAssessmentView"
 import { CopCard } from "@/components/buildings/CopCard"
-import { LiveMonitoringPanel } from "@/components/buildings/LiveMonitoringPanel"
+import { ComfortPanel } from "@/components/buildings/ComfortPanel"
 import { authOptions } from "@/lib/auth/options"
 import { fetchBuildings } from "@/lib/api/buildings"
-import { fetchBuildingHeatingServer } from "@/lib/api/heating"
-import { fetchBuildingCopServer, fetchBuildingMonitoringServer } from "@/lib/api/baseline"
+import { fetchBuildingHeatingServer, fetchBuildingComfortServer } from "@/lib/api/heating"
+import { fetchBuildingCopServer } from "@/lib/api/baseline"
 
 const ACCENT = "#F59E0B"
 
@@ -48,10 +48,10 @@ export default async function HvacPage({ searchParams }: PageProps) {
     )
   }
 
-  const [heating, cop, monitoring] = await Promise.all([
+  const [heating, cop, comfort] = await Promise.all([
     fetchBuildingHeatingServer(session.accessToken, selected),
     fetchBuildingCopServer(session.accessToken, selected),
-    fetchBuildingMonitoringServer(session.accessToken, selected),
+    fetchBuildingComfortServer(session.accessToken, selected),
   ])
   const buildingName = own.find((b) => b.id === selected)?.name ?? "Building"
 
@@ -78,8 +78,8 @@ export default async function HvacPage({ searchParams }: PageProps) {
         {/* Supply: measured COP */}
         {cop && <CopCard cop={cop} buildingId={selected} />}
 
-        {/* Comfort / operation: live IoT */}
-        {monitoring && <LiveMonitoringPanel monitoring={monitoring} buildingId={selected} />}
+        {/* Comfort / operation analytics: live IoT */}
+        {comfort && <ComfortPanel comfort={comfort} buildingId={selected} />}
       </div>
     </AppChrome>
   )

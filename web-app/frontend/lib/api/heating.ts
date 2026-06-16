@@ -72,3 +72,48 @@ export async function fetchBuildingHeatingServer(
     return null
   }
 }
+
+/**
+ * Comfort & operation analytics (GET /buildings/{id}/comfort). Mirrors
+ * backend schemas/comfort.py. Standard comfort references.
+ */
+export type ComfortAssessment = {
+  has_data: boolean
+  window_hours: number
+  simulated: boolean
+  temperature: {
+    avg: number
+    in_band_pct: number
+    under_pct: number
+    over_pct: number
+    samples: number
+    band_low: number
+    band_high: number
+  } | null
+  co2: { avg: number; good_pct: number; fair_pct: number; poor_pct: number; samples: number } | null
+  humidity: { avg: number; in_band_pct: number; samples: number } | null
+  delta_t: number | null
+  operational_hint: string | null
+}
+
+export async function fetchBuildingComfortServer(
+  accessToken: string,
+  buildingId: string
+): Promise<ComfortAssessment | null> {
+  const backendUrl = process.env.BACKEND_URL
+  if (!backendUrl || !accessToken) return null
+  try {
+    const res = await fetch(
+      `${backendUrl}/buildings/${encodeURIComponent(buildingId)}/comfort`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+        cache: "no-store",
+      }
+    )
+    if (!res.ok) return null
+    return (await res.json()) as ComfortAssessment
+  } catch {
+    return null
+  }
+}

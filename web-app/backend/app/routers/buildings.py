@@ -56,7 +56,8 @@ from app.schemas.bridge import (
 from app.schemas.readiness import BuildingReadiness
 from app.schemas.monitoring import MonitoringResponse
 from app.schemas.heating import HeatingAssessmentResponse
-from app.services import access, baseline_estimate, baseline_kpi, bill_parser, bridge_readiness, building_readiness, cop as cop_service, monitoring as monitoring_service, heating_assessment
+from app.schemas.comfort import ComfortResponse
+from app.services import access, baseline_estimate, baseline_kpi, bill_parser, bridge_readiness, building_readiness, cop as cop_service, monitoring as monitoring_service, heating_assessment, comfort as comfort_service
 from app.utils.jwt import get_current_org_id, get_current_user_id
 
 router = APIRouter(prefix="/buildings", tags=["buildings"])
@@ -502,6 +503,25 @@ def get_building_heating(
     if rows:
         annual = baseline_kpi.compute_baseline_kpis(rows, building).get("annual_energy_kwh")
     return HeatingAssessmentResponse(**heating_assessment.assess(building, annual))
+
+
+@router.get("/{building_id}/comfort", response_model=ComfortResponse)
+def get_building_comfort(
+    building_id: UUID,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    db: Annotated[Session, Depends(get_db)],
+    hours: int = 168,
+) -> ComfortResponse:
+    """Comfort & operation analytics (setpoint compliance, delta-T, CO2) from
+    bronze telemetry. Standard comfort bands. UUID-addressed, read-only."""
+    building = building_repo.get_building_by_id_for_user(
+        db, building_id=building_id, user_id=user_id
+    )
+    if building is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Building not found"
+        )
+    return ComfortResponse(**comfort_service.assess_comfort(db, building, hours))
 
 
 @router.post("/{building_id}/consumption/parse-pdf", response_model=ParsedBillResponse)
