@@ -90,3 +90,6 @@ report-design/*ifreler*
 .env.bak
 .env.bak*
 *.bak
+
+# career-ops (local job-search tool — not part of the product)
+career-ops/
