@@ -100,3 +100,53 @@ export async function fetchPartnerClients(
     return { ok: false, error: "Network error" }
   }
 }
+
+// --- multi-client overview (consultant cockpit) ---------------------------
+
+export type PartnerClientOverviewRow = {
+  organization_id: string
+  name: string
+  slug: string
+  scope: string
+  building_count: number
+  total_area_m2: number
+  epc_high_risk: number
+  epc_missing: number
+  epc_on_track: number
+  attention: number
+}
+
+export type PartnerOverviewTotals = {
+  client_count: number
+  building_count: number
+  total_area_m2: number
+  epc_high_risk: number
+  epc_missing: number
+}
+
+export type PartnerOverviewResponse = {
+  clients: PartnerClientOverviewRow[]
+  totals: PartnerOverviewTotals
+}
+
+export async function fetchPartnerOverview(
+  accessToken: string
+): Promise<FetchResult<PartnerOverviewResponse>> {
+  const backendUrl = getBackendUrl()
+  if (!backendUrl) return { ok: false, error: "Server misconfigured" }
+  if (!accessToken) return { ok: false, error: "Missing access token" }
+  try {
+    const res = await fetch(`${backendUrl}/partners/overview`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+      cache: "no-store",
+    })
+    if (!res.ok) {
+      return { ok: false, error: `Backend ${res.status}`, status: res.status }
+    }
+    return { ok: true, data: (await res.json()) as PartnerOverviewResponse }
+  } catch (err) {
+    console.error("[fetchPartnerOverview] Network/unknown error:", err)
+    return { ok: false, error: "Network error" }
+  }
+}

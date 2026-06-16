@@ -83,3 +83,51 @@ export async function fetchBuildingBaselineKpisServer(
     return null
   }
 }
+
+/**
+ * Provisional baseline ESTIMATE (no uploaded consumption yet). Ranges from an
+ * archetype intensity × floor area; cost/CO₂ use the real tariff + grid factors.
+ * Mirrors backend schemas/consumption.py::BaselineEstimate.
+ */
+export type BaselineEstimate = {
+  basis: string
+  building_type: string | null
+  type_modeled: boolean
+  country_code: string | null
+  year: number
+  eui_low: number
+  eui_high: number
+  annual_kwh_low: number
+  annual_kwh_high: number
+  annual_cost_eur_low: number
+  annual_cost_eur_high: number
+  annual_co2_kg_low: number
+  annual_co2_kg_high: number
+  tariff_eur_kwh: number
+  grid_factor_kg_kwh: number
+}
+
+/** Server-side fetch; returns null when no estimate is available (real data
+ *  exists, no floor area, or an unmodeled building type). */
+export async function fetchBaselineEstimateServer(
+  accessToken: string,
+  buildingId: string
+): Promise<BaselineEstimate | null> {
+  const backendUrl = process.env.BACKEND_URL
+  if (!backendUrl || !accessToken) return null
+  try {
+    const res = await fetch(
+      `${backendUrl}/buildings/${encodeURIComponent(buildingId)}/baseline-estimate`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+        cache: "no-store",
+      }
+    )
+    if (!res.ok) return null
+    const data = (await res.json()) as { available: boolean; estimate: BaselineEstimate | null }
+    return data?.available && data.estimate ? data.estimate : null
+  } catch {
+    return null
+  }
+}

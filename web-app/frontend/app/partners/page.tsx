@@ -1,17 +1,17 @@
 /**
- * /partners -- consultant (partner) relationship management.
+ * /partners -- consultant (partner) relationship management + multi-client cockpit.
  *
- * Server component: getServerSession -> token -> fetchPartnerLinks -> PartnersShell,
- * wrapped in AppChrome (top bar + nav). Visible to any authenticated org; lists links
- * touching the caller's org (as partner and/or client). The invite form is partner-only
- * -- enforced by the backend (403 for non-partner orgs), surfaced inline.
+ * Server component: getServerSession -> token -> fetchPartnerLinks + fetchPartnerOverview
+ * -> PartnerOverview (cockpit, partner orgs only) + PartnersShell (lifecycle actions),
+ * wrapped in AppChrome. The invite form is partner-only (enforced by the backend).
  */
 import { getServerSession } from "next-auth"
 import { redirect } from "next/navigation"
 
 import { AppChrome } from "@/components/AppChrome"
+import { PartnerOverview } from "@/components/partners/PartnerOverview"
 import { PartnersShell } from "@/components/partners/PartnersShell"
-import { fetchPartnerLinks } from "@/lib/api/partners"
+import { fetchPartnerLinks, fetchPartnerOverview } from "@/lib/api/partners"
 import { authOptions } from "@/lib/auth/options"
 
 const PARTNERS_ACCENT = "#1D9E75"
@@ -22,7 +22,10 @@ export default async function PartnersPage() {
     redirect("/")
   }
 
-  const result = await fetchPartnerLinks(session.accessToken)
+  const [result, overview] = await Promise.all([
+    fetchPartnerLinks(session.accessToken),
+    fetchPartnerOverview(session.accessToken),
+  ])
   const count = result.ok ? result.data.links.length : 0
 
   return (
@@ -36,6 +39,11 @@ export default async function PartnersPage() {
       }
       accentColor={PARTNERS_ACCENT}
     >
+      {overview.ok && overview.data.clients.length > 0 && (
+        <div className="mx-auto max-w-4xl px-4 pt-8">
+          <PartnerOverview overview={overview.data} />
+        </div>
+      )}
       <PartnersShell
         links={result.ok ? result.data.links : null}
         error={result.ok ? null : result.error}

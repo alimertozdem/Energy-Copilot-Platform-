@@ -17,26 +17,56 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.db.models import User
+from app.db.models import Organization, User
 from app.repositories import audit as audit_repo
+from app.repositories import building as building_repo
 from app.repositories import organization as org_repo
 from app.repositories import partner as partner_repo
+from app.services import access
 from app.schemas.partner import (
     MutationResult,
+    OrgLookupResponse,
+    PartnerClientOverviewRow,
     PartnerClientRow,
     PartnerClientsResponse,
     PartnerLinkCreate,
     PartnerLinkRow,
     PartnerLinksResponse,
+    PartnerOverviewResponse,
+    PartnerOverviewTotals,
 )
 from app.utils.jwt import get_current_org_id, get_current_user
 
 router = APIRouter(prefix="/partners", tags=["partners"])
 
 VALID_SCOPES = {"read_only", "full_manage"}
+
+
+@router.get("/org-lookup", response_model=OrgLookupResponse)
+def org_lookup(
+    slug: str,
+    user: Annotated[User, Depends(get_current_user)],
+    partner_org_id: Annotated[UUID, Depends(get_current_org_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> OrgLookupResponse:
+    """Resolve a client workspace SLUG to its org id + name so a partner can invite
+    by the short workspace id instead of a raw UUID. Partner-org admins only
+    (prevents org enumeration by ordinary users)."""
+    partner_org = org_repo.get_organization(db, partner_org_id)
+    if partner_org is None or partner_org.org_type != "partner":
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Only a partner organization can look up clients"
+        )
+    _require_org_admin(db, org_id=partner_org_id, user=user)
+    s = (slug or "").strip().lower()
+    org = db.scalar(select(Organization).where(Organization.slug == s)) if s else None
+    if org is None or org.id == partner_org_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No workspace found with that ID")
+    return OrgLookupResponse(organization_id=org.id, name=org.name, slug=org.slug)
 
 
 def _client_ip_ua(request: Request) -> tuple[str | None, str | None]:
@@ -246,3 +276,79 @@ def list_clients(
         if link.relationship_status == "active" and link.revoked_at is None
     ]
     return PartnerClientsResponse(clients=clients, total=len(clients))
+
+
+@router.get("/overview", response_model=PartnerOverviewResponse)
+def partner_overview(
+    user: Annotated[User, Depends(get_current_user)],
+    partner_org_id: Annotated[UUID, Depends(get_current_org_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> PartnerOverviewResponse:
+    """Per-client EPBD/MEPS triage across the partner's ACTIVE clients.
+
+    Metadata-only (EPC class on each building) so it works without Fabric and for
+    buildings still pending a bridge; EUI/CRREM detail lives in the client's
+    portfolio drill-in (/portfolio?client=<org_id>). Empty for non-partner orgs.
+    """
+    active = [
+        (link, org)
+        for link, org in partner_repo.list_for_partner(db, partner_org_id=partner_org_id)
+        if link.relationship_status == "active" and link.revoked_at is None
+    ]
+
+    # All RLS-visible buildings once, then grouped by client org (same visibility
+    # path as /portfolio, so a partner only ever sees consented client buildings).
+    all_buildings = building_repo.list_buildings_for_user(db, user_id=user.id)
+    by_org: dict = {}
+    for b in all_buildings:
+        by_org.setdefault(b.organization_id, []).append(b)
+
+    high_set = {"F", "G"}
+    rows: list[PartnerClientOverviewRow] = []
+    t_buildings = t_high = t_missing = 0
+    t_area = 0.0
+    for link, org in active:
+        blds = by_org.get(org.id, [])
+        high = missing = on_track = 0
+        area = 0.0
+        for b in blds:
+            area += float(b.floor_area_m2) if b.floor_area_m2 is not None else 0.0
+            epc = (b.epc_class or "").strip().upper()
+            if not epc:
+                missing += 1
+            elif epc in high_set:
+                high += 1
+            else:
+                on_track += 1
+        rows.append(
+            PartnerClientOverviewRow(
+                organization_id=org.id,
+                name=org.name,
+                slug=org.slug,
+                scope=link.scope,
+                building_count=len(blds),
+                total_area_m2=round(area, 0),
+                epc_high_risk=high,
+                epc_missing=missing,
+                epc_on_track=on_track,
+                attention=high + missing,
+            )
+        )
+        t_buildings += len(blds)
+        t_high += high
+        t_missing += missing
+        t_area += area
+
+    # Most-attention clients first.
+    rows.sort(key=lambda r: (r.attention, r.building_count), reverse=True)
+
+    return PartnerOverviewResponse(
+        clients=rows,
+        totals=PartnerOverviewTotals(
+            client_count=len(rows),
+            building_count=t_buildings,
+            total_area_m2=round(t_area, 0),
+            epc_high_risk=t_high,
+            epc_missing=t_missing,
+        ),
+    )

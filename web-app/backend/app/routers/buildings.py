@@ -34,8 +34,13 @@ from app.schemas.buildings import (
     BuildingModuleInput,
     BuildingModuleResponse,
     BuildingResponse,
+    BulkImportRequest,
+    BulkImportResponse,
+    BulkImportRowResult,
 )
 from app.schemas.consumption import (
+    BaselineEstimate,
+    BaselineEstimateResponse,
     BaselineKPIs,
     ConsumptionSummary,
     ParsePdfRequest,
@@ -48,7 +53,7 @@ from app.schemas.bridge import (
     BridgeRequestState,
 )
 from app.schemas.readiness import BuildingReadiness
-from app.services import access, baseline_kpi, bill_parser, bridge_readiness, building_readiness
+from app.services import access, baseline_estimate, baseline_kpi, bill_parser, bridge_readiness, building_readiness
 from app.utils.jwt import get_current_org_id, get_current_user_id
 
 router = APIRouter(prefix="/buildings", tags=["buildings"])
@@ -206,6 +211,81 @@ def create_building(
     return _to_response(b)
 
 
+@router.post(
+    "/bulk", response_model=BulkImportResponse, status_code=status.HTTP_201_CREATED
+)
+def bulk_import_buildings(
+    body: BulkImportRequest,
+    request: Request,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    org_id: Annotated[UUID, Depends(get_current_org_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> BulkImportResponse:
+    """Bulk-create building shells from a portfolio CSV (Hausverwaltung onboarding).
+
+    Same admin/manager gate as POST /buildings. Each row is created in its own
+    SAVEPOINT so one bad row never aborts the batch; per-row results are
+    returned. 'meters' is auto-enabled on each building (no Fabric data yet --
+    a baseline / live source is added per building afterwards).
+    """
+    membership = org_repo.get_membership(db, org_id=org_id, user_id=user_id)
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found"
+        )
+    if membership.role not in ("admin", "manager"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Importing buildings requires the admin or manager role.",
+        )
+
+    results: list[BulkImportRowResult] = []
+    created = 0
+    for i, row in enumerate(body.rows):
+        try:
+            with db.begin_nested():
+                b = building_repo.create_building(
+                    db,
+                    organization_id=org_id,
+                    name=row.name,
+                    building_type=row.building_type,
+                    city=row.city,
+                    country_code=row.country_code.upper() if row.country_code else None,
+                    floor_area_m2=row.floor_area_m2,
+                    construction_year=row.construction_year,
+                    epc_class=row.epc_class,
+                    heating_system=row.heating_system,
+                )
+                building_repo.create_building_modules(
+                    db, building_id=b.id, modules=[("meters", True, None)]
+                )
+            results.append(
+                BulkImportRowResult(index=i, name=row.name, ok=True, id=b.id)
+            )
+            created += 1
+        except Exception as exc:  # one bad row must not abort the batch
+            results.append(
+                BulkImportRowResult(
+                    index=i, name=row.name, ok=False, error=str(exc)[:200]
+                )
+            )
+
+    failed = len(body.rows) - created
+    audit_repo.record_event(
+        db,
+        user_id=user_id,
+        organization_id=org_id,
+        action="building.bulk_imported",
+        entity_type="organization",
+        entity_id=str(org_id),
+        details={"created": created, "failed": failed},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    db.commit()
+    return BulkImportResponse(created=created, failed=failed, results=results)
+
+
 @router.get("/{fabric_building_id}", response_model=BuildingResponse)
 def get_building(
     fabric_building_id: str,
@@ -318,6 +398,37 @@ def get_building_readiness(
         building_readiness.building_attrs(building), months
     )
     return BuildingReadiness(**result)
+
+
+@router.get(
+    "/{building_id}/baseline-estimate", response_model=BaselineEstimateResponse
+)
+def get_baseline_estimate(
+    building_id: UUID,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> BaselineEstimateResponse:
+    """Provisional, clearly-labeled baseline estimate for a building that has
+    metadata (type + area) but no uploaded consumption yet -- so the first-value
+    loop is never empty. Returns available=False once real consumption exists
+    (the uploaded baseline supersedes the estimate) or when we cannot estimate
+    honestly (no area / an unmodeled type). UUID-addressed, read-only.
+    """
+    from datetime import datetime, timezone as _tz
+
+    building = building_repo.get_building_by_id_for_user(
+        db, building_id=building_id, user_id=user_id
+    )
+    if building is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Building not found"
+        )
+    if consumption_repo.list_rows(db, building_id=building_id):
+        return BaselineEstimateResponse(available=False, estimate=None)
+    est = baseline_estimate.estimate_baseline(building, datetime.now(_tz.utc).year)
+    if est is None:
+        return BaselineEstimateResponse(available=False, estimate=None)
+    return BaselineEstimateResponse(available=True, estimate=BaselineEstimate(**est))
 
 
 @router.post("/{building_id}/consumption/parse-pdf", response_model=ParsedBillResponse)

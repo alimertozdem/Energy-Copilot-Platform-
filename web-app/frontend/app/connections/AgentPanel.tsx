@@ -81,10 +81,10 @@ export function AgentPanel({ buildingId }: { buildingId: string }) {
   const active = tokens.filter((t) => t.is_active)
   const tokenForSnippet = issued?.token ?? "$AGENT_TOKEN"
   const snippet =
-    `docker run --rm -e AGENT_TOKEN="${tokenForSnippet}" -e EVENTHUB_CONN="<conn>" \\\n` +
+    `docker run --rm -e AGENT_TOKEN="${tokenForSnippet}" \\\n` +
     `  --entrypoint python energylens-gateway run_agent.py \\\n` +
-    `  --platform https://<your-api-host> \\\n` +
-    `  --sink eventhub --eh-name iot-raw --seconds 0`
+    `  --platform https://<your-energylens-api> \\\n` +
+    `  --sink http --seconds 0`
 
   return (
     <div className="rounded-xl border border-border-subtle bg-bg-elevated/30 p-4">
@@ -165,9 +165,11 @@ export function AgentPanel({ buildingId }: { buildingId: string }) {
         </pre>
         <p className="mt-1.5 text-[10px] leading-relaxed text-text-faint">
           Set <code className="text-text-muted">AGENT_TOKEN</code> to the issued token. The gateway reads
-          this building&rsquo;s Modbus devices from <code className="text-text-muted">/agent/config</code> and
-          pushes normalized readings to Event Hub. Build the image from the repo:{" "}
-          <code className="text-text-muted">docker build -f edge-gateway/Dockerfile -t energylens-gateway .</code>
+          this building&rsquo;s devices from <code className="text-text-muted">/agent/config</code> and posts
+          normalized readings to <code className="text-text-muted">/ingest/telemetry</code> over HTTPS — no
+          inbound ports, works from behind the building firewall. Build the image from the repo:{" "}
+          <code className="text-text-muted">docker build -f edge-gateway/Dockerfile -t energylens-gateway .</code>{" "}
+          High-volume streaming instead? Swap to <code className="text-text-muted">--sink eventhub</code> (Event Hub).
         </p>
       </div>
     </div>

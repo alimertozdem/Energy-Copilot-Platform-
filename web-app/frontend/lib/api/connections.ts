@@ -210,3 +210,38 @@ export function deletePoint(
     "DELETE"
   )
 }
+
+// --- pipeline verification (test telemetry + recent landed readings) -------
+
+export type TestTelemetryResult = { accepted: number; building_id: string }
+
+export type RecentReading = {
+  sensor_type: string
+  reading_value: number | null
+  reading_unit: string | null
+  sensor_location: string | null
+  source_protocol: string | null
+  received_at: string
+  simulated: boolean
+}
+
+/** Push a few simulated readings through the live ingest path (no hardware). */
+export function sendTestTelemetry(
+  buildingId: string
+): Promise<Result<TestTelemetryResult>> {
+  return jreq<TestTelemetryResult>(
+    `/api/buildings/${encodeURIComponent(buildingId)}/test-telemetry`,
+    "POST"
+  )
+}
+
+/** Most recent landed readings for a building (real + simulated, tagged). */
+export function fetchRecentReadings(
+  buildingId: string,
+  limit = 20
+): Promise<Result<{ readings: RecentReading[] }>> {
+  return jreq<{ readings: RecentReading[] }>(
+    `/api/buildings/${encodeURIComponent(buildingId)}/recent-readings?limit=${limit}`,
+    "GET"
+  )
+}

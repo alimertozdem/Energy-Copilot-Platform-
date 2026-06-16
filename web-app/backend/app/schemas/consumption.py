@@ -83,3 +83,35 @@ class ParsedBillResponse(BaseModel):
     rows: list[ConsumptionRow]
     source: str  # "table" | "text" | "none"
     warnings: list[str]
+
+
+class BaselineEstimate(BaseModel):
+    """A provisional, clearly-labeled baseline estimate (no uploaded data yet).
+
+    All figures are ranges (low/high) from an archetype intensity x floor area;
+    cost/CO2 apply the real tariff + grid factors. Mirrors services/baseline_estimate.
+    """
+
+    basis: str
+    building_type: str | None
+    type_modeled: bool
+    country_code: str | None
+    year: int
+    eui_low: float
+    eui_high: float
+    annual_kwh_low: float
+    annual_kwh_high: float
+    annual_cost_eur_low: float
+    annual_cost_eur_high: float
+    annual_co2_kg_low: float
+    annual_co2_kg_high: float
+    tariff_eur_kwh: float
+    grid_factor_kg_kwh: float
+
+
+class BaselineEstimateResponse(BaseModel):
+    """GET /buildings/{id}/baseline-estimate -- available=False when we can't or
+    shouldn't estimate (no area, unmodeled type, or real consumption exists)."""
+
+    available: bool
+    estimate: BaselineEstimate | None = None

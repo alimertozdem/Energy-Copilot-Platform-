@@ -17,11 +17,18 @@ import { ConnectionsClient } from "./ConnectionsClient"
 
 export const metadata = { title: "Devices & Connections" }
 
-export default async function ConnectionsPage() {
+type PageProps = {
+  // Deep-link target (e.g. from onboarding's "connect live data" CTA): preselect
+  // the building whose live source is being wired up.
+  searchParams: Promise<{ building_id?: string }>
+}
+
+export default async function ConnectionsPage({ searchParams }: PageProps) {
   const session = await getServerSession(authOptions)
   if (!session?.accessToken) {
     redirect("/")
   }
+  const { building_id } = await searchParams
   const result = await fetchBuildings(session.accessToken)
   const buildings = result.ok ? result.data.buildings : []
 
@@ -32,7 +39,7 @@ export default async function ConnectionsPage() {
       subtitle="Wire up live data sources"
     >
       <div className="relative z-10 px-6 py-8 max-w-5xl mx-auto">
-        <ConnectionsClient buildings={buildings} />
+        <ConnectionsClient buildings={buildings} initialBuildingId={building_id ?? null} />
       </div>
     </AppChrome>
   )

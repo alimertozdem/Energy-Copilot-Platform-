@@ -14,8 +14,9 @@ import { AppChrome } from "@/components/AppChrome"
 import { BuildingAdvisorPanel } from "@/components/buildings/BuildingAdvisorPanel"
 import { BridgeUnlockPanel } from "@/components/buildings/BridgeUnlockPanel"
 import { UploadDataButton } from "@/components/buildings/UploadDataButton"
+import { EstimatedBaselineCard } from "@/components/buildings/EstimatedBaselineCard"
 import { DataPendingBanner } from "@/components/DataPendingBanner"
-import { type BaselineKpis, fetchBuildingBaselineKpisServer } from "@/lib/api/baseline"
+import { type BaselineKpis, fetchBuildingBaselineKpisServer, fetchBaselineEstimateServer } from "@/lib/api/baseline"
 import { fetchBridgeReadinessServer } from "@/lib/api/bridge"
 import { type Building, fetchBuildingByUuid } from "@/lib/api/buildings"
 import type { PortfolioBuildingRow } from "@/lib/api/portfolio"
@@ -95,9 +96,10 @@ export default async function PendingBuildingPage({
     redirect(`/buildings/${encodeURIComponent(building.fabric_building_id)}`)
   }
 
-  const [kpis, bridgeReadiness] = await Promise.all([
+  const [kpis, bridgeReadiness, estimate] = await Promise.all([
     fetchBuildingBaselineKpisServer(session.accessToken, building_id),
     fetchBridgeReadinessServer(session.accessToken, building_id),
+    fetchBaselineEstimateServer(session.accessToken, building_id),
   ])
   const insights = buildAdvisorInsights({
     kpis: toRow(building, kpis),
@@ -153,6 +155,18 @@ export default async function PendingBuildingPage({
                   </div>
                   <p className="mt-2 text-[11px] text-text-faint">{provenance(kpis)}</p>
                 </>
+              ) : estimate ? (
+                <div className="space-y-3">
+                  <EstimatedBaselineCard estimate={estimate} />
+                  {canUpload && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border-subtle bg-bg-elevated/20 px-4 py-3">
+                      <span className="text-xs text-text-muted">
+                        Upload a bill or CSV to replace the estimate with your real KPIs.
+                      </span>
+                      <UploadDataButton buildings={[building]} variant="solid" />
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-border-subtle bg-bg-elevated/20 p-6 text-center">
                   <div className="text-sm text-text-primary mb-1">No uploaded consumption yet</div>

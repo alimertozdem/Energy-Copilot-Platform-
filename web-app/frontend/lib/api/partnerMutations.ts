@@ -42,3 +42,28 @@ export function acceptPartnerLink(linkId: string): Promise<MutationResult> {
 export function revokePartnerLink(linkId: string): Promise<MutationResult> {
   return postJson(`/api/partners/links/${encodeURIComponent(linkId)}/revoke`)
 }
+
+export type OrgLookup = { organization_id: string; name: string; slug: string }
+
+/** Resolve a client workspace slug -> { organization_id, name, slug }. */
+export async function lookupClientOrg(
+  slug: string
+): Promise<{ ok: true; data: OrgLookup } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(
+      `/api/partners/org-lookup?slug=${encodeURIComponent(slug)}`,
+      { headers: { Accept: "application/json" } }
+    )
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const detail =
+        data && typeof data === "object" && "detail" in data
+          ? String((data as { detail: unknown }).detail)
+          : `Lookup failed (${res.status})`
+      return { ok: false, error: detail }
+    }
+    return { ok: true, data: data as OrgLookup }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}

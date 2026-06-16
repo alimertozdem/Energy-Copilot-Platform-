@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation"
 import {
   acceptPartnerLink,
   createPartnerLink,
+  lookupClientOrg,
   revokePartnerLink,
 } from "@/lib/api/partnerMutations"
 import type { PartnerLinkRow } from "@/lib/api/partners"
@@ -55,9 +56,18 @@ export function PartnersShell({
 
   async function onInvite(e: FormEvent) {
     e.preventDefault()
-    const id = clientOrgId.trim()
-    if (!id) return
-    await run("invite", () => createPartnerLink({ client_org_id: id, scope }))
+    const input = clientOrgId.trim()
+    if (!input) return
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input)
+    await run("invite", async () => {
+      let orgId = input
+      if (!isUuid) {
+        const look = await lookupClientOrg(input)
+        if (!look.ok) return { ok: false, error: look.error }
+        orgId = look.data.organization_id
+      }
+      return createPartnerLink({ client_org_id: orgId, scope })
+    })
     setClientOrgId("")
   }
 
@@ -78,16 +88,17 @@ export function PartnersShell({
       <section className="rounded-lg border border-border-subtle bg-bg-elevated/60 p-4">
         <h2 className="mb-1 text-sm font-medium text-text-primary">Invite a client</h2>
         <p className="mb-3 text-xs text-text-muted">
-          Partner organisations only. The client receives a pending request and must
-          accept it before you gain access.
+          Partner organisations only. Enter the client&rsquo;s workspace ID (their slug, e.g.
+          <code className="mx-1 rounded bg-white/5 px-1">acme-immobilien</code>) or a workspace UUID.
+          They receive a pending request and must accept it before you gain access.
         </p>
         <form onSubmit={onInvite} className="flex flex-wrap items-end gap-3">
           <label className="min-w-[220px] flex-1 text-xs text-text-muted">
-            Client organisation ID
+            Client workspace ID or slug
             <input
               value={clientOrgId}
               onChange={(e) => setClientOrgId(e.target.value)}
-              placeholder="00000000-0000-0000-0000-000000000000"
+              placeholder="acme-immobilien"
               className="mt-1 w-full rounded-md border border-border-subtle bg-transparent px-3 py-2 text-sm text-text-primary placeholder:text-text-muted/60 focus:border-brand-emerald focus:outline-none"
             />
           </label>

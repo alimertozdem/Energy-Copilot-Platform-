@@ -8,6 +8,7 @@
  *   0 Welcome - 1 Building - 2 Systems - 3 Review - 4 Done
  */
 import { useState } from "react"
+import Link from "next/link"
 
 import { LogoCard } from "@/app/components/LogoCard"
 import { cn } from "@/lib/utils"
@@ -210,6 +211,7 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
             <DoneStep
               buildingName={savedName}
               buildingId={savedId}
+              dataMethod={data.data_method}
               onAddAnother={resetForAnother}
             />
           )}
@@ -271,6 +273,12 @@ function WelcomeStep({
       >
         Get started
       </button>
+      <p className="mt-4 text-sm text-text-muted">
+        Managing a portfolio?{" "}
+        <Link href="/buildings/import" className="text-brand-emerald hover:underline">
+          Import buildings from CSV
+        </Link>
+      </p>
     </div>
   )
 }

@@ -35,6 +35,7 @@ import {
 } from "@/lib/api/connections"
 
 import { AgentPanel } from "./AgentPanel"
+import { VerifyPanel } from "./VerifyPanel"
 
 const inputCls =
   "w-full bg-bg-input border border-border-faint text-text-primary rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-emerald focus:border-transparent"
@@ -50,9 +51,58 @@ function protoLabel(p: string): string {
   return PROTOCOLS.find((x) => x.value === p)?.label ?? p
 }
 
-export function ConnectionsClient({ buildings }: { buildings: Building[] }) {
+function relativeTime(iso: string | null): string | null {
+  if (!iso) return null
+  const t = new Date(iso).getTime()
+  if (Number.isNaN(t)) return null
+  const mins = Math.floor((Date.now() - t) / 60000)
+  if (mins < 1) return "just now"
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 30) return `${days}d ago`
+  return new Date(iso).toLocaleDateString()
+}
+
+// Honest, plain-language connection state. The backend never reaches on-prem
+// devices, so "active" means an on-site agent has reported readings for it.
+function statusCaption(d: Device): string {
+  const last = relativeTime(d.last_seen_at)
+  switch (d.status) {
+    case "active":
+      return last ? `Receiving data — last reading ${last}` : "Receiving data"
+    case "error":
+      return "Error — the agent reported a problem collecting this device"
+    case "disabled":
+      return "Disabled — not collected"
+    default:
+      return "Waiting for the on-site agent to report its first reading"
+  }
+}
+
+function statusCaptionColor(status: string): string {
+  if (status === "active") return "text-brand-emerald"
+  if (status === "error") return "text-red-300"
+  if (status === "disabled") return "text-text-faint"
+  return "text-amber-300"
+}
+
+export function ConnectionsClient({
+  buildings,
+  initialBuildingId = null,
+}: {
+  buildings: Building[]
+  initialBuildingId?: string | null
+}) {
   const own = useMemo(() => buildings.filter((b) => !b.is_sample_org), [buildings])
-  const [buildingId, setBuildingId] = useState(own[0]?.id ?? "")
+  // Honor a deep-linked ?building_id (e.g. from onboarding) when it is one of
+  // the caller's own buildings; otherwise fall back to the first own building.
+  const [buildingId, setBuildingId] = useState(
+    initialBuildingId && own.some((b) => b.id === initialBuildingId)
+      ? initialBuildingId
+      : own[0]?.id ?? ""
+  )
   const [catalog, setCatalog] = useState<DeviceTemplateCatalog | null>(null)
   const [devices, setDevices] = useState<Device[]>([])
   const [loading, setLoading] = useState(false)
@@ -196,6 +246,7 @@ export function ConnectionsClient({ buildings }: { buildings: Building[] }) {
       )}
 
       <AgentPanel buildingId={buildingId} />
+      <VerifyPanel buildingId={buildingId} />
     </div>
   )
 }
@@ -394,6 +445,7 @@ function DeviceCard({
             </span>
           </div>
           {cfgSummary && <div className="mt-1 truncate text-[11px] text-text-faint">{cfgSummary}</div>}
+          <div className={`mt-1 text-[11px] ${statusCaptionColor(device.status)}`}>{statusCaption(device)}</div>
         </div>
         <button
           type="button"

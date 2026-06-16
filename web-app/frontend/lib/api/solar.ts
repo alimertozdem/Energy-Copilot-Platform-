@@ -37,7 +37,8 @@ export type SolarDetailResponse = {
 type FetchResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
 export async function fetchSolarDetail(
-  accessToken: string
+  accessToken: string,
+  buildingId?: string | null
 ): Promise<FetchResult<SolarDetailResponse>> {
   const backendUrl = process.env.BACKEND_URL || null
   if (!backendUrl) {
@@ -47,7 +48,8 @@ export async function fetchSolarDetail(
   if (!accessToken) return { ok: false, error: "Missing access token" }
 
   try {
-    const res = await fetch(`${backendUrl}/solar/detail`, {
+    const qs = buildingId ? `?building_id=${encodeURIComponent(buildingId)}` : ""
+    const res = await fetch(`${backendUrl}/solar/detail${qs}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,

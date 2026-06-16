@@ -7,25 +7,33 @@ consumes this config to collect live data; the backend itself never reaches
 on-prem devices (firewall), so there is NO live connection test here -- a
 device stays 'pending' until a collector reports in.
 """
+from datetime import datetime, timezone as dt_timezone
+import random
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.models import Building
 from app.db.models.connection import Device, SensorPoint
+from app.db.models.iot_reading import IotReading
 from app.repositories import connection as conn_repo
+from app.repositories import ingest as ingest_repo
 from app.schemas.connection import (
     DeviceCreate,
     DeviceListResponse,
     DeviceResponse,
     DeviceTemplateListResponse,
     DeviceUpdate,
+    RecentReadingRow,
+    RecentReadingsResponse,
     SensorPointCreate,
     SensorPointResponse,
     SensorPointUpdate,
+    TestTelemetryResponse,
 )
 from app.services import access, device_templates
 from app.utils.jwt import get_current_user_id
@@ -278,3 +286,126 @@ def delete_point(
     db.commit()
     fresh = conn_repo.get_device(db, building_id=building_id, device_id=device_id)
     return _device_to_response(fresh)
+
+
+# --- pipeline verification (test telemetry + recent landed readings) -------
+
+
+_SIM_DEFAULTS = [
+    ("power", "kW", 20.0, 80.0),
+    ("temperature", "°C", 19.0, 24.0),
+    ("co2", "ppm", 450.0, 900.0),
+]
+
+
+def _sim_reading(sensor_type: str, unit: str | None) -> tuple[float, str | None]:
+    """A plausible synthetic value for a sensor_type (clearly-marked test data)."""
+    st = (sensor_type or "").lower()
+    if "co2" in st:
+        return round(random.uniform(450, 900), 1), unit or "ppm"
+    if "humid" in st:
+        return round(random.uniform(40, 60), 1), unit or "%"
+    if "temp" in st:
+        return round(random.uniform(19, 24), 1), unit or "°C"
+    if "kwh" in st or "energy" in st:
+        return round(random.uniform(5, 40), 2), unit or "kWh"
+    if "solar" in st or "pv" in st or "gen" in st:
+        return round(random.uniform(0, 50), 2), unit or "kW"
+    if "power" in st or "kw" in st or "load" in st:
+        return round(random.uniform(20, 80), 2), unit or "kW"
+    return round(random.uniform(1, 100), 2), unit
+
+
+@router.post(
+    "/buildings/{building_id}/test-telemetry", response_model=TestTelemetryResponse
+)
+def send_test_telemetry(
+    building_id: UUID,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> TestTelemetryResponse:
+    """Push a few SIMULATED readings through the live ingest path (bronze_iot_readings).
+
+    Lets a manager confirm the pipeline end-to-end without hardware. Readings are
+    tagged source_protocol='simulated' and DO NOT change any device status --
+    device status only ever reflects a real on-site agent reporting in.
+    """
+    building = _building_for_manage(db, building_id, user_id)
+    bid = building.fabric_building_id or str(building.id)
+    now = datetime.now(dt_timezone.utc)
+
+    rows: list[dict] = []
+    for d in conn_repo.list_devices(db, building_id=building_id):
+        for pt in d.points:
+            if not pt.enabled:
+                continue
+            value, unit = _sim_reading(pt.sensor_type, pt.unit)
+            rows.append(
+                {
+                    "agent_building_uuid": building.id,
+                    "building_id": bid,
+                    "device_id": str(d.id),
+                    "sensor_type": pt.sensor_type,
+                    "sensor_location": pt.zone,
+                    "reading_value": value,
+                    "reading_unit": unit,
+                    "source_protocol": "simulated",
+                    "reading_quality": 1,
+                    "source_timestamp": now,
+                }
+            )
+
+    if not rows:  # no points mapped yet -- emit a small default set so the path still proves out
+        for st, unit, lo, hi in _SIM_DEFAULTS:
+            rows.append(
+                {
+                    "agent_building_uuid": building.id,
+                    "building_id": bid,
+                    "device_id": "sim",
+                    "sensor_type": st,
+                    "sensor_location": "test",
+                    "reading_value": round(random.uniform(lo, hi), 2),
+                    "reading_unit": unit,
+                    "source_protocol": "simulated",
+                    "reading_quality": 1,
+                    "source_timestamp": now,
+                }
+            )
+
+    accepted = ingest_repo.insert_readings(db, rows)
+    return TestTelemetryResponse(accepted=accepted, building_id=bid)
+
+
+@router.get(
+    "/buildings/{building_id}/recent-readings", response_model=RecentReadingsResponse
+)
+def recent_readings(
+    building_id: UUID,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    db: Annotated[Session, Depends(get_db)],
+    limit: int = 20,
+) -> RecentReadingsResponse:
+    """Most recent landed readings for the building (real + simulated, tagged)."""
+    building = _building_for_manage(db, building_id, user_id)
+    bid = building.fabric_building_id or str(building.id)
+    stmt = (
+        select(IotReading)
+        .where(IotReading.building_id.in_({bid, str(building.id)}))
+        .order_by(IotReading.received_at.desc())
+        .limit(max(1, min(limit, 100)))
+    )
+    rows = db.execute(stmt).scalars().all()
+    return RecentReadingsResponse(
+        readings=[
+            RecentReadingRow(
+                sensor_type=r.sensor_type,
+                reading_value=r.reading_value,
+                reading_unit=r.reading_unit,
+                sensor_location=r.sensor_location,
+                source_protocol=r.source_protocol,
+                received_at=r.received_at,
+                simulated=(r.source_protocol == "simulated"),
+            )
+            for r in rows
+        ]
+    )

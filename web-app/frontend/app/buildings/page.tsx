@@ -6,6 +6,7 @@
  *
  * Visibility (enforced by backend): user's org buildings + sample org buildings.
  */
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 
@@ -59,7 +60,15 @@ export default async function BuildingsPage() {
           <p className="text-xs text-text-faint">
             Sample buildings carry full demo data — useful for previewing the reports.
           </p>
-          <SampleDataToggle initialEnabled={sampleEnabled} />
+          <div className="flex items-center gap-3">
+            <Link
+              href="/buildings/import"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-3 py-1.5 text-xs text-text-muted transition-colors hover:border-brand-emerald/60 hover:text-brand-emerald"
+            >
+              Import portfolio (CSV)
+            </Link>
+            <SampleDataToggle initialEnabled={sampleEnabled} />
+          </div>
         </div>
         {!result.ok ? (
           <div className="rounded-lg border border-accent-red/30 bg-accent-red/5 p-6 text-text-primary">

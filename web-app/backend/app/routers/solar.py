@@ -23,10 +23,17 @@ router = APIRouter(prefix="/solar", tags=["solar"])
 def get_solar_detail(
     user_id: Annotated[UUID, Depends(get_current_user_id)],
     db: Annotated[Session, Depends(get_db)],
+    building_id: str | None = None,
 ) -> SolarDetailResponse:
-    """Daily portfolio solar series + summary for the /solar page."""
+    """Daily solar series + summary for the /solar page.
+
+    Portfolio-wide by default; scoped to one building when ``building_id`` (a
+    Fabric building id) is supplied and visible to the caller.
+    """
     buildings = building_repo.list_buildings_for_user(db, user_id=user_id)
     fabric_ids = [b.fabric_building_id for b in buildings if b.fabric_building_id]
+    if building_id:
+        fabric_ids = [fid for fid in fabric_ids if fid == building_id]
     return sample_fallback.serve(
         "solar_detail", SolarDetailResponse, fabric_ids,
         lambda: solar_detail.get_solar_detail(fabric_ids, db),

@@ -122,3 +122,47 @@ class BuildingCreateRequest(BaseModel):
     insulation_year: int | None = Field(default=None, ge=1800, le=2100)
     has_gas_heating: bool | None = None
     modules: list[BuildingModuleInput] = []
+
+
+# ---------------------------------------------------------------------------
+# Bulk import (portfolio CSV -> POST /buildings/bulk)
+# ---------------------------------------------------------------------------
+
+class BulkBuildingRow(BaseModel):
+    """One building's metadata in a bulk portfolio import.
+
+    A light subset of BuildingCreateRequest -- enough to create a building shell
+    a portfolio manager (Hausverwaltung) can refine + add a baseline to later.
+    The 'meters' module is auto-enabled on each created building.
+    """
+
+    name: str = Field(min_length=1, max_length=255)
+    building_type: BuildingType | None = None
+    city: str | None = Field(default=None, max_length=100)
+    country_code: str | None = Field(default=None, min_length=2, max_length=2)
+    floor_area_m2: float | None = Field(default=None, ge=0)
+    construction_year: int | None = Field(default=None, ge=1800, le=2100)
+    epc_class: EpcClass | None = None
+    heating_system: str | None = Field(default=None, max_length=40)
+
+
+class BulkImportRequest(BaseModel):
+    """Payload for POST /buildings/bulk (max 200 rows per call)."""
+
+    rows: list[BulkBuildingRow] = Field(min_length=1, max_length=200)
+
+
+class BulkImportRowResult(BaseModel):
+    """Per-row outcome so the UI can show exactly which rows imported."""
+
+    index: int
+    name: str
+    ok: bool
+    id: UUID | None = None
+    error: str | None = None
+
+
+class BulkImportResponse(BaseModel):
+    created: int
+    failed: int
+    results: list[BulkImportRowResult]

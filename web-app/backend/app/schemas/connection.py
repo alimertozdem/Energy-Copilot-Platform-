@@ -117,3 +117,29 @@ class DeviceTemplate(BaseModel):
 class DeviceTemplateListResponse(BaseModel):
     templates: list[DeviceTemplate]
     sensor_types: list[SensorTypeOption]
+
+
+# --- pipeline verification (test telemetry + recent landed readings) -------
+
+
+class TestTelemetryResponse(BaseModel):
+    """Result of POST /buildings/{id}/test-telemetry."""
+
+    accepted: int
+    building_id: str
+
+
+class RecentReadingRow(BaseModel):
+    """One landed bronze reading, for the /connections verification panel."""
+
+    sensor_type: str
+    reading_value: float | None
+    reading_unit: str | None
+    sensor_location: str | None
+    source_protocol: str | None
+    received_at: datetime
+    simulated: bool
+
+
+class RecentReadingsResponse(BaseModel):
+    readings: list[RecentReadingRow]
