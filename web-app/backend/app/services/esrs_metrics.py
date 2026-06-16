@@ -117,7 +117,7 @@ def _fetch(reader, ghg_t, bldg_t, kpi_t, year_expr, building_ids):
 # Source priority: Postgres-materialized mv_ tables first (reachable from Azure,
 # fast); Fabric SQL fallback (local dev). On Azure Fabric is unreachable, so a
 # pyodbc failure is caught and the report cleanly degrades to "no data".
-_PG_TABLES = ("mv_ghg_scope", "mv_building_master", "mv_kpi_daily", "EXTRACT(YEAR FROM date)::int")
+_PG_TABLES = ("mv_ghg_scope", "mv_building_master", "mv_kpi_daily", "EXTRACT(YEAR FROM date::date)::int")
 _FABRIC_TABLES = ("[dbo].[gold_ghg_scope]", "[dbo].[silver_building_master]", "[dbo].[gold_kpi_daily]", "YEAR([date])")
 
 
