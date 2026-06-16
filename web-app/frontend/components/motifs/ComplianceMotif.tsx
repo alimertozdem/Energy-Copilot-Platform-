@@ -29,7 +29,7 @@ export function ComplianceMotif({
   return (
     <div
       className={cn("pointer-events-none select-none", className)}
-      style={{ opacity, ["--cm-accent" as string]: accent } as CSSProperties}
+      style={{ opacity, "--cm-accent": accent } as CSSProperties}
       aria-hidden
     >
       <svg

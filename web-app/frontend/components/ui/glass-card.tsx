@@ -46,7 +46,7 @@ export function GlassCard({
       )}
       style={
         accent
-          ? ({ ...style, ["--gc-accent" as string]: accent } as React.CSSProperties)
+          ? ({ ...style, "--gc-accent": accent } as React.CSSProperties)
           : style
       }
       {...rest}
