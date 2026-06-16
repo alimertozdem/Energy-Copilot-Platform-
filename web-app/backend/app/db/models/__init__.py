@@ -16,6 +16,8 @@ from app.db.models.audit import AuditLog
 from app.db.models.partner import PartnerClientLink
 from app.db.models.connection import Device, SensorPoint
 from app.db.models.agent import AgentToken
+from app.db.models.iot_reading import IotReading
+from app.db.models.gold_solar_daily import GoldSolarDaily
 from app.db.models.bridge import BridgeRequest
 from app.db.models.pilot import PilotRequest
 from app.db.models.installer import InstallerRequest
@@ -44,6 +46,8 @@ __all__ = [
     "Device",
     "SensorPoint",
     "AgentToken",
+    "IotReading",
+    "GoldSolarDaily",
     "BridgeRequest",
     "PilotRequest",
     "InstallerRequest",

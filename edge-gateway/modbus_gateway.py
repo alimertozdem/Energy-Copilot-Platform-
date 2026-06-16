@@ -182,11 +182,17 @@ def build_run_args(cfg: dict) -> dict:
         eh_conn = os.environ.get(sink_cfg["connection_env"], "")
     else:
         eh_conn = sink_cfg.get("connection", "")
+    if sink_cfg.get("token_env"):
+        ingest_token = os.environ.get(sink_cfg["token_env"], "")
+    else:
+        ingest_token = sink_cfg.get("token", "")
     return {
         "devices": norm_devices,
         "sink_type": sink_cfg.get("type", "stub"),
         "eh_name": sink_cfg.get("eventhub_name", ""),
         "eh_conn": eh_conn,
+        "ingest_url": sink_cfg.get("ingest_url", ""),
+        "ingest_token": ingest_token,
         "batch": int(cfg.get("batch", 0) or 0),
         "max_retries": int(cfg.get("max_retries", 0) or 0),
         "poll_seconds": int(cfg.get("poll_seconds", 5) or 5),
@@ -271,8 +277,16 @@ class RealModbusClient:
             raise ConnectionError(f"Modbus connect failed: {self.host}:{self.port}")
 
     def read_register(self, register: int, unit_id: int):
-        # pymodbus 3.x: read_holding_registers(address, count=1, slave=unit_id)
-        rr = self._client.read_holding_registers(register, count=1, slave=unit_id)
+        # pymodbus renamed slave -> device_id in 3.13; support both (+ older 'unit').
+        rr = None
+        for _kw in ("device_id", "slave", "unit"):
+            try:
+                rr = self._client.read_holding_registers(register, count=1, **{_kw: unit_id})
+                break
+            except TypeError:
+                continue
+        if rr is None:
+            rr = self._client.read_holding_registers(register, count=1)
         if rr is None or rr.isError() or not getattr(rr, "registers", None):
             return None
         return rr.registers[0]
@@ -464,8 +478,9 @@ def parse_register_specs(specs: list, building_id: str = "") -> list:
 # -----------------------------------------------------------------------------
 # CLI
 # -----------------------------------------------------------------------------
-def _run(devices, sink_type, eh_conn, eh_name, batch, seconds, interval, max_retries, mock):
-    sink = make_sink(sink_type, eh_conn, eh_name, batch)
+def _run(devices, sink_type, eh_conn, eh_name, batch, seconds, interval, max_retries, mock,
+         ingest_url="", agent_token=""):
+    sink = make_sink(sink_type, eh_conn, eh_name, batch, ingest_url=ingest_url, agent_token=agent_token)
     npoints = sum(len(d["points"]) for d in devices)
     logger.info("MODBUS - %d device(s), %d point(s), sink=%s, batch=%d, every %ds%s",
                 len(devices), npoints, sink.name, batch, interval, " (mock)" if mock else "")
@@ -490,7 +505,7 @@ def main():
     p.add_argument("--building-id", default="", help="building_id tag for --connect points")
     p.add_argument("--seconds", type=int, default=6, help="run duration; 0 = until stopped")
     p.add_argument("--interval", type=int, default=5, help="poll interval seconds")
-    p.add_argument("--sink", choices=["stub", "eventhub"], default="stub")
+    p.add_argument("--sink", choices=["stub", "eventhub", "http", "tee"], default="stub")
     p.add_argument("--batch", type=int, default=0, help="buffer N events per send (0 = no batching)")
     p.add_argument("--eh-conn", default="", help="Event Hub connection string")
     p.add_argument("--eh-name", default="", help="Event Hub name")
@@ -523,7 +538,8 @@ def main():
     if a.config:
         ra = build_run_args(load_config(a.config))
         _run(ra["devices"], ra["sink_type"], ra["eh_conn"], ra["eh_name"], ra["batch"],
-             a.seconds, ra["poll_seconds"], ra["max_retries"], mock=False)
+             a.seconds, ra["poll_seconds"], ra["max_retries"], mock=False,
+             ingest_url=ra.get("ingest_url", ""), agent_token=ra.get("ingest_token", ""))
         return
 
     if a.connect:

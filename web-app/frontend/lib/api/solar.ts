@@ -18,8 +18,14 @@ export type SolarSummary = {
   avg_performance_ratio: number | null
   self_consumption_rate: number
   specific_yield_kwh_kwp: number | null
+  specific_yield_annualized: boolean | null
   pv_capacity_kwp: number
   days: number
+  data_basis: string
+  real_building_count: number
+  simulated_building_count: number
+  self_consumption_available: boolean
+  self_consumption_coverage_pct: number | null
 }
 
 export type SolarDetailResponse = {

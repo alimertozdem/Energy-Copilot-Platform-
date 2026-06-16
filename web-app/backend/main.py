@@ -39,6 +39,7 @@ from app.routers import installer as installer_router
 from app.routers import residential as residential_router
 from app.routers import connections as connections_router
 from app.routers import agent as agent_router
+from app.routers import ingest as ingest_router
 from app.routers import abatement as abatement_router
 from app.routers import pilot as pilot_router
 
@@ -179,6 +180,7 @@ app.include_router(residence_router.router)
 app.include_router(residential_router.router)
 app.include_router(connections_router.router)
 app.include_router(agent_router.router)
+app.include_router(ingest_router.router)
 app.include_router(abatement_router.router)
 app.include_router(pilot_router.router)
 app.include_router(installer_router.router)

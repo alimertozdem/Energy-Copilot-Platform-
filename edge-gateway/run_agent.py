@@ -182,7 +182,8 @@ def main():
     p.add_argument("--agent-token", default="", help="building-scoped agent token (or AGENT_TOKEN)")
     p.add_argument("--building", default="", help="building UUID (optional)")
     p.add_argument("--seconds", type=int, default=6, help="run duration; 0 = until stopped")
-    p.add_argument("--sink", choices=["stub", "eventhub"], default="stub")
+    p.add_argument("--sink", choices=["stub", "eventhub", "http", "tee"], default="stub")
+    p.add_argument("--ingest-url", default="", help="explicit /ingest/telemetry URL (else derived from --platform)")
     p.add_argument("--batch", type=int, default=0)
     p.add_argument("--eh-conn", default="")
     p.add_argument("--eh-name", default="")
@@ -208,7 +209,9 @@ def main():
         if not plan:
             raise SystemExit("no runnable devices in the platform config")
         device_ids = collect_device_ids(plan)
-        sink = make_sink(a.sink, a.eh_conn, a.eh_name, a.batch)
+        ingest_url = a.ingest_url or (a.platform.rstrip("/") + "/ingest/telemetry")
+        sink = make_sink(a.sink, a.eh_conn, a.eh_name, a.batch,
+                         ingest_url=ingest_url, agent_token=token)
         heartbeat = {"base_url": a.platform, "token": token, "device_ids": device_ids,
                      "interval": _HEARTBEAT_INTERVAL}
         logger.info("AGENT - building %s: running %s (%d device(s) heartbeated)",

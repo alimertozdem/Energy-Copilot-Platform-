@@ -126,6 +126,40 @@ class EventHubSink:
             pass
 
 
+class HttpIngestSink:
+    """Phase A sink: POST normalized events to the platform /ingest/telemetry in
+    micro-batches (stdlib urllib; no extra dependency). Auth + building scope come
+    from the building-scoped agent token. This is the Event-Hub-free path that
+    needs NO always-on Fabric/streaming capacity (see ADR-001)."""
+    name = "http"
+
+    def __init__(self, ingest_url: str, agent_token: str, timeout: int = 15):
+        if not ingest_url:
+            raise ValueError("HttpIngestSink needs an ingest_url")
+        self._url = ingest_url
+        self._token = agent_token
+        self._timeout = timeout
+
+    def send(self, event: dict):
+        self.send_batch([event])
+
+    def send_batch(self, events: list):
+        if not events:
+            return
+        import urllib.request
+        body = json.dumps({"readings": events}, ensure_ascii=False, default=str).encode("utf-8")
+        req = urllib.request.Request(
+            self._url, data=body, method="POST",
+            headers={"X-Agent-Token": self._token, "Content-Type": "application/json",
+                     "Accept": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=self._timeout) as r:  # noqa: S310 (trusted platform URL)
+            r.read()
+
+    def close(self):
+        pass
+
+
 class BufferedSink:
     """Wrap a target sink; accumulate events and flush in batches (count-based +
     explicit flush()/close()). Cuts Event Hub round-trips under load. The async
@@ -155,8 +189,45 @@ class BufferedSink:
         self.target.close()
 
 
-def make_sink(target: str, eh_conn: str = "", eh_name: str = "", batch: int = 0):
-    base = EventHubSink(eh_conn, eh_name) if target == "eventhub" else StubSink()
+class MultiSink:
+    """Fan one event stream out to several sinks (Phase B activation: stream to
+    Event Hub for real-time AND keep the EUR0 batch landing so Postgres/gold +
+    /solar keep working). Mirrors the sink contract (send/send_batch/close)."""
+
+    def __init__(self, sinks: list):
+        self._sinks = [s for s in sinks if s is not None]
+
+    @property
+    def name(self):
+        return "multi(" + "+".join(s.name for s in self._sinks) + ")"
+
+    def send(self, event: dict):
+        for s in self._sinks:
+            s.send(event)
+
+    def send_batch(self, events: list):
+        for s in self._sinks:
+            s.send_batch(events)
+
+    def close(self):
+        for s in self._sinks:
+            try:
+                s.close()
+            except Exception:
+                pass
+
+
+def make_sink(target: str, eh_conn: str = "", eh_name: str = "", batch: int = 0,
+              ingest_url: str = "", agent_token: str = ""):
+    if target == "http":
+        base = HttpIngestSink(ingest_url, agent_token)
+    elif target == "eventhub":
+        base = EventHubSink(eh_conn, eh_name)
+    elif target == "tee":
+        # Phase B: real-time Event Hub stream + EUR0 batch landing, simultaneously.
+        base = MultiSink([HttpIngestSink(ingest_url, agent_token), EventHubSink(eh_conn, eh_name)])
+    else:
+        base = StubSink()
     if batch and batch > 1:
         return BufferedSink(base, max_batch=batch)
     return base

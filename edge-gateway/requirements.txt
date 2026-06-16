@@ -2,7 +2,7 @@
 # --selftest / --sim need NONE of these (pure-Python adapter pipeline + mock).
 # REST uses only the stdlib (urllib) for its HTTP GET — no entry below.
 asyncua>=1.0            # OPC-UA client + server (IEC 62541) — opcua --sim / --connect
-pymodbus>=3.0           # Modbus TCP client (IEC 61158) — modbus --connect / --config / --platform
+pymodbus>=3.6,<3.7      # Modbus TCP (IEC 61158). PIN: 3.8+ rewrote the datastore (SimData) + dropped ModbusSlaveContext -> breaks the sim. modbus --connect/--config/--platform
 BAC0>=23.0              # BACnet/IP client (ASHRAE 135) — bacnet --connect / --config / --platform
 paho-mqtt>=2.0          # MQTT 5.0 client (ISO/IEC 20922) — mqtt --connect / --config / --platform
 azure-eventhub>=5.11    # production sink — only for --sink eventhub

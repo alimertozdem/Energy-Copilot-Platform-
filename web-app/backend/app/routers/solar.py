@@ -29,5 +29,5 @@ def get_solar_detail(
     fabric_ids = [b.fabric_building_id for b in buildings if b.fabric_building_id]
     return sample_fallback.serve(
         "solar_detail", SolarDetailResponse, fabric_ids,
-        lambda: solar_detail.get_solar_detail(fabric_ids),
+        lambda: solar_detail.get_solar_detail(fabric_ids, db),
     )

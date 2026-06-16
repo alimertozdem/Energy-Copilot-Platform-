@@ -1,0 +1,74 @@
+{
+  "_comment": "Phase A €0 ingest path: same inverter, sink=http -> POST /ingest/telemetry. The agent token comes from env AGENT_TOKEN (token_env), never inline. ingest_url = your backend base + /ingest/telemetry.",
+  "poll_seconds": 300,
+  "batch": 50,
+  "sink": {
+    "type": "http",
+    "ingest_url": "https://api.energylens.app/ingest/telemetry",
+    "token_env": "AGENT_TOKEN"
+  },
+  "devices": [
+    {
+      "name": "PV Inverter 1",
+      "host": "192.168.1.60",
+      "port": 502,
+      "unit_id": 1,
+      "points": [
+        {
+          "register": 1,
+          "sensor_type": "pv_ac_power",
+          "unit": "kW",
+          "scale": 0.1,
+          "building_id": "B007",
+          "device_id": "B007_INV1",
+          "zone": "Roof PV"
+        },
+        {
+          "register": 2,
+          "sensor_type": "pv_energy_today_kwh",
+          "unit": "kWh",
+          "scale": 1.0,
+          "building_id": "B007",
+          "device_id": "B007_INV1",
+          "zone": "Roof PV"
+        },
+        {
+          "register": 3,
+          "sensor_type": "pv_dc_power",
+          "unit": "kW",
+          "scale": 0.1,
+          "building_id": "B007",
+          "device_id": "B007_INV1",
+          "zone": "Roof PV"
+        },
+        {
+          "register": 4,
+          "sensor_type": "inverter_temp",
+          "unit": "degC",
+          "scale": 1.0,
+          "building_id": "B007",
+          "device_id": "B007_INV1",
+          "zone": "Roof PV"
+        },
+        {
+          "register": 5,
+          "sensor_type": "irradiance",
+          "unit": "W/m2",
+          "scale": 1.0,
+          "building_id": "B007",
+          "device_id": "B007_INV1",
+          "zone": "Roof PV"
+        },
+        {
+          "register": 6,
+          "sensor_type": "building_power",
+          "unit": "kW",
+          "scale": 0.1,
+          "building_id": "B007",
+          "device_id": "B007_INV1",
+          "zone": "Main meter"
+        }
+      ]
+    }
+  ]
+}

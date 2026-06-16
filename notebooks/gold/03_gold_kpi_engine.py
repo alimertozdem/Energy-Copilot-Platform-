@@ -107,6 +107,7 @@ print(f"   broadcastJoinThreshold = 10 MB")
 
 # Anomali eşikleri (production'da veritabanından/config'den gelir)
 MIN_IRRADIANCE_WM2  = 50.0   # Bu değerin altında PR hesaplanmaz (gece/gölge)
+PR_MAX_PLAUSIBLE   = 1.1    # PR üst sınırı; üstü düşük-güneş numerik artefaktı (IEC 61724 -> clamp)
 MIN_PR_THRESHOLD    = 0.65   # Bu altı = solar panel sorunu (soiling, arıza)
 SOC_MIN_THRESHOLD   = 10.0   # % — batarya over-discharge eşiği
 SOC_MAX_THRESHOLD   = 98.0   # % — batarya over-charge eşiği
@@ -422,7 +423,15 @@ df_gold_hourly = (
                 (col("avg_irradiance_wm2") > MIN_IRRADIANCE_WM2) &
                 (col("pv_capacity_kwp") > 0) &
                 (col("irradiance_kwh_per_m2") > 0),
-                col("solar_generated_kwh") / (col("pv_capacity_kwp") * col("irradiance_kwh_per_m2"))
+                # IEC 61724 PR, capped at PR_MAX_PLAUSIBLE. A PR above ~1.1 is a
+                # low-sun numerical artifact (tiny irradiance denominator), not real
+                # over-performance; cap it so it cannot inflate the daily mean.
+                when(
+                    col("solar_generated_kwh") / (col("pv_capacity_kwp") * col("irradiance_kwh_per_m2")) > PR_MAX_PLAUSIBLE,
+                    lit(PR_MAX_PLAUSIBLE),
+                ).otherwise(
+                    col("solar_generated_kwh") / (col("pv_capacity_kwp") * col("irradiance_kwh_per_m2"))
+                )
             ).otherwise(lit(None)), 4)
     )
 

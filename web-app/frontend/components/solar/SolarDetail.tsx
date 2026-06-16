@@ -3,7 +3,7 @@
  * Custom SVG charts (no chart lib): a generation-trend area + a
  * self-consumed-vs-total area. Summary stats above.
  */
-import type { SolarDetailResponse, SolarSeriesPoint } from "@/lib/api/solar"
+import type { SolarDetailResponse, SolarSeriesPoint, SolarSummary } from "@/lib/api/solar"
 import { InfoTip } from "@/components/ui/info-tip"
 import type { TermKey } from "@/lib/glossary"
 
@@ -32,14 +32,26 @@ export function SolarDetail({ data }: { data: SolarDetailResponse }) {
 
   return (
     <div className="space-y-6">
+      <DataBasisBadge summary={s} />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat label="Generated" value={`${fmt(s.total_generated_kwh)} kWh`} sub={`last ${s.days} days`} />
-        <Stat label="Self-consumption" term="self_consumption" value={`${fmt(s.self_consumption_rate, 1)} %`} sub="of generation used on-site" />
+        <Stat
+          label="Self-consumption"
+          term="self_consumption"
+          value={s.self_consumption_available ? `${fmt(s.self_consumption_rate, 1)} %` : "—"}
+          sub={
+            !s.self_consumption_available
+              ? "needs a load meter"
+              : s.self_consumption_coverage_pct != null && s.self_consumption_coverage_pct < 99.5
+                ? `of generation · ${fmt(s.self_consumption_coverage_pct, 0)}% metered`
+                : "of generation used on-site"
+          }
+        />
         <Stat
           label="Specific yield"
           term="specific_yield"
           value={s.specific_yield_kwh_kwp != null ? `${fmt(s.specific_yield_kwh_kwp)} kWh/kWp` : "—"}
-          sub="annualized"
+          sub={s.specific_yield_annualized ? "annualized" : `last ${s.days} days · not annualized`}
         />
         <Stat
           label="Avg performance"
@@ -68,6 +80,25 @@ export function SolarDetail({ data }: { data: SolarDetailResponse }) {
           <Legend color={AMBER} label="Total generated (rest = exported)" />
         </div>
       </ChartCard>
+    </div>
+  )
+}
+
+function DataBasisBadge({ summary }: { summary: SolarSummary }) {
+  const live = summary.real_building_count
+  const sim = summary.simulated_building_count
+  let cfg = { dot: "#6B7280", label: "Sample data — connect an inverter for live readings" }
+  if (summary.data_basis === "telemetry") {
+    cfg = { dot: EMERALD, label: `Live telemetry · ${live} building${live === 1 ? "" : "s"}` }
+  } else if (summary.data_basis === "simulated") {
+    cfg = { dot: "#3B82F6", label: `Simulated demo feed · ${sim} building${sim === 1 ? "" : "s"} — not a real device` }
+  } else if (summary.data_basis === "mixed") {
+    cfg = { dot: AMBER, label: `Mixed feed · ${live} live, ${sim} demo, rest sample` }
+  }
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-bg-elevated/40 px-3 py-1 text-xs text-text-muted">
+      <span className="size-2 rounded-full" style={{ backgroundColor: cfg.dot }} />
+      {cfg.label}
     </div>
   )
 }

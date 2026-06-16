@@ -16,6 +16,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BACKEND_DIR))   # so `python scripts/x.py` finds the app package
 load_dotenv(BACKEND_DIR / ".env", override=True)
 
 from app.db.database import SessionLocal            # noqa: E402
@@ -58,7 +59,7 @@ def main() -> int:
 
         cap("portfolio_kpis", lambda: portfolio_metrics.get_portfolio_kpis(fabric_ids))
         cap("portfolio_buildings", lambda: portfolio_metrics.get_portfolio_buildings(fabric_ids))
-        cap("solar_detail", lambda: solar_detail.get_solar_detail(fabric_ids))
+        cap("solar_detail", lambda: solar_detail.get_solar_detail(fabric_ids, db))
         cap("actions", lambda: actions_data.get_actions_for_user(
             db, user_id=user.id, status_filter=None, building_id=None,
             category=None, limit=500))

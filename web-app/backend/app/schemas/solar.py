@@ -24,10 +24,23 @@ class SolarSummary(BaseModel):
     avg_performance_ratio: float | None
     # self_consumed / generated (%) -- how much of generation was used on-site
     self_consumption_rate: float
-    # Annualized specific yield = (generated / pv_capacity) scaled to a year
+    # Specific yield = generated / installed kWp. Annualized only over a ~full
+    # year (see specific_yield_annualized); shorter windows are window-as-is.
     specific_yield_kwh_kwp: float | None
+    # True when the yield was scaled to a full year; False/None = raw window
+    # yield, so the UI can label it honestly.
+    specific_yield_annualized: bool | None = None
     pv_capacity_kwp: float
     days: int
+    # data provenance (honesty layer): "telemetry" (all real), "sample" (all
+    # synthetic), or "mixed".
+    data_basis: str = "sample"
+    real_building_count: int = 0
+    simulated_building_count: int = 0
+    # self-consumption is only known for metered buildings; coverage = how much of
+    # total generation that represents (None/unavailable when inverter-only).
+    self_consumption_available: bool = True
+    self_consumption_coverage_pct: float | None = None
 
 
 class SolarDetailResponse(BaseModel):

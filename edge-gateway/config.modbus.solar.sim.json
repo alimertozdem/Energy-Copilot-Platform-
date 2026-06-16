@@ -1,0 +1,72 @@
+{
+  "_comment": "Dry-run config for sim_modbus_inverter.py (stub sink: logs normalized events). Registers/scales match the simulator. Switch sink to http for the €0 ingest path (see config.modbus.solar.http.example.json).",
+  "poll_seconds": 2,
+  "batch": 0,
+  "sink": {
+    "type": "stub"
+  },
+  "devices": [
+    {
+      "name": "PV Inverter Sim",
+      "host": "127.0.0.1",
+      "port": 15020,
+      "unit_id": 1,
+      "points": [
+        {
+          "register": 1,
+          "sensor_type": "pv_ac_power",
+          "unit": "kW",
+          "scale": 0.1,
+          "building_id": "B007",
+          "device_id": "B007_INV1",
+          "zone": "Roof PV"
+        },
+        {
+          "register": 2,
+          "sensor_type": "pv_energy_today_kwh",
+          "unit": "kWh",
+          "scale": 1.0,
+          "building_id": "B007",
+          "device_id": "B007_INV1",
+          "zone": "Roof PV"
+        },
+        {
+          "register": 3,
+          "sensor_type": "pv_dc_power",
+          "unit": "kW",
+          "scale": 0.1,
+          "building_id": "B007",
+          "device_id": "B007_INV1",
+          "zone": "Roof PV"
+        },
+        {
+          "register": 4,
+          "sensor_type": "inverter_temp",
+          "unit": "degC",
+          "scale": 1.0,
+          "building_id": "B007",
+          "device_id": "B007_INV1",
+          "zone": "Roof PV"
+        },
+        {
+          "register": 5,
+          "sensor_type": "irradiance",
+          "unit": "W/m2",
+          "scale": 1.0,
+          "building_id": "B007",
+          "device_id": "B007_INV1",
+          "zone": "Roof PV"
+        },
+        {
+          "register": 6,
+          "sensor_type": "building_power",
+          "unit": "kW",
+          "scale": 0.1,
+          "building_id": "B007",
+          "device_id": "B007_INV1",
+          "zone": "Main meter"
+        }
+      ]
+    }
+  ]
+}
