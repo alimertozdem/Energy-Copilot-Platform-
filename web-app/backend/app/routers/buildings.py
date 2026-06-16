@@ -524,6 +524,47 @@ def get_building_comfort(
     return ComfortResponse(**comfort_service.assess_comfort(db, building, hours))
 
 
+def _ocr_bill(raw: bytes, *, is_pdf: bool) -> str:
+    """OCR a scanned bill (PDF pages rasterised, or a photo) to text. Lazy imports
+    so the app runs without the OCR stack; 503 if the Tesseract binary is absent."""
+    import io
+
+    try:
+        import pytesseract
+        from PIL import Image
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OCR isn't available on the server (install pytesseract + Tesseract).",
+        )
+    lang = "deu+eng+tur"
+    try:
+        if is_pdf:
+            import pypdfium2 as pdfium
+
+            pdf = pdfium.PdfDocument(raw)
+            pages = [
+                pytesseract.image_to_string(
+                    pdf[i].render(scale=2.0).to_pil(), lang=lang
+                )
+                for i in range(min(len(pdf), 12))
+            ]
+            return "\n".join(pages)
+        return pytesseract.image_to_string(Image.open(io.BytesIO(raw)), lang=lang)
+    except pytesseract.TesseractNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OCR engine (Tesseract) is not installed on the server.",
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Could not OCR the file: {str(exc)[:120]}",
+        )
+
+
 @router.post("/{building_id}/consumption/parse-pdf", response_model=ParsedBillResponse)
 def parse_consumption_pdf(
     building_id: UUID,
@@ -531,12 +572,12 @@ def parse_consumption_pdf(
     user_id: Annotated[UUID, Depends(get_current_user_id)],
     db: Annotated[Session, Depends(get_db)],
 ) -> ParsedBillResponse:
-    """Extract CANDIDATE monthly rows from a digital PDF bill (base64 in JSON).
+    """Extract CANDIDATE monthly rows from a utility bill (base64 in JSON).
 
-    Best-effort: the user reviews the extracted rows in the UI and then saves
-    them via POST /consumption — this endpoint never persists anything. Digital
-    PDFs only (selectable text); scans/photos would need OCR (a later add-on).
-    pdfplumber is imported lazily so the app runs without it (503 if absent).
+    Accepts a DIGITAL PDF (selectable text -> pdfplumber), a SCANNED PDF (no text
+    layer -> rasterise + Tesseract OCR), or a photo (JPEG/PNG -> OCR). The user
+    reviews the extracted rows before saving; this endpoint never persists.
+    pdfplumber / pytesseract are imported lazily (503 if the OCR binary is absent).
     """
     import base64
     import io
@@ -546,33 +587,51 @@ def parse_consumption_pdf(
         raw = base64.b64decode(body.pdf_base64)
     except Exception:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid base64 PDF payload"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid base64 payload"
         )
     if len(raw) > 8 * 1024 * 1024:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="PDF too large (max 8 MB).",
+            detail="File too large (max 8 MB).",
         )
-    try:
-        import pdfplumber
-    except ImportError:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="PDF parsing isn't available on the server (install pdfplumber).",
-        )
+
+    is_pdf = raw[:5] == b"%PDF-"
+    is_image = raw[:3] == b"\xff\xd8\xff" or raw[:8] == b"\x89PNG\r\n\x1a\n"
+
     text_parts: list[str] = []
     tables: list = []
-    try:
-        with pdfplumber.open(io.BytesIO(raw)) as pdf:
-            for page in pdf.pages[:24]:  # cap pages for safety
-                text_parts.append(page.extract_text() or "")
-                for tbl in page.extract_tables() or []:
-                    tables.append(tbl)
-    except Exception as exc:
+
+    if is_pdf:
+        try:
+            import pdfplumber
+        except ImportError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="PDF parsing isn't available on the server (install pdfplumber).",
+            )
+        try:
+            with pdfplumber.open(io.BytesIO(raw)) as pdf:
+                for page in pdf.pages[:24]:
+                    text_parts.append(page.extract_text() or "")
+                    for tbl in page.extract_tables() or []:
+                        tables.append(tbl)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Could not read the PDF: {str(exc)[:120]}",
+            )
+        # Scanned PDF (no text layer) -> OCR fallback.
+        if len("".join(text_parts).strip()) < 20:
+            text_parts = [_ocr_bill(raw, is_pdf=True)]
+            tables = []
+    elif is_image:
+        text_parts = [_ocr_bill(raw, is_pdf=False)]
+    else:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Could not read the PDF: {str(exc)[:120]}",
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Upload a PDF or an image (JPEG/PNG) of the bill.",
         )
+
     result = bill_parser.parse_bill(text="\n".join(text_parts), tables=tables)
     return ParsedBillResponse(**result)
 

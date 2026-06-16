@@ -44,3 +44,6 @@ tzdata==2026.2
 urllib3==2.7.0
 uvicorn==0.45.0
 stripe==14.0.0
+pytesseract>=0.3.10,<0.4
+pypdfium2>=4,<5
+Pillow>=10,<12

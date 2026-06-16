@@ -69,8 +69,11 @@ export function ConsumptionUploadModal({
     setRows([])
     setParseErrors([])
 
-    const isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf"
-    if (isPdf) {
+    const isBill =
+      /\.(pdf|jpe?g|png)$/i.test(file.name) ||
+      file.type === "application/pdf" ||
+      file.type.startsWith("image/")
+    if (isBill) {
       if (!buildingId) {
         setError("Pick a building first.")
         return
@@ -217,12 +220,12 @@ export function ConsumptionUploadModal({
                   className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border-faint bg-white/[0.02] px-4 py-5 text-sm text-text-muted transition-colors hover:border-brand-emerald/50"
                 >
                   <FileSpreadsheet className="h-5 w-5 shrink-0 text-brand-emerald" aria-hidden />
-                  <span>{fileName ? fileName : "Choose a .csv or .pdf file…"}</span>
+                  <span>{fileName ? fileName : "Choose a CSV, PDF, or photo of a bill…"}</span>
                 </label>
                 <input
                   id="cu-file"
                   type="file"
-                  accept=".csv,.txt,.pdf,text/csv,application/pdf"
+                  accept=".csv,.txt,.pdf,.jpg,.jpeg,.png,text/csv,application/pdf,image/jpeg,image/png"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0]
