@@ -6,9 +6,10 @@
  * artifact) shows the realistic combined outcome — not additive single rows.
  */
 import Link from "next/link"
-import { Flame, Snowflake, Square, TrendingDown } from "lucide-react"
+import { Flame, Snowflake, Square, TrendingDown, CalendarClock, AlertTriangle } from "lucide-react"
 
 import type { HeatingAssessment, HeatingMeasure } from "@/lib/api/heating"
+import { strandingYearForIntensity, type StrandingStatus } from "@/lib/crrem"
 
 function fmtEnergy(kwh: number): string {
   if (kwh >= 1_000_000) return `${(kwh / 1_000_000).toFixed(1)} GWh`
@@ -20,6 +21,12 @@ function eur(n: number): string {
 }
 function tco2(kg: number): string {
   return `${(kg / 1000).toFixed(1)} t`
+}
+function strandLabel(strandingYear: number | null, status: StrandingStatus): string {
+  if (status === "unknown") return "—"
+  if (status === "stranded_now") return "Stranded now"
+  if (status === "on_track") return "On track to 2050"
+  return `Strands ${strandingYear}`
 }
 
 const EL_LABEL: Record<string, string> = { wall: "Walls", roof: "Roof", window: "Windows" }
@@ -65,6 +72,14 @@ export function HeatingAssessmentView({ data, buildingId }: { data: HeatingAsses
   const full = pkg?.full ?? null
   const steps = pkg?.steps ?? []
   const hasBand = d.heating_kwh_low != null && d.heating_kwh_high != null
+  const c = data.carbon
+  const reg = data.regulation
+  const strandNow = c ? strandingYearForIntensity(c.building_type, c.total_co2_intensity_kg_m2) : null
+  const strandAfter = c ? strandingYearForIntensity(c.building_type, c.total_co2_intensity_after_kg_m2) : null
+  const delay =
+    strandNow?.strandingYear != null && strandAfter?.strandingYear != null
+      ? strandAfter.strandingYear - strandNow.strandingYear
+      : null
 
   return (
     <div className="space-y-6">
@@ -230,6 +245,64 @@ export function HeatingAssessmentView({ data, buildingId }: { data: HeatingAsses
             </Link>
           </p>
         </section>
+      )}
+
+      {c && c.total_co2_intensity_kg_m2 != null && strandNow && strandAfter && (
+        <section>
+          <div className="mb-2 flex items-center gap-2">
+            <CalendarClock className="h-4 w-4 text-amber-300" aria-hidden />
+            <h2 className="text-sm font-semibold text-text-primary">Stranding risk — CRREM 1.5&deg;C</h2>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-red-400/20 bg-red-400/5 p-4">
+              <div className="text-[11px] uppercase tracking-wide text-text-faint">Do nothing</div>
+              <div className="mt-1 text-2xl font-semibold tabular-nums text-text-primary">
+                {strandLabel(strandNow.strandingYear, strandNow.status)}
+              </div>
+              <div className="mt-0.5 text-[11px] text-text-faint">{c.total_co2_intensity_kg_m2} kgCO&#8322;/m&sup2;&middot;yr today</div>
+            </div>
+            <div className="rounded-xl border border-brand-emerald/20 bg-brand-emerald/5 p-4">
+              <div className="text-[11px] uppercase tracking-wide text-text-faint">After full package</div>
+              <div className="mt-1 text-2xl font-semibold tabular-nums text-text-primary">
+                {strandLabel(strandAfter.strandingYear, strandAfter.status)}
+              </div>
+              <div className="mt-0.5 text-[11px] text-text-faint">
+                {c.total_co2_intensity_after_kg_m2} kgCO&#8322;/m&sup2;&middot;yr&nbsp;&middot;&nbsp;heating {c.heating_share_of_carbon_pct}% of carbon
+              </div>
+            </div>
+          </div>
+          {delay != null && delay > 0 && (
+            <p className="mt-2 text-xs text-brand-emerald">The package delays stranding by ~{delay} {delay === 1 ? "year" : "years"}.</p>
+          )}
+          <p className="mt-2 text-[11px] leading-relaxed text-text-faint">
+            Indicative 1.5&deg;C pathway (not the licensed CRREM dataset) vs the building&rsquo;s {c.basis}
+            {" "}whole-building carbon (heating + non-heating electricity). The package cuts heating carbon
+            only &mdash; for an electricity-heavy building, decarbonising power matters too.{" "}
+            <Link href="/compliance" className="text-brand-emerald hover:underline">Compliance &amp; CRREM</Link>
+          </p>
+        </section>
+      )}
+
+      {reg && reg.status !== "met" && (
+        <div
+          className={`rounded-lg border p-3 text-xs ${
+            reg.status === "applies"
+              ? "border-amber-400/30 bg-amber-400/5 text-amber-200"
+              : "border-border-subtle bg-white/[0.02] text-text-muted"
+          }`}
+        >
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            <div>
+              <span className="font-medium">
+                {reg.status === "applies"
+                  ? "GEG \u00a771 — 65% renewable on heating replacement"
+                  : "GEG \u00a771 — confirm the fuel"}
+              </span>
+              <div className="mt-0.5 leading-relaxed">{reg.note}</div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

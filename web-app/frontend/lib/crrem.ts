@@ -99,28 +99,37 @@ export function carbonIntensity(b: PortfolioBuildingRow): number | null {
   return (b.co2_30d_kg * ANNUALIZE) / b.floor_area_m2
 }
 
-export function assessStranding(b: PortfolioBuildingRow): StrandingResult {
-  const intensity = carbonIntensity(b)
-  if (intensity == null) {
-    return { building: b, intensity: null, strandingYear: null, status: "unknown" }
-  }
-  const type = b.building_type
-
+/**
+ * Stranding year + status for a raw annual carbon intensity (kgCO2/m2.yr) and a
+ * building type. Shared primitive: the portfolio path (assessStranding) and the
+ * building-level Heating & HVAC path both use it, so the curve logic lives once.
+ */
+export function strandingYearForIntensity(
+  type: string,
+  intensity: number | null
+): { strandingYear: number | null; status: StrandingStatus } {
+  if (intensity == null) return { strandingYear: null, status: "unknown" }
   // Already above the 2025 pathway -> stranded today.
   if (intensity > pathwayValue(type, PATHWAY_START_YEAR)) {
-    return { building: b, intensity, strandingYear: PATHWAY_START_YEAR, status: "stranded_now" }
+    return { strandingYear: PATHWAY_START_YEAR, status: "stranded_now" }
   }
   // At or below the 2050 endpoint -> aligned through the horizon.
   if (intensity <= pathwayValue(type, PATHWAY_END_YEAR)) {
-    return { building: b, intensity, strandingYear: null, status: "on_track" }
+    return { strandingYear: null, status: "on_track" }
   }
   // Otherwise find the first year the (flat) intensity exceeds the pathway.
   for (let y = PATHWAY_START_YEAR + 1; y <= PATHWAY_END_YEAR; y++) {
     if (pathwayValue(type, y) < intensity) {
-      return { building: b, intensity, strandingYear: y, status: "stranding" }
+      return { strandingYear: y, status: "stranding" }
     }
   }
-  return { building: b, intensity, strandingYear: null, status: "on_track" }
+  return { strandingYear: null, status: "on_track" }
+}
+
+export function assessStranding(b: PortfolioBuildingRow): StrandingResult {
+  const intensity = carbonIntensity(b)
+  const { strandingYear, status } = strandingYearForIntensity(b.building_type, intensity)
+  return { building: b, intensity, strandingYear, status }
 }
 
 export type StrandingSummary = {

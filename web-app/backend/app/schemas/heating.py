@@ -78,10 +78,27 @@ class HeatingPackage(BaseModel):
     full: PackageFull | None
 
 
+class HeatingCarbon(BaseModel):
+    building_type: str
+    total_co2_intensity_kg_m2: float | None
+    total_co2_intensity_after_kg_m2: float | None
+    heating_co2_kg: float
+    heating_share_of_carbon_pct: float | None
+    package_co2_saved_kg: float
+    basis: str  # measured | estimated | unknown
+
+
+class HeatingRegulation(BaseModel):
+    status: str  # applies | check_fuel | met
+    note: str
+
+
 class HeatingAssessmentResponse(BaseModel):
     demand: HeatingDemand
     supply: HeatingSupply
     envelope: list[EnvelopeElement]
     measures: list[HeatingMeasure]
     package: HeatingPackage
+    carbon: HeatingCarbon
+    regulation: HeatingRegulation
     assumptions: dict[str, str]

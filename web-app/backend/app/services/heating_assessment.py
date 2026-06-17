@@ -292,6 +292,41 @@ def assess(building, consumption_annual_kwh: float | None) -> dict:
         measures, thermal_demand_kwh, heating_kwh, area, heating_eui,
         price, factor, co2_price_kwh, _fuel_saved_from_thermal)
 
+    # --- CRREM carbon intensity (stranding year is derived on the FE from lib/crrem.ts) ---
+    # Whole-building operational carbon = heating fuel carbon + non-heating electricity
+    # (grid factor). The package reduces heating carbon only; non-heating is unchanged.
+    grid_factor = gf.emission_factor_kg_kwh
+    # Non-heating load = the non-heating SHARE of typical final energy (lighting, plug,
+    # cooling), independent of the heating system. Using (total - heating_kwh) would
+    # overstate it for a heat pump (small metered kWh) and understate the carbon benefit
+    # of the switch -- so we use total_kwh x (1 - heating share).
+    non_heat_kwh = max(0.0, total_kwh * (1.0 - sens))
+    non_heat_co2 = non_heat_kwh * grid_factor
+    total_co2 = heat_co2 + non_heat_co2
+    reduction_frac = (package["full"]["reduction_pct"] / 100.0) if package.get("full") else 0.0
+    heat_co2_after = heat_co2 * (1.0 - reduction_frac)
+    total_co2_after = heat_co2_after + non_heat_co2
+    carbon = {
+        "building_type": btype,
+        "total_co2_intensity_kg_m2": round(total_co2 / area, 1) if area else None,
+        "total_co2_intensity_after_kg_m2": round(total_co2_after / area, 1) if area else None,
+        "heating_co2_kg": round(heat_co2),
+        "heating_share_of_carbon_pct": round(100 * heat_co2 / total_co2) if total_co2 > 0 else None,
+        "package_co2_saved_kg": round(heat_co2 - heat_co2_after),
+        "basis": demand_basis,
+    }
+
+    # --- GEG section 71: 65%-renewable rule on heating replacement (decision forcing) ---
+    if gas:
+        geg = {"status": "applies",
+               "note": "Fossil heating: under GEG section 71, a boiler replacement must run on >=65% renewable energy (heat pump / district heat / biomass). Plan the switch with the replacement cycle, not after a breakdown."}
+    elif fuel_assumed:
+        geg = {"status": "check_fuel",
+               "note": "Fuel not confirmed. If the system is fossil, GEG section 71 requires >=65% renewable on replacement — set the building's heating system to confirm."}
+    else:
+        geg = {"status": "met",
+               "note": "Non-fossil / electric heating — the GEG section 71 65%-renewable rule is already met for replacements."}
+
     # strip internal helper keys
     for m in measures:
         m.pop("_thermal_useful", None)
@@ -322,6 +357,8 @@ def assess(building, consumption_annual_kwh: float | None) -> dict:
         "envelope": envelope,
         "measures": measures,
         "package": package,
+        "carbon": carbon,
+        "regulation": geg,
         "assumptions": {
             "method": "Transmission GROSS: dU x A x Gt x 24 / 1000 / eta (Gt=3500, eta=0.90); delivered = GROSS x gain-utilisation. Operational 7-11%. HP via JAZ 3.0.",
             "grade": "Screening-grade / indicative — a building audit replaces these before commitment.",

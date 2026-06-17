@@ -65,6 +65,21 @@ export type HeatingPackageFull = {
   eui_after: number | null
 }
 
+export type HeatingCarbon = {
+  building_type: string
+  total_co2_intensity_kg_m2: number | null
+  total_co2_intensity_after_kg_m2: number | null
+  heating_co2_kg: number
+  heating_share_of_carbon_pct: number | null
+  package_co2_saved_kg: number
+  basis: "measured" | "estimated" | "unknown"
+}
+
+export type HeatingRegulation = {
+  status: "applies" | "check_fuel" | "met"
+  note: string
+}
+
 export type HeatingAssessment = {
   demand: HeatingDemand
   supply: HeatingSupply
@@ -77,6 +92,8 @@ export type HeatingAssessment = {
     steps: HeatingPackageStep[]
     full: HeatingPackageFull | null
   }
+  carbon: HeatingCarbon
+  regulation: HeatingRegulation
   assumptions: Record<string, string>
 }
 
