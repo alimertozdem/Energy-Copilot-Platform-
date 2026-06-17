@@ -28,6 +28,7 @@ export const metadata: Metadata = {
 const CATEGORY_BLURB: Record<GlossaryCategory, string> = {
   Portfolio: "Building performance & monitoring",
   Solar: "On-site generation metrics",
+  HVAC: "Heating, retrofit & comfort",
   Financial: "Investment & returns",
   Strategy: "Decarbonization & climate risk",
   Compliance: "Regulatory standards & disclosure",
@@ -84,12 +85,30 @@ export default function GlossaryPage() {
           </p>
         </div>
 
-        <div className="mt-12 space-y-10">
+        {/* Category slicer — jump to a group. */}
+        <nav aria-label="Jump to category" className="mt-8 flex flex-wrap gap-2">
+          {GLOSSARY_CATEGORY_ORDER.map((cat) => {
+            const n = entries.filter((e) => e.category === cat).length
+            if (n === 0) return null
+            return (
+              <a
+                key={cat}
+                href={`#cat-${cat}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-bg-elevated/40 px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:border-brand-emerald/50 hover:text-brand-emerald"
+              >
+                {cat}
+                <span className="text-text-faint">{n}</span>
+              </a>
+            )
+          })}
+        </nav>
+
+        <div className="mt-10 space-y-10">
           {GLOSSARY_CATEGORY_ORDER.map((cat) => {
             const items = entries.filter((e) => e.category === cat)
             if (items.length === 0) return null
             return (
-              <section key={cat}>
+              <section key={cat} id={`cat-${cat}`} className="scroll-mt-24">
                 <div className="flex items-baseline gap-2 mb-4">
                   <h2 className="text-xs uppercase tracking-[0.14em] text-brand-emerald font-semibold">
                     {cat}

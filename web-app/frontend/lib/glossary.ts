@@ -42,8 +42,20 @@ export type TermKey =
   | "ghg_intensity"
   | "subsidy"
   | "uvi"
+  | "cop"
+  | "heating_demand"
+  | "envelope_geg"
+  | "retrofit_package"
+  | "comfort"
+  | "npv"
+  | "scenario"
+  | "value_uplift"
+  | "isfp"
+  | "carbon_price"
+  | "data_basis"
+  | "geg65"
 
-export type GlossaryCategory = "Portfolio" | "Solar" | "Financial" | "Strategy" | "Compliance"
+export type GlossaryCategory = "Portfolio" | "Solar" | "HVAC" | "Financial" | "Strategy" | "Compliance"
 
 /** How much to trust a figure — drives the tooltip's disclaimer line. */
 export type Confidence = "measured" | "indicative" | "screening"
@@ -362,12 +374,142 @@ export const GLOSSARY: Record<TermKey, GlossaryEntry> = {
     confidence: "screening",
     sourceRef: "residential-segment-architecture",
   },
+  // --- HVAC (building-level heating, retrofit & comfort) ---
+  cop: {
+    label: "COP",
+    short:
+      "Coefficient of Performance — a heat pump's heat output ÷ electricity input. ~3 means 3 kWh of heat per kWh of power. Higher is better.",
+    full: "Coefficient of Performance (COP) is a heat pump's delivered heat divided by the electricity it draws — a COP of 3 means three units of heat per unit of power. EnergyLens measures it from a heat meter plus an electricity sub-meter where both exist; without a heat meter it can't be derived (shown as “needs heat meter”), and a chiller's device-reported COP is labelled as such.",
+    category: "HVAC",
+    method: "Σ heat output (kWh_th) ÷ Σ heat-pump electricity (kWh_el) over the window.",
+    assumptions: ["Needs a heat meter + electricity sub-meter", "Counter-delta when cumulative, else summed", "Device-reported COP labelled separately"],
+    confidence: "measured",
+    sourceRef: "glossary",
+  },
+  heating_demand: {
+    label: "Heating demand",
+    short:
+      "How much heat a building needs per year (kWh, or kWh/m²·yr). The biggest cost and carbon lever in most older buildings.",
+    full: "Heating demand is the annual heat a building needs for space heating. When a bill is on file it is the metered heating fuel; otherwise EnergyLens estimates it from a typical energy intensity for the building type × the heating share of energy. It is the dominant cost and carbon lever in most older commercial and residential stock.",
+    category: "HVAC",
+    method: "Metered heating fuel, or archetype EUI × heating-share (by building type) when no bill is on file.",
+    assumptions: ["Heating share by type (office ~35%, residential ~60%)", "Estimated until consumption is uploaded", "Not weather-corrected"],
+    confidence: "indicative",
+    sourceRef: "residential-retrofit-calculations.md",
+  },
+  envelope_geg: {
+    label: "Envelope vs GEG",
+    short:
+      "How well walls, roof and windows insulate (U-value, W/m²K) vs the German GEG component limits. Lower U = better.",
+    full: "The building envelope's U-values (thermal transmittance, W/m²K — lower is better) compared with the limits in GEG Anlage 7 that apply when a component is renovated (wall ≤0.24, roof ≤0.20, window ≤1.30). Where a U-value isn't on file, EnergyLens assumes a 1970s-unrenovated value and labels it; adding the real value sharpens the retrofit figures.",
+    category: "HVAC",
+    method: "Compare each component U-value to its GEG Anlage 7 renovation limit.",
+    assumptions: ["U from the building file, else a 1970s assumption (labelled)", "GEG limits apply on component renovation"],
+    confidence: "screening",
+    sourceRef: "glossary",
+  },
+  retrofit_package: {
+    label: "Retrofit package",
+    short:
+      "A sequence of measures, each acting on the load the previous one left — so savings are NOT additive. A full package realistically reaches 50–65% heating reduction.",
+    full: "A retrofit package sequences individual measures cheapest-payback-first, with each measure acting on the reduced load the previous one leaves — so the combined saving is less than the sum of the standalone measures. EnergyLens reports the cumulative reduction, net CapEx, blended payback and resulting EUI per step, capped at a realistic full-package ceiling (~50–65% heating reduction). Screening-grade; a building audit replaces it before commitment.",
+    category: "HVAC",
+    method: "Order measures by payback; each reduces the REMAINING demand; cumulative reduction capped ~72%.",
+    assumptions: ["Measures NOT additive (sequential)", "Gain-utilisation applied to fabric savings", "Screening-grade"],
+    confidence: "screening",
+    sourceRef: "residential-retrofit-calculations.md",
+  },
+  comfort: {
+    label: "Comfort & operation",
+    short:
+      "How well zones hold their setpoint (DIN EN 16798, 20–24°C), over-/under-heating share, supply–return ΔT and CO₂ air quality (good <800, poor >1200 ppm).",
+    full: "Comfort & operation analytics turn live climate telemetry into operational insight: the share of zone-temperature readings inside the DIN EN 16798 comfort band (20–24°C), over- and under-heating share, supply–return ΔT, and CO₂ air quality (good <800, fair 800–1200, poor >1200 ppm). Significant over-heating flags a low/no-CapEx operational saving (setpoint, night setback, hydraulic balancing).",
+    category: "HVAC",
+    method: "Share of readings in / over / under the comfort band, from zone telemetry over the window.",
+    assumptions: ["DIN EN 16798-1 Cat. II band (20–24°C)", "CO₂ 800 / 1200 ppm thresholds", "Live IoT data"],
+    confidence: "measured",
+    sourceRef: "glossary",
+  },
+  // --- Financial (added: NPV, scenarios, value uplift, iSFP) ---
+  npv: {
+    label: "NPV",
+    short:
+      "Net Present Value — today's value of an investment's future savings minus its upfront cost, discounted for time. Positive = it pays for itself over its life.",
+    full: "Net Present Value (NPV) is the value today of an investment's future savings minus its upfront cost, with future cash flows discounted to reflect the time value of money. EnergyLens discounts at a stated real rate and escalates the savings with energy-price inflation and the rising carbon price, so a positive NPV means the measure pays back over its service life — a fuller picture than simple payback.",
+    category: "Financial",
+    method: "−Net CapEx + Σ (annual saving in year t) ÷ (1 + discount rate)^t, over the measure lifetime.",
+    assumptions: ["Discount rate 4% real (stated)", "Savings escalate with energy + carbon price", "Net of subsidy"],
+    confidence: "indicative",
+    sourceRef: "glossary",
+  },
+  scenario: {
+    label: "Scenario (low/base/high)",
+    short:
+      "Forward figures are shown as three scenarios — conservative, base and policy-tight — bracketing how energy and carbon prices might rise.",
+    full: "Because future energy and carbon prices are uncertain, EnergyLens shows forward figures (e.g. lifetime NPV) as three scenarios rather than one false-precise number: conservative, base and policy-tight. They differ in how fast energy prices and the carbon price rise, so you see the range a decision sits in instead of a single point.",
+    category: "Financial",
+    method: "Each scenario escalates energy-price inflation + the carbon-price trajectory by its own assumptions.",
+    assumptions: ["Energy inflation 1% / 3% / 5% real", "Carbon 2030 ≈ €80 / €120 / €180 per t", "Ranges, not forecasts"],
+    confidence: "indicative",
+    sourceRef: "glossary",
+  },
+  value_uplift: {
+    label: "Value uplift (green premium)",
+    short:
+      "Indicative property-value increase from improving the EPC class — the “green premium / brown discount”. A % range, applied to your own valuation.",
+    full: "Value uplift is the indicative increase in a building's value from improving its EPC class — the market's “green premium” for efficient buildings (and “brown discount” for poor ones). EnergyLens shows it as a conservative percentage range per EPC band improved, capped, and applied to the owner's own valuation. It is an estimate, not a guarantee — the premium is market- and location-specific.",
+    category: "Financial",
+    method: "≈1–2.5% value uplift per EPC band improved (capped ~15%), applied to the owner's valuation.",
+    assumptions: ["Market- and location-specific", "Estimate, not a guarantee", "No € attached without the owner's valuation"],
+    confidence: "screening",
+    sourceRef: "glossary",
+  },
+  isfp: {
+    label: "iSFP",
+    short:
+      "Individueller Sanierungsfahrplan — an Energieberater-certified renovation roadmap. Having one adds +5% to BAFA envelope grants and raises the eligible-cost cap.",
+    full: "The individueller Sanierungsfahrplan (iSFP) is a German renovation roadmap drawn up by a certified Energieberater that stages a building's upgrades over time. Beyond the plan itself, it unlocks a +5% bonus on BAFA BEG envelope measures and raises the eligible-cost cap (e.g. €30k → €60k per unit) — improving both the sequencing and the economics of a retrofit.",
+    category: "Financial",
+  },
+  // --- Strategy (added: carbon price) ---
+  carbon_price: {
+    label: "Carbon price (nEHS/ETS2)",
+    short:
+      "The cost per tonne of CO₂ under German/EU carbon pricing. It rises over time, raising the value of every tonne saved and shortening retrofit payback.",
+    full: "Carbon pricing puts a cost on each tonne of CO₂ emitted. Germany's national scheme (BEHG/nEHS) runs a €55–65/t corridor through 2026–2027; the EU ETS2 (postponed) brings market-based pricing from 2028, with 2030 estimates ranging from the EU's ~€48–80/t up to higher figures under tighter-cap analyses. A rising carbon price increases the value of avoided emissions, improving retrofit and fuel-switch economics over time.",
+    category: "Strategy",
+    method: "Per-scenario trajectory: 2026–27 BEHG corridor, market-based ETS2 from 2028.",
+    assumptions: ["2026 corridor €55–65/t", "ETS2 postponed to 2028", "2030 €80–180/t across scenarios"],
+    confidence: "indicative",
+    sourceRef: "glossary",
+  },
+  // --- Portfolio (added: data provenance) ---
+  data_basis: {
+    label: "Data basis",
+    short:
+      "Where a figure comes from: Measured (your real data), Estimated (model/archetype), Sample (demo building) or Simulated (test feed). Shown as a badge next to numbers.",
+    full: "Every figure in EnergyLens carries its data basis so you always know what you're looking at: Measured (computed from your uploaded bills or live telemetry), Estimated (modelled from a building-type archetype before you have data), Sample (a demo building, not yours) or Simulated (a test/agent feed, not a real device). A consistent badge marks each, and estimated or sample figures invite you to add real data to sharpen them.",
+    category: "Portfolio",
+  },
+  // --- Compliance (added: GEG section 71) ---
+  geg65: {
+    label: "GEG §71 (65% renewable)",
+    short:
+      "German rule (GEG §71): a newly installed or replaced heating system must run on ≥65% renewable energy — effectively a heat pump, district heat or biomass.",
+    full: "Under the German Building Energy Act (GEG §71, the “Heizungsgesetz”), every newly installed or replaced heating system must run on at least 65% renewable energy — in practice a heat pump, district heating or biomass. EnergyLens flags buildings on fossil heating (gas/oil) where a boiler replacement will trigger this rule, so the switch can be planned with the replacement cycle rather than after a breakdown. Transition deadlines vary with municipal heat planning.",
+    category: "Compliance",
+    method: "Flag when the building's heating system is fossil (gas / oil).",
+    assumptions: ["Applies on heating replacement, not immediately", "Transition deadlines vary by municipal heat planning"],
+    confidence: "screening",
+    sourceRef: "glossary",
+  },
 }
 
 /** Stable display order for the /glossary page, grouped by category. */
 export const GLOSSARY_CATEGORY_ORDER: GlossaryCategory[] = [
   "Portfolio",
   "Solar",
+  "HVAC",
   "Financial",
   "Strategy",
   "Compliance",

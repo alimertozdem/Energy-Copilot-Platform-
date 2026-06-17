@@ -15,11 +15,14 @@ import { AppChrome } from "@/components/AppChrome"
 import { BuildingAdvisorPanel } from "@/components/buildings/BuildingAdvisorPanel"
 import { BridgeUnlockPanel } from "@/components/buildings/BridgeUnlockPanel"
 import { UploadDataButton } from "@/components/buildings/UploadDataButton"
-import { EstimatedBaselineCard } from "@/components/buildings/EstimatedBaselineCard"
+import { DataProvenanceBadge } from "@/components/ui/DataProvenanceBadge"
+import { EngineEstimateCard } from "@/components/buildings/EngineEstimateCard"
+import { SharpenEstimateForm } from "@/components/buildings/SharpenEstimateForm"
 import { CopCard } from "@/components/buildings/CopCard"
 import { LiveMonitoringPanel } from "@/components/buildings/LiveMonitoringPanel"
 import { DataPendingBanner } from "@/components/DataPendingBanner"
 import { type BaselineKpis, fetchBuildingBaselineKpisServer, fetchBaselineEstimateServer, fetchBuildingCopServer, fetchBuildingMonitoringServer } from "@/lib/api/baseline"
+import { fetchBuildingEstimateServer } from "@/lib/api/estimation"
 import { fetchBridgeReadinessServer } from "@/lib/api/bridge"
 import { type Building, fetchBuildingByUuid } from "@/lib/api/buildings"
 import type { PortfolioBuildingRow } from "@/lib/api/portfolio"
@@ -63,7 +66,7 @@ function eur(n: number): string {
 function provenance(k: BaselineKpis): string {
   const basis = k.is_annualized ? `${k.months_available} mo, annualized` : "trailing 12 mo"
   const cost = k.cost_basis === "actual" ? "actual cost" : "est. cost"
-  return `From uploaded data · ${basis} · ${cost} · indicative`
+  return `From your uploaded data · ${basis} · ${cost}`
 }
 
 function Tile({ label, value, unit }: { label: string; value: string; unit?: string }) {
@@ -99,12 +102,13 @@ export default async function PendingBuildingPage({
     redirect(`/buildings/${encodeURIComponent(building.fabric_building_id)}`)
   }
 
-  const [kpis, bridgeReadiness, estimate, cop, monitoring] = await Promise.all([
+  const [kpis, bridgeReadiness, estimate, cop, monitoring, engineEstimate] = await Promise.all([
     fetchBuildingBaselineKpisServer(session.accessToken, building_id),
     fetchBridgeReadinessServer(session.accessToken, building_id),
     fetchBaselineEstimateServer(session.accessToken, building_id),
     fetchBuildingCopServer(session.accessToken, building_id),
     fetchBuildingMonitoringServer(session.accessToken, building_id),
+    fetchBuildingEstimateServer(session.accessToken, building_id),
   ])
   const hasIot = building.modules.some((m) => m.module_key === "iot" && m.enabled)
   const insights = buildAdvisorInsights({
@@ -112,6 +116,7 @@ export default async function PendingBuildingPage({
     topActions: [],
     isResidential: false,
     profile: { epc_class: building.epc_class, heating_system: building.heating_system },
+    estimate: engineEstimate,
   })
 
   const hasKpis = Boolean(kpis?.has_data)
@@ -131,19 +136,51 @@ export default async function PendingBuildingPage({
           <DataPendingBanner />
         </div>
 
-        <div className="mb-5">
+        <div className="mb-5 flex flex-wrap gap-2">
           <Link
             href={`/hvac?building_id=${encodeURIComponent(building.id)}`}
             className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/30 bg-amber-400/5 px-3 py-1.5 text-xs text-amber-200 transition-colors hover:border-amber-400/60"
           >
-            Heating &amp; HVAC deep-dive — demand, envelope, retrofit ROI, COP &amp; comfort →
+            Heating &amp; HVAC — retrofit ROI, COP &amp; comfort →
+          </Link>
+          <Link
+            href="/compliance"
+            className="inline-flex items-center gap-1.5 rounded-md border border-brand-emerald/30 bg-brand-emerald/5 px-3 py-1.5 text-xs text-brand-emerald transition-colors hover:border-brand-emerald/60"
+          >
+            Compliance &amp; CRREM stranding →
+          </Link>
+          <Link
+            href="/financing"
+            className="inline-flex items-center gap-1.5 rounded-md border border-brand-emerald/30 bg-brand-emerald/5 px-3 py-1.5 text-xs text-brand-emerald transition-colors hover:border-brand-emerald/60"
+          >
+            Financing &amp; subsidies →
           </Link>
         </div>
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-5">
+            {!hasKpis && engineEstimate && (
+              <div>
+                <EngineEstimateCard estimate={engineEstimate} />
+                <SharpenEstimateForm
+                  buildingId={building.id}
+                  canManage={canUpload}
+                  current={{
+                    construction_year: building.construction_year ?? null,
+                    epc_class: building.epc_class ?? null,
+                    heating_system: building.heating_system ?? null,
+                    floor_area_m2: building.floor_area_m2 ?? null,
+                  }}
+                />
+              </div>
+            )}
             <div>
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold text-text-primary">Baseline KPIs</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-text-primary">
+                    {hasKpis ? "Your measured baseline" : "Baseline KPIs"}
+                  </h2>
+                  {hasKpis && <DataProvenanceBadge basis="measured" />}
+                </div>
                 {canUpload && hasKpis && <UploadDataButton buildings={[building]} />}
               </div>
               {hasKpis && kpis ? (
@@ -171,7 +208,6 @@ export default async function PendingBuildingPage({
                 </>
               ) : estimate ? (
                 <div className="space-y-3">
-                  <EstimatedBaselineCard estimate={estimate} />
                   {canUpload && (
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border-subtle bg-bg-elevated/20 px-4 py-3">
                       <span className="text-xs text-text-muted">

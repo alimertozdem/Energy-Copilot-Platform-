@@ -21,6 +21,7 @@ import { SustainabilityMotif } from "@/components/SustainabilityMotif"
 import { BuildingsTable } from "@/components/portfolio/BuildingsTable"
 import { PortfolioAdvisor } from "@/components/portfolio/PortfolioAdvisor"
 import { PortfolioKPIRow } from "@/components/portfolio/PortfolioKPIRow"
+import { DataProvenanceBadge } from "@/components/ui/DataProvenanceBadge"
 import { SolarKPIRow } from "@/components/portfolio/SolarKPIRow"
 import {
   countOwnBuildings,
@@ -34,6 +35,8 @@ import {
 } from "@/lib/api/portfolio"
 import { fetchPartnerClients } from "@/lib/api/partners"
 import { PartnerClientSwitcher } from "@/components/portfolio/PartnerClientSwitcher"
+import { PortfolioScreeningPanel } from "@/components/portfolio/PortfolioScreeningPanel"
+import { fetchPortfolioEstimatesServer } from "@/lib/api/estimation"
 
 const PORTFOLIO_ACCENT = "#1D9E75"
 
@@ -50,12 +53,13 @@ export default async function PortfolioPage({
   const { client } = await searchParams
   const clientOrgId = client ?? null
 
-  const [kpisResult, buildingsResult, ownBuildings, clientsResult] =
+  const [kpisResult, buildingsResult, ownBuildings, clientsResult, estimates] =
     await Promise.all([
       fetchPortfolioKPIs(session.accessToken, clientOrgId),
       fetchPortfolioBuildings(session.accessToken, clientOrgId),
       fetchBuildings(session.accessToken),
       fetchPartnerClients(session.accessToken),
+      fetchPortfolioEstimatesServer(session.accessToken),
     ])
 
   if (ownBuildings.ok && countOwnBuildings(ownBuildings.data.buildings) === 0) {
@@ -68,6 +72,20 @@ export default async function PortfolioPage({
 
   const showPending =
     ownBuildings.ok && ownBuildingsAllPending(ownBuildings.data.buildings)
+
+  // Page-level data provenance: warn when the view includes demo/sample buildings
+  // so the numbers are never mistaken for the user's own. (Measured is the silent
+  // default; the pending banner already covers "own buildings not connected yet".)
+  const visBuildings = buildingsResult.ok ? buildingsResult.data.buildings : []
+  const sampleN = visBuildings.filter((b) => b.is_sample_org).length
+  const portfolioBasis =
+    visBuildings.length === 0
+      ? null
+      : sampleN === visBuildings.length
+        ? ("sample" as const)
+        : sampleN > 0
+          ? ("mixed" as const)
+          : null
 
   return (
     <AppChrome
@@ -89,6 +107,12 @@ export default async function PortfolioPage({
           per building, worst performers first. Click any building to drill into its
           reports, alerts and recommendations.
         </PageIntro>
+        {portfolioBasis && (
+          <DataProvenanceBadge
+            basis={portfolioBasis}
+            detail={portfolioBasis === "sample" ? "demo buildings" : `${sampleN} of ${visBuildings.length} are demo`}
+          />
+        )}
         <div className="flex items-center justify-end gap-3">
           {buildingsResult.ok &&
             buildingsResult.data.buildings.some((b) =>
@@ -141,6 +165,8 @@ export default async function PortfolioPage({
         {kpisResult.ok && kpisResult.data.solar && (
           <SolarKPIRow solar={kpisResult.data.solar} />
         )}
+
+        {estimates && <PortfolioScreeningPanel data={estimates} />}
 
         {!buildingsResult.ok ? (
           <FetchErrorNotice error={buildingsResult.error} label="buildings" />
