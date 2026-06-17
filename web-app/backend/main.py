@@ -42,6 +42,7 @@ from app.routers import agent as agent_router
 from app.routers import ingest as ingest_router
 from app.routers import abatement as abatement_router
 from app.routers import pilot as pilot_router
+from app.routers import financing as financing_router
 
 # Auth + DB + repo for the RLS-scoped /embed/token (server-side row-level security)
 from app.db.database import get_db
@@ -183,6 +184,7 @@ app.include_router(agent_router.router)
 app.include_router(ingest_router.router)
 app.include_router(abatement_router.router)
 app.include_router(pilot_router.router)
+app.include_router(financing_router.router)
 app.include_router(installer_router.router)
 
 

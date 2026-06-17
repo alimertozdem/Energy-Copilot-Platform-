@@ -11,7 +11,7 @@ import { getServerSession } from "next-auth"
 import { AppChrome } from "@/components/AppChrome"
 import { FetchErrorNotice } from "@/components/FetchErrorNotice"
 import { FinancingView } from "@/components/financing/FinancingView"
-import { fetchActions } from "@/lib/api/actions"
+import { fetchFinancingSummary } from "@/lib/api/financing"
 import { authOptions } from "@/lib/auth/options"
 
 export const dynamic = "force-dynamic"
@@ -24,7 +24,7 @@ export default async function FinancingPage() {
     redirect("/")
   }
 
-  const result = await fetchActions(session.accessToken, { limit: 500 })
+  const result = await fetchFinancingSummary(session.accessToken)
 
   return (
     <AppChrome
@@ -37,7 +37,7 @@ export default async function FinancingPage() {
         {!result.ok ? (
           <FetchErrorNotice error={result.error} label="recommendations" />
         ) : (
-          <FinancingView actions={result.data.actions} />
+          <FinancingView summary={result.data} />
         )}
       </div>
     </AppChrome>
