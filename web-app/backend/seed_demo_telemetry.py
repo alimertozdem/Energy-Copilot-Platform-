@@ -30,11 +30,13 @@ def main() -> None:
 
     db = SessionLocal()
     try:
-        b = db.scalar(
-            select(Building).where(
-                or_(Building.fabric_building_id == key, Building.id == key)
-            )
-        )
+        import uuid as _uuid
+        conds = [Building.fabric_building_id == key]
+        try:
+            conds.append(Building.id == _uuid.UUID(str(key)))  # only if key is a real UUID
+        except (ValueError, AttributeError):
+            pass
+        b = db.scalar(select(Building).where(or_(*conds)))
         if b is None:
             print(f"No building matched '{key}' (try a fabric id like B001 or the UUID).")
             sys.exit(1)
