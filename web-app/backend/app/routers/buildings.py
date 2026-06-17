@@ -109,6 +109,7 @@ def _to_response(b: Building) -> BuildingResponse:
         occupancy_pattern=b.occupancy_pattern,
         floors_above_ground=b.floors_above_ground,
         typical_occupants=b.typical_occupants,
+        residential_units=b.residential_units,
         timezone=b.timezone,
         is_active=b.is_active,
         organization_id=b.organization_id,
@@ -176,6 +177,7 @@ def create_building(
         occupancy_pattern=body.occupancy_pattern,
         floors_above_ground=body.floors_above_ground,
         typical_occupants=body.typical_occupants,
+        residential_units=body.residential_units,
         timezone=body.timezone,
         pv_capacity_kwp=body.pv_capacity_kwp,
         wall_u_value=body.wall_u_value,
@@ -259,6 +261,7 @@ def bulk_import_buildings(
                     construction_year=row.construction_year,
                     epc_class=row.epc_class,
                     heating_system=row.heating_system,
+                    residential_units=row.residential_units,
                 )
                 building_repo.create_building_modules(
                     db, building_id=b.id, modules=[("meters", True, None)]

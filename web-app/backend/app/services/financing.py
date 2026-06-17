@@ -93,7 +93,7 @@ def get_financing_for_user(
         annual_saving = _safe_float(r.get("annual_saving_eur"))
         co2_t = _safe_float(r.get("co2_saving_kg")) / 1000.0
 
-        units = fm.estimate_units(btype, area)
+        units = fm.estimate_units(btype, area, getattr(b, "residential_units", None))
         sub = fm.estimate_subsidy(action_type, gross_capex, btype, units, has_isfp=has_isfp)
         grant_mid = (
             ((sub["grant_low_eur"] or 0) + (sub["grant_high_eur"] or 0)) / 2.0

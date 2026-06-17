@@ -143,6 +143,7 @@ def create_building(
     occupancy_pattern: str | None = None,
     floors_above_ground: int | None = None,
     typical_occupants: int | None = None,
+    residential_units: int | None = None,
     timezone: str = "Europe/Berlin",
     pv_capacity_kwp: float | None = None,
     wall_u_value: float | None = None,
@@ -171,6 +172,7 @@ def create_building(
         occupancy_pattern=occupancy_pattern,
         floors_above_ground=floors_above_ground,
         typical_occupants=typical_occupants,
+        residential_units=residential_units,
         timezone=timezone,
         pv_capacity_kwp=(
             Decimal(str(pv_capacity_kwp)) if pv_capacity_kwp is not None else None

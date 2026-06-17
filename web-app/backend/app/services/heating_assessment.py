@@ -42,6 +42,7 @@ from datetime import datetime, timezone as dt_timezone
 from typing import Any
 
 from app.services import reference_factors
+from app.services import finance_model
 
 # --- approved constants ----------------------------------------------------
 
@@ -68,7 +69,7 @@ HP_ELEC_PRICE = 0.25  # EUR/kWh (heat-pump tariff)
 DISTRICT_PRICE = 0.13 # EUR/kWh (DE Fernwaerme working price)
 GAS_CO2 = 0.201       # kg CO2 / kWh (natural gas)
 DISTRICT_CO2 = 0.20   # kg CO2 / kWh (DE district-heat mix, conservative proxy)
-CARBON_PRICE_T = 55.0 # EUR / t CO2 (nEHS today; ~149 by 2030)
+CARBON_PRICE_T = finance_model.CARBON_PRICE_NOW  # centralised carbon path (2026 corridor mid ~60)
 
 # Gain-utilisation factor: delivered-energy saving as a fraction of the GROSS
 # transmission-loss reduction. <1 because internal/solar gains already cover part of
@@ -90,7 +91,7 @@ PACKAGE_MAX_REDUCTION = 0.72
 RANGE_EST = 0.25
 RANGE_MEAS = 0.10
 CAPEX_BAND = 0.30          # +/- on screening CapEx (archetype per-m2 -> wide)
-CARBON_PRICE_2030_T = 149.0  # EUR/t CO2, nEHS/ETS2 trajectory (sensitivity scenario)
+CARBON_PRICE_2030_T = finance_model.carbon_price("base", 2030)  # centralised (base scenario)
 
 # GEG Anlage 7 component U-limits (W/m2K) — also the retrofit "after" targets.
 GEG_LIMIT = {"wall": 0.24, "roof": 0.20, "window": 1.30}

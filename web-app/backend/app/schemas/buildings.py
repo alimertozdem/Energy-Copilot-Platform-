@@ -59,6 +59,7 @@ class BuildingResponse(BaseModel):
     occupancy_pattern: str | None
     floors_above_ground: int | None
     typical_occupants: int | None
+    residential_units: int | None
     timezone: str
     is_active: bool
     organization_id: UUID
@@ -112,6 +113,7 @@ class BuildingCreateRequest(BaseModel):
     occupancy_pattern: OccupancyPattern | None = None
     floors_above_ground: int | None = Field(default=None, ge=0, le=300)
     typical_occupants: int | None = Field(default=None, ge=0)
+    residential_units: int | None = Field(default=None, ge=0, le=100000)
     timezone: str = "Europe/Berlin"
     # Installed solar PV capacity in kWp (onboarding solar step). None = no PV.
     pv_capacity_kwp: float | None = Field(default=None, ge=0)
@@ -144,6 +146,7 @@ class BulkBuildingRow(BaseModel):
     construction_year: int | None = Field(default=None, ge=1800, le=2100)
     epc_class: EpcClass | None = None
     heating_system: str | None = Field(default=None, max_length=40)
+    residential_units: int | None = Field(default=None, ge=0)
 
 
 class BulkImportRequest(BaseModel):

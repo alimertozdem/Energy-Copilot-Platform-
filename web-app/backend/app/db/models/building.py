@@ -78,6 +78,9 @@ class Building(Base, TimestampMixin):
     occupancy_pattern: Mapped[str | None] = mapped_column(String(40), nullable=True)
     floors_above_ground: Mapped[int | None] = mapped_column(Integer, nullable=True)
     typical_occupants: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Declared dwelling-unit count (residential) — sharpens the per-Wohneinheit
+    # subsidy cap; NULL for non-residential / unknown (units estimated from area).
+    residential_units: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Envelope U-values (W/m²K) + insulation year + gas-heating flag — collected at
     # onboarding to unlock the GEG conformity, EPC and CO₂/Scope-1 reports. NULL = unknown.
     wall_u_value: Mapped[Decimal | None] = mapped_column(Numeric(5, 3), nullable=True)

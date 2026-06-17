@@ -37,6 +37,7 @@ export type Building = {
   occupancy_pattern: string | null
   floors_above_ground: number | null
   typical_occupants: number | null
+  residential_units: number | null
   timezone: string
   is_active: boolean
   organization_id: string // UUID
@@ -69,6 +70,7 @@ export type BuildingCreateRequest = {
   occupancy_pattern?: string | null
   floors_above_ground?: number | null
   typical_occupants?: number | null
+  residential_units?: number | null
   timezone?: string
   pv_capacity_kwp?: number | null
   wall_u_value?: number | null
