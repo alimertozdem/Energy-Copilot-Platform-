@@ -23,6 +23,7 @@ import { usePathname } from "next/navigation"
 import { AppChrome } from "@/components/AppChrome"
 import { LockedReportPreview } from "@/components/LockedReportPreview"
 import { ReportNav } from "@/components/ReportNav"
+import { ReportCompanion } from "@/components/report/ReportCompanion"
 import type { Building } from "@/lib/api/buildings"
 import {
   DEFAULT_REPORT_SLUG,
@@ -127,6 +128,12 @@ export function ReportSectionShell({
             </div>
           )}
         </div>
+
+        <ReportCompanion
+          activePageName={page.pbiDisplayName}
+          building={building}
+          accentColor={page.accent}
+        />
       </div>
 
       {/* [page] children just validate the slug (render null); kept in the tree. */}

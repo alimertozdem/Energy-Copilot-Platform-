@@ -16,9 +16,10 @@
  */
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowRight, GitCompare, Upload, X } from "lucide-react"
+import { ArrowRight, GitCompare, Plus, Upload, X } from "lucide-react"
 
 import type { Building } from "@/lib/api/buildings"
+import { AddBuildingModal } from "@/components/buildings/AddBuildingModal"
 import { ConsumptionUploadModal } from "@/components/buildings/ConsumptionUploadModal"
 
 import { BuildingCard } from "./BuildingCard"
@@ -40,6 +41,7 @@ export function BuildingsListClient({ buildings }: BuildingsListClientProps) {
   // state can't clobber a saved selection on first render.
   const [restored, setRestored] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
 
   const validIds = useMemo(
     () =>
@@ -147,6 +149,14 @@ export function BuildingsListClient({ buildings }: BuildingsListClientProps) {
         <div className="flex items-center gap-2">
         <button
           type="button"
+          onClick={() => setAddOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-brand-emerald text-white text-sm font-medium transition-colors hover:bg-brand-deep"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>Add building</span>
+        </button>
+        <button
+          type="button"
           onClick={() => setUploadOpen(true)}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border-subtle text-sm text-text-muted transition-colors hover:border-brand-emerald/60 hover:text-brand-emerald"
         >
@@ -241,6 +251,8 @@ export function BuildingsListClient({ buildings }: BuildingsListClientProps) {
       {uploadOpen && (
         <ConsumptionUploadModal buildings={buildings} onClose={() => setUploadOpen(false)} />
       )}
+
+      {addOpen && <AddBuildingModal onClose={() => setAddOpen(false)} />}
     </>
   )
 }
