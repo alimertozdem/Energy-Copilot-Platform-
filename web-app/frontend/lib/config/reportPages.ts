@@ -34,6 +34,10 @@ export type ReportPageMeta = {
   requiredModule: ModuleKey
   accent: string
   iconKey: string
+  /** Plain-language: what this page shows (report companion). */
+  summary: string
+  /** The single thing to look at first on this page (report companion). */
+  watch: string
 }
 
 /**
@@ -48,6 +52,8 @@ export const REPORT_PAGES: ReportPageMeta[] = [
     requiredModule: "meters",
     accent: "#1D9E75",
     iconKey: "LayoutGrid",
+    summary: "Your whole portfolio at a glance — total energy, cost and CO₂, and how buildings rank against each other.",
+    watch: "The worst-ranked buildings — that is where most of the savings sit.",
   },
   {
     slug: "building-detail",
@@ -56,6 +62,8 @@ export const REPORT_PAGES: ReportPageMeta[] = [
     requiredModule: "meters",
     accent: "#06B6D4",
     iconKey: "Building2",
+    summary: "This building's energy and cost over time, with its core efficiency metrics.",
+    watch: "Actual demand vs the baseline line — the gap above baseline is avoidable spend.",
   },
   {
     slug: "anomalies",
@@ -64,6 +72,8 @@ export const REPORT_PAGES: ReportPageMeta[] = [
     requiredModule: "meters",
     accent: "#F97316",
     iconKey: "TriangleAlert",
+    summary: "Detected irregularities — spikes, drifts and faults that usually mean wasted energy.",
+    watch: "Critical and high anomalies first; each unresolved one is live, costed waste.",
   },
   {
     slug: "forecast",
@@ -72,6 +82,8 @@ export const REPORT_PAGES: ReportPageMeta[] = [
     requiredModule: "meters",
     accent: "#EAB308",
     iconKey: "TrendingUp",
+    summary: "Where energy and cost are heading, plus the recommended measures to bend the curve.",
+    watch: "The measures ranked by saving vs payback — start at the top.",
   },
   {
     slug: "occupancy",
@@ -80,6 +92,8 @@ export const REPORT_PAGES: ReportPageMeta[] = [
     requiredModule: "meters",
     accent: "#EAB308",
     iconKey: "Users",
+    summary: "How occupancy drives energy use — base (empty) load vs occupied load.",
+    watch: "High load when the building is empty — a scheduling / controls opportunity.",
   },
   {
     slug: "sustainability",
@@ -88,6 +102,8 @@ export const REPORT_PAGES: ReportPageMeta[] = [
     requiredModule: "meters",
     accent: "#06B6D4",
     iconKey: "Leaf",
+    summary: "This building's carbon footprint and where it stands against the EU compliance lines.",
+    watch: "The Scope 1/2 split and the EPC / MEPS position.",
   },
   {
     slug: "hvac",
@@ -96,6 +112,8 @@ export const REPORT_PAGES: ReportPageMeta[] = [
     requiredModule: "meters",
     accent: "#5DCAA5",
     iconKey: "Wind",
+    summary: "Heating, cooling and ventilation performance — usually the single biggest consumer.",
+    watch: "Supply–return ΔT and runtime vs occupancy — over-conditioning is common.",
   },
   {
     slug: "iot",
@@ -104,6 +122,8 @@ export const REPORT_PAGES: ReportPageMeta[] = [
     requiredModule: "iot",
     accent: "#3B82F6",
     iconKey: "Radio",
+    summary: "Live sensor readings — real-time power, comfort and air quality.",
+    watch: "Zones outside the comfort band, and any sensors that have gone quiet.",
   },
   {
     slug: "battery",
@@ -112,6 +132,8 @@ export const REPORT_PAGES: ReportPageMeta[] = [
     requiredModule: "battery",
     accent: "#1D9E75",
     iconKey: "BatteryCharging",
+    summary: "Battery dispatch economics — charge/discharge against tariff and solar.",
+    watch: "Payback and self-consumption — the sizing has to match the load profile.",
   },
   {
     slug: "solar",
@@ -120,6 +142,8 @@ export const REPORT_PAGES: ReportPageMeta[] = [
     requiredModule: "solar",
     accent: "#F59E0B",
     iconKey: "Sun",
+    summary: "On-site PV generation, self-consumption and export.",
+    watch: "Performance ratio and self-consumption — a low PR points to a fault.",
   },
 ]
 

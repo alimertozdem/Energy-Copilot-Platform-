@@ -23,7 +23,7 @@ import { useState } from "react"
 
 import { AppChrome } from "@/components/AppChrome"
 import { ReportNav } from "@/components/ReportNav"
-import { SidePanel } from "@/components/SidePanels"
+import { ReportCompanion } from "@/components/report/ReportCompanion"
 import type { Building } from "@/lib/api/buildings"
 import { DEFAULT_PAGE_CONFIG, PAGE_CONFIG } from "@/lib/config/pageAccents"
 import { REPORT_PAGES } from "@/lib/config/reportPages"
@@ -139,7 +139,11 @@ export function BuildingReportShell({ building }: BuildingReportShellProps) {
           </div>
         </div>
 
-        <SidePanel side="right" accentColor={config.color} />
+        <ReportCompanion
+          activePageName={activePageName}
+          building={building}
+          accentColor={config.color}
+        />
       </div>
     </AppChrome>
   )
