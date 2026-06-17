@@ -76,7 +76,7 @@ export default async function PortfolioPage({
   // Page-level data provenance: warn when the view includes demo/sample buildings
   // so the numbers are never mistaken for the user's own. (Measured is the silent
   // default; the pending banner already covers "own buildings not connected yet".)
-  const visBuildings = buildingsResult.ok ? buildingsResult.data.buildings : []
+  const visBuildings = ownBuildings.ok ? ownBuildings.data.buildings : []
   const sampleN = visBuildings.filter((b) => b.is_sample_org).length
   const portfolioBasis =
     visBuildings.length === 0
