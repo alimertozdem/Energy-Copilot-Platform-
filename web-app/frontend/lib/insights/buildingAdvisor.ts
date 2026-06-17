@@ -153,7 +153,7 @@ function euiInsight(kpis: PortfolioBuildingRow): Insight | null {
 }
 
 function estimatedEuiInsight(est: EngineEstimate | null): Insight | null {
-  if (!est || !est.available || est.eui_point == null) return null
+  if (!est || est.eui_point == null) return null
   const type = (est.building_type || "").toLowerCase()
   const band = EUI_BANDS.find((b) => b.match.test(type)) ?? EUI_DEFAULT
   const eui = Math.round(est.eui_point)
