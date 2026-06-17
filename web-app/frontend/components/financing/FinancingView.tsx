@@ -108,6 +108,7 @@ export function FinancingView({ summary }: { summary: FinancingSummary }) {
           <div className="mb-2 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-brand-emerald" aria-hidden />
             <h2 className="text-sm font-semibold text-text-primary">Lifetime value — discounted, by scenario</h2>
+            <InfoTip term="scenario" />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {p.scenarios.map((s) => <ScenarioCard key={s.scenario} s={s} />)}

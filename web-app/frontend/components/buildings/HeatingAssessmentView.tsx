@@ -11,6 +11,7 @@ import { Flame, Snowflake, Square, TrendingDown, CalendarClock, AlertTriangle, G
 import type { HeatingAssessment, HeatingMeasure } from "@/lib/api/heating"
 import { strandingYearForIntensity, crremSource, type StrandingStatus } from "@/lib/crrem"
 import { SubsidyPanel } from "@/components/buildings/SubsidyPanel"
+import { InfoTip } from "@/components/ui/info-tip"
 import { DataProvenanceBadge } from "@/components/ui/DataProvenanceBadge"
 
 function fmtEnergy(kwh: number): string {
@@ -98,6 +99,7 @@ export function HeatingAssessmentView({ data, buildingId }: { data: HeatingAsses
         <div className="mb-3 flex items-center gap-2">
           <Flame className="h-4 w-4 text-amber-300" aria-hidden />
           <h2 className="text-sm font-semibold text-text-primary">Heat demand &amp; cost</h2>
+          <InfoTip term="heating_demand" />
           <DataProvenanceBadge basis={estimated ? "estimated" : "measured"} />
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -123,6 +125,7 @@ export function HeatingAssessmentView({ data, buildingId }: { data: HeatingAsses
         <div className="mb-2 flex items-center gap-2">
           <Snowflake className="h-4 w-4 text-sky-300" aria-hidden />
           <h2 className="text-sm font-semibold text-text-primary">Envelope vs GEG</h2>
+          <InfoTip term="envelope_geg" />
         </div>
         <div className="grid grid-cols-3 gap-3">
           {data.envelope.map((el) => (
@@ -193,6 +196,7 @@ export function HeatingAssessmentView({ data, buildingId }: { data: HeatingAsses
           <div className="mb-2 flex items-center gap-2">
             <TrendingDown className="h-4 w-4 text-brand-emerald" aria-hidden />
             <h2 className="text-sm font-semibold text-text-primary">Retrofit package — sequenced roadmap</h2>
+            <InfoTip term="retrofit_package" />
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Tile label="Heat reduction" value={`${full.reduction_pct}%`} sub={`realistic ${pkg.realistic_reduction_low_pct}–${pkg.realistic_reduction_high_pct}%`} />
