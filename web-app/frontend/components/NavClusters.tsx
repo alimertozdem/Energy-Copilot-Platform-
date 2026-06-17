@@ -33,6 +33,7 @@ const CLUSTERS: Cluster[] = [
       { href: "/residential", label: "Residential" },
       { href: "/alerts", label: "Alerts", badge: "alerts" },
       { href: "/solar", label: "Solar" },
+      { href: "/hvac", label: "Heating & HVAC" },
     ],
   },
   {
