@@ -27,7 +27,7 @@ TYPICAL_INTENSITY_KWH_M2_YR: dict[str, tuple[float, float]] = {
     "Hotel": (220.0, 380.0),
     "Healthcare": (250.0, 450.0),
     "Logistics": (40.0, 110.0),
-    "Residential": (90.0, 180.0),
+    "Residential": (100.0, 240.0),  # recalibrated 2026-06-17 (Heizspiegel/RWI); aligned with estimation engine
     "Mixed": (120.0, 220.0),
 }
 _DEFAULT_RANGE = (120.0, 220.0)

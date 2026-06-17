@@ -1,0 +1,322 @@
+table gold_hvac_analytics
+	lineageTag: 676885a3-ee9f-4117-bbb1-b413cb5a07b6
+	sourceLineageTag: [dbo].[gold_hvac_analytics]
+
+	measure 'HVAC Avg COP' = AVERAGE( gold_hvac_analytics[cop_actual_avg] )
+		formatString: 0.0
+		displayFolder: HVAC (Page 7)
+		lineageTag: 8ace3438-323d-476c-88fc-61de5b567c8e
+
+	measure 'HVAC Ventilation Share Pct' = DIVIDE( SUM(gold_hvac_analytics[ventilation_kwh]), SUM(gold_hvac_analytics[hvac_total_kwh]) )
+		formatString: 0.0%
+		displayFolder: HVAC (Page 7)
+		lineageTag: 40f644a0-3b86-4d48-aca7-adec22f6b694
+
+	column building_id
+		dataType: string
+		lineageTag: e55acc7a-aace-4ffc-a322-4a1427e909c9
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column year_month
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 01d91dd1-adea-4284-ad80-2a1f6aa0e0d9
+		sourceLineageTag: year_month
+		summarizeBy: none
+		sourceColumn: year_month
+
+		annotation SummarizationSetBy = Automatic
+
+	column reporting_year
+		dataType: int64
+		formatString: 0
+		lineageTag: 6134a060-ec63-4873-8251-93e99bcc6f43
+		sourceLineageTag: reporting_year
+		summarizeBy: sum
+		sourceColumn: reporting_year
+
+		annotation SummarizationSetBy = Automatic
+
+	column reporting_month
+		dataType: int64
+		formatString: 0
+		lineageTag: 4c87f41d-a403-4ef0-8e0f-76c74db257d2
+		sourceLineageTag: reporting_month
+		summarizeBy: sum
+		sourceColumn: reporting_month
+
+		annotation SummarizationSetBy = Automatic
+
+	column total_consumption_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 1e8e6f9c-f685-4aaf-a583-986f245fe9aa
+		sourceLineageTag: total_consumption_kwh
+		summarizeBy: sum
+		sourceColumn: total_consumption_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column heating_energy_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 29ade62e-3479-4d97-8522-6e36c3f648da
+		sourceLineageTag: heating_energy_kwh
+		summarizeBy: sum
+		sourceColumn: heating_energy_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column cooling_energy_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 92cc19a8-15b8-480a-b718-95695ffcf597
+		sourceLineageTag: cooling_energy_kwh
+		summarizeBy: sum
+		sourceColumn: cooling_energy_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column ventilation_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: c7b3f55b-6d21-428c-826a-8c1941038f5e
+		sourceLineageTag: ventilation_kwh
+		summarizeBy: sum
+		sourceColumn: ventilation_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column hvac_total_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 67b9e0c0-229d-4ab9-8221-1674f8d9804e
+		sourceLineageTag: hvac_total_kwh
+		summarizeBy: sum
+		sourceColumn: hvac_total_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column non_hvac_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 34787669-5734-4597-8b00-4bad7603659c
+		sourceLineageTag: non_hvac_kwh
+		summarizeBy: sum
+		sourceColumn: non_hvac_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column hvac_share_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 9914443c-de19-4664-bd18-a2750157ac6e
+		sourceLineageTag: hvac_share_pct
+		summarizeBy: sum
+		sourceColumn: hvac_share_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column heating_share_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: ba3f3828-92bd-4689-806a-b0b2b0a72b93
+		sourceLineageTag: heating_share_pct
+		summarizeBy: sum
+		sourceColumn: heating_share_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column cooling_share_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 62950e59-7268-4e3f-a1cf-2c47610c037f
+		sourceLineageTag: cooling_share_pct
+		summarizeBy: sum
+		sourceColumn: cooling_share_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column hdd_monthly
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: ce7ce50e-e45c-4f7b-89aa-c8d62ca73488
+		sourceLineageTag: hdd_monthly
+		summarizeBy: sum
+		sourceColumn: hdd_monthly
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column cdd_monthly
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 2fd87930-4f6c-42e4-95a3-169f44545dcf
+		sourceLineageTag: cdd_monthly
+		summarizeBy: sum
+		sourceColumn: cdd_monthly
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column cop_actual_avg
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 063a7015-70f7-4459-9b79-5494f29a4835
+		sourceLineageTag: cop_actual_avg
+		summarizeBy: sum
+		sourceColumn: cop_actual_avg
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column scop_rolling
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 337b78b7-5d7b-4749-b3ec-6ee240a58cec
+		sourceLineageTag: scop_rolling
+		summarizeBy: sum
+		sourceColumn: scop_rolling
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column heat_loss_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: f5d2af9f-50d8-4e9f-a928-0b98aa64e1b3
+		sourceLineageTag: heat_loss_kwh
+		summarizeBy: sum
+		sourceColumn: heat_loss_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column heat_loss_kwh_m2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: e651f79f-953e-4ab3-8673-e897634c9bc4
+		sourceLineageTag: heat_loss_kwh_m2
+		summarizeBy: sum
+		sourceColumn: heat_loss_kwh_m2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column u_composite
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: feb8c10a-fafd-4de6-bb49-8dd8ffe8019d
+		sourceLineageTag: u_composite
+		summarizeBy: sum
+		sourceColumn: u_composite
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column insulation_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 262f7e3b-67cf-4e19-b161-4282c47aca4c
+		sourceLineageTag: insulation_score
+		summarizeBy: sum
+		sourceColumn: insulation_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column hvac_efficiency_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 838ac5ef-72b8-4638-a200-ae360fbc00e5
+		sourceLineageTag: hvac_efficiency_score
+		summarizeBy: sum
+		sourceColumn: hvac_efficiency_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column system_type
+		dataType: string
+		lineageTag: c6d29e4e-610e-4b22-89ec-e7c8b271cead
+		sourceLineageTag: system_type
+		summarizeBy: none
+		sourceColumn: system_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column system_label
+		dataType: string
+		lineageTag: 3f7587ef-c249-432a-9f69-0f6274326cb2
+		sourceLineageTag: system_label
+		summarizeBy: none
+		sourceColumn: system_label
+
+		annotation SummarizationSetBy = Automatic
+
+	column renovation_priority
+		dataType: string
+		lineageTag: e50145ac-47d1-4b8f-aba3-9b085c0e747b
+		sourceLineageTag: renovation_priority
+		summarizeBy: none
+		sourceColumn: renovation_priority
+
+		annotation SummarizationSetBy = Automatic
+
+	column renovation_reason
+		dataType: string
+		lineageTag: 9adc3a17-cc89-4186-b28e-a3228d5d477d
+		sourceLineageTag: renovation_reason
+		summarizeBy: none
+		sourceColumn: renovation_reason
+
+		annotation SummarizationSetBy = Automatic
+
+	column updated_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: dac83db3-7c76-4b9b-ba82-35abd45023e3
+		sourceLineageTag: updated_at
+		summarizeBy: none
+		sourceColumn: updated_at
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_hvac_analytics = entity
+		mode: directLake
+		source
+			entityName: gold_hvac_analytics
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

@@ -1,0 +1,48 @@
+table 'U-Value Categories'
+	lineageTag: 8a5f0ffc-2afa-4a02-98f2-9b984558d7d9
+
+	column Component
+		lineageTag: 5f605188-0e5f-4ce7-b194-c9e208f6c084
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Component]
+
+		annotation SummarizationSetBy = Automatic
+
+	column SortIdx
+		formatString: 0
+		lineageTag: bfe78830-4602-42ea-80ef-81aff556f426
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [SortIdx]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Reference_GEG
+		formatString: #,##0.0
+		lineageTag: d7a29945-dc76-4526-a0fd-ba7565ca4bb0
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [Reference_GEG]
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition 'U-Value Categories' = calculated
+		mode: import
+		source =
+				DATATABLE(
+				    "Component",     STRING,
+				    "SortIdx",       INTEGER,
+				    "Reference_GEG", DOUBLE,
+				    {
+				        { "Wall",   1, 0.24 },
+				        { "Roof",   2, 0.20 },
+				        { "Floor",  3, 0.35 },
+				        { "Window", 4, 1.30 }
+				    }
+				)
+
+	annotation PBI_Id = 0c7be3e5dc33409d966d5b665a04b369
+

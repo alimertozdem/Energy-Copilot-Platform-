@@ -1,0 +1,49 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: en-US
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation PBI_QueryOrder = ["DirectLake - EnergyCopilotLakehouse"]
+
+annotation __PBI_TimeIntelligenceEnabled = 1
+
+annotation PBI_ProTooling = ["DirectLakeOnOneLakeInWeb","WebModelingEdit","RemoteModeling"]
+
+annotation __TEdtr = 1
+
+ref table silver_building_master
+ref table gold_recommendations
+ref table '''Date'''
+ref table gold_occupancy_profile
+ref table gold_anomaly_log
+ref table gold_hvac_analytics
+ref table gold_crrem_pathway
+ref table silver_epc_ratings
+ref table silver_data_quality
+ref table DayOfWeek_Dim
+ref table gold_compliance_results
+ref table 'U-Value Categories'
+ref table sensor_labels
+ref table gold_battery_hourly_dispatch
+ref table gold_kpi_daily
+ref table gold_consumption_forecast
+ref table gold_ghg_scope
+ref table Scope_Category
+ref table gold_battery_daily_summary
+ref table gold_battery_technologies
+ref table gold_kpi_hourly
+ref table gold_country_regulations
+ref table gold_strategy_fitness
+ref table gold_battery_simulation
+ref table gold_iot_fdd
+ref table gold_iot_daily_summary
+ref table gold_iot_realtime
+ref table gold_battery_dispatch
+ref table 'Time Grain'
+ref table gold_ghg_breakdown_long
+
+ref role CustomerRLS
+

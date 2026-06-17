@@ -1,0 +1,180 @@
+table gold_battery_technologies
+	lineageTag: fb818d23-2d4f-4e1b-a235-347aa3781a5f
+	sourceLineageTag: [dbo].[gold_battery_technologies]
+
+	column battery_id
+		dataType: string
+		lineageTag: 9a7b769d-36ac-49cb-b74a-a0d74fb2d82b
+		sourceLineageTag: battery_id
+		summarizeBy: none
+		sourceColumn: battery_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column manufacturer
+		dataType: string
+		lineageTag: ca87a0e9-fd94-4dd1-8cbe-5c1c8d9d6884
+		sourceLineageTag: manufacturer
+		summarizeBy: none
+		sourceColumn: manufacturer
+
+		annotation SummarizationSetBy = Automatic
+
+	column battery_type
+		dataType: string
+		lineageTag: 70cea296-f93c-4039-8dd6-f277ae1d8148
+		sourceLineageTag: battery_type
+		summarizeBy: none
+		sourceColumn: battery_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column capacity_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: a2b90ab6-fed8-4ef7-b9d6-f0b07e404275
+		sourceLineageTag: capacity_kwh
+		summarizeBy: sum
+		sourceColumn: capacity_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_power_kw
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 773cfc1c-6e90-45cc-b965-d44195b8fa86
+		sourceLineageTag: battery_power_kw
+		summarizeBy: sum
+		sourceColumn: battery_power_kw
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column cost_eur_per_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 98031274-06e5-4df9-9304-690b554002bc
+		sourceLineageTag: cost_eur_per_kwh
+		summarizeBy: sum
+		sourceColumn: cost_eur_per_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column expected_lifespan_years
+		dataType: int64
+		formatString: 0
+		lineageTag: c5063f04-02c5-45d6-a184-1b58b6e558b7
+		sourceLineageTag: expected_lifespan_years
+		summarizeBy: sum
+		sourceColumn: expected_lifespan_years
+
+		annotation SummarizationSetBy = Automatic
+
+	column design_cycles
+		dataType: int64
+		formatString: 0
+		lineageTag: 0b6bf90f-1f1a-4e82-96e5-021f8124acbc
+		sourceLineageTag: design_cycles
+		summarizeBy: sum
+		sourceColumn: design_cycles
+
+		annotation SummarizationSetBy = Automatic
+
+	column round_trip_efficiency_percent
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 304a8523-b391-43cc-9000-85dc445950a9
+		sourceLineageTag: round_trip_efficiency_percent
+		summarizeBy: sum
+		sourceColumn: round_trip_efficiency_percent
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column degradation_rate_pct_per_1000_cycles
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: dcbf0069-30a2-4c86-a974-c1b48d8a1cf3
+		sourceLineageTag: degradation_rate_pct_per_1000_cycles
+		summarizeBy: sum
+		sourceColumn: degradation_rate_pct_per_1000_cycles
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column carbon_footprint_kg_co2_per_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 9a539c24-a7c5-4f22-9430-e0037072fd6c
+		sourceLineageTag: carbon_footprint_kg_co2_per_kwh
+		summarizeBy: sum
+		sourceColumn: carbon_footprint_kg_co2_per_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column recycled_content_percent
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: fde896c2-6145-4398-8bad-70092406deba
+		sourceLineageTag: recycled_content_percent
+		summarizeBy: sum
+		sourceColumn: recycled_content_percent
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column warranty_cycles
+		dataType: int64
+		formatString: 0
+		lineageTag: 842b9957-2244-4e1b-969e-ec732f33de58
+		sourceLineageTag: warranty_cycles
+		summarizeBy: sum
+		sourceColumn: warranty_cycles
+
+		annotation SummarizationSetBy = Automatic
+
+	column eu_compliant
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: a5a46685-7918-4a29-9cec-bcd476347574
+		sourceLineageTag: eu_compliant
+		summarizeBy: none
+		sourceColumn: eu_compliant
+
+		annotation SummarizationSetBy = Automatic
+
+	column regions_approved
+		dataType: string
+		lineageTag: 89a56059-a731-4a7a-b2ca-3a3d5139d0cc
+		sourceLineageTag: regions_approved
+		summarizeBy: none
+		sourceColumn: regions_approved
+
+		annotation SummarizationSetBy = Automatic
+
+	column suitable_strategies
+		dataType: string
+		lineageTag: 94f6a188-2da6-4c73-b1a0-f11f46c9e1b0
+		sourceLineageTag: suitable_strategies
+		summarizeBy: none
+		sourceColumn: suitable_strategies
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_battery_technologies = entity
+		mode: directLake
+		source
+			entityName: gold_battery_technologies
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

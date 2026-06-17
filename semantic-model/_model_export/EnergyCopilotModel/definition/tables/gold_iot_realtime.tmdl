@@ -1,0 +1,342 @@
+table gold_iot_realtime
+	lineageTag: c7a86062-5f40-40f8-8016-2eecfde35cd9
+	sourceLineageTag: [dbo].[gold_iot_realtime]
+
+	measure 'IoT Zone Setpoint Compliance Pct' = CALCULATE( AVERAGE(gold_iot_realtime[in_setpoint_pct]), gold_iot_realtime[sensor_type] IN {"HVAC_temp","humidity","CO2"} )
+		formatString: 0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: 0b7c98e4-6e89-46bd-aba8-8b0ad1f3f813
+
+	measure 'IoT Zone Compliance Display' = VAR p=[IoT Zone Setpoint Compliance Pct] RETURN IF( ISBLANK(p), "-- %", FORMAT(ROUND(p,0),"0") & "% in setpoint (EN 16798)" )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: a011931b-cb66-4093-87d2-c6f0a6989606
+
+	measure 'IoT Zone Compliance Color' = VAR p=[IoT Zone Setpoint Compliance Pct] RETURN SWITCH( TRUE(), ISBLANK(p),"#AAAAAA", p>=90,"#2ECC40", p>=75,"#FF851B", "#FF4136" )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: c927aabe-8b05-4b59-873c-c12b65287c85
+
+	measure 'Realtime PV Power kW' = CALCULATE( AVERAGE( gold_iot_realtime[reading_value_avg] ), gold_iot_realtime[sensor_type] = "pv_ac_power" )
+		formatString: #,##0.0
+		displayFolder: Solar - Realtime & Opportunity
+		lineageTag: d0db67ff-2c85-4e3e-9d62-16bd0a49e970
+
+	measure 'Peak PV Power kW' = CALCULATE( MAX( gold_iot_realtime[reading_value_max] ), gold_iot_realtime[sensor_type] = "pv_ac_power" )
+		formatString: #,##0.0
+		displayFolder: Solar - Realtime & Opportunity
+		lineageTag: 53519d22-4e97-4ad8-8cd9-6b2e07a02719
+
+	measure 'IoT CO2 Live' = CALCULATE( AVERAGE(gold_iot_realtime[reading_value_avg]), gold_iot_realtime[sensor_type]="CO2" )
+		formatString: #,##0
+		displayFolder: IoT (Page 8)
+		lineageTag: 550418a7-eecc-4c12-819a-e95ffb299a1e
+
+	measure 'Realtime Building Power kW' = CALCULATE( AVERAGE(gold_iot_realtime[reading_value_avg]), gold_iot_realtime[sensor_type]="building_kwh" )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: 0e77299b-1cb5-4652-8ba1-d7e2d70ca0ba
+
+	measure 'IoT CO2 Display' = VAR c=[IoT CO2 Live] RETURN SWITCH( TRUE(), ISBLANK(c),"--", c<800, "Good " & FORMAT(c,"0") & " ppm", c<=1200, "Fair " & FORMAT(c,"0") & " ppm", "Poor " & FORMAT(c,"0") & " ppm" )
+		displayFolder: IoT (Page 8)
+		lineageTag: 273d335d-e54e-4848-a54b-4183b882de12
+
+	measure 'IoT CO2 Color' = VAR c=[IoT CO2 Live] RETURN SWITCH( TRUE(), ISBLANK(c),"#AAAAAA", c<800,"#2ECC40", c<=1200,"#FF851B", "#FF4136" )
+		displayFolder: IoT (Page 8)
+		lineageTag: a58c6054-f49f-4078-86a1-5d8b688f2dc5
+
+	measure 'Realtime Building Baseline kW' = CALCULATE( AVERAGE(gold_iot_realtime[baseline_value]), gold_iot_realtime[sensor_type]="building_kwh" )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: a883d1f4-b24d-4c36-8c1c-127426995fbe
+
+	measure 'C1 Building Power Display' = VAR p=[Realtime Building Power kW] RETURN IF( ISBLANK(p), "-- kW", FORMAT(p,"#,##0.0") & " kW" )
+		displayFolder: IoT (Page 8)
+		lineageTag: 25ca7eae-5095-4194-ad61-318c640ba395
+
+	measure 'C1 Building Power Color' = VAR p=[Realtime Building Power kW] VAR b=[Realtime Building Baseline kW] RETURN SWITCH( TRUE(), ISBLANK(p),"#AAAAAA", b>0 && p>b*1.2,"#FF4136", b>0 && p>b*1.05,"#FF851B", "#2ECC40" )
+		displayFolder: IoT (Page 8)
+		lineageTag: 7a32a196-510c-4763-b70b-e1b58d6990ad
+
+	measure 'V1 HVAC Power kW' = CALCULATE( AVERAGE(gold_iot_realtime[reading_value_avg]), gold_iot_realtime[sensor_type]="hvac_kwh" )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: 3aa5ebd3-6a8e-47b2-bdc5-0e9b3d368c3a
+
+	measure 'Zone Comfort Cell Pct' = AVERAGE( gold_iot_realtime[in_setpoint_pct] )
+		formatString: 0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: 63b000d1-88bd-41ca-847d-5adede820f4f
+
+	measure 'Active Sensor Locations' = DISTINCTCOUNT( gold_iot_realtime[sensor_location] )
+		formatString: #,##0
+		displayFolder: IoT (Page 8)
+		lineageTag: 4a44dd03-9920-4d5a-9fe4-fe1bc8d046ec
+
+	column timestamp
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: ef173b90-1757-47a2-99b4-b6b4355bc496
+		sourceLineageTag: timestamp
+		summarizeBy: none
+		sourceColumn: timestamp
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_id
+		dataType: string
+		lineageTag: 6d259099-5348-4959-8649-003048ef3354
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column sensor_type
+		dataType: string
+		lineageTag: a99ff842-e425-423a-9ce6-bf56df6bbdbe
+		sourceLineageTag: sensor_type
+		summarizeBy: none
+		sourceColumn: sensor_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column sensor_location
+		dataType: string
+		lineageTag: d038a6ac-1802-40b5-a03e-82cdba3c2990
+		sourceLineageTag: sensor_location
+		summarizeBy: none
+		sourceColumn: sensor_location
+
+		annotation SummarizationSetBy = Automatic
+
+	column reading_unit
+		dataType: string
+		lineageTag: e5b21624-0e17-4363-81a4-b8862c3b6dd8
+		sourceLineageTag: reading_unit
+		summarizeBy: none
+		sourceColumn: reading_unit
+
+		annotation SummarizationSetBy = Automatic
+
+	column reading_value_avg
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 00c0e831-a382-4c1a-b9fe-23c9338438b8
+		sourceLineageTag: reading_value_avg
+		summarizeBy: sum
+		sourceColumn: reading_value_avg
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column reading_value_min
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: e7460c00-b945-4bff-a79c-aefb3c97cbe4
+		sourceLineageTag: reading_value_min
+		summarizeBy: sum
+		sourceColumn: reading_value_min
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column reading_value_max
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 78f40974-c616-4f64-896c-d9cd62c51828
+		sourceLineageTag: reading_value_max
+		summarizeBy: sum
+		sourceColumn: reading_value_max
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column reading_count
+		dataType: int64
+		formatString: 0
+		lineageTag: a1d628bc-fe1a-4d6f-a0a7-aa57860295e1
+		sourceLineageTag: reading_count
+		summarizeBy: sum
+		sourceColumn: reading_count
+
+		annotation SummarizationSetBy = Automatic
+
+	column reading_quality_avg
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 6221399d-27aa-489c-bacf-079a60e516d6
+		sourceLineageTag: reading_quality_avg
+		summarizeBy: sum
+		sourceColumn: reading_quality_avg
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column anomaly_count
+		dataType: int64
+		formatString: 0
+		lineageTag: 20a27667-1f30-4697-89bd-a8dcb65ad844
+		sourceLineageTag: anomaly_count
+		summarizeBy: sum
+		sourceColumn: anomaly_count
+
+		annotation SummarizationSetBy = Automatic
+
+	column high_severity_count
+		dataType: int64
+		formatString: 0
+		lineageTag: 9c4acff9-7caf-4257-b912-0831400a9340
+		sourceLineageTag: high_severity_count
+		summarizeBy: sum
+		sourceColumn: high_severity_count
+
+		annotation SummarizationSetBy = Automatic
+
+	column medium_severity_count
+		dataType: int64
+		formatString: 0
+		lineageTag: e99e9c86-2d5b-43aa-85ca-45fe6853de78
+		sourceLineageTag: medium_severity_count
+		summarizeBy: sum
+		sourceColumn: medium_severity_count
+
+		annotation SummarizationSetBy = Automatic
+
+	column action_recommended
+		dataType: string
+		lineageTag: 119542c2-0db6-43e0-81a4-2772638e6df2
+		sourceLineageTag: action_recommended
+		summarizeBy: none
+		sourceColumn: action_recommended
+
+		annotation SummarizationSetBy = Automatic
+
+	column source_protocol
+		dataType: string
+		lineageTag: 3bdf8c31-ac21-43b9-a8ef-c2d2b389800b
+		sourceLineageTag: source_protocol
+		summarizeBy: none
+		sourceColumn: source_protocol
+
+		annotation SummarizationSetBy = Automatic
+
+	column anomaly_severity_window
+		dataType: string
+		lineageTag: d00c0a22-e26a-4fda-9091-6e1e20b45dd3
+		sourceLineageTag: anomaly_severity_window
+		summarizeBy: none
+		sourceColumn: anomaly_severity_window
+
+		annotation SummarizationSetBy = Automatic
+
+	column is_anomaly_window
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 82707bc8-8202-446d-aedb-228f069575f2
+		sourceLineageTag: is_anomaly_window
+		summarizeBy: none
+		sourceColumn: is_anomaly_window
+
+		annotation SummarizationSetBy = Automatic
+
+	column event_date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 76d0bcc4-53f5-4061-9b96-beeee5b3b92b
+		sourceLineageTag: event_date
+		summarizeBy: none
+		sourceColumn: event_date
+
+		annotation SummarizationSetBy = Automatic
+
+	column setpoint_min
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: f2f58317-b78b-4a16-99dd-eddb5778b2ed
+		sourceLineageTag: setpoint_min
+		summarizeBy: sum
+		sourceColumn: setpoint_min
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column setpoint_max
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: c3737d3c-2d45-4055-b218-bb4c73886ad0
+		sourceLineageTag: setpoint_max
+		summarizeBy: sum
+		sourceColumn: setpoint_max
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column cost_eur_window
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: c1de1e20-bc5f-4228-82ef-3bc72700658b
+		sourceLineageTag: cost_eur_window
+		summarizeBy: sum
+		sourceColumn: cost_eur_window
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column baseline_value
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 5e4d2b4f-752f-431c-aff6-59fbbc46517c
+		sourceLineageTag: baseline_value
+		summarizeBy: sum
+		sourceColumn: baseline_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column in_setpoint_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: f2f219a7-30e7-44fe-b1bf-a449245d0361
+		sourceLineageTag: in_setpoint_pct
+		summarizeBy: sum
+		sourceColumn: in_setpoint_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column hour_bucket
+		dataType: string
+		lineageTag: f0330c52-2a27-476b-b5ba-1876a17917ab
+		sourceLineageTag: hour_bucket
+		summarizeBy: none
+		sourceColumn: hour_bucket
+
+		annotation SummarizationSetBy = Automatic
+
+	column hour_of_day
+		dataType: int64
+		formatString: 0
+		lineageTag: 2fee6ef2-d514-42f2-88ab-e53e55142c09
+		sourceLineageTag: hour_of_day
+		summarizeBy: sum
+		sourceColumn: hour_of_day
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_iot_realtime = entity
+		mode: directLake
+		source
+			entityName: gold_iot_realtime
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

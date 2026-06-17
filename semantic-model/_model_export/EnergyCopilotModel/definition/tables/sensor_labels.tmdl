@@ -1,0 +1,45 @@
+table sensor_labels
+	lineageTag: ad7c320f-f25e-445c-bb62-1536a176f75c
+
+	column sensor_type
+		lineageTag: 469784f2-89d9-45b6-98fc-b38de8d36de2
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [sensor_type]
+
+		annotation SummarizationSetBy = Automatic
+
+	column sensor_label
+		lineageTag: 484ff611-fae7-4d4a-9849-88e3da06a897
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [sensor_label]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition sensor_labels = calculated
+		mode: import
+		source =
+				
+				DATATABLE(
+				    "sensor_type",  STRING,
+				    "sensor_label", STRING,
+				    {
+				        {"building_kwh",     "Bldg kW"},
+				        {"hvac_kwh",         "HVAC kW"},
+				        {"HVAC_temp",        "HVAC T°"},
+				        {"CO2",              "CO₂"},
+				        {"humidity",         "Humid"},
+				        {"HVAC_supply_temp", "Supply T°"},
+				        {"HVAC_return_temp", "Return T°"},
+				        {"fan_rpm",          "Fan RPM"},
+				        {"boiler_eff",       "Boiler %"},
+				        {"chiller_cop",      "Chiller COP"},
+				        {"pump_pressure",    "Pressure"},
+				        {"lighting_kwh",     "Light kW"},
+				        {"plug_load_kwh",    "Plug kW"}
+				    }
+				)
+
+	annotation PBI_Id = 05c738268c5c4957873d88dd0fbe0d66
+

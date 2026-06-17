@@ -1,0 +1,1112 @@
+table gold_kpi_daily
+	lineageTag: 75266b26-8fe2-4009-9167-a5de2820d3d4
+	sourceLineageTag: [dbo].[gold_kpi_daily]
+
+	measure 'Total Consumption kWh' = ```
+			
+			SUM(gold_kpi_daily[total_consumption_kwh])
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 71f560d5-bf85-424c-a62c-6b59c484224e
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg Daily Consumption kWh' = AVERAGE(gold_kpi_daily[total_consumption_kwh])
+		formatString: #,##0.0 "kWh"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: 77c66f51-a992-4f40-a1c1-b29b8f40b42b
+
+	measure 'Peak Demand kW' = MAX(gold_kpi_daily[peak_demand_kw])
+		formatString: #,##0.0 "kW"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: 7aeb0f1e-6c61-4a01-99e6-ca76f55f66d0
+
+	measure 'Avg EUI kWh m2' = ```
+			
+			AVERAGEX(
+			    FILTER(gold_kpi_daily, gold_kpi_daily[eui_kwh_m2] <> BLANK()),
+			    gold_kpi_daily[eui_kwh_m2]
+			)
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 300eade9-40b8-431e-ad3f-87ce997ecd71
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg HDD Normalized EUI' = AVERAGE( gold_kpi_daily[climate_adjusted_eui] )
+		formatString: #,##0.00
+		displayFolder: Energy KPIs
+		lineageTag: 4cbd03a2-8c6f-405a-bf4d-cc58c8efb5ac
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total Grid Consumption kWh' = SUM(gold_kpi_daily[net_grid_consumption_kwh])
+		formatString: #,##0 "kWh"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: 4bf300b1-7186-4f32-9012-978669cfb89d
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total Energy Cost EUR' = ```
+			
+			SUM(gold_kpi_daily[estimated_cost_eur])
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 0a445b7e-6093-4b42-b222-48d9fcfe9856
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total Solar Savings EUR' = ```
+			
+			SUM(gold_kpi_daily[estimated_savings_eur])
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 26073519-0360-4c0b-9196-ab42847b68c3
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg Temperature C' = ```
+			
+			AVERAGE(gold_kpi_daily[avg_temperature_c])
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 84e9e021-d6d1-4b02-9b9a-dea86753c4d4
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Buildings Count' =
+			
+			DISTINCTCOUNT(gold_kpi_daily[building_id])
+		formatString: #,##0.0
+		lineageTag: 6f4a0ffb-11b1-4492-a92e-30e847eb8ec3
+
+		changedProperty = Name
+
+	measure 'Total Solar Generated kWh' = SUM(gold_kpi_daily[solar_generated_kwh])
+		formatString: #,##0 "kWh"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: 9c2c4a4a-a948-45ae-977c-3802d22d77ae
+
+	measure 'Solar Coverage Pct' = ```
+			
+			DIVIDE(
+			    [Total Solar Generated kWh],
+			    [Total Consumption kWh],
+			    0
+			) * 100
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 2d605c75-bc72-44b1-aee7-81baf911eb60
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg Self Consumption Rate Pct' = ```
+			
+			AVERAGE(gold_kpi_daily[avg_self_consumption_rate]) * 100
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 8fcef219-f87a-4a98-8aa5-485b28c91127
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg Self Sufficiency Rate Pct' = ```
+			
+			AVERAGE(gold_kpi_daily[avg_self_sufficiency_rate]) * 100
+			
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 1e5756f3-60d7-45c2-986e-e3a85ecb78c8
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg Solar PR Pct' = ```
+			
+			AVERAGE(gold_kpi_daily[avg_solar_pr]) * 100
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 74e6a6eb-509b-4e46-92c9-9839acd43e1f
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total Solar Exported kWh' = SUM(gold_kpi_daily[solar_exported_kwh])
+		formatString: #,##0 "kWh"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: b7fc6557-9064-4ef5-bcc7-d8c8e71d9be6
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Battery Net kWh' = ```
+			
+			SUM(gold_kpi_daily[battery_charged_kwh]) - SUM(gold_kpi_daily[battery_discharged_kwh])
+			
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 1011350f-7049-4782-b82a-66e5f10047fb
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg Battery Cycles Day' = ```
+			
+			AVERAGE(gold_kpi_daily[battery_cycles_day])
+			
+			```
+		formatString: #,##0.0
+		lineageTag: d25fd2df-2192-4a03-8467-f77af9a35fb4
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total CO2 Emissions kg' = ```
+			
+			SUM(gold_kpi_daily[co2_emissions_kg])
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 02bb5bc5-f52f-471b-b776-79dbf75fe94b
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total CO2 Emissions tCO2' = ```
+			
+			[Total CO2 Emissions kg] / 1000
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 350c7caf-5eff-4944-985b-061dbeddd49e
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total CO2 Savings from Solar kg' = ```
+			
+			SUM(gold_kpi_daily[co2_savings_from_solar_kg])
+			
+			```
+		formatString: #,##0.0
+		lineageTag: a8924442-bae7-43af-8244-8e122900e224
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total CO2 Savings from Solar tCO2' = ```
+			
+			[Total CO2 Savings from Solar kg] / 1000
+			
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 08f1f1d7-992a-41c1-9562-3b66e2c0d116
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Net Carbon Footprint tCO2' = DIVIDE ( SUM ( gold_kpi_daily[co2_emissions_kg] ), 1000 )
+		formatString: #,##0.0
+		lineageTag: 4beef7c1-2956-42e3-8945-55496b539e1c
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg Carbon Intensity kg m2' =
+			AVERAGEX(
+			    FILTER(gold_kpi_daily, gold_kpi_daily[carbon_intensity_kg_m2] <> BLANK()),
+			    gold_kpi_daily[carbon_intensity_kg_m2]
+			)
+		formatString: 0.000 "kgCO₂/m²"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: 97e8ddb9-1b22-451e-a4b6-56628edab2c8
+
+	measure 'Carbon Reduction from Solar Pct' = ```
+			
+			DIVIDE(
+			    [Total CO2 Savings from Solar kg],
+			    [Total CO2 Emissions kg] + [Total CO2 Savings from Solar kg],
+			    0
+			) * 100
+			
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 77131ffd-5234-4a56-9f4e-32cf899b879b
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total HDD' = ```
+			
+			SUM(gold_kpi_daily[hdd_day])
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 31611fbb-facb-4727-92eb-ee0d71529e1a
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total CDD' = ```
+			
+			SUM(gold_kpi_daily[cdd_day])
+			
+			```
+		formatString: #,##0.0
+		lineageTag: a0650716-fee1-4df6-9afd-1bd4d3089f69
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg Battery SoC Pct' =
+			
+			AVERAGEX(
+			    FILTER(
+			        gold_kpi_daily,
+			        gold_kpi_daily[battery_soc_min_pct] <> BLANK() &&
+			        gold_kpi_daily[battery_soc_max_pct] <> BLANK()
+			    ),
+			    (gold_kpi_daily[battery_soc_min_pct] + gold_kpi_daily[battery_soc_max_pct]) / 2
+			)
+		formatString: #,##0.0
+		lineageTag: e48186a9-420f-4358-84b0-0bbc94d69fe1
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg EUI kWh max' = 1.0
+		formatString: 0.00
+		displayFolder: Page 2 - Building Detail
+		lineageTag: 77e7668e-386e-4d66-bd50-a087aba15ed0
+
+	measure 'EUI Target Numeric' = 0.27
+		formatString: 0.00
+		displayFolder: Page 2 - Building Detail
+		lineageTag: 2e4c02c4-97c2-4c54-a10a-005243bd0109
+
+	measure 'Avg Daily Consumption kWh KPI' = CALCULATE(AVERAGE(gold_kpi_daily[total_consumption_kwh]), ALLSELECTED())
+		formatString: #,##0.0 "kWh"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: ded20427-2722-4caf-b5ad-65f4aa5bc7af
+
+	measure 'Peak Demand kW KPI' = CALCULATE(MAX(gold_kpi_daily[peak_demand_kw]), ALLSELECTED())
+		formatString: #,##0.0 "kW"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: 76551865-e653-485d-ae24-691308dd384a
+
+	measure 'Total Solar Generated kWh KPI' =
+			VAR _maxd = CALCULATE ( MAX ( gold_kpi_daily[date] ), ALLSELECTED ( gold_kpi_daily[date] ) )
+			VAR _from = _maxd - 364
+			RETURN
+			CALCULATE (
+			    SUM ( gold_kpi_daily[solar_generated_kwh] ),
+			    ALLSELECTED ( gold_kpi_daily[date] ),
+			    gold_kpi_daily[date] >= _from && gold_kpi_daily[date] <= _maxd
+			)
+		formatString: #,##0
+		displayFolder: Page 2 - Building Detail
+		lineageTag: dcbf72a3-b4e6-4005-ba3f-2aee98708a44
+
+	measure 'Avg Carbon Intensity kg m2 KPI' = CALCULATE(AVERAGEX(FILTER(gold_kpi_daily, gold_kpi_daily[carbon_intensity_kg_m2] <> BLANK()), gold_kpi_daily[carbon_intensity_kg_m2]), ALLSELECTED())
+		formatString: 0.000 "kgCO2/m2"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: e75f7166-46b0-4603-99ed-99fad5a66872
+
+	measure 'Daily Consumption Target' = 5000
+		formatString: #,##0 "kWh"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: 91d03f7a-deb7-438f-b499-f9b23da6a81b
+
+	measure 'Peak Demand Target' = 1200
+		formatString: #,##0 "kW"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: f2687ac3-824a-4bbb-80be-d40eeaa07428
+
+	measure 'Carbon Intensity Target' = 0.15
+		formatString: 0.000 "kgCO2/m2"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: 943e7127-5487-42b3-bc9b-8f9a8fc75a2b
+
+	measure 'Solar Generation Target' = 2900000
+		formatString: #,##0 "kWh"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: e1c8bc71-21c6-4180-a734-5c1f18a01518
+
+	measure 'Solar Self Consumed kWh' = SUM(gold_kpi_daily[solar_self_consumed_kwh])
+		formatString: #,##0 "kWh"
+		displayFolder: Page 2 - Building Detail
+		lineageTag: 5fb5c2cd-490b-43aa-9076-5ba6062c3fa0
+
+	measure 'Monthly Actual kWh' = VAR _v = SUM ( gold_kpi_daily[total_consumption_kwh] ) RETURN IF ( ISBLANK ( _v ), BLANK (), _v )
+		formatString: #,##0
+		lineageTag: b466b2ad-e7e7-4f83-b7aa-2c8604da11dc
+
+	measure 'Monthly Forecast kWh' = VAR _maxActualDate = MAXX ( ALL ( gold_kpi_daily ), gold_kpi_daily[date] ) VAR _firstPureForecastMonthStart = DATE ( YEAR ( EDATE ( _maxActualDate, 1 ) ), MONTH ( EDATE ( _maxActualDate, 1 ) ), 1 ) VAR _minForecastInContext = MIN ( gold_consumption_forecast[forecast_date] ) RETURN IF ( NOT ISBLANK ( _minForecastInContext ) && _minForecastInContext >= _firstPureForecastMonthStart, SUM ( gold_consumption_forecast[predicted_kwh] ), BLANK () )
+		formatString: #,##0
+		lineageTag: 970342b5-f159-4d37-bceb-1093d90d83a6
+
+	measure 'Monthly PY kWh' =
+			VAR _curDate = MAX ( gold_kpi_daily[date] )
+			VAR _pyStartDate = DATE ( YEAR ( _curDate ) - 1, MONTH ( _curDate ), 1 )
+			VAR _pyEndDate = EDATE ( _pyStartDate, 1 ) - 1
+			RETURN
+			CALCULATE (
+			    SUM ( gold_kpi_daily[total_consumption_kwh] ),
+			    REMOVEFILTERS ( '''Date''' ),
+			    gold_kpi_daily[date] >= _pyStartDate,
+			    gold_kpi_daily[date] <= _pyEndDate
+			)
+		formatString: #,##0
+		lineageTag: 2596878b-0d73-415e-9a18-43e93c6355f2
+
+	measure 'Monthly Actual Cost EUR' = VAR _v = SUM ( gold_kpi_daily[estimated_cost_eur] ) RETURN IF ( ISBLANK ( _v ), BLANK (), _v )
+		formatString: "€" #,##0
+		lineageTag: 6a9e8a6d-1c71-4779-b530-71d71fa67f50
+
+	measure 'Monthly YoY Change Pct' = VAR _current = SUM ( gold_kpi_daily[total_consumption_kwh] ) VAR _py = [Monthly PY kWh] RETURN IF ( NOT ISBLANK ( _current ) && NOT ISBLANK ( _py ) && _py > 0, ROUND ( DIVIDE ( _current - _py, _py ) * 100, 1 ), BLANK () )
+		formatString: +0.0%;-0.0%;0.0%
+		lineageTag: 7a06b175-0354-497f-b6dd-506a966b4833
+
+	measure 'Monthly Forecast vs PY Pct' = VAR _forecast = [Monthly Forecast kWh] VAR _py = [Monthly PY kWh] RETURN IF ( NOT ISBLANK ( _forecast ) && NOT ISBLANK ( _py ) && _py > 0, ROUND ( DIVIDE ( _forecast - _py, _py ) * 100, 1 ), BLANK () )
+		formatString: +0.0%;-0.0%;0.0%
+		lineageTag: f594d1ec-9e46-4391-8061-8f9f2f51e70f
+
+	measure 'Ghost Load Annual Cost EUR' = ```
+			
+			VAR _after_hours_avg = 
+			    CALCULATE(
+			        AVERAGE( gold_occupancy_profile[occupancy_probability] ),
+			        gold_occupancy_profile[hour_of_day] >= 20
+			            || gold_occupancy_profile[hour_of_day] < 7
+			    )
+			VAR _total_avg = AVERAGE( gold_occupancy_profile[occupancy_probability] )
+			VAR _phantom_pct = 
+			    IF( _total_avg > 0,
+			        DIVIDE( _after_hours_avg, _total_avg ) * 100,
+			        BLANK()
+			    )
+			VAR _selected_buildings = DISTINCTCOUNT( gold_occupancy_profile[building_id] )
+			VAR _building_type = 
+			    IF(
+			        _selected_buildings = 1,
+			        CALCULATE(
+			            SELECTEDVALUE( silver_building_master[building_type] ),
+			            TREATAS( VALUES( gold_occupancy_profile[building_id] ),
+			                     silver_building_master[building_id] )
+			        ),
+			        "Portfolio"
+			    )
+			VAR _critical_threshold = 
+			    SWITCH(
+			        TRUE(),
+			        _building_type IN { "Hotel", "Healthcare" }, 130,
+			        _building_type = "Logistics", 60,
+			        35
+			    )
+			VAR _annual_kwh = CALCULATE( SUM( gold_kpi_daily[total_consumption_kwh] ) )
+			VAR _baseload_factor = 0.20
+			VAR _eur_per_kwh = 0.20
+			VAR _excess_pct = MAX( _phantom_pct - _critical_threshold, 0 )
+			VAR _wasted_kwh = _annual_kwh * ( _excess_pct / 100 ) * _baseload_factor
+			VAR _wasted_eur = _wasted_kwh * _eur_per_kwh
+			RETURN
+			    IF(
+			        NOT ISBLANK( _phantom_pct )
+			            && _phantom_pct >= _critical_threshold
+			            && _wasted_eur > 0,
+			        ROUND( _wasted_eur, 0 ),
+			        BLANK()
+			    )
+			```
+		formatString: "€"#,##0
+		displayFolder: Page 5 - Decision Support
+		lineageTag: 860b7c14-48aa-4054-a822-50cd3205f75a
+
+	measure 'Avg Climate-Adjusted EUI' = AVERAGE( gold_kpi_daily[climate_adjusted_eui] )
+		formatString: #,##0.00
+		displayFolder: Energy KPIs
+		lineageTag: c86ac444-cb80-4ea8-8fbc-4617524b9ba4
+
+	measure 'Avg Solar Specific Yield kWh kWp' =
+			VAR _days = CALCULATE( DISTINCTCOUNT( gold_kpi_daily[date] ) )
+			RETURN
+			DIVIDE(
+			    AVERAGEX(
+			        VALUES( gold_kpi_daily[building_id] ),
+			        DIVIDE(
+			            CALCULATE( SUM( gold_kpi_daily[solar_generated_kwh] ) ),
+			            CALCULATE( MAX( gold_kpi_daily[pv_capacity_kwp] ) )
+			        )
+			    ) * 365.0,
+			    _days
+			)
+		formatString: #,##0
+		displayFolder: Solar - Realtime & Opportunity
+		lineageTag: 9184dc33-d57e-40b2-83aa-167e9c84062a
+
+	measure 'Solar Self-Consumption Rate Pct' = DIVIDE( [Solar Self Consumed kWh], [Total Solar Generated kWh] )
+		formatString: 0.0%
+		displayFolder: Solar - Realtime & Opportunity
+		lineageTag: 3c20f742-c0fe-45f6-9e64-df6b39f16085
+
+	measure 'Renewable Rate Solar Sites Pct' =
+			VAR _solarBuildings = FILTER( VALUES( silver_building_master[building_id] ), CALCULATE( SUM( silver_building_master[pv_capacity_kwp] ) ) > 0 )
+			VAR _gen = CALCULATE( [Total Solar Generated kWh], KEEPFILTERS( _solarBuildings ) )
+			VAR _con = CALCULATE( [Total Consumption kWh], KEEPFILTERS( _solarBuildings ) )
+			RETURN DIVIDE( _gen, _con, 0 ) * 100
+		formatString: #,##0.0
+		displayFolder: Solar - Realtime & Opportunity
+		lineageTag: da16f7af-e31f-4359-b599-0901ff958b9c
+
+	measure 'Building Cost EUR (period)' = SUM ( gold_kpi_daily[estimated_cost_eur] )
+		lineageTag: 6e03895a-9f1d-42f3-8616-823424c50ee0
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Building EUI (kWh/m2, period)' = DIVIDE ( SUM ( gold_kpi_daily[total_consumption_kwh] ), MAX ( gold_kpi_daily[floor_area_m2] ) )
+		lineageTag: 48fb6f09-da34-487c-ae58-102f89f61872
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg EUI Area-Weighted (kWh/m2/day)' =
+			
+			DIVIDE (
+			    SUM ( gold_kpi_daily[total_consumption_kwh] ),
+			    SUMX ( VALUES ( gold_kpi_daily[building_id] ),
+			           CALCULATE ( MAX ( gold_kpi_daily[floor_area_m2] ) ) )
+			    * DISTINCTCOUNT ( gold_kpi_daily[date] )
+			)
+		lineageTag: 92ee22ee-ff93-47bc-bd48-5eea4070b215
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg EUI Annual kWh m2 yr' = [Avg EUI Area-Weighted (kWh/m2/day)] * 365.25
+		formatString: #,##0
+		displayFolder: EUI
+		lineageTag: a1b6b6b8-c4fe-4435-88fa-2b6db6c5f468
+
+	measure 'EUI Target Annual kWh m2 yr' =
+			VAR _benchOf =
+			    // per-building annual EUI benchmark (kWh/m2/yr) by building_type
+			    SUMX (
+			        VALUES ( silver_building_master[building_id] ),
+			        VAR _bt = LOWER ( CALCULATE ( SELECTEDVALUE ( silver_building_master[building_type] ) ) )
+			        VAR _area = CALCULATE ( SUM ( silver_building_master[conditioned_area_m2] ) )
+			        VAR _b =
+			            SWITCH (
+			                TRUE (),
+			                CONTAINSSTRING ( _bt, "data" ),       1700,
+			                CONTAINSSTRING ( _bt, "health" ),      300,
+			                CONTAINSSTRING ( _bt, "hospital" ),    300,
+			                CONTAINSSTRING ( _bt, "lab" ),         400,
+			                CONTAINSSTRING ( _bt, "hotel" ),       240,
+			                CONTAINSSTRING ( _bt, "logistic" ),    90,
+			                CONTAINSSTRING ( _bt, "warehouse" ),   90,
+			                CONTAINSSTRING ( _bt, "educat" ),      120,
+			                CONTAINSSTRING ( _bt, "office" ),      130,
+			                CONTAINSSTRING ( _bt, "residential" ), 100,
+			                150   // default
+			            )
+			        RETURN _area * _b
+			    )
+			VAR _area = SUMX ( VALUES ( silver_building_master[building_id] ),
+			                   CALCULATE ( SUM ( silver_building_master[conditioned_area_m2] ) ) )
+			RETURN
+			    DIVIDE ( _benchOf, _area )
+		formatString: #,##0
+		displayFolder: EUI
+		lineageTag: e9e28cca-60dc-4126-aff6-24205cce54f9
+
+	measure 'EUI vs Target Pct' =
+			VAR _e = [Avg EUI Annual kWh m2 yr]
+			VAR _g = [EUI Target Annual kWh m2 yr]
+			RETURN IF ( _g > 0, DIVIDE ( _e - _g, _g ), BLANK () )
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: EUI
+		lineageTag: 5e1d6bfe-b456-4e12-a772-afc108f0ca58
+
+	measure 'Solar Generated kWh Rolling 12m' =
+			VAR _maxd = MAXX ( ALL ( gold_kpi_daily ), gold_kpi_daily[date] )
+			VAR _from = _maxd - 364
+			VAR _bldgs = VALUES ( silver_building_master[building_id] )
+			RETURN
+			CALCULATE (
+			    SUM ( gold_kpi_daily[solar_generated_kwh] ),
+			    REMOVEFILTERS ( gold_kpi_daily[date] ),
+			    gold_kpi_daily[date] >= _from && gold_kpi_daily[date] <= _maxd,
+			    TREATAS ( _bldgs, gold_kpi_daily[building_id] )
+			)
+		formatString: #,##0 "kWh"
+		displayFolder: Solar
+		lineageTag: f718e5af-1f2f-45b5-ad25-cea04d57a749
+
+	measure 'Solar CO2 Avoided tCO2 Rolling 12m' =
+			VAR _maxd = MAXX ( ALL ( gold_kpi_daily ), gold_kpi_daily[date] )
+			VAR _from = _maxd - 364
+			VAR _bldgs = VALUES ( silver_building_master[building_id] )
+			RETURN
+			CALCULATE (
+			    DIVIDE ( SUM ( gold_kpi_daily[co2_savings_from_solar_kg] ), 1000 ),
+			    REMOVEFILTERS ( gold_kpi_daily[date] ),
+			    gold_kpi_daily[date] >= _from && gold_kpi_daily[date] <= _maxd,
+			    TREATAS ( _bldgs, gold_kpi_daily[building_id] )
+			)
+		formatString: #,##0.0
+		displayFolder: Solar
+		lineageTag: 35b3f2a0-3613-4765-a870-61f10b9f574b
+
+	measure 'Solar Self Consumed kWh Rolling 12m' =
+			VAR _maxd = MAXX ( ALL ( gold_kpi_daily ), gold_kpi_daily[date] )
+			VAR _from = _maxd - 364
+			VAR _bldgs = VALUES ( silver_building_master[building_id] )
+			RETURN
+			CALCULATE (
+			    SUM ( gold_kpi_daily[solar_self_consumed_kwh] ),
+			    REMOVEFILTERS ( gold_kpi_daily[date] ),
+			    gold_kpi_daily[date] >= _from && gold_kpi_daily[date] <= _maxd,
+			    TREATAS ( _bldgs, gold_kpi_daily[building_id] )
+			)
+		formatString: #,##0
+		displayFolder: Solar
+		lineageTag: 37d5e8e9-1202-45c3-8ade-6398c9cd4770
+
+	measure 'Solar Exported kWh Rolling 12m' =
+			VAR _maxd = MAXX ( ALL ( gold_kpi_daily ), gold_kpi_daily[date] )
+			VAR _from = _maxd - 364
+			VAR _bldgs = VALUES ( silver_building_master[building_id] )
+			RETURN
+			CALCULATE (
+			    SUM ( gold_kpi_daily[solar_exported_kwh] ),
+			    REMOVEFILTERS ( gold_kpi_daily[date] ),
+			    gold_kpi_daily[date] >= _from && gold_kpi_daily[date] <= _maxd,
+			    TREATAS ( _bldgs, gold_kpi_daily[building_id] )
+			)
+		formatString: #,##0
+		displayFolder: Solar
+		lineageTag: 27b5d00f-4266-4248-8651-6c8963b04a2b
+
+	column building_id
+		dataType: string
+		lineageTag: 1b52d304-d4de-4fba-b2fb-cdfcbae63192
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: afcb2c67-6d97-4b01-a05a-6583c395f971
+		sourceLineageTag: date
+		summarizeBy: none
+		sourceColumn: date
+
+		annotation SummarizationSetBy = Automatic
+
+	column year
+		dataType: int64
+		formatString: 0
+		lineageTag: e36ab941-1310-476f-a555-5dc7b36c5aad
+		sourceLineageTag: year
+		summarizeBy: sum
+		sourceColumn: year
+
+		annotation SummarizationSetBy = Automatic
+
+	column month
+		dataType: int64
+		formatString: 0
+		lineageTag: b78f40fd-7fdc-4be0-b79f-385e8cad2ad8
+		sourceLineageTag: month
+		summarizeBy: sum
+		sourceColumn: month
+
+		annotation SummarizationSetBy = Automatic
+
+	column total_consumption_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: ecf345d1-e8a0-4e2c-8047-b67d16cb1227
+		sourceLineageTag: total_consumption_kwh
+		summarizeBy: sum
+		sourceColumn: total_consumption_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column peak_demand_kw
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 78271972-496f-490e-8268-d12899afe867
+		sourceLineageTag: peak_demand_kw
+		summarizeBy: sum
+		sourceColumn: peak_demand_kw
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column avg_load_factor
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 226cccdd-0a2c-40bc-9a45-2e9072907434
+		sourceLineageTag: avg_load_factor
+		summarizeBy: sum
+		sourceColumn: avg_load_factor
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column solar_generated_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 0b6d1d49-cd17-4870-85c5-5d002c6cb7ff
+		sourceLineageTag: solar_generated_kwh
+		summarizeBy: sum
+		sourceColumn: solar_generated_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column solar_self_consumed_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 0c52dd06-ee75-4aa3-927c-26cc19810817
+		sourceLineageTag: solar_self_consumed_kwh
+		summarizeBy: sum
+		sourceColumn: solar_self_consumed_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column solar_exported_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: fdb8932e-e5fc-4b34-a17c-3733d643daa1
+		sourceLineageTag: solar_exported_kwh
+		summarizeBy: sum
+		sourceColumn: solar_exported_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column avg_solar_pr
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: de00b04e-2f20-438a-9bd7-25dd8628b4ed
+		sourceLineageTag: avg_solar_pr
+		summarizeBy: sum
+		sourceColumn: avg_solar_pr
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column avg_self_consumption_rate
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: cac07f52-1c30-4f14-87aa-6b2b4645842c
+		sourceLineageTag: avg_self_consumption_rate
+		summarizeBy: sum
+		sourceColumn: avg_self_consumption_rate
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column avg_self_sufficiency_rate
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 3c5c79af-cc53-4b2b-9cb6-d4b890a8c623
+		sourceLineageTag: avg_self_sufficiency_rate
+		summarizeBy: sum
+		sourceColumn: avg_self_sufficiency_rate
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_charged_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 650b4470-c2f1-48e7-af6d-6694481357bf
+		sourceLineageTag: battery_charged_kwh
+		summarizeBy: sum
+		sourceColumn: battery_charged_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_discharged_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: ea25bfbd-79c2-42d9-a8f9-20e3a06c6a45
+		sourceLineageTag: battery_discharged_kwh
+		summarizeBy: sum
+		sourceColumn: battery_discharged_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_cycles_day
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 82dfd204-98a9-4267-a137-9d2c610afbe1
+		sourceLineageTag: battery_cycles_day
+		summarizeBy: sum
+		sourceColumn: battery_cycles_day
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_soc_min_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 7c613b87-ac6b-41a4-8156-f0568d6d2f60
+		sourceLineageTag: battery_soc_min_pct
+		summarizeBy: sum
+		sourceColumn: battery_soc_min_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_soc_max_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 566a4a16-4f75-4f9a-a741-816ea5b20a94
+		sourceLineageTag: battery_soc_max_pct
+		summarizeBy: sum
+		sourceColumn: battery_soc_max_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column avg_temperature_c
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 5686bcc0-c291-4b3b-9f9b-acd6cd6ef1ff
+		sourceLineageTag: avg_temperature_c
+		summarizeBy: sum
+		sourceColumn: avg_temperature_c
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column hdd_day
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 626962c7-f816-4ac5-90ec-5daf19a7f099
+		sourceLineageTag: hdd_day
+		summarizeBy: sum
+		sourceColumn: hdd_day
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column cdd_day
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: c2f3c89b-8192-416c-906e-385cacdcc760
+		sourceLineageTag: cdd_day
+		summarizeBy: sum
+		sourceColumn: cdd_day
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column net_grid_consumption_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: fdf17c4e-dbe4-4ca0-aa99-00f39ab399e1
+		sourceLineageTag: net_grid_consumption_kwh
+		summarizeBy: sum
+		sourceColumn: net_grid_consumption_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column co2_emissions_kg
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: f9d9b0a9-5fb4-40d8-aec3-0209799b04ca
+		sourceLineageTag: co2_emissions_kg
+		summarizeBy: sum
+		sourceColumn: co2_emissions_kg
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column co2_savings_from_solar_kg
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 40b25923-fe07-4e9b-924f-d3a6ce0d023f
+		sourceLineageTag: co2_savings_from_solar_kg
+		summarizeBy: sum
+		sourceColumn: co2_savings_from_solar_kg
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column floor_area_m2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 819534d9-b023-484c-887d-226c0f348c8e
+		sourceLineageTag: floor_area_m2
+		summarizeBy: sum
+		sourceColumn: floor_area_m2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column pv_capacity_kwp
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 98bb978d-92b6-422f-8f11-0484644df26e
+		sourceLineageTag: pv_capacity_kwp
+		summarizeBy: sum
+		sourceColumn: pv_capacity_kwp
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_capacity_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: ed704490-e8ca-4aaa-adfc-a22f8a85f6c3
+		sourceLineageTag: battery_capacity_kwh
+		summarizeBy: sum
+		sourceColumn: battery_capacity_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column emission_factor_kg_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: cac9ad29-616f-4d8d-b7b6-736811b6a2a3
+		sourceLineageTag: emission_factor_kg_kwh
+		summarizeBy: sum
+		sourceColumn: emission_factor_kg_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column has_pv
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 213c3e42-ab9b-44ce-be3a-41d831fc9def
+		sourceLineageTag: has_pv
+		summarizeBy: none
+		sourceColumn: has_pv
+
+		annotation SummarizationSetBy = Automatic
+
+	column has_battery
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 7147acb4-c0bb-4e33-8321-d5a9995efaec
+		sourceLineageTag: has_battery
+		summarizeBy: none
+		sourceColumn: has_battery
+
+		annotation SummarizationSetBy = Automatic
+
+	column has_heat_pump
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: b712c545-7aee-47e0-acd4-c0b4e7dd50ad
+		sourceLineageTag: has_heat_pump
+		summarizeBy: none
+		sourceColumn: has_heat_pump
+
+		annotation SummarizationSetBy = Automatic
+
+	column subscription_tier
+		dataType: string
+		lineageTag: 4e93392c-1142-4566-b60c-23d5215cddb0
+		sourceLineageTag: subscription_tier
+		summarizeBy: none
+		sourceColumn: subscription_tier
+
+		annotation SummarizationSetBy = Automatic
+
+	column eui_kwh_m2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 3ed44887-794c-473d-bfa8-3cf119c0690e
+		sourceLineageTag: eui_kwh_m2
+		summarizeBy: sum
+		sourceColumn: eui_kwh_m2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column carbon_intensity_kg_m2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 71033a5b-5f9a-4df2-a7a9-16054f678b9e
+		sourceLineageTag: carbon_intensity_kg_m2
+		summarizeBy: sum
+		sourceColumn: carbon_intensity_kg_m2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column estimated_cost_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: a9520124-b47b-4e50-9752-689d9c054737
+		sourceLineageTag: estimated_cost_eur
+		summarizeBy: sum
+		sourceColumn: estimated_cost_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column estimated_savings_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: a1bd2c56-902d-49fd-b128-920cc810ffbc
+		sourceLineageTag: estimated_savings_eur
+		summarizeBy: sum
+		sourceColumn: estimated_savings_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column processed_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 71d1e0fd-6b18-458a-bbe8-3fd4fd09c4ee
+		sourceLineageTag: processed_at
+		summarizeBy: none
+		sourceColumn: processed_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column country_code
+		dataType: string
+		lineageTag: b480fa62-f870-47a1-a549-8203d4048964
+		sourceLineageTag: country_code
+		summarizeBy: none
+		sourceColumn: country_code
+
+		annotation SummarizationSetBy = Automatic
+
+	column total_dd_day
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 6b6041b1-29a9-4be6-a940-a1a1ad692128
+		sourceLineageTag: total_dd_day
+		summarizeBy: sum
+		sourceColumn: total_dd_day
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column climate_adjusted_eui
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 4918a0e6-4c8d-4914-8658-a894110dbea8
+		sourceLineageTag: climate_adjusted_eui
+		summarizeBy: sum
+		sourceColumn: climate_adjusted_eui
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column _tariff_eur_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 2d484e09-472a-4a78-8031-eb058ea4a788
+		sourceLineageTag: _tariff_eur_kwh
+		summarizeBy: sum
+		sourceColumn: _tariff_eur_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition gold_kpi_daily = entity
+		mode: directLake
+		source
+			entityName: gold_kpi_daily
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

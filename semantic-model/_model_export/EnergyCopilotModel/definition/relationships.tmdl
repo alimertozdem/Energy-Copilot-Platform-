@@ -1,0 +1,112 @@
+relationship 0ae29404-40a8-2fc7-f413-60cae30c64e6
+	fromColumn: gold_recommendations.building_id
+	toColumn: silver_building_master.building_id
+
+relationship bb1143ac-bbf5-9327-b198-be01e3a58f09
+	fromColumn: gold_occupancy_profile.building_id
+	toColumn: silver_building_master.building_id
+
+relationship 48a2f5ba-b466-2f4c-4af9-410da999aa87
+	fromColumn: gold_anomaly_log.building_id
+	toColumn: silver_building_master.building_id
+
+relationship 0e4051bc-6421-8274-3e4d-d967309d0673
+	fromColumn: gold_hvac_analytics.building_id
+	toColumn: silver_building_master.building_id
+
+relationship a07ea575-a0ff-5d6b-856e-a9289429d8a7
+	fromColumn: gold_anomaly_log.detected_date
+	toColumn: '''Date'''.Date
+
+relationship 46d9b391-3755-db74-2eee-2813aa8636e9
+	fromColumn: gold_hvac_analytics.year_month
+	toColumn: '''Date'''.Date
+
+relationship 6e84910f-6508-eace-b2f0-83379b8430ed
+	fromColumn: gold_crrem_pathway.year_month
+	toColumn: '''Date'''.Date
+
+relationship 24ce180d-e49e-8d7d-1847-18b212e6497d
+	fromColumn: silver_epc_ratings.building_id
+	toColumn: silver_building_master.building_id
+
+relationship 6acbdc4f-02dd-6fee-34b0-f0c486bb3a4b
+	fromColumn: gold_occupancy_profile.day_of_week
+	toColumn: DayOfWeek_Dim.day_of_week
+
+relationship 3cb2a0c2-8f79-6f62-1fa8-ee0e577ffd0a
+	fromColumn: silver_data_quality.building_id
+	toColumn: silver_building_master.building_id
+
+relationship df57fd83-aef4-bb49-2828-714d790911b2
+	fromColumn: gold_compliance_results.building_id
+	toColumn: silver_building_master.building_id
+
+relationship 101d1329-3f85-9e54-d950-a386025f76b4
+	fromColumn: gold_battery_hourly_dispatch.building_id
+	toColumn: silver_building_master.building_id
+
+relationship be0474ad-802e-94d5-3cf4-d35dd58ccc51
+	fromColumn: gold_kpi_daily.building_id
+	toColumn: silver_building_master.building_id
+
+relationship 4e012995-dc07-5c80-c224-43c40391fc5c
+	fromColumn: gold_kpi_daily.date
+	toColumn: '''Date'''.Date
+
+relationship 967f34c5-c2b7-7f0d-feba-4f5ceebf3336
+	fromColumn: gold_consumption_forecast.building_id
+	toColumn: silver_building_master.building_id
+
+relationship d6b3e749-a74f-1571-0321-2c1efa45a3f9
+	fromColumn: gold_consumption_forecast.forecast_date
+	toColumn: '''Date'''.Date
+
+relationship 54431815-5a84-9a92-6dd9-a93b3f6a1c61
+	fromColumn: gold_ghg_scope.building_id
+	toColumn: silver_building_master.building_id
+
+relationship 428722b1-2af8-f206-a9fe-fe0b64590d63
+	fromColumn: gold_ghg_scope.year_month
+	toColumn: '''Date'''.Date
+
+relationship 5b2a9205-453b-3b02-76c7-89f9e766a389
+	fromColumn: gold_kpi_hourly.date
+	toColumn: '''Date'''.Date
+
+relationship c957d08d-31bb-0232-e726-9554e8447f43
+	fromColumn: gold_iot_realtime.event_date
+	toColumn: '''Date'''.Date
+
+relationship b27994ff-ff09-69c3-30b0-fcbc5f685b5c
+	fromColumn: gold_iot_fdd.building_id
+	toColumn: silver_building_master.building_id
+
+relationship 4bb2eeac-d4b4-f229-e7e4-ee7a5726b060
+	fromColumn: gold_iot_fdd.event_date
+	toColumn: '''Date'''.Date
+
+relationship edcb2b9b-1631-e034-e7d1-ec307fcf16b8
+	fromColumn: gold_iot_daily_summary.building_id
+	toColumn: silver_building_master.building_id
+
+relationship 4e449a70-8731-4743-33d0-af94015eb222
+	fromColumn: gold_iot_daily_summary.event_date
+	toColumn: '''Date'''.Date
+
+relationship 2890e4aa-663b-7420-eaf7-aa5aa3000726
+	fromColumn: gold_battery_dispatch.date
+	toColumn: '''Date'''.Date
+
+relationship bea5c7d1-aa3f-7634-b8b5-39ff18721c2f
+	fromColumn: gold_battery_dispatch.building_id
+	toColumn: silver_building_master.building_id
+
+relationship 67137776-1225-9cf9-bea9-fef87a173ca6
+	fromColumn: gold_ghg_breakdown_long.building_id
+	toColumn: silver_building_master.building_id
+
+relationship bc968b9c-72c9-4e98-8974-af0c76c58511
+	fromColumn: gold_iot_realtime.building_id
+	toColumn: silver_building_master.building_id
+

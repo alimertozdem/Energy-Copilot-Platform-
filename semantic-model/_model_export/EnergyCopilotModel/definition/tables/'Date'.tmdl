@@ -1,0 +1,740 @@
+table '''Date'''
+	lineageTag: 10c75965-cac5-4c3d-bf2a-65352e0c61a5
+	dataCategory: Time
+
+	measure 'Previous Period Consumption kWh' = ```
+			
+			CALCULATE(
+			    [Total Consumption kWh],
+			    PREVIOUSMONTH('''Date'''[Date])
+			)
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 97e938eb-77af-4e43-83c6-62c6b080cbd0
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Consumption Change Pct' = ```
+			
+			DIVIDE(
+			    [Total Consumption kWh] - [Previous Period Consumption kWh],
+			    [Previous Period Consumption kWh],
+			    0
+			) * 100
+			
+			
+			```
+		formatString: #,##0.0
+		lineageTag: fde30134-843e-4ecc-bcef-1aa6ab429726
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Previous Period Cost EUR' = ```
+			
+			CALCULATE(
+			    [Total Energy Cost EUR],
+			    PREVIOUSMONTH('''Date'''[Date])
+			)
+			
+			```
+		formatString: #,##0.0
+		lineageTag: f58fb9ad-1eaf-4314-aaa8-1ce844b4e2f3
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Cost Change Pct' =
+			
+			DIVIDE(
+			    [Total Energy Cost EUR] - [Previous Period Cost EUR],
+			    [Previous Period Cost EUR],
+			    0
+			) * 100
+		formatString: #,##0.0
+		lineageTag: 1ecec01b-b0dc-465c-80d7-66f9fec38de6
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'YTD Consumption kWh' =
+			
+			CALCULATE(
+			    [Total Consumption kWh],
+			    DATESYTD('''Date'''[Date])
+			)
+		formatString: #,##0.0
+		lineageTag: f2a35e98-3c3f-4b98-a04c-57abe9a8553b
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'YTD CO2 Emissions tCO2' =
+			
+			CALCULATE(
+			    [Total CO2 Emissions tCO2],
+			    DATESYTD('''Date'''[Date])
+			)
+		formatString: #,##0.0
+		lineageTag: a92c8d86-7a87-4bca-857b-d71c45c935cd
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last Week kWh v14' =
+			
+			// Veri setinin en son tarihinden 8–14 gün öncesi ("geçen hafta penceresi")
+			// Örnek: max date = 2026-01-18 → 5–11 Ocak arası
+			VAR _maxDate    = CALCULATE ( MAX ( gold_kpi_daily[date] ), REMOVEFILTERS ( '''Date''' ) )
+			VAR _weekEnd    = _maxDate - 7      // geçen haftanın son günü
+			VAR _weekStart  = _maxDate - 13     // geçen haftanın ilk günü (7 tam gün)
+			RETURN
+			CALCULATE (
+			    [Total Consumption kWh],
+			    REMOVEFILTERS ( '''Date''' ),
+			    DATESBETWEEN ( '''Date'''[date], _weekStart, _weekEnd )
+			)
+		formatString: #,##0.0
+		lineageTag: f2f25a28-8739-4dbb-ad7f-5a0b689eaef3
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Current Week kWh v14' =
+			
+			// Veri setinin son 7 günü ("mevcut hafta" gibi davranır)
+			VAR _maxDate = CALCULATE ( MAX ( '''Date'''[date] ), REMOVEFILTERS ( '''Date''' ) )
+			RETURN
+			CALCULATE (
+			    [Total Consumption kWh],
+			    REMOVEFILTERS ( '''Date''' ),
+			    DATESINPERIOD ( '''Date'''[date], _maxDate, -7, DAY )
+			)
+		formatString: #,##0.0
+		lineageTag: 9c86dfd4-3fe8-4fed-bf4b-e81ac17df9fb
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Week over Week Consumption Pct' =
+			
+			// Bu hafta tüketimi / geçen hafta tüketimi karşılaştırması (%)
+			// Pozitif = artış, Negatif = azalış
+			// FORMAT: "0.0" (×100 yapılmış)
+			VAR _thisWeek = [Current Week kWh v14]
+			VAR _lastWeek = [Last Week kWh v14]
+			RETURN
+			DIVIDE(_thisWeek - _lastWeek, _lastWeek, BLANK()) * 100
+		formatString: #,##0.0
+		lineageTag: 1cefc374-c10c-4384-a2fe-3ee44528b189
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Week over Week Arrow v14' =
+			
+			// C7 — Haftalık tüketim değişimi, ok etiketi olarak
+			// Format: General (text ölçüsü — Standard Card visual kullan, KPI değil)
+			VAR _thisWeek = [Current Week kWh v14]
+			VAR _lastWeek = [Last Week kWh v14]
+			VAR _pct      = DIVIDE ( _thisWeek - _lastWeek, _lastWeek, BLANK() ) * 100
+			RETURN
+			SWITCH (
+			    TRUE (),
+			    ISBLANK ( _pct ),   "—",
+			    _pct > 5,           "▲▲ " & FORMAT (      _pct,  "+0.0" ) & "%",
+			    _pct > 0,           "▲ "  & FORMAT (      _pct,  "+0.0" ) & "%",
+			    _pct < -5,          "▼▼ " & FORMAT ( ABS ( _pct ), "0.0" ) & "%",
+			    _pct < 0,           "▼ "  & FORMAT ( ABS ( _pct ), "0.0" ) & "%",
+			                        "→ 0.0%"
+			)
+		formatString: #,##0.0
+		lineageTag: af5ce728-47b5-4ea7-b3dd-0cc894ad33e2
+
+	measure 'Last Week Cost EUR' =
+			
+			// Geçen haftanın enerji maliyeti (EUR)
+			CALCULATE(
+			    [Total Energy Cost EUR],
+			    '''Date'''[IsLastWeek] = TRUE()
+			)
+		formatString: #,##0.0
+		lineageTag: afda231e-dbf6-4a17-ba5e-8321cf24f66a
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last Week CO2 Emissions tCO2' =
+			
+			// Geçen haftanın CO₂ emisyonu (metrik ton)
+			CALCULATE(
+			    [Total CO2 Emissions tCO2],
+			    '''Date'''[IsLastWeek] = TRUE()
+			)
+		formatString: #,##0.0
+		lineageTag: b1ee69f6-4510-4dd7-a9ca-60bfa4a5a844
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last Week Peak Demand kW' = ```
+			
+			// Geçen hafta maksimum güç talebi (kW)
+			CALCULATE(
+			    [Peak Demand kW],
+			    '''Date'''[IsLastWeek] = TRUE()
+			)
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 140ef063-b0db-4d31-895a-63e3466501c0
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last Week Solar Generated kWh' =
+			
+			// Geçen hafta güneş enerjisi üretimi
+			CALCULATE(
+			    [Total Solar Generated kWh],
+			    '''Date'''[IsLastWeek] = TRUE()
+			)
+		formatString: #,##0.0
+		lineageTag: 4aa98ac0-74e1-4c6e-bc83-0f1fad23e593
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'WoW Solar Change Pct' =
+			
+			// Güneş üretiminde haftalık değişim — hava koşulu etkisini takip için
+			VAR _thisWeek = CALCULATE([Total Solar Generated kWh], '''Date'''[IsCurrentWeek] = TRUE())
+			VAR _lastWeek = [Last Week Solar Generated kWh]
+			RETURN
+			DIVIDE(_thisWeek - _lastWeek, _lastWeek, BLANK()) * 100
+		formatString: #,##0.0
+		lineageTag: 771167d0-2e2f-4772-9f6a-436f1f9173f9
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last Month kWh v14' =
+			
+			// Veri setinin son tarihinin bir önceki tam takvim ayı
+			// Örnek: max date = 2026-01-18 → Ocak değil, Aralık 2025'in tamamı
+			VAR _maxDate        = CALCULATE ( MAX ( gold_kpi_daily[date] ), REMOVEFILTERS ( '''Date''' ) )
+			VAR _lastMonthEnd   = DATE ( YEAR ( _maxDate ), MONTH ( _maxDate ), 1 ) - 1
+			VAR _lastMonthStart = DATE ( YEAR ( _lastMonthEnd ), MONTH ( _lastMonthEnd ), 1 )
+			RETURN
+			CALCULATE (
+			    [Total Consumption kWh],
+			    REMOVEFILTERS ( '''Date''' ),
+			    DATESBETWEEN ( '''Date'''[date], _lastMonthStart, _lastMonthEnd )
+			)
+		formatString: #,##0.0
+		lineageTag: abd97cd4-c9b1-491a-81ad-1adb66fbbb71
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Current Month kWh v14' =
+			
+			// Veri setinin son tarihinin içinde bulunduğu ayın 1'inden son tarihe kadar
+			VAR _maxDate    = CALCULATE ( MAX ( '''Date'''[date] ), REMOVEFILTERS ( '''Date''' ) )
+			VAR _monthStart = DATE ( YEAR ( _maxDate ), MONTH ( _maxDate ), 1 )
+			RETURN
+			CALCULATE (
+			    [Total Consumption kWh],
+			    REMOVEFILTERS ( '''Date''' ),
+			    DATESBETWEEN ( '''Date'''[date], _monthStart, _maxDate )
+			)
+		formatString: #,##0.0
+		lineageTag: 864cddfa-96b0-4212-8133-2752ce150840
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Month over Month Consumption Pct' =
+			
+			// Bu ay / geçen ay tüketim değişimi (%)
+			// Not: Ay tamamlanmamışsa eksik gün sayısı dikkate alınmaz — tam ay için kullan
+			// FORMAT: "0.0"
+			VAR _thisMonth = [Current Month kWh v14]
+			VAR _lastMonth = [Last Month kWh v14]
+			RETURN
+			DIVIDE(_thisMonth - _lastMonth, _lastMonth, BLANK()) * 100
+		formatString: #,##0.0
+		lineageTag: a271448d-8709-4275-a6ad-28a967efbd3f
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Month over Month Arrow v14' =
+			
+			// C9 — Aylık tüketim değişimi, ok etiketi olarak
+			// Format: General (text ölçüsü)
+			VAR _thisMonth = [Current Month kWh v14]
+			VAR _lastMonth = [Last Month kWh v14]
+			VAR _pct       = DIVIDE ( _thisMonth - _lastMonth, _lastMonth, BLANK() ) * 100
+			RETURN
+			SWITCH (
+			    TRUE (),
+			    ISBLANK ( _pct ),   "—",
+			    _pct > 10,          "▲▲ " & FORMAT (      _pct,  "+0.0" ) & "%",
+			    _pct > 0,           "▲ "  & FORMAT (      _pct,  "+0.0" ) & "%",
+			    _pct < -10,         "▼▼ " & FORMAT ( ABS ( _pct ), "0.0" ) & "%",
+			    _pct < 0,           "▼ "  & FORMAT ( ABS ( _pct ), "0.0" ) & "%",
+			                        "→ 0.0%"
+			)
+		formatString: #,##0.0
+		lineageTag: d5b3a642-c8bc-4be8-8af8-0d8cd578795d
+
+	measure 'Last Month Cost EUR' =
+			
+			// Geçen ayın enerji maliyeti
+			CALCULATE(
+			    [Total Energy Cost EUR],
+			    '''Date'''[IsLastMonth] = TRUE()
+			)
+		formatString: #,##0.0
+		lineageTag: b434b271-749a-4753-9557-fbf478adf57c
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last Month CO2 Emissions tCO2' =
+			
+			// Geçen ayın CO₂ emisyonu
+			CALCULATE(
+			    [Total CO2 Emissions tCO2],
+			    '''Date'''[IsLastMonth] = TRUE()
+			)
+		formatString: #,##0.0
+		lineageTag: 6d266934-c950-494f-bfbd-87cc935e675b
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last Month Peak Demand kW' = ```
+			
+			// Geçen ayın pik güç talebi
+			CALCULATE(
+			    [Peak Demand kW],
+			    '''Date'''[IsLastMonth] = TRUE()
+			)
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 605e04c9-9481-48ec-95bf-c06a23191795
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last Month Solar Generated kWh' =
+			
+			// Geçen ayın güneş üretimi
+			CALCULATE(
+			    [Total Solar Generated kWh],
+			    '''Date'''[IsLastMonth] = TRUE()
+			)
+		formatString: #,##0.0
+		lineageTag: e4f7db21-ba7b-4908-ad02-2c087c959d87
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'MoM Cost Change Pct' =
+			
+			// Maliyet değişimi ay bazında
+			VAR _thisMonth = CALCULATE([Total Energy Cost EUR], '''Date'''[IsCurrentMonth] = TRUE())
+			VAR _lastMonth = [Last Month Cost EUR]
+			RETURN
+			DIVIDE(_thisMonth - _lastMonth, _lastMonth, BLANK()) * 100
+		formatString: #,##0.0
+		lineageTag: 42fd2214-2f3c-48cc-b131-edcab6b8d681
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'MoM CO2 Change Pct' =
+			
+			// CO₂ değişimi ay bazında — emisyon azaltma hedefi takibi için
+			VAR _thisMonth = CALCULATE([Total CO2 Emissions tCO2], '''Date'''[IsCurrentMonth] = TRUE())
+			VAR _lastMonth = [Last Month CO2 Emissions tCO2]
+			RETURN
+			DIVIDE(_thisMonth - _lastMonth, _lastMonth, BLANK()) * 100
+		formatString: #,##0.0
+		lineageTag: f7180274-4639-4874-a24e-ad7872182aef
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last 7 Days Consumption kWh' =
+			
+			// Son 7 günün tüketimi — rolling pencere (bugün dahil)
+			// Slicer'dan bağımsız — her zaman son 7 günü gösterir
+			VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+			RETURN
+			CALCULATE(
+			    [Total Consumption kWh],
+			    REMOVEFILTERS('''Date'''),
+			    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -7, DAY)
+			)
+		formatString: #,##0.0
+		lineageTag: 24f65603-6c06-45c0-b8ec-a94da4d053f1
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last 30 Days Consumption kWh' =
+			
+			// Son 30 günün tüketimi — rolling pencere
+			VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+			RETURN
+			CALCULATE(
+			    [Total Consumption kWh],
+			    REMOVEFILTERS('''Date'''),
+			    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -30, DAY)
+			)
+		formatString: #,##0.0
+		lineageTag: ce67c6ff-eac5-4c73-a6d6-6c09de3424b0
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last 7 Days Cost EUR' =
+			
+			// Son 7 günün maliyeti
+			VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+			RETURN
+			CALCULATE(
+			    [Total Energy Cost EUR],
+			    REMOVEFILTERS('''Date'''),
+			    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -7, DAY)
+			)
+		formatString: #,##0.0
+		lineageTag: 8f54bfb1-e47f-4586-a522-322c23b54f79
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last 30 Days Cost EUR' =
+			
+			// Son 30 günün maliyeti
+			VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+			RETURN
+			CALCULATE(
+			    [Total Energy Cost EUR],
+			    REMOVEFILTERS('''Date'''),
+			    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -30, DAY)
+			)
+		formatString: #,##0.0
+		lineageTag: c8e33cb7-931d-4893-b70a-f12843648196
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last 7 Days CO2 tCO2' =
+			
+			// Son 7 günün CO₂ emisyonu
+			VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+			RETURN
+			CALCULATE(
+			    [Total CO2 Emissions tCO2],
+			    REMOVEFILTERS('''Date'''),
+			    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -7, DAY)
+			)
+		formatString: #,##0.0
+		lineageTag: 992b1d8a-5ef8-430c-95ca-6463d0c9e71c
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Last 30 Days CO2 tCO2' = ```
+			
+			// Son 30 günün CO₂ emisyonu
+			VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+			RETURN
+			CALCULATE(
+			    [Total CO2 Emissions tCO2],
+			    REMOVEFILTERS('''Date'''),
+			    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -30, DAY)
+			)
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 0f14c5f9-aa00-4d55-aa1d-0bedcdc4002e
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Card: Last Week vs Previous Week Pct' =
+			
+			// Page 1 KPI card: Geçen hafta / bir önceki hafta karşılaştırması
+			// (Bugünkü hafta henüz tamamlanmadı, daha sağlıklı karşılaştırma)
+			VAR _last = [Last Week kWh v14]
+			VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+			VAR _twoWeeksAgo = CALCULATE(
+			    [Total Consumption kWh],
+			    REMOVEFILTERS('''Date'''),
+			    DATESINPERIOD(gold_kpi_daily[date], _maxDate - 7, -7, DAY)
+			)
+			RETURN
+			DIVIDE(_last - _twoWeeksAgo, _twoWeeksAgo, BLANK()) * 100
+		formatString: #,##0.0
+		lineageTag: 766da1eb-7e77-43f2-a675-8d08607e3db1
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Card: Last Month vs Previous Month Pct' =
+			
+			// Page 1 KPI card: Geçen ay / bir önceki ay
+			VAR _lastMonth = [Last Month kWh v14]
+			VAR _prevMonth = CALCULATE(
+			    [Total Consumption kWh],
+			    PREVIOUSMONTH(DATESINPERIOD('''Date'''[Date], MIN('''Date'''[Date]), 0, DAY))
+			)
+			RETURN
+			DIVIDE(_lastMonth - _prevMonth, _prevMonth, BLANK()) * 100
+		formatString: #,##0.0
+		lineageTag: 9b39d242-224b-407e-bc5c-3a93cf486ba5
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Card: Weekly Avg Consumption kWh' =
+			
+			// Son 4 haftanın haftalık ortalama tüketimi — trend baseline için
+			VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+			VAR _28days = CALCULATE(
+			    [Total Consumption kWh],
+			    REMOVEFILTERS('''Date'''),
+			    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -28, DAY)
+			)
+			RETURN
+			DIVIDE(_28days, 4, BLANK())
+		formatString: #,##0.0
+		lineageTag: 6be98438-281b-435d-854b-14850785645c
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Date
+		isKey
+		formatString: Long Date
+		lineageTag: 88d113ec-a112-40d5-91d7-21b928d16b63
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Date]
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column Year
+		formatString: 0
+		lineageTag: f16669bc-9676-4e43-88b3-c4cfcc352889
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [Year]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Month
+		formatString: 0
+		lineageTag: 4614f85f-3a50-4a85-9890-102e6e7dd44b
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [Month]
+
+		annotation SummarizationSetBy = Automatic
+
+	column MonthName
+		lineageTag: bab22335-f1fe-44c7-8c3f-44295b9c201d
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [MonthName]
+
+		annotation SummarizationSetBy = Automatic
+
+	column MonthShort
+		lineageTag: cfa6e45a-3a5b-4b68-bb44-dfdad0bdbf20
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [MonthShort]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Quarter
+		lineageTag: 7559e502-11c5-434c-976c-9c476c8b4459
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Quarter]
+
+		annotation SummarizationSetBy = Automatic
+
+	column WeekNumber
+		formatString: 0
+		lineageTag: 98cf08e3-5299-4aa4-aebe-b2831e8cf3ff
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [WeekNumber]
+
+		annotation SummarizationSetBy = Automatic
+
+	column DayOfWeek
+		formatString: 0
+		lineageTag: 59df51be-cc13-45d6-9444-9b2e5c6df834
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [DayOfWeek]
+
+		annotation SummarizationSetBy = Automatic
+
+	column DayName
+		lineageTag: e5fcf181-a914-4e8f-a81e-160839c06260
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [DayName]
+
+		annotation SummarizationSetBy = Automatic
+
+	column IsWeekend
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: e960488e-44bb-4211-83c8-a7558c365e34
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [IsWeekend]
+
+		annotation SummarizationSetBy = Automatic
+
+	column YearMonth
+		lineageTag: fc288eea-90da-4d12-ba3c-a3d72c43fcb5
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [YearMonth]
+		sortByColumn: MonthIndex
+
+		annotation SummarizationSetBy = Automatic
+
+	column YearQuarter
+		lineageTag: dae23cd1-e2da-4758-80cb-da6e7280ba99
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [YearQuarter]
+
+		annotation SummarizationSetBy = Automatic
+
+	column MonthIndex = YEAR('''Date'''[Date]) * 100 + MONTH('''Date'''[Date])
+		formatString: 0
+		lineageTag: 9b1f0f3c-609a-495e-b57d-df4f0ee5224c
+		summarizeBy: sum
+
+		annotation SummarizationSetBy = Automatic
+
+	column YearWeekIndex = YEAR('''Date'''[Date]) * 100 + WEEKNUM('''Date'''[Date], 2)
+		formatString: 0
+		lineageTag: ac1f6488-99d4-44cf-ae8e-b3518c0aa7d0
+		summarizeBy: sum
+
+		annotation SummarizationSetBy = Automatic
+
+	column IsCurrentWeek = ```
+			
+			WEEKNUM('''Date'''[Date], 2) = WEEKNUM(TODAY(), 2)
+			    && YEAR('''Date'''[Date]) = YEAR(TODAY())
+			
+			```
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 74f54fcc-9154-458f-8f4d-6bfaa5f5f94e
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	column IsLastWeek =
+			
+			VAR _currentWeek = WEEKNUM(TODAY(), 2)
+			VAR _currentYear = YEAR(TODAY())
+			VAR _lastWeekNum = IF(_currentWeek = 1, 52, _currentWeek - 1)
+			VAR _lastWeekYear = IF(_currentWeek = 1, _currentYear - 1, _currentYear)
+			RETURN
+			    WEEKNUM('''Date'''[Date], 2) = _lastWeekNum
+			    && YEAR('''Date'''[Date]) = _lastWeekYear
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: e6b43c2d-2a7f-458f-a8ec-77bea2f8dc95
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	column IsCurrentMonth =
+			
+			MONTH('''Date'''[Date]) = MONTH(TODAY())
+			    && YEAR('''Date'''[Date]) = YEAR(TODAY())
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 32c5fb4d-3b04-4a31-8d68-b34ed5455f6a
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	column IsLastMonth =
+			
+			VAR _lastMonth = IF(MONTH(TODAY()) = 1, 12, MONTH(TODAY()) - 1)
+			VAR _lastYear  = IF(MONTH(TODAY()) = 1, YEAR(TODAY()) - 1, YEAR(TODAY()))
+			RETURN
+			    MONTH('''Date'''[Date]) = _lastMonth
+			    && YEAR('''Date'''[Date]) = _lastYear
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 0829ada4-e31b-4cd0-8368-5e12a0452261
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	column DayOfWeekLabel = FORMAT('''Date'''[Date], "DDD")
+		lineageTag: 6bd3e7c3-45c5-452f-8cdd-8bcaaa8d55c8
+		summarizeBy: none
+		sortByColumn: DayOfWeekIndex
+
+		annotation SummarizationSetBy = Automatic
+
+	column DayOfWeekIndex = WEEKDAY('''Date'''[Date], 2)
+		formatString: 0
+		lineageTag: 9c10ae58-baea-4be3-9481-2245e66c2eda
+		summarizeBy: sum
+
+		annotation SummarizationSetBy = Automatic
+
+	column WeekStart = ```
+			'''Date'''[Date] - WEEKDAY('''Date'''[Date], 2) + 1 
+			```
+		formatString: General Date
+		lineageTag: 7d3e86bc-7507-4939-85f0-13daba8596ee
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	column Column
+		type: calculated
+		lineageTag: e3283a2d-40db-46d4-8150-b3e61b74e102
+		summarizeBy: sum
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation 436ba87b-9c83-4389-a31b-ebd06a36be98 = {"Expression":null}
+
+		annotation 277cc1b9-af89-4597-8e15-cacc25c0886b = To use special characters in a column name, enclose the entire name in brackets ( [] ) and add a ] to any closing brackets in the name.
+
+	column YearWeek = FORMAT('''Date'''[Date], "YYYY") & "-W" & FORMAT(WEEKNUM('''Date'''[Date], 2), "00")
+		lineageTag: ce9bf7fa-7df9-46e6-8f6a-93c674547bdf
+		summarizeBy: none
+		sortByColumn: YearWeekIndex
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Month index'
+		type: calculated
+		lineageTag: d82afa8c-f6c4-4199-ad98-73e85d2ff80c
+		summarizeBy: sum
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation 436ba87b-9c83-4389-a31b-ebd06a36be98 = {"Expression":null}
+
+		annotation 277cc1b9-af89-4597-8e15-cacc25c0886b = To use special characters in a column name, enclose the entire name in brackets ( [] ) and add a ] to any closing brackets in the name.
+
+	partition '''Date''' = calculated
+		mode: import
+		source = ```
+				
+				VAR _start = DATE(2023, 1, 1)
+				VAR _end   = DATE(2026, 12, 31)
+				RETURN
+				ADDCOLUMNS(
+				    CALENDAR(_start, _end),
+				    "Year",        YEAR([Date]),
+				    "Month",       MONTH([Date]),
+				    "MonthName",   FORMAT([Date], "MMMM"),
+				    "MonthShort",  FORMAT([Date], "MMM"),
+				    "Quarter",     "Q" & QUARTER([Date]),
+				    "WeekNumber",  WEEKNUM([Date], 2),
+				    "DayOfWeek",   WEEKDAY([Date], 2),
+				    "DayName",     FORMAT([Date], "dddd"),
+				    "IsWeekend",   IF(WEEKDAY([Date], 2) >= 6, TRUE, FALSE),
+				    "YearMonth",   FORMAT([Date], "YYYY-MM"),
+				    "YearQuarter", YEAR([Date]) & " Q" & QUARTER([Date])
+				)
+				
+				```
+
+	annotation PBI_Id = 77f5d32ad19a4ca29de11127d1ce48ea
+

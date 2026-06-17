@@ -1,0 +1,116 @@
+# DEAD MEASURES — 2026-06-15  (not used by any visual in either report, not referenced by any live measure)
+# Review before trimming: put a '#' in front of any line you want to KEEP.
+# fabric_model_trim.py reads every non-'#', non-blank line as a measure to DELETE.
+
+# ===== SAFE JUNK (debug / selector helpers / superseded v14) =====
+I1 Debug
+I1 Diagnostic Selection
+I1 Strategy Recommendation Text
+I4 Next Action Text
+Selected Grain Label
+Selected Scope tCO2
+Critical Anomaly Count v14
+High Anomaly Count v14
+Medium Anomaly Count v14
+Low Anomaly Count v14
+Current Month kWh v14
+Current Week kWh v14
+Last Month kWh v14
+Month over Month Arrow v14
+Week over Week Arrow v14
+
+# ===== REVIEW: time-comparison cards (maybe spares for unplaced KPI cards) =====
+Card: Last Month vs Previous Month Pct
+Card: Last Week vs Previous Week Pct
+Card: Weekly Avg Consumption kWh
+Consumption Change Pct
+Cost Change Pct
+Last 30 Days Consumption kWh
+Last 30 Days Cost EUR
+Last 7 Days CO2 tCO2
+Last 7 Days Consumption kWh
+Last Month CO2 Emissions tCO2
+Last Month Cost EUR
+Last Month Peak Demand kW
+Last Month Solar Generated kWh
+Last Week CO2 Emissions tCO2
+Last Week Cost EUR
+Last Week Peak Demand kW
+Last Week Solar Generated kWh
+MoM CO2 Change Pct
+MoM Cost Change Pct
+Month over Month Consumption Pct
+Previous Period Consumption kWh
+Previous Period Cost EUR
+Week over Week Consumption Pct
+WoW Solar Change Pct
+YTD CO2 Emissions tCO2
+YTD Consumption kWh
+
+# ===== REVIEW: Scope/ESG detail (ESG-relevant — keep if Scope-3 breakdown planned) =====
+Scope 1 Diesel tCO2e
+Scope 1 Gas tCO2e
+Scope 1 Refrigerant tCO2e
+Scope 2 Location Share Pct
+Scope 3 Cat1 Embodied tCO2e
+Scope 3 Cat13 Leased tCO2e
+Scope 3 Cat3 Fuel Energy tCO2e
+Scope 3 Cat5 Waste tCO2e
+Scope 3 Cat6 Travel tCO2e
+Scope 3 Cat7 Commute tCO2e
+Scope 3 Est tCO2
+
+# ===== REVIEW: Battery/Strategy (Page 9 deferred) =====
+V1 Fitness Color Bucket
+V1 Strategy Fitness Score
+V2 Sensor Uptime Pct
+V2 Uptime Color Index
+V3 Battery Chemistry Color
+V3 CAPEX EUR
+V3 Payback Years
+V3 Payback Years Clean
+V5 Country Chemistry Flag
+V5 Country Chemistry Symbol
+V7 Avg Cycle Depth Pct
+V7 SoH Color
+Avg Battery Cycles Day
+Battery Net kWh
+Avg Payback Years
+
+# ===== REVIEW: IoT FDD / Page 8 (unplaced) =====
+IoT FDD Cost Label
+IoT FDD Count by Rule
+IoT FDD Findings Today
+IoT FDD Priority Sort
+IoT FDD Severity Sort
+IoT FDD Top Diagnosis
+IoT Total Cost Today EUR
+IoT Waste Cost EUR
+IoT Waste Cost EUR Annual Est
+
+# ===== REVIEW: misc (unplaced helpers) =====
+Avg Climate-Adjusted EUI
+Avg HDD Normalized EUI
+Avg Profile Confidence
+Avg Self Consumption Rate Pct
+Building Peak Headcount Calc
+C2 Payback Status Label
+C5 EU Compliance Status Text
+Calibrated Buildings Count
+Carbon Reduction from Solar Pct
+Critical Recommendations
+Data Quality Color
+Data Quality Display
+Forecast Predicted kWh
+Ghost Load Risk Pct
+High Priority Recommendations
+P3 Total Anomaly PY
+Profile Avg Consumption by Hour kWh
+Profile Avg Solar by Hour kWh
+Solar Coverage Pct
+TS Avg Demand kW
+TS CO2 kg
+TS Peak Demand kW
+Total Grant EUR
+Total Recommendations
+Total Solar Savings EUR

@@ -1,0 +1,581 @@
+table gold_compliance_results
+	lineageTag: 969ccaa1-5fb5-4ba9-be7d-78b192d7e1bb
+	sourceLineageTag: [dbo].[gold_compliance_results]
+
+	measure 'EU Taxonomy Carbon Score' = AVERAGE( gold_compliance_results[csrd_score] )
+		formatString: 0.0
+		displayFolder: Page 6 ESG (v57)
+		lineageTag: cfa0f29f-ac33-4734-a972-8711712bd901
+
+	column building_id
+		dataType: string
+		lineageTag: d6f6251e-85fa-4739-ba26-d22535e85f4e
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_name
+		dataType: string
+		lineageTag: c74d15c4-922c-4669-b009-055fc903af16
+		sourceLineageTag: building_name
+		summarizeBy: none
+		sourceColumn: building_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_type
+		dataType: string
+		lineageTag: 5e7b29ba-cdd9-4ea3-a4e7-cacc3f5e51bb
+		sourceLineageTag: building_type
+		summarizeBy: none
+		sourceColumn: building_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column country_code
+		dataType: string
+		lineageTag: 65e81033-ca70-430a-b038-7698d769d58d
+		sourceLineageTag: country_code
+		summarizeBy: none
+		sourceColumn: country_code
+
+		annotation SummarizationSetBy = Automatic
+
+	column city
+		dataType: string
+		lineageTag: 6321ecb2-b99c-47c5-968b-47c12b7d3e13
+		sourceLineageTag: city
+		summarizeBy: none
+		sourceColumn: city
+
+		annotation SummarizationSetBy = Automatic
+
+	column year_built
+		dataType: int64
+		formatString: 0
+		lineageTag: d2cf2b8e-2a08-4bbd-ba6e-53bd29a0ab29
+		sourceLineageTag: year_built
+		summarizeBy: sum
+		sourceColumn: year_built
+
+		annotation SummarizationSetBy = Automatic
+
+	column subscription_tier
+		dataType: string
+		lineageTag: 9e9a5356-7206-45f0-b672-aa1bfeb46d96
+		sourceLineageTag: subscription_tier
+		summarizeBy: none
+		sourceColumn: subscription_tier
+
+		annotation SummarizationSetBy = Automatic
+
+	column assessed_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 2e1999d7-caca-40ce-99a9-323eec4f14fa
+		sourceLineageTag: assessed_at
+		summarizeBy: none
+		sourceColumn: assessed_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column annual_eui_kwh_m2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 5c477368-7855-4b54-9263-3e3f07a270e2
+		sourceLineageTag: annual_eui_kwh_m2
+		summarizeBy: sum
+		sourceColumn: annual_eui_kwh_m2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column annual_carbon_intensity_kg_m2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 5f9cdf92-037f-4720-95fa-1e870b80ae04
+		sourceLineageTag: annual_carbon_intensity_kg_m2
+		summarizeBy: sum
+		sourceColumn: annual_carbon_intensity_kg_m2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column solar_self_consumption_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 18a0a5c7-f0ef-4b21-a56c-dc34d99703fe
+		sourceLineageTag: solar_self_consumption_pct
+		summarizeBy: sum
+		sourceColumn: solar_self_consumption_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column overall_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: cc22ffd5-56ba-4e68-92de-598c7c5028fe
+		sourceLineageTag: overall_score
+		summarizeBy: sum
+		sourceColumn: overall_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column overall_status
+		dataType: string
+		lineageTag: d109b4c1-db04-4d55-bb30-e07c7cc865a3
+		sourceLineageTag: overall_status
+		summarizeBy: none
+		sourceColumn: overall_status
+
+		annotation SummarizationSetBy = Automatic
+
+	column priority_action
+		dataType: string
+		lineageTag: bb52faed-805d-4f16-9186-6cc55d59446e
+		sourceLineageTag: priority_action
+		summarizeBy: none
+		sourceColumn: priority_action
+
+		annotation SummarizationSetBy = Automatic
+
+	column enefg_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 435df95a-225a-4db0-80e3-c50e5b3505d0
+		sourceLineageTag: enefg_score
+		summarizeBy: sum
+		sourceColumn: enefg_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column enefg_status
+		dataType: string
+		lineageTag: 2e56e25e-9a26-4950-aebf-3f3ffa2d0df8
+		sourceLineageTag: enefg_status
+		summarizeBy: none
+		sourceColumn: enefg_status
+
+		annotation SummarizationSetBy = Automatic
+
+	column enefg_audit_required
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 0a68831e-ec52-4140-9356-ef6fa3be9b64
+		sourceLineageTag: enefg_audit_required
+		summarizeBy: none
+		sourceColumn: enefg_audit_required
+
+		annotation SummarizationSetBy = Automatic
+
+	column enefg_is_large_consumer
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: c3717a7d-aa66-43b2-9416-887c68653ac6
+		sourceLineageTag: enefg_is_large_consumer
+		summarizeBy: none
+		sourceColumn: enefg_is_large_consumer
+
+		annotation SummarizationSetBy = Automatic
+
+	column geg_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: c617f8bc-0a9b-4acb-bb0a-dbfcbd2bcc36
+		sourceLineageTag: geg_score
+		summarizeBy: sum
+		sourceColumn: geg_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column geg_status
+		dataType: string
+		lineageTag: e7e552dc-f810-4782-864a-8763437f46e2
+		sourceLineageTag: geg_status
+		summarizeBy: none
+		sourceColumn: geg_status
+
+		annotation SummarizationSetBy = Automatic
+
+	column geg_heating_compliant
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 28c5bac6-6d72-4cac-9bcb-697a25ed7849
+		sourceLineageTag: geg_heating_compliant
+		summarizeBy: none
+		sourceColumn: geg_heating_compliant
+
+		annotation SummarizationSetBy = Automatic
+
+	column geg_wall_compliant
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 4dde5284-9e0f-4ba7-8d00-d1df397c0352
+		sourceLineageTag: geg_wall_compliant
+		summarizeBy: none
+		sourceColumn: geg_wall_compliant
+
+		annotation SummarizationSetBy = Automatic
+
+	column geg_roof_compliant
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: f5e61e02-ccec-42dc-abeb-c5e84e99c47e
+		sourceLineageTag: geg_roof_compliant
+		summarizeBy: none
+		sourceColumn: geg_roof_compliant
+
+		annotation SummarizationSetBy = Automatic
+
+	column geg_window_compliant
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 9641b54c-14a6-4163-b71d-c06fc5b1767c
+		sourceLineageTag: geg_window_compliant
+		summarizeBy: none
+		sourceColumn: geg_window_compliant
+
+		annotation SummarizationSetBy = Automatic
+
+	column wall_u_value_current
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: be3434a9-ce36-498c-a11b-8fe49438b827
+		sourceLineageTag: wall_u_value_current
+		summarizeBy: sum
+		sourceColumn: wall_u_value_current
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column roof_u_value_current
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 0f6540ab-468c-4624-8aef-9c477035a55a
+		sourceLineageTag: roof_u_value_current
+		summarizeBy: sum
+		sourceColumn: roof_u_value_current
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column window_u_value_current
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 814cd1a6-b089-420c-a783-e9413d201dcb
+		sourceLineageTag: window_u_value_current
+		summarizeBy: sum
+		sourceColumn: window_u_value_current
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column eeg_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 0c1405b6-58e3-4142-a1e3-0b6c578b3be4
+		sourceLineageTag: eeg_score
+		summarizeBy: sum
+		sourceColumn: eeg_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column eeg_status
+		dataType: string
+		lineageTag: d014c0e3-ad60-41b2-bb9f-76ae5b26db5b
+		sourceLineageTag: eeg_status
+		summarizeBy: none
+		sourceColumn: eeg_status
+
+		annotation SummarizationSetBy = Automatic
+
+	column epbd_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 4181c08a-d1e5-498f-a14d-daf2de0f7498
+		sourceLineageTag: epbd_score
+		summarizeBy: sum
+		sourceColumn: epbd_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column epbd_status
+		dataType: string
+		lineageTag: b8d70ee5-148a-4741-b44a-d5dc4ed94035
+		sourceLineageTag: epbd_status
+		summarizeBy: none
+		sourceColumn: epbd_status
+
+		annotation SummarizationSetBy = Automatic
+
+	column epbd_nzeb_gap_kwh_m2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 9e4e7e6b-12b9-42d9-9a9b-55cd4272681a
+		sourceLineageTag: epbd_nzeb_gap_kwh_m2
+		summarizeBy: sum
+		sourceColumn: epbd_nzeb_gap_kwh_m2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column epbd_class_d_compliant
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 768dc44a-6ca3-4dba-882d-e0f2ce73c10c
+		sourceLineageTag: epbd_class_d_compliant
+		summarizeBy: none
+		sourceColumn: epbd_class_d_compliant
+
+		annotation SummarizationSetBy = Automatic
+
+	column epbd_class_e_compliant
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 0bf67b37-c515-4480-bdbb-6eee4a0f871c
+		sourceLineageTag: epbd_class_e_compliant
+		summarizeBy: none
+		sourceColumn: epbd_class_e_compliant
+
+		annotation SummarizationSetBy = Automatic
+
+	column csrd_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 21f4d1a3-56ee-454b-ae6e-4e023f8781c0
+		sourceLineageTag: csrd_score
+		summarizeBy: sum
+		sourceColumn: csrd_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column csrd_status
+		dataType: string
+		lineageTag: edb73e2d-7fe1-42b0-98d3-f623f8e8bb2b
+		sourceLineageTag: csrd_status
+		summarizeBy: none
+		sourceColumn: csrd_status
+
+		annotation SummarizationSetBy = Automatic
+
+	column beptr_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 70876829-f836-4dfb-aa7b-646bf60708c1
+		sourceLineageTag: beptr_score
+		summarizeBy: sum
+		sourceColumn: beptr_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column beptr_status
+		dataType: string
+		lineageTag: f1897f23-46f3-42e7-a0f6-4392417f874a
+		sourceLineageTag: beptr_status
+		summarizeBy: none
+		sourceColumn: beptr_status
+
+		annotation SummarizationSetBy = Automatic
+
+	column beptr_energy_class
+		dataType: string
+		lineageTag: d9bb1882-a249-4532-9a82-b5f79295564e
+		sourceLineageTag: beptr_energy_class
+		summarizeBy: none
+		sourceColumn: beptr_energy_class
+
+		annotation SummarizationSetBy = Automatic
+
+	column oib_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: e76c8532-0077-46a5-8845-6a924e5fae2a
+		sourceLineageTag: oib_score
+		summarizeBy: sum
+		sourceColumn: oib_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column oib_status
+		dataType: string
+		lineageTag: 187d6741-240d-469e-9bd3-a60be3f9983a
+		sourceLineageTag: oib_status
+		summarizeBy: none
+		sourceColumn: oib_status
+
+		annotation SummarizationSetBy = Automatic
+
+	column oib_wall_compliant
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 3f961ff7-3e7a-43be-aaae-ded58581fb5d
+		sourceLineageTag: oib_wall_compliant
+		summarizeBy: none
+		sourceColumn: oib_wall_compliant
+
+		annotation SummarizationSetBy = Automatic
+
+	column oib_roof_compliant
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 0519aeaf-d802-4b3e-8430-a940e4388c61
+		sourceLineageTag: oib_roof_compliant
+		summarizeBy: none
+		sourceColumn: oib_roof_compliant
+
+		annotation SummarizationSetBy = Automatic
+
+	column oib_window_compliant
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: db426a5b-a47f-43e8-96e8-9968a751ec76
+		sourceLineageTag: oib_window_compliant
+		summarizeBy: none
+		sourceColumn: oib_window_compliant
+
+		annotation SummarizationSetBy = Automatic
+
+	column nl_label_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: decf0223-3da5-43ad-9470-16c3caf28988
+		sourceLineageTag: nl_label_score
+		summarizeBy: sum
+		sourceColumn: nl_label_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column nl_label_status
+		dataType: string
+		lineageTag: 4e477f3e-7dfa-4727-a5cb-9f4f502bab54
+		sourceLineageTag: nl_label_status
+		summarizeBy: none
+		sourceColumn: nl_label_status
+
+		annotation SummarizationSetBy = Automatic
+
+	column nl_energielabel_class
+		dataType: string
+		lineageTag: 42e2de5d-7d42-4aab-a11a-6b84c1e3b029
+		sourceLineageTag: nl_energielabel_class
+		summarizeBy: none
+		sourceColumn: nl_energielabel_class
+
+		annotation SummarizationSetBy = Automatic
+
+	column est_gas_co2_tonnes
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: b2383e86-ce96-444c-ab9c-249ad992f338
+		sourceLineageTag: est_gas_co2_tonnes
+		summarizeBy: sum
+		sourceColumn: est_gas_co2_tonnes
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column co2_levy_cost_2026_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 2f1fb55d-d285-441d-9bd8-af74d0a7427e
+		sourceLineageTag: co2_levy_cost_2026_eur
+		summarizeBy: sum
+		sourceColumn: co2_levy_cost_2026_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column co2_levy_cost_2027_ets2_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 754b59e5-6ce8-481d-a6f5-1f6bed2a6faa
+		sourceLineageTag: co2_levy_cost_2027_ets2_eur
+		summarizeBy: sum
+		sourceColumn: co2_levy_cost_2027_ets2_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column kfw_programs_applicable
+		dataType: string
+		lineageTag: 5ce8c291-224b-4689-96d5-539441687101
+		sourceLineageTag: kfw_programs_applicable
+		summarizeBy: none
+		sourceColumn: kfw_programs_applicable
+
+		annotation SummarizationSetBy = Automatic
+
+	column bafa_programs_applicable
+		dataType: string
+		lineageTag: f27f124a-3292-4d6a-b193-c0fb7f0a87d1
+		sourceLineageTag: bafa_programs_applicable
+		summarizeBy: none
+		sourceColumn: bafa_programs_applicable
+
+		annotation SummarizationSetBy = Automatic
+
+	column yeka_programs_applicable
+		dataType: string
+		lineageTag: 1db88bc2-699c-48a1-8adc-089e711ba7c4
+		sourceLineageTag: yeka_programs_applicable
+		summarizeBy: none
+		sourceColumn: yeka_programs_applicable
+
+		annotation SummarizationSetBy = Automatic
+
+	column at_incentives_applicable
+		dataType: string
+		lineageTag: 794bb924-44b9-4498-918a-9d403598a6e7
+		sourceLineageTag: at_incentives_applicable
+		summarizeBy: none
+		sourceColumn: at_incentives_applicable
+
+		annotation SummarizationSetBy = Automatic
+
+	column nl_incentives_applicable
+		dataType: string
+		lineageTag: d7162250-3a09-4b56-a29a-dba46b074a08
+		sourceLineageTag: nl_incentives_applicable
+		summarizeBy: none
+		sourceColumn: nl_incentives_applicable
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_compliance_results = entity
+		mode: directLake
+		source
+			entityName: gold_compliance_results
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

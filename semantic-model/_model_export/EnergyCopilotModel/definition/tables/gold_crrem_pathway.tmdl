@@ -1,0 +1,119 @@
+table gold_crrem_pathway
+	lineageTag: 6eaad3ba-a011-4548-b765-81700c146b06
+	sourceLineageTag: [dbo].[gold_crrem_pathway]
+
+	measure 'CRREM Pathway 2C kgCO2 m2 yr' = VAR bt = SELECTEDVALUE( silver_building_master[building_type] ) RETURN CALCULATE( AVERAGE( gold_crrem_pathway[pathway_2c_kgco2_m2_yr] ), gold_crrem_pathway[building_type] = bt, gold_crrem_pathway[pathway_year] = YEAR( TODAY() ) )
+		formatString: 0.0
+		displayFolder: Page 6 ESG (v57)
+		lineageTag: affc776c-f9f7-4116-a281-bbc07aef7611
+
+	measure 'CRREM Stranding Gap S1S2 kgCO2 m2 yr' = [Carbon Intensity S1S2 kgCO2 m2 yr] - [CRREM Pathway 2C kgCO2 m2 yr]
+		formatString: 0.0
+		displayFolder: Page 6 ESG (v57)
+		lineageTag: f47c930d-cbd4-44c5-8223-c6679860a8d4
+
+	measure 'CRREM Stranding Status' = VAR _gap = [CRREM Stranding Gap S1S2 kgCO2 m2 yr] RETURN SWITCH( TRUE(), ISBLANK(_gap), "No pathway data", _gap>0, "STRANDED — above pathway now", _gap>-2, "At risk — within 2 kgCO2/m2", "On track" )
+		formatString: #,##0.0
+		displayFolder: Page 6 ESG (v57)
+		lineageTag: 9a5e68f3-294a-451b-948e-cb981c0bd21c
+
+	column building_type
+		dataType: string
+		lineageTag: d6149544-d9d3-4360-af08-8ab50e7f628c
+		sourceLineageTag: building_type
+		summarizeBy: none
+		sourceColumn: building_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column country_code
+		dataType: string
+		lineageTag: 97db7ca7-16a4-4458-84c0-88e8520b8ae4
+		sourceLineageTag: country_code
+		summarizeBy: none
+		sourceColumn: country_code
+
+		annotation SummarizationSetBy = Automatic
+
+	column pathway_year
+		dataType: int64
+		formatString: 0
+		lineageTag: 52e4e8f1-3ce8-4c3d-982c-fbc30560002a
+		sourceLineageTag: pathway_year
+		summarizeBy: sum
+		sourceColumn: pathway_year
+
+		annotation SummarizationSetBy = Automatic
+
+	column pathway_2c_kgco2_m2_yr
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 66dabdda-1383-4c10-82d7-188fa0d0e95b
+		sourceLineageTag: pathway_2c_kgco2_m2_yr
+		summarizeBy: sum
+		sourceColumn: pathway_2c_kgco2_m2_yr
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column pathway_15c_kgco2_m2_yr
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: dd7f4997-582e-40c7-8b96-eb6dafc51e89
+		sourceLineageTag: pathway_15c_kgco2_m2_yr
+		summarizeBy: sum
+		sourceColumn: pathway_15c_kgco2_m2_yr
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column sector_benchmark_2020
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 456c5901-cf84-4170-bd11-a2069ecfb18e
+		sourceLineageTag: sector_benchmark_2020
+		summarizeBy: sum
+		sourceColumn: sector_benchmark_2020
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column data_source
+		dataType: string
+		lineageTag: 304d4a91-d652-4605-889d-ef505b3facf3
+		sourceLineageTag: data_source
+		summarizeBy: none
+		sourceColumn: data_source
+
+		annotation SummarizationSetBy = Automatic
+
+	column updated_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 56234c97-4586-46ef-80a0-b6a3644857ac
+		sourceLineageTag: updated_at
+		summarizeBy: none
+		sourceColumn: updated_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column year_month
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: dee86da9-231c-4684-9833-e16f580c663c
+		sourceLineageTag: year_month
+		summarizeBy: none
+		sourceColumn: year_month
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_crrem_pathway = entity
+		mode: directLake
+		source
+			entityName: gold_crrem_pathway
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

@@ -1,0 +1,88 @@
+table gold_ghg_breakdown_long
+	lineageTag: a82f6800-9d86-487c-a479-389cfb793ca3
+	sourceLineageTag: [dbo].[gold_ghg_breakdown_long]
+
+	column building_id
+		dataType: string
+		lineageTag: f7749318-97d5-4098-9d08-abfa21d51cfe
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column year_month
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 8dd1eebb-2ac1-4903-90c5-2e4b9bc34584
+		sourceLineageTag: year_month
+		summarizeBy: none
+		sourceColumn: year_month
+
+		annotation SummarizationSetBy = Automatic
+
+	column reporting_year
+		dataType: int64
+		formatString: 0
+		lineageTag: ef0721d8-5d69-4f6b-b98f-35c0019142c9
+		sourceLineageTag: reporting_year
+		summarizeBy: sum
+		sourceColumn: reporting_year
+
+		annotation SummarizationSetBy = Automatic
+
+	column reporting_month
+		dataType: int64
+		formatString: 0
+		lineageTag: 7f510c2d-8c66-4b6f-bd89-8b2ef78427f5
+		sourceLineageTag: reporting_month
+		summarizeBy: sum
+		sourceColumn: reporting_month
+
+		annotation SummarizationSetBy = Automatic
+
+	column scope
+		dataType: string
+		lineageTag: 7799c18c-3842-4b92-bd56-17078bcd35fa
+		sourceLineageTag: scope
+		summarizeBy: none
+		sourceColumn: scope
+
+		annotation SummarizationSetBy = Automatic
+
+	column category
+		dataType: string
+		lineageTag: b03da566-2ff8-4078-b419-735c2bd78dd6
+		sourceLineageTag: category
+		summarizeBy: none
+		sourceColumn: category
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_grade
+		dataType: string
+		lineageTag: 8ebc7eb3-9a50-4630-968b-67496ba908ca
+		sourceLineageTag: data_grade
+		summarizeBy: none
+		sourceColumn: data_grade
+
+		annotation SummarizationSetBy = Automatic
+
+	column value_tco2
+		dataType: double
+		lineageTag: 4de41370-a91e-49c3-8d03-b069e5050b5d
+		sourceLineageTag: value_tco2
+		summarizeBy: sum
+		sourceColumn: value_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition gold_ghg_breakdown_long = entity
+		mode: directLake
+		source
+			entityName: gold_ghg_breakdown_long
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

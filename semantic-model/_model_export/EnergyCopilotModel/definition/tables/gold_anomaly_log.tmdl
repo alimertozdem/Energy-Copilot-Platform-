@@ -1,0 +1,427 @@
+table gold_anomaly_log
+	lineageTag: 8473f10f-cd22-4e6b-8e72-5fbbe7d124f4
+	sourceLineageTag: [dbo].[gold_anomaly_log]
+
+	measure 'Critical Anomaly Count v14' =
+			
+			// Uppercase fix — v11 sonrası "CRITICAL"
+			CALCULATE (
+			    COUNTROWS ( gold_anomaly_log ),
+			    gold_anomaly_log[severity] = "CRITICAL",
+			    gold_anomaly_log[is_resolved] = FALSE
+			)
+		formatString: #,##0.0
+		lineageTag: 32a7e691-3c43-40aa-83ec-824877a66a06
+
+		changedProperty = Name
+
+	measure 'High Anomaly Count v14' =
+			
+			CALCULATE (
+			    COUNTROWS ( gold_anomaly_log ),
+			    gold_anomaly_log[severity] = "HIGH",
+			    gold_anomaly_log[is_resolved] = FALSE
+			)
+		formatString: #,##0.0
+		lineageTag: 78f46e80-696c-40d7-9ab8-1f9cbf479db0
+
+		changedProperty = Name
+
+	measure 'Medium Anomaly Count v14' =
+			
+			CALCULATE (
+			    COUNTROWS ( gold_anomaly_log ),
+			    gold_anomaly_log[severity] = "MEDIUM",
+			    gold_anomaly_log[is_resolved] = FALSE
+			)
+		formatString: #,##0.0
+		lineageTag: ae2dd4e6-a893-4a1f-bbcb-95796bb70712
+
+		changedProperty = Name
+
+	measure 'Low Anomaly Count v14' =
+			
+			CALCULATE (
+			    COUNTROWS ( gold_anomaly_log ),
+			    gold_anomaly_log[severity] = "LOW",
+			    gold_anomaly_log[is_resolved] = FALSE
+			)
+		formatString: #,##0.0
+		lineageTag: b92759b1-fbde-43a6-a809-7b557b30d219
+
+		changedProperty = Name
+
+	measure 'P3 Total Anomaly Count' = COUNTROWS ( gold_anomaly_log )
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 874d9d60-f271-4671-ba09-bdf55c13831f
+
+	measure 'P3 Total Anomaly PY' =
+			CALCULATE (
+			    [P3 Total Anomaly Count],
+			    DATEADD ( gold_anomaly_log[detected_date], -1, YEAR )
+			)
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 69eebb14-05e8-4fd2-bde0-f45d8d6a7d27
+
+	measure 'P3 Critical Open Count' =
+			CALCULATE (
+			    COUNTROWS ( gold_anomaly_log ),
+			    gold_anomaly_log[severity] = "CRITICAL",
+			    gold_anomaly_log[is_resolved] = FALSE
+			)
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: f05b0016-cd24-43a1-9222-d0d0380ea4f9
+
+	measure 'P3 High Anomaly Count' =
+			CALCULATE (
+			    COUNTROWS ( gold_anomaly_log ),
+			    gold_anomaly_log[severity] = "HIGH"
+			)
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 7f2f06dd-ddc3-4886-ac67-28604d9067b6
+
+	measure 'P3 High Anomaly Previous Month' =
+			CALCULATE (
+			    [P3 High Anomaly Count],
+			    DATEADD ( gold_anomaly_log[detected_date], -1, MONTH )
+			)
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 3de9e11c-db81-4234-8e3e-eabc898ead82
+
+	measure 'P3 Unresolved Count' =
+			CALCULATE (
+			    COUNTROWS ( gold_anomaly_log ),
+			    gold_anomaly_log[is_resolved] = FALSE
+			)
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 6f297e50-96f4-4c43-b844-8b9af713fb4b
+
+	measure 'P3 Unresolved YoY' =
+			CALCULATE (
+			    [P3 Unresolved Count],
+			    DATEADD ( gold_anomaly_log[detected_date], -1, YEAR )
+			)
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: f0de7961-fa10-43ae-a446-edfef94aa641
+
+	measure 'P3 Data Quality Score' = AVERAGE ( silver_data_quality[quality_score_pct] )
+		formatString: 0.0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 33c1c739-fc19-476a-89f1-85a15d1c4d7f
+
+	measure 'P3 Data Quality Target' =
+			VAR _target = 95
+			RETURN _target
+		formatString: 0.0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: ea63e111-c3b8-42f7-8818-4425870b0d1f
+
+	measure 'P3 Medium Anomaly Count' =
+			CALCULATE (
+			    COUNTROWS ( gold_anomaly_log ),
+			    gold_anomaly_log[severity] = "MEDIUM"
+			)
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 65f8a8c2-90d0-4848-82e5-eb0e80158306
+
+	measure 'P3 Critical Anomaly Count' =
+			CALCULATE (
+			    COUNTROWS ( gold_anomaly_log ),
+			    gold_anomaly_log[severity] = "CRITICAL"
+			)
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: e8dbe948-0a2f-4b1c-a688-84e7b75092a8
+
+	measure 'P3 Low Anomaly Count' =
+			CALCULATE (
+			    COUNTROWS ( gold_anomaly_log ),
+			    gold_anomaly_log[severity] = "LOW"
+			)
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 12aeb95f-a3c3-42c9-aff0-90e74422879e
+
+	measure 'P3 Anomaly Deviation Pct' =
+			VAR _metric    = AVERAGE ( gold_anomaly_log[metric_value] )
+			VAR _threshold = AVERAGE ( gold_anomaly_log[threshold_value] )
+			RETURN
+			    IF (
+			        NOT ISBLANK ( _threshold ) && ABS ( _threshold ) > 0,
+			        DIVIDE ( _metric - _threshold, ABS ( _threshold ) ) * 100,
+			        BLANK ()
+			    )
+		formatString: +0.0;-0.0;—
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: e2ab9d80-e669-4013-942a-c25cbefc84ef
+
+	measure 'P3 Building Anomaly Share Pct' =
+			VAR _building =
+			    [P3 Total Anomaly Count]
+			VAR _portfolio =
+			    CALCULATE (
+			        [P3 Total Anomaly Count],
+			        ALL ( silver_building_master )
+			    )
+			RETURN
+			    ROUND ( DIVIDE ( _building, _portfolio ) * 100, 1 )
+		formatString: 0.0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 258ae908-6c9b-4545-bfc7-761ea26325d1
+
+	measure 'P3 Anomaly Status' = VAR _open = CALCULATE( COUNTROWS( gold_anomaly_log ), gold_anomaly_log[is_resolved] = FALSE() ) VAR _tot = COUNTROWS( gold_anomaly_log ) RETURN SWITCH( TRUE(), _tot = 0, "--", _open > 0, "Open", "Resolved" )
+		formatString: #,##0.0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 88c7b2e3-ae55-4214-9fa0-d80d1fa9579c
+
+	measure 'P3 Avg Days Open' =
+			ROUND (
+			    AVERAGEX (
+			        FILTER (
+			            gold_anomaly_log,
+			            gold_anomaly_log[is_resolved] = FALSE
+			        ),
+			        DATEDIFF ( gold_anomaly_log[detected_date], TODAY (), DAY )
+			    ),
+			    0
+			)
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 08071b84-190c-4a66-83f8-9cc515f721f0
+
+	measure 'P3 High Priority Open Count' =
+			CALCULATE (
+			    COUNTROWS ( gold_anomaly_log ),
+			    gold_anomaly_log[is_resolved] = FALSE,
+			    gold_anomaly_log[severity] IN { "CRITICAL", "HIGH" }
+			)
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: dc268080-0255-4497-a2bc-94c84274fb3f
+
+	measure 'P3 After Hours Waste Rate Pct' =
+			VAR _ahw =
+			    CALCULATE (
+			        COUNTROWS ( gold_anomaly_log ),
+			        gold_anomaly_log[anomaly_type] = "AFTER_HOURS_WASTE"
+			    )
+			RETURN
+			    ROUND ( DIVIDE ( _ahw, [P3 Total Anomaly Count], 0 ) * 100, 1 )
+		formatString: 0.0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 79095a65-2c56-4e12-bccd-83ee1e393072
+
+	measure 'P3 Resolution Rate Pct' =
+			VAR _resolved = CALCULATE ( COUNTROWS ( gold_anomaly_log ), gold_anomaly_log[is_resolved] = TRUE )
+			VAR _total = [P3 Total Anomaly Count]
+			RETURN DIVIDE ( _resolved, _total )
+		formatString: 0.0%
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: a3910a2a-3a5c-46b0-8b5e-81691fb43f2f
+
+	measure 'P3 Resolution Rate Pct PY' =
+			VAR _resolved_py =
+			    CALCULATE (
+			        COUNTROWS ( gold_anomaly_log ),
+			        gold_anomaly_log[is_resolved] = TRUE,
+			        DATEADD ( gold_anomaly_log[detected_date], -1, YEAR )
+			    )
+			VAR _total_py =
+			    CALCULATE (
+			        [P3 Total Anomaly Count],
+			        DATEADD ( gold_anomaly_log[detected_date], -1, YEAR )
+			    )
+			RETURN
+			    ROUND ( DIVIDE ( _resolved_py, _total_py, 0 ) * 100, 1 )
+		formatString: 0.0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 357e8b3f-6775-4fb2-ac9a-789aaf48267d
+
+	measure 'P3 Top Risk Building Score' =
+			VAR _tbl =
+			    ADDCOLUMNS (
+			        VALUES ( silver_building_master[building_name] ),
+			        "@cnt", [P3 Unresolved Count]
+			    )
+			RETURN
+			    MAXX ( TOPN ( 1, _tbl, [@cnt], DESC ), [@cnt] )
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 2e1f8f6a-8e48-4421-817d-50e5d36ac5df
+
+	measure 'P3 Top Risk Building Name' =
+			VAR _tbl =
+			    ADDCOLUMNS (
+			        VALUES ( silver_building_master[building_name] ),
+			        "@cnt", [P3 Unresolved Count]
+			    )
+			RETURN
+			    MAXX ( TOPN ( 1, _tbl, [@cnt], DESC ), silver_building_master[building_name] )
+		formatString: #,##0.0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: d0747c85-393f-458d-aa87-394a9c00b0dd
+
+	measure 'P3 Active Anomaly Rate Pct' =
+			VAR _open = [P3 Unresolved Count]
+			VAR _total = [P3 Total Anomaly Count]
+			RETURN
+			    ROUND ( DIVIDE ( _open, _total, 0 ) * 100, 1 )
+		formatString: 0.0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 13273711-bf10-4c0e-9d4a-6d00138eff2c
+
+	measure 'P3 Open Issue Count' =
+			VAR _open = FILTER ( gold_anomaly_log, gold_anomaly_log[is_resolved] = FALSE )
+			RETURN COUNTROWS ( SUMMARIZE ( _open, gold_anomaly_log[building_id], gold_anomaly_log[anomaly_type] ) )
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: daaeac8b-35c9-482e-a990-37ee4e87d676
+
+	measure 'P3 High Open Count' =
+			CALCULATE ( COUNTROWS ( gold_anomaly_log ),
+			    gold_anomaly_log[severity] = "HIGH", gold_anomaly_log[is_resolved] = FALSE )
+		formatString: #,##0
+		displayFolder: P3 - Anomalies & Alerts
+		lineageTag: 919e817c-d7e0-4a11-ba11-8fc9345ed580
+
+	column building_id
+		dataType: string
+		lineageTag: 4e190f42-401b-4d0d-91e4-fe0c618c77e0
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column detected_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 050384cd-c4c6-42df-b167-12b1d4e48196
+		sourceLineageTag: detected_at
+		summarizeBy: none
+		sourceColumn: detected_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column detected_date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 0b8efe77-8820-4139-949d-8477c6a59b77
+		sourceLineageTag: detected_date
+		summarizeBy: none
+		sourceColumn: detected_date
+
+		annotation SummarizationSetBy = Automatic
+
+	column anomaly_type
+		dataType: string
+		lineageTag: 1865f20f-5c39-4ce0-aa19-12c0503b80d3
+		sourceLineageTag: anomaly_type
+		summarizeBy: none
+		sourceColumn: anomaly_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column severity
+		dataType: string
+		lineageTag: ce7c3400-d383-46ac-b4ca-601dd05ae46b
+		sourceLineageTag: severity
+		summarizeBy: none
+		sourceColumn: severity
+
+		annotation SummarizationSetBy = Automatic
+
+	column description_en
+		dataType: string
+		lineageTag: f9fec1d2-ccb0-49d7-b2ce-9be78c1adb5f
+		sourceLineageTag: description_en
+		summarizeBy: none
+		sourceColumn: description_en
+
+		annotation SummarizationSetBy = Automatic
+
+	column metric_value
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 2c88dffc-f279-4f34-84b7-21675c6bc371
+		sourceLineageTag: metric_value
+		summarizeBy: sum
+		sourceColumn: metric_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column threshold_value
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 3e10b9fa-96f6-4f61-9171-42f866ffe837
+		sourceLineageTag: threshold_value
+		summarizeBy: sum
+		sourceColumn: threshold_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column is_resolved
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: c52a297c-0696-4b40-83d7-43b669001876
+		sourceLineageTag: is_resolved
+		summarizeBy: none
+		sourceColumn: is_resolved
+
+		annotation SummarizationSetBy = Automatic
+
+	column anomaly_id
+		dataType: string
+		lineageTag: c91a7260-4924-4fcd-81ee-65f2ffc9044b
+		sourceLineageTag: anomaly_id
+		summarizeBy: none
+		sourceColumn: anomaly_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column recommended_action_en
+		dataType: string
+		lineageTag: 91f4ba9d-bf43-48c8-bcc4-7056a08270e6
+		sourceLineageTag: recommended_action_en
+		summarizeBy: none
+		sourceColumn: recommended_action_en
+
+		annotation SummarizationSetBy = Automatic
+
+	column description_de
+		dataType: string
+		lineageTag: 2aa6237e-d984-434a-82dd-fec0e35aeffd
+		sourceLineageTag: description_de
+		summarizeBy: none
+		sourceColumn: description_de
+
+		annotation SummarizationSetBy = Automatic
+
+	column description_tr
+		dataType: string
+		lineageTag: 7d8e361a-7892-4ebd-bb77-f86fdb831af7
+		sourceLineageTag: description_tr
+		summarizeBy: none
+		sourceColumn: description_tr
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_anomaly_log = entity
+		mode: directLake
+		source
+			entityName: gold_anomaly_log
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

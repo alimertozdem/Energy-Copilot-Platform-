@@ -1,0 +1,175 @@
+table gold_strategy_fitness
+	lineageTag: 2a371afb-4c51-4b1a-a03c-0e0755137f6b
+	sourceLineageTag: [dbo].[gold_strategy_fitness]
+
+	measure 'V1 Best Strategy For Building Type' =
+			VAR _bt = SELECTEDVALUE( gold_strategy_fitness[building_type] )
+			RETURN
+			    CALCULATE(
+			        SELECTEDVALUE( gold_strategy_fitness[strategy_label] ),
+			        gold_strategy_fitness[building_type] = _bt,
+			        gold_strategy_fitness[is_primary] = TRUE()
+			    )
+		formatString: #,##0.0
+		displayFolder: Page 9 / V1
+		lineageTag: 97c2b42a-5043-4c5f-8b89-ca16226ba1cc
+
+	measure 'I1 Debug' =
+			VAR _bn = SELECTEDVALUE( silver_building_master[building_name] )
+			VAR _bt = SELECTEDVALUE( silver_building_master[building_type] )
+			VAR _bc = SELECTEDVALUE( silver_building_master[battery_capacity_kwh] )
+			RETURN
+			    "bn=" & COALESCE(_bn, "BLANK") &
+			    " | bt=" & COALESCE(_bt, "BLANK") &
+			    " | cap=" & IF(ISBLANK(_bc), "BLANK", FORMAT(_bc, "#,0"))
+		formatString: #,##0.0
+		displayFolder: Page 9 / Insights
+		lineageTag: 1aa66a8d-1704-40a3-98d4-4e44e0f5c5f5
+
+	measure 'I1 Diagnostic Selection' =
+			VAR _bn = SELECTEDVALUE( silver_building_master[building_name] )
+			RETURN "bn = " & COALESCE(_bn, "(blank — slicer not filtering this card)")
+		formatString: #,##0.0
+		displayFolder: Page 9 / Insights
+		lineageTag: 9736ba12-d62b-4f82-9d37-e104bd6ee011
+
+	measure 'V1 Strategy Fitness Score' = AVERAGE( gold_strategy_fitness[fitness_score] )
+		formatString: #,##0.0
+		displayFolder: Page 9 / V1
+		lineageTag: d0c6376e-fa83-410b-b621-3a28d68b4f67
+
+	measure 'V1 Fitness Color Bucket' =
+			VAR _s = [V1 Strategy Fitness Score]
+			RETURN
+			    SWITCH( TRUE(),
+			        _s >= 80, "#27AE60",
+			        _s >= 60, "#F39C12",
+			        _s >= 40, "#E67E22",
+			        "#C0392B" )
+		formatString: #,##0.0
+		displayFolder: Page 9 / V1
+		lineageTag: e2180487-494f-45c0-91b8-a87e0fa022ed
+
+	measure 'I1 Strategy Recommendation Text' = ```
+			VAR _bt = SELECTEDVALUE( silver_building_master[building_type], "office" )
+			VAR _country = SELECTEDVALUE( silver_building_master[country_code], "DE" )
+			VAR _primary =
+			    CALCULATE(
+			        SELECTEDVALUE( gold_strategy_fitness[strategy_label] ),
+			        gold_strategy_fitness[building_type] = _bt,
+			        gold_strategy_fitness[is_primary] = TRUE() )
+			VAR _secondary =
+			    CALCULATE(
+			        SELECTEDVALUE( gold_strategy_fitness[strategy_label] ),
+			        gold_strategy_fitness[building_type] = _bt,
+			        gold_strategy_fitness[is_secondary] = TRUE() )
+			VAR _primary_savings =
+			    CALCULATE(
+			        AVERAGE( gold_strategy_fitness[typical_annual_savings_eur_per_kwh] ),
+			        gold_strategy_fitness[building_type] = _bt,
+			        gold_strategy_fitness[is_primary] = TRUE() )
+			VAR _cap =
+			    SELECTEDVALUE( silver_building_master[battery_capacity_kwh], 100 )
+			VAR _est_eur = ROUND( _primary_savings * _cap, -2 )
+			RETURN
+			    "For this " & _bt & " building in " & _country & ", primary strategy: " &
+			    _primary &
+			    IF( NOT ISBLANK(_secondary), " (combined with " & _secondary & ")", "" ) &
+			    ". Estimated annual savings ≈ €" & FORMAT( _est_eur, "#,0" ) & " (range ±25%)." 
+			```
+		formatString: #,##0.0
+		displayFolder: Page 9 / Insights
+		lineageTag: 8b950337-3e22-4eca-b75d-51aa5ee66812
+
+	column building_type
+		dataType: string
+		lineageTag: eb9950ef-80d9-4e1c-83e8-103a4b7de8b5
+		sourceLineageTag: building_type
+		summarizeBy: none
+		sourceColumn: building_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column strategy
+		dataType: string
+		lineageTag: 653a0e48-e1e9-4784-a6ea-6c3636c4758d
+		sourceLineageTag: strategy
+		summarizeBy: none
+		sourceColumn: strategy
+
+		annotation SummarizationSetBy = Automatic
+
+	column strategy_label
+		dataType: string
+		lineageTag: 107a1019-4d9b-47e1-9eec-9af5408dbc44
+		sourceLineageTag: strategy_label
+		summarizeBy: none
+		sourceColumn: strategy_label
+
+		annotation SummarizationSetBy = Automatic
+
+	column fitness_score
+		dataType: int64
+		formatString: 0
+		lineageTag: c6387f41-789d-4af6-b092-5ed12dbaa146
+		sourceLineageTag: fitness_score
+		summarizeBy: sum
+		sourceColumn: fitness_score
+
+		annotation SummarizationSetBy = Automatic
+
+	column typical_annual_savings_eur_per_kwh
+		dataType: int64
+		formatString: 0
+		lineageTag: 68fb4752-cc07-4303-be01-92e51220f6ad
+		sourceLineageTag: typical_annual_savings_eur_per_kwh
+		summarizeBy: sum
+		sourceColumn: typical_annual_savings_eur_per_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+	column energy_logic_rationale
+		dataType: string
+		lineageTag: 18faeb27-09eb-4b7b-85d3-220352284225
+		sourceLineageTag: energy_logic_rationale
+		summarizeBy: none
+		sourceColumn: energy_logic_rationale
+
+		annotation SummarizationSetBy = Automatic
+
+	column risk_or_caveat
+		dataType: string
+		lineageTag: 4e43be07-71d7-41f2-8603-0bb3f0171191
+		sourceLineageTag: risk_or_caveat
+		summarizeBy: none
+		sourceColumn: risk_or_caveat
+
+		annotation SummarizationSetBy = Automatic
+
+	column is_primary
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: b9a5f2ba-b6a2-4b60-a32d-ce47ed1b51bb
+		sourceLineageTag: is_primary
+		summarizeBy: none
+		sourceColumn: is_primary
+
+		annotation SummarizationSetBy = Automatic
+
+	column is_secondary
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 41deea2b-d035-494b-955b-9b44e5174003
+		sourceLineageTag: is_secondary
+		summarizeBy: none
+		sourceColumn: is_secondary
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_strategy_fitness = entity
+		mode: directLake
+		source
+			entityName: gold_strategy_fitness
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

@@ -1,0 +1,604 @@
+table gold_battery_dispatch
+	lineageTag: 3262b525-9bcc-4a79-9895-5039f5866b72
+	sourceLineageTag: [dbo].[gold_battery_dispatch]
+
+	measure 'V2 Charge kWh Daily' = IFERROR( SUM( gold_battery_dispatch[charge_kwh] ), BLANK() )
+		formatString: #,0
+		displayFolder: Page 9 / V2 Daily Flow
+		lineageTag: c50ce9b6-cfdd-4620-9535-99febd09dd8b
+
+	measure 'V2 Discharge kWh Daily' = IFERROR( SUM( gold_battery_dispatch[discharge_kwh] ), BLANK() )
+		formatString: #,0
+		displayFolder: Page 9 / V2 Daily Flow
+		lineageTag: 72164c8f-4504-4c55-a21e-c36991862a7b
+
+	measure 'V2 PV Generation kWh' = IFERROR( SUM( gold_battery_dispatch[pv_generation_kwh] ), BLANK() )
+		formatString: #,0
+		displayFolder: Page 9 / V2 Daily Flow
+		lineageTag: 52e9cec4-c129-470e-aded-dfb60e986ecb
+
+	measure 'V2 Grid Charge kWh Daily' = IFERROR( SUM( gold_battery_dispatch[grid_charge_kwh] ), BLANK() )
+		formatString: #,0
+		displayFolder: Page 9 / V2 Daily Flow
+		lineageTag: 646735e9-6573-41f0-945c-de94a36d8b9b
+
+	measure 'V2 PV Charge kWh Daily' = IFERROR( SUM( gold_battery_dispatch[pv_charge_kwh] ), BLANK() )
+		formatString: #,0
+		displayFolder: Page 9 / V2 Daily Flow
+		lineageTag: da7a154f-ccd7-4fca-aa3b-e75f48c164b3
+
+	measure 'V2 Net Savings EUR Daily' = IFERROR( SUM( gold_battery_dispatch[net_savings_eur] ), BLANK() )
+		formatString: € #,##0
+		displayFolder: Page 9 / V2 Daily Flow
+		lineageTag: 1a565107-e6b1-4a0e-bfc5-1d651584e8e3
+
+	measure 'C1 Annual Savings EUR' =
+			VAR _has_active =
+			    NOT ISBLANK ( CALCULATE ( COUNTROWS ( gold_battery_dispatch ),
+			        gold_battery_dispatch[is_simulated] = FALSE() ) )
+			VAR _annual_savings =
+			    CALCULATE (
+			        SUM ( gold_battery_dispatch[net_savings_eur] ),
+			        gold_battery_dispatch[is_simulated] = FALSE(),
+			        gold_battery_dispatch[date] >= DATE ( YEAR ( TODAY() ) - 1, MONTH ( TODAY() ), DAY ( TODAY() ) )
+			    )
+			VAR _fallback_sim =
+			    CALCULATE (
+			        AVERAGE ( gold_battery_simulation[annual_savings_eur] ),
+			        gold_battery_simulation[is_active_strategy] = "True"   -- TEXT column, not TRUE()
+			    )
+			RETURN
+			    IF ( _has_active && NOT ISBLANK ( _annual_savings ) && _annual_savings > 0,
+			        _annual_savings, _fallback_sim )
+		formatString: € #,##0
+		displayFolder: Page 9 / KPI
+		lineageTag: 5e7a0327-ca9c-4f98-85ed-62805bb8e567
+
+	measure 'C3 CO2 Avoided Tonnes Annual' =
+			VAR _co2_kg =
+			    CALCULATE(
+			        SUM( gold_battery_dispatch[co2_avoided_kg] ),
+			        gold_battery_dispatch[is_simulated] = FALSE(),
+			        gold_battery_dispatch[date] >= DATE(YEAR(TODAY())-1, MONTH(TODAY()), DAY(TODAY()))
+			    )
+			RETURN
+			    DIVIDE( _co2_kg, 1000 )
+		formatString: #,0.0 "tCO₂"
+		displayFolder: Page 9 / KPI
+		lineageTag: 105a974f-8d35-4ad1-9a32-fed0cb9c5d7e
+
+	measure 'C4 Round Trip Efficiency Pct' = VAR r = AVERAGE( gold_battery_dispatch[round_trip_efficiency] ) RETURN IF( r <= 1.5, r * 100, r )
+		formatString: 0.0
+		displayFolder: Page 9 / KPI
+		lineageTag: bf62a635-f66e-4e69-a036-f43689d18d06
+
+	measure 'V4 Monthly Net Savings EUR' =
+			CALCULATE(
+			    SUM( gold_battery_dispatch[net_savings_eur] ),
+			    gold_battery_dispatch[is_simulated] = FALSE() )
+		formatString: € #,##0
+		displayFolder: Page 9 / V4
+		lineageTag: 98901e64-de52-4205-81d5-01db2ac081c7
+
+	measure 'V4 Monthly CO2 Avoided Kg' =
+			CALCULATE(
+			    SUM( gold_battery_dispatch[co2_avoided_kg] ),
+			    gold_battery_dispatch[is_simulated] = FALSE() )
+		formatString: #,0 "kg"
+		displayFolder: Page 9 / V4
+		lineageTag: 99281843-c9df-436c-85f6-97b0d87d20d3
+
+	measure 'V7 Current SoH Pct' = AVERAGE( gold_battery_dispatch[battery_health_percent] )
+		formatString: 0.0
+		displayFolder: Battery Health (V7)
+		lineageTag: 631fed84-a62c-4beb-853c-63ab1c2f3269
+
+	measure 'V7 Cycles Used Pct' = VAR used = SUM( gold_battery_dispatch[cycle_depth_pct] ) / 100.0 RETURN DIVIDE( used, [V7 Warranty Cycles] )
+		formatString: 0.0%
+		displayFolder: Battery Health (V7)
+		lineageTag: 0db6ec54-7c15-493f-bab1-59cb6e4742f9
+
+	measure 'V7 Years Until Replacement' = VAR ac = [V7 Annual Cycles] VAR cyc = DIVIDE( [V7 Warranty Cycles], ac ) RETURN IF( ISBLANK(cyc), BLANK(), MIN( cyc, 20 ) )
+		formatString: 0.0
+		displayFolder: Battery Health (V7)
+		lineageTag: 581f942e-6eb0-4f67-8943-77881faf332b
+
+	measure 'I4 Next Action Text' =
+			VAR _yr_to_replace = [V7 Years Until Replacement]
+			VAR _payback = [C2 Payback Years]
+			RETURN
+			    SWITCH( TRUE(),
+			        ISBLANK(_yr_to_replace) && ISBLANK(_payback),
+			            "Run a 12-month dispatch simulation to populate financial metrics.",
+			        NOT ISBLANK(_yr_to_replace) && _yr_to_replace < 2,
+			            "⚠ Battery cycle headroom < 2 years. Plan replacement procurement now (lead time 8-14 weeks for LFP).",
+			        NOT ISBLANK(_yr_to_replace) && _yr_to_replace < 5,
+			            "Cycle headroom " & FORMAT(_yr_to_replace, "0.0") & " years. Schedule mid-life maintenance + warranty audit.",
+			        NOT ISBLANK(_payback) && _payback < 5,
+			            "✓ Strong investment case (payback < 5 years). Recommend portfolio rollout to similar buildings.",
+			        "Battery operating within design envelope. Monitor next mid-life review in 24 months." )
+		formatString: #,##0.0
+		displayFolder: Page 9 / Insights
+		lineageTag: 51c5d284-d9ab-455e-8356-e5750610a860
+
+	measure 'Active Battery Label' =
+			VAR _tech =
+			    CALCULATE(
+			        MAX( gold_battery_dispatch[battery_type] ),
+			        gold_battery_dispatch[is_simulated] = FALSE() )
+			VAR _type =
+			    CALCULATE(
+			        MAX( gold_battery_dispatch[battery_type] ),
+			        gold_battery_dispatch[is_simulated] = FALSE() )
+			VAR _cap =
+			    CALCULATE(
+			        MAX( gold_battery_dispatch[capacity_kwh] ),
+			        gold_battery_dispatch[is_simulated] = FALSE() )
+			RETURN
+			    IF( ISBLANK(_tech), "— No active battery —",
+			        _type & " · " & FORMAT(_cap, "#,0") & " kWh" )
+		formatString: #,##0.0
+		displayFolder: Page 9 / Helpers
+		lineageTag: 075120c9-05db-4eb3-86c9-bddbf4210699
+
+	measure 'Active Strategy Short Label' =
+			VAR _s =
+			    CALCULATE(
+			        MAX( gold_battery_dispatch[strategy] ),
+			        gold_battery_dispatch[is_simulated] = FALSE() )
+			RETURN
+			    SWITCH( TRUE(),
+			        ISBLANK(_s),               "— Select strategy —",
+			        _s = "self_consumption",   "● Self-Consumption",
+			        _s = "peak_shaving",       "● Peak-Shaving",
+			        _s = "tou",                "● Time-of-Use",
+			        _s = "backup",             "● Backup + Opportunistic",
+			        _s = "frequency_reserve",  "● Frequency Reserve",
+			        _s = "capacity_market",    "● Capacity Market",
+			        _s = "v2g",                "● V2G Coordination",
+			        "● " & _s )
+		formatString: #,##0.0
+		displayFolder: Page 9 / Helpers
+		lineageTag: 856990da-79c6-4f5e-abab-d3d806c0eb6a
+
+	measure 'Page9 Data As Of' =
+			"Data as of " &
+			FORMAT(
+			    CALCULATE( MAX(gold_battery_dispatch[date]),
+			               gold_battery_dispatch[is_simulated] = FALSE() ),
+			    "MMMM yyyy" )
+		formatString: #,##0.0
+		displayFolder: Page 9 / Helpers
+		lineageTag: c28f955b-fb03-4060-93a1-89cb69c07db3
+
+	measure 'V7 Annual Cycles' = ROUND( AVERAGE( gold_battery_dispatch[cycle_depth_pct] ) / 100.0 * 365.0, 0 )
+		formatString: #,##0
+		displayFolder: Battery Health (V7)
+		lineageTag: e0fc1250-4893-4b7f-8cb6-f2f3f9b559c5
+
+	measure 'V7 SoH Color' = VAR s=[V7 Current SoH Pct] RETURN SWITCH( TRUE(), ISBLANK(s),"#AAAAAA", s>=90,"#2ECC40", s>=80,"#FF851B", "#FF4136" )
+		displayFolder: Battery Health (V7)
+		lineageTag: 3b83e960-493e-4317-b483-32fe7997fefd
+
+	measure 'V7 Avg Cycle Depth Pct' = AVERAGE( gold_battery_dispatch[cycle_depth_pct] )
+		formatString: 0.0
+		displayFolder: Battery Health (V7)
+		lineageTag: 0e9d9b86-426c-4dcb-aa4a-b819d679f9f3
+
+	measure 'V7 Warranty Cycles' = AVERAGEX( VALUES( gold_battery_dispatch[battery_type] ), VAR _bt = gold_battery_dispatch[battery_type] RETURN CALCULATE( AVERAGE( gold_battery_technologies[warranty_cycles] ), gold_battery_technologies[battery_type] = _bt ) )
+		formatString: #,##0
+		displayFolder: Battery Health (V7)
+		lineageTag: fc2640db-4c0c-4931-bc4d-638cba5fe15f
+
+	measure 'Charging Cost EUR' = SUM( gold_battery_dispatch[grid_charge_cost_eur] )
+		formatString: #,##0
+		displayFolder: Arbitrage (V8)
+		lineageTag: 907cbcd7-eb68-4706-9492-6cb6855bfa52
+
+	measure 'Discharge Benefit EUR' = SUM( gold_battery_dispatch[cost_avoided_eur] )
+		formatString: #,##0
+		displayFolder: Arbitrage (V8)
+		lineageTag: 1d08d3df-29a0-46ef-8c5f-b03b76b4cccb
+
+	measure 'Net Arbitrage EUR' = [Discharge Benefit EUR] - [Charging Cost EUR]
+		formatString: #,##0
+		displayFolder: Arbitrage (V8)
+		lineageTag: e83133a0-0336-4827-a7f6-afc3ebbe1875
+
+	column battery_type
+		dataType: string
+		lineageTag: 6e75b2c6-5da7-4a93-bd19-27629c9611d3
+		sourceLineageTag: battery_type
+		summarizeBy: none
+		sourceColumn: battery_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 7b29470e-79f0-41e5-91a9-3083f285564c
+		sourceLineageTag: date
+		summarizeBy: none
+		sourceColumn: date
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_id
+		dataType: string
+		lineageTag: 75fd6133-7959-46c5-8281-2c859b3cb728
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_name
+		dataType: string
+		lineageTag: 9b19c5ce-c49c-4ee8-b775-e6a819b1eecf
+		sourceLineageTag: building_name
+		summarizeBy: none
+		sourceColumn: building_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column country
+		dataType: string
+		lineageTag: 2e0622a3-6a6a-4a86-97c4-40af62067a67
+		sourceLineageTag: country
+		summarizeBy: none
+		sourceColumn: country
+
+		annotation SummarizationSetBy = Automatic
+
+	column battery_id
+		dataType: string
+		lineageTag: 587213f9-f69a-4f47-8fb1-acb774f7fb3d
+		sourceLineageTag: battery_id
+		summarizeBy: none
+		sourceColumn: battery_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column strategy
+		dataType: string
+		lineageTag: e3b1861e-d33c-48fa-9335-be61e7e16cb9
+		sourceLineageTag: strategy
+		summarizeBy: none
+		sourceColumn: strategy
+
+		annotation SummarizationSetBy = Automatic
+
+	column capacity_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 653f1aa4-452c-4840-a9c7-9fbaf200bbef
+		sourceLineageTag: capacity_kwh
+		summarizeBy: sum
+		sourceColumn: capacity_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column pv_capacity_kwp
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: a749c692-4a38-425c-a816-c3e377129de4
+		sourceLineageTag: pv_capacity_kwp
+		summarizeBy: sum
+		sourceColumn: pv_capacity_kwp
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column pv_generation_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 169ff1a8-ec78-4700-854d-8ca0a0b7cf56
+		sourceLineageTag: pv_generation_kwh
+		summarizeBy: sum
+		sourceColumn: pv_generation_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column pv_to_load_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: c782e4c2-2f57-4abe-9ee7-1f7bbfe9010b
+		sourceLineageTag: pv_to_load_kwh
+		summarizeBy: sum
+		sourceColumn: pv_to_load_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column pv_charge_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 29649c0b-b2da-414b-a93f-087f3763d06f
+		sourceLineageTag: pv_charge_kwh
+		summarizeBy: sum
+		sourceColumn: pv_charge_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column grid_charge_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 883eed97-ea75-4ff3-835c-499b5c6ae7be
+		sourceLineageTag: grid_charge_kwh
+		summarizeBy: sum
+		sourceColumn: grid_charge_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column charge_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 39323119-8cb5-444e-9843-e4e1de0af512
+		sourceLineageTag: charge_kwh
+		summarizeBy: sum
+		sourceColumn: charge_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column discharge_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 54641952-df65-4b26-9faa-6144c9b73383
+		sourceLineageTag: discharge_kwh
+		summarizeBy: sum
+		sourceColumn: discharge_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column soc_start_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 434e41f3-6504-4112-b526-baf013a5721c
+		sourceLineageTag: soc_start_pct
+		summarizeBy: sum
+		sourceColumn: soc_start_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column soc_end_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 79d44285-833d-4a2c-a3ef-eb180213f0fb
+		sourceLineageTag: soc_end_pct
+		summarizeBy: sum
+		sourceColumn: soc_end_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column round_trip_efficiency
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: f07add88-35d9-4f83-90f8-5fa8aa8a120a
+		sourceLineageTag: round_trip_efficiency
+		summarizeBy: sum
+		sourceColumn: round_trip_efficiency
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column cycle_depth_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: a9117c04-e0e7-496f-a40d-34643c9e112f
+		sourceLineageTag: cycle_depth_pct
+		summarizeBy: sum
+		sourceColumn: cycle_depth_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column cost_avoided_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: ae48fc1f-5b9c-4ec2-9e56-d8ae09d35fdc
+		sourceLineageTag: cost_avoided_eur
+		summarizeBy: sum
+		sourceColumn: cost_avoided_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column grid_charge_cost_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 570eaa44-5e76-4654-8efd-f68b0a945686
+		sourceLineageTag: grid_charge_cost_eur
+		summarizeBy: sum
+		sourceColumn: grid_charge_cost_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column demand_reduction_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: ca09f35c-21a1-41bc-9cfe-969933d0fdec
+		sourceLineageTag: demand_reduction_eur
+		summarizeBy: sum
+		sourceColumn: demand_reduction_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column net_savings_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 9833e07e-7da2-4596-b1f3-90a1b2e7999f
+		sourceLineageTag: net_savings_eur
+		summarizeBy: sum
+		sourceColumn: net_savings_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column co2_avoided_kg
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 39aca4ed-c11f-403c-b7ce-50f1d4b726c9
+		sourceLineageTag: co2_avoided_kg
+		summarizeBy: sum
+		sourceColumn: co2_avoided_kg
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column grid_price_peak_eur_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 0cf09d78-4e79-4d7f-a16f-42289d2e9c2f
+		sourceLineageTag: grid_price_peak_eur_kwh
+		summarizeBy: sum
+		sourceColumn: grid_price_peak_eur_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column grid_price_offpeak_eur_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 4c84e3f7-1b76-4a83-b34e-0ec3e971be25
+		sourceLineageTag: grid_price_offpeak_eur_kwh
+		summarizeBy: sum
+		sourceColumn: grid_price_offpeak_eur_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column grid_co2_intensity_g_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 3cbca2d4-ddae-44b6-8263-abc7293d1e5c
+		sourceLineageTag: grid_co2_intensity_g_kwh
+		summarizeBy: sum
+		sourceColumn: grid_co2_intensity_g_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column is_simulated
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 47a95bc6-acfc-4190-a29b-d86b0e692f17
+		sourceLineageTag: is_simulated
+		summarizeBy: none
+		sourceColumn: is_simulated
+
+		annotation SummarizationSetBy = Automatic
+
+	column processed_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 32f03331-480c-440e-afce-3c6276dab7d1
+		sourceLineageTag: processed_at
+		summarizeBy: none
+		sourceColumn: processed_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column eu_compliant
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: e8181347-fb69-4fb8-9064-129a4363875e
+		sourceLineageTag: eu_compliant
+		summarizeBy: none
+		sourceColumn: eu_compliant
+
+		annotation SummarizationSetBy = Automatic
+
+	column cumulative_cycles
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 28aecea0-6ce7-46d7-98d4-dc6f62361ecf
+		sourceLineageTag: cumulative_cycles
+		summarizeBy: sum
+		sourceColumn: cumulative_cycles
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_health_percent
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: fc491b31-7229-42dc-8727-7a1950b4a219
+		sourceLineageTag: battery_health_percent
+		summarizeBy: sum
+		sourceColumn: battery_health_percent
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column annual_cycles
+		dataType: double
+		lineageTag: 70728f10-dc23-4a0f-b07b-18661bd6f068
+		sourceLineageTag: annual_cycles
+		summarizeBy: sum
+		sourceColumn: annual_cycles
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column install_date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: a6879536-6563-4373-9d39-bfd5083c52af
+		sourceLineageTag: install_date
+		summarizeBy: none
+		sourceColumn: install_date
+
+		annotation SummarizationSetBy = Automatic
+
+	column years_until_replacement
+		dataType: double
+		lineageTag: 66dcfe4d-7f06-4c85-9565-57f8533497ba
+		sourceLineageTag: years_until_replacement
+		summarizeBy: sum
+		sourceColumn: years_until_replacement
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition gold_battery_dispatch = entity
+		mode: directLake
+		source
+			entityName: gold_battery_dispatch
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

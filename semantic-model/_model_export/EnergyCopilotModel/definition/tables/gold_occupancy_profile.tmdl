@@ -1,0 +1,481 @@
+table gold_occupancy_profile
+	lineageTag: 0826498f-855e-4c72-9869-aca57e5d9053
+	sourceLineageTag: [dbo].[gold_occupancy_profile]
+
+	measure 'Avg Business Hours Occupancy Pct' = ```
+			
+			CALCULATE(
+			    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+			    gold_occupancy_profile[hour_of_day] >= 9,
+			    gold_occupancy_profile[hour_of_day] <= 18
+			) * 100
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 7668dcd6-7de0-42bb-856e-dc2e14e8ae78
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg After Hours Occupancy Pct' =
+			
+			CALCULATE(
+			    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+			    gold_occupancy_profile[hour_of_day] >= 20 ||
+			    gold_occupancy_profile[hour_of_day] <= 7
+			) * 100
+		formatString: #,##0.0
+		lineageTag: 3d1971ce-8558-4993-a1d5-c1f5609c573f
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Calibrated Buildings Count' =
+			
+			CALCULATE(
+			    DISTINCTCOUNT(gold_occupancy_profile[building_id]),
+			    gold_occupancy_profile[profile_source] = "calibrated"
+			)
+		formatString: #,##0.0
+		lineageTag: a3a4434e-be38-460f-8697-894965c9bc7a
+
+		changedProperty = Name
+
+	measure 'Avg Profile Confidence' =
+			
+			AVERAGE(gold_occupancy_profile[confidence_score])
+		formatString: #,##0.0
+		lineageTag: 23507d53-0f0f-4144-a738-6732b1d4bf89
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg Weekend Occupancy Pct' =
+			
+			CALCULATE(
+			    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+			    gold_occupancy_profile[day_of_week] >= 5
+			) * 100
+		formatString: #,##0.0
+		lineageTag: a319060c-bb2c-48d0-9646-4d50aeac27d7
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg Weekday Occupancy Pct' =
+			
+			CALCULATE(
+			    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+			    gold_occupancy_profile[day_of_week] < 5
+			) * 100
+		formatString: #,##0.0
+		lineageTag: e50d26e9-f2ad-4e13-abec-0b27ec3d7405
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Energy per Occupant Goal kWh' =
+			VAR _selected_buildings = DISTINCTCOUNT(gold_occupancy_profile[building_id])
+			VAR _building_type =
+			    IF(_selected_buildings = 1,
+			        CALCULATE(
+			            SELECTEDVALUE(silver_building_master[building_type]),
+			            TREATAS(VALUES(gold_occupancy_profile[building_id]),
+			                    silver_building_master[building_id])),
+			        "Portfolio")
+			RETURN
+			    SWITCH(TRUE(),
+			        _building_type = "Office",      250,
+			        _building_type = "Retail",      320,
+			        _building_type = "Hotel",       900,
+			        _building_type = "Healthcare", 1100,
+			        _building_type = "Education",   250,
+			        _building_type = "Logistics",  1000,
+			        1200)
+		formatString: #,##0
+		displayFolder: Page 5 - Energy Density
+		lineageTag: 5e212ecf-4000-4b9b-a44f-59da3bc55f64
+
+	measure 'Ghost Load Risk Status' = ```
+			
+			VAR _after_hours_avg = 
+			    CALCULATE(
+			        AVERAGE( gold_occupancy_profile[occupancy_probability] ),
+			        gold_occupancy_profile[hour_of_day] >= 20
+			            || gold_occupancy_profile[hour_of_day] < 7
+			    )
+			VAR _total_avg = AVERAGE( gold_occupancy_profile[occupancy_probability] )
+			VAR _pct = 
+			    IF( _total_avg > 0,
+			        DIVIDE( _after_hours_avg, _total_avg ) * 100,
+			        BLANK()
+			    )
+			VAR _selected_buildings = DISTINCTCOUNT( gold_occupancy_profile[building_id] )
+			VAR _building_type = 
+			    IF(
+			        _selected_buildings = 1,
+			        CALCULATE(
+			            SELECTEDVALUE( silver_building_master[building_type] ),
+			            TREATAS( VALUES( gold_occupancy_profile[building_id] ),
+			                     silver_building_master[building_id] )
+			        ),
+			        "Portfolio"
+			    )
+			VAR _critical_threshold = 
+			    SWITCH(
+			        TRUE(),
+			        _building_type IN { "Hotel", "Healthcare" }, 130,
+			        _building_type = "Logistics", 60,
+			        35
+			    )
+			VAR _review_threshold = _critical_threshold * 0.6
+			RETURN
+			    SWITCH(
+			        TRUE(),
+			        ISBLANK( _pct ),               "—",
+			        _pct < _review_threshold,      "Efficient",
+			        _pct < _critical_threshold,    "Review schedule",
+			                                       "Critical ghost load"
+			    )
+			```
+		formatString: #,##0.0
+		displayFolder: Page 5 - Decision Support
+		lineageTag: 397833c1-a2a9-445f-be70-8f6741b932d7
+
+	measure 'Occupied Hours Variance Hours' = ```
+			
+			VAR _occupied_threshold = 0.30
+			VAR _occupied_count = 
+			    CALCULATE(
+			        COUNTROWS( gold_occupancy_profile ),
+			        gold_occupancy_profile[occupancy_probability] >= _occupied_threshold
+			    )
+			VAR _profile_count = 
+			    MAX( 1, DISTINCTCOUNT( gold_occupancy_profile[profile_source] ) )
+			VAR _denominator = 7 * _profile_count
+			VAR _actual = DIVIDE( _occupied_count, _denominator )
+			VAR _selected_buildings = DISTINCTCOUNT( gold_occupancy_profile[building_id] )
+			VAR _building_type = 
+			    IF(
+			        _selected_buildings = 1,
+			        CALCULATE(
+			            SELECTEDVALUE( silver_building_master[building_type] ),
+			            TREATAS( VALUES( gold_occupancy_profile[building_id] ),
+			                     silver_building_master[building_id] )
+			        ),
+			        "Portfolio"
+			    )
+			VAR _goal = 
+			    SWITCH(
+			        TRUE(),
+			        _building_type = "Office",       9,
+			        _building_type = "Retail",      12,
+			        _building_type = "Hotel",       18,
+			        _building_type = "Healthcare",  20,
+			        _building_type = "Education",    8,
+			        _building_type = "Logistics",   14,
+			        10
+			    )
+			RETURN
+			    IF(
+			        NOT ISBLANK( _actual ) && _goal > 0,
+			        ROUND( _actual - _goal, 1 ),
+			        BLANK()
+			    )
+			```
+		formatString: +0.0;-0.0;0
+		displayFolder: Page 5 - Decision Support
+		lineageTag: 0159489b-1065-44f0-8962-767aa9a4eb33
+
+	measure 'Occupancy Top Insight' = ```
+			
+			VAR _after_hours_avg = 
+			    CALCULATE(
+			        AVERAGE( gold_occupancy_profile[occupancy_probability] ),
+			        gold_occupancy_profile[hour_of_day] >= 20
+			            || gold_occupancy_profile[hour_of_day] < 7
+			    )
+			VAR _total_avg = AVERAGE( gold_occupancy_profile[occupancy_probability] )
+			VAR _phantom = 
+			    IF( _total_avg > 0,
+			        DIVIDE( _after_hours_avg, _total_avg ) * 100,
+			        BLANK()
+			    )
+			VAR _selected_buildings = DISTINCTCOUNT( gold_occupancy_profile[building_id] )
+			VAR _building_type = 
+			    IF(
+			        _selected_buildings = 1,
+			        CALCULATE(
+			            SELECTEDVALUE( silver_building_master[building_type] ),
+			            TREATAS( VALUES( gold_occupancy_profile[building_id] ),
+			                     silver_building_master[building_id] )
+			        ),
+			        "Portfolio"
+			    )
+			VAR _is_24_7 = _building_type IN { "Hotel", "Healthcare" }
+			VAR _critical_threshold = 
+			    SWITCH(
+			        TRUE(),
+			        _is_24_7, 130,
+			        _building_type = "Logistics", 60,
+			        35
+			    )
+			VAR _hours_variance = [Occupied Hours Variance Hours]
+			VAR _annual_cost = [Ghost Load Annual Cost EUR]
+			VAR _cost_text = 
+			    IF( ISBLANK( _annual_cost ),
+			        "n/a",
+			        "EUR " & FORMAT( _annual_cost, "#,##0" )
+			    )
+			RETURN
+			    SWITCH(
+			        TRUE(),
+			        ISBLANK( _phantom ),
+			            "Insufficient occupancy data. Verify gold_occupancy_profile load.",
+			        _is_24_7 && _phantom < _critical_threshold,
+			            "Normal 24/7 operation profile. After-hours activity is expected for " &
+			            _building_type & " buildings. No ghost-load concern.",
+			        _phantom >= _critical_threshold,
+			            "CRITICAL ghost load. Schedule HVAC/lighting off after 20h. " &
+			            "Est. saving: " & _cost_text & "/yr. See Page 4 for recommendations.",
+			        _phantom >= _critical_threshold * 0.6,
+			            "MODERATE after-hours waste. Review lighting + plug-load scheduling. " &
+			            "See Page 4 for recommendations.",
+			        NOT ISBLANK( _hours_variance ) && _hours_variance < -1.5,
+			            "Under-utilized portfolio (" & FORMAT( _hours_variance, "0.0" ) &
+			            "h below goal). Consider tenant mix review or space consolidation.",
+			        "Healthy utilization pattern. No immediate action required."
+			    )
+			```
+		formatString: #,##0.0
+		displayFolder: Page 5 - Decision Support
+		lineageTag: d9cb56b4-5757-486f-b1a5-b50b8edb2dc4
+
+	measure 'Ghost Load Risk Pct' = ```
+			
+			VAR _after_hours_avg = 
+			    CALCULATE(
+			        AVERAGE( gold_occupancy_profile[occupancy_probability] ),
+			        gold_occupancy_profile[hour_of_day] >= 20
+			            || gold_occupancy_profile[hour_of_day] < 7
+			    )
+			VAR _total_avg = AVERAGE( gold_occupancy_profile[occupancy_probability] )
+			RETURN
+			    IF(
+			        NOT ISBLANK( _total_avg ) && _total_avg > 0,
+			        ROUND( DIVIDE( _after_hours_avg, _total_avg ) * 100, 1 ),
+			        BLANK()
+			    )
+			```
+		formatString: #,##0.0
+		lineageTag: fb0bcb83-1ba2-4396-a3ca-8db2f1c3b1e3
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure Measure
+		formatString: #,##0.0
+		lineageTag: 7cba040e-b693-4d3b-b827-7a862fc6bb72
+
+		annotation 43dbc3e8-3a1c-4b6f-9923-b49ff7d6691c = True
+
+	measure 'Building Avg Headcount Business Hours' =
+			VAR _avg_prob =
+			    CALCULATE(
+			        AVERAGE( gold_occupancy_profile[occupancy_probability] ),
+			        gold_occupancy_profile[hour_of_day] >= 8,
+			        gold_occupancy_profile[hour_of_day] <= 18
+			    )
+			VAR _max_occ =
+			    CALCULATE(
+			        SUM( silver_building_master[max_occupants] ),
+			        TREATAS(
+			            VALUES( gold_occupancy_profile[building_id] ),
+			            silver_building_master[building_id]
+			        )
+			    )
+			VAR _result = _avg_prob * _max_occ
+			RETURN
+			    IF( ISBLANK( _avg_prob ) || ISBLANK( _max_occ ) || _max_occ = 0,
+			        BLANK(),
+			        ROUND( _result, 0 )
+			    )
+		formatString: #,0
+		displayFolder: Page 5 / Headcount
+		lineageTag: d79cfcc0-bcf5-462e-8a14-58407c7d160e
+
+	measure 'Building Peak Headcount' =
+			VAR _peak_prob =
+			    CALCULATE(
+			        MAX( gold_occupancy_profile[occupancy_probability] )
+			    )
+			VAR _max_occ =
+			    CALCULATE(
+			        SUM( silver_building_master[max_occupants] ),
+			        TREATAS(
+			            VALUES( gold_occupancy_profile[building_id] ),
+			            silver_building_master[building_id]
+			        )
+			    )
+			VAR _result = _peak_prob * _max_occ
+			RETURN
+			    IF( ISBLANK( _peak_prob ) || ISBLANK( _max_occ ) || _max_occ = 0,
+			        BLANK(),
+			        ROUND( _result, 0 )
+			    )
+		formatString: #,0
+		displayFolder: Page 5 / Headcount
+		lineageTag: d7ddbc31-8a12-4421-b194-70f6e7cbac28
+
+	measure 'Building Avg Headcount Calc' =
+			VAR _avg_prob =
+			    CALCULATE(
+			        AVERAGE( gold_occupancy_profile[occupancy_probability] ),
+			        gold_occupancy_profile[hour_of_day] >= 8,
+			        gold_occupancy_profile[hour_of_day] <= 18
+			    )
+			VAR _max_occ =
+			    CALCULATE(
+			        SUM( silver_building_master[max_occupants] ),
+			        TREATAS(
+			            VALUES( gold_occupancy_profile[building_id] ),
+			            silver_building_master[building_id]
+			        )
+			    )
+			VAR _result = _avg_prob * _max_occ
+			RETURN
+			    IF( ISBLANK( _avg_prob ) || ISBLANK( _max_occ ) || _max_occ = 0,
+			        BLANK(),
+			        ROUND( _result, 0 )
+			    )
+		formatString: #,0
+		displayFolder: Page 5 / Headcount
+		lineageTag: 75cad452-9de8-4320-8dab-c1257ea20d57
+
+	measure 'Building Peak Headcount Calc' =
+			VAR _peak_prob =
+			    CALCULATE(
+			        MAX( gold_occupancy_profile[occupancy_probability] )
+			    )
+			VAR _max_occ =
+			    CALCULATE(
+			        SUM( silver_building_master[max_occupants] ),
+			        TREATAS(
+			            VALUES( gold_occupancy_profile[building_id] ),
+			            silver_building_master[building_id]
+			        )
+			    )
+			VAR _result = _peak_prob * _max_occ
+			RETURN
+			    IF( ISBLANK( _peak_prob ) || ISBLANK( _max_occ ) || _max_occ = 0,
+			        BLANK(),
+			        ROUND( _result, 0 )
+			    )
+		formatString: #,0
+		displayFolder: Page 5 / Headcount
+		lineageTag: f36baf9b-2f42-4dc3-a036-e8aae081ca69
+
+	column building_id
+		dataType: string
+		lineageTag: bb67f251-a6a3-45f9-9760-ad3e7e4d3314
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column day_of_week
+		dataType: int64
+		formatString: 0
+		lineageTag: 700f5776-24c8-49d8-99b8-49bd1dc91a48
+		sourceLineageTag: day_of_week
+		summarizeBy: none
+		sourceColumn: day_of_week
+
+		annotation SummarizationSetBy = Automatic
+
+	column hour_of_day
+		dataType: int64
+		formatString: 0
+		lineageTag: 4d77f477-ffae-4515-80c4-16ea2e1debe9
+		sourceLineageTag: hour_of_day
+		summarizeBy: sum
+		sourceColumn: hour_of_day
+
+		annotation SummarizationSetBy = Automatic
+
+	column occupancy_probability
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 554c44b5-28d1-4c55-af1f-6f26fbb706d0
+		sourceLineageTag: occupancy_probability
+		summarizeBy: sum
+		sourceColumn: occupancy_probability
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column profile_source
+		dataType: string
+		lineageTag: 2e5e6a08-e90d-41af-9490-eb75c9844703
+		sourceLineageTag: profile_source
+		summarizeBy: none
+		sourceColumn: profile_source
+
+		annotation SummarizationSetBy = Automatic
+
+	column calibration_weeks
+		dataType: int64
+		formatString: 0
+		lineageTag: 35e4255c-2dc2-4b07-b42c-fab03b8c413c
+		sourceLineageTag: calibration_weeks
+		summarizeBy: sum
+		sourceColumn: calibration_weeks
+
+		annotation SummarizationSetBy = Automatic
+
+	column confidence_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 587507e8-b764-45ed-8815-172481ff6cce
+		sourceLineageTag: confidence_score
+		summarizeBy: sum
+		sourceColumn: confidence_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column model_version
+		dataType: string
+		lineageTag: 3c44c188-2015-4f93-8e4d-56749b621686
+		sourceLineageTag: model_version
+		summarizeBy: none
+		sourceColumn: model_version
+
+		annotation SummarizationSetBy = Automatic
+
+	column computed_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 311ef359-0545-4e70-aaf6-8a2471eaa1c7
+		sourceLineageTag: computed_at
+		summarizeBy: none
+		sourceColumn: computed_at
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_occupancy_profile = entity
+		mode: directLake
+		source
+			entityName: gold_occupancy_profile
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

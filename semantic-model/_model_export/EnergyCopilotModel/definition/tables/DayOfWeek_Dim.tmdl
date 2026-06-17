@@ -1,0 +1,51 @@
+table DayOfWeek_Dim
+	lineageTag: 63712ec4-f604-47d5-925d-ebaae67be6c2
+
+	column day_of_week
+		formatString: 0
+		lineageTag: 3076f304-7a2b-46ab-9bf6-6f2772ae5013
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [day_of_week]
+
+		annotation SummarizationSetBy = Automatic
+
+	column DayName
+		lineageTag: 524a6a02-f752-4e35-8df3-8ada065cc16a
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [DayName]
+		sortByColumn: DayOrder
+
+		annotation SummarizationSetBy = Automatic
+
+	column DayOrder
+		formatString: 0
+		lineageTag: 8c353312-b7cc-457a-b7d8-7513a7db175e
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [DayOrder]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition DayOfWeek_Dim = calculated
+		mode: import
+		source =
+				
+				DATATABLE(
+				    "day_of_week", INTEGER,
+				    "DayName",     STRING,
+				    "DayOrder",    INTEGER,
+				    {
+				        {0, "Mon", 0},
+				        {1, "Tue", 1},
+				        {2, "Wed", 2},
+				        {3, "Thu", 3},
+				        {4, "Fri", 4},
+				        {5, "Sat", 5},
+				        {6, "Sun", 6}
+				    }
+				)
+
+	annotation PBI_Id = cf25521a8e7b480ca3febfa05c619bc1
+

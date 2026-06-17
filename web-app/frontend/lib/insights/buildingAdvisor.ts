@@ -17,6 +17,7 @@ import type { ActionItem } from "@/lib/api/actions"
 import type { AlertItem } from "@/lib/api/alerts"
 import type { PortfolioBuildingRow } from "@/lib/api/portfolio"
 import type { ResidentialBuildingResponse } from "@/lib/api/residentialManager"
+import type { EngineEstimate } from "@/lib/api/estimation"
 
 export type InsightSeverity = "action" | "watch" | "info" | "good"
 export type Confidence = "high" | "medium" | "low"
@@ -148,6 +149,39 @@ function euiInsight(kpis: PortfolioBuildingRow): Insight | null {
       "Start with HVAC scheduling and setpoint review, then controls and envelope — these usually recover the first 10–20% of the gap.",
     assumption:
       `Indicative only: gap to the top of the ${band.low}–${band.high} kWh/m²·yr band × ${Math.round(area).toLocaleString("en-US")} m² × €${price.toFixed(2)}/kWh, capturing 40–80%. EUI is a run-rate, not weather-corrected.`,
+  }
+}
+
+function estimatedEuiInsight(est: EngineEstimate | null): Insight | null {
+  if (!est || !est.available || est.eui_point == null) return null
+  const type = (est.building_type || "").toLowerCase()
+  const band = EUI_BANDS.find((b) => b.match.test(type)) ?? EUI_DEFAULT
+  const eui = Math.round(est.eui_point)
+  const range =
+    est.eui_low != null && est.eui_high != null
+      ? `${Math.round(est.eui_low)}\u2013${Math.round(est.eui_high)} kWh/m\u00b2\u00b7yr (estimated)`
+      : undefined
+  // An estimate never claims "high" confidence.
+  const conf: Confidence = est.confidence === "high" ? "medium" : "low"
+  const verdict = eui > band.high ? "above" : eui < band.low ? "below" : "within"
+  const tail =
+    verdict === "above"
+      ? ` That\u2019s above the typical ${band.low}\u2013${band.high} band for ${band.label}, so it\u2019s a likely efficiency / retrofit candidate.`
+      : verdict === "below"
+        ? ` That\u2019s below the typical ${band.low}\u2013${band.high} band for ${band.label}.`
+        : ` That\u2019s inside the typical ${band.low}\u2013${band.high} band for ${band.label}.`
+  return {
+    id: "eui-est",
+    severity: verdict === "above" ? "watch" : "info",
+    title: `Estimated energy intensity ~${eui} kWh/m\u00b2\u00b7yr`,
+    detail:
+      `No bills uploaded yet \u2014 estimated at ~${eui} kWh/m\u00b2\u00b7yr from this building\u2019s type, age and climate.` +
+      tail +
+      " Upload a bill to replace this estimate with measured numbers.",
+    metric: `~${eui} kWh/m\u00b2\u00b7yr (est.)`,
+    range,
+    confidence: conf,
+    assumption: `Screening estimate (not measured): ${est.method || "archetype"}. Sharpens to actual once \u226512 months of bills exist.`,
   }
 }
 
@@ -519,9 +553,10 @@ export function buildAdvisorInsights(input: {
   isResidential: boolean
   residential?: ResidentialBuildingResponse | null
   profile?: DeclaredProfile | null
+  estimate?: EngineEstimate | null
   topAlerts?: AlertItem[]
 }): Insight[] {
-  const { kpis, topActions, isResidential, residential, profile } = input
+  const { kpis, topActions, isResidential, residential, profile, estimate } = input
   const topAlerts = input.topAlerts ?? []
 
   const raw: (Insight | null)[] = []
@@ -540,7 +575,7 @@ export function buildAdvisorInsights(input: {
     // Live Fabric data: full commercial set. EPC prefers the Fabric rating but
     // falls back to the declared profile; heating advice comes from the profile
     // (the Fabric KPI row doesn't carry the heating system).
-    raw.push(euiInsight(kpis))
+    raw.push(euiInsight(kpis) ?? estimatedEuiInsight(estimate ?? null))
     raw.push(alertsInsight(kpis, topAlerts))
     raw.push(recsInsight(kpis, topActions))
     raw.push(epcInsight(kpis.epc_class ?? profile?.epc_class ?? null))

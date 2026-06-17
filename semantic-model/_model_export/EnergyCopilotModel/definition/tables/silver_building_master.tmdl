@@ -1,0 +1,597 @@
+table silver_building_master
+	lineageTag: dcd8a3ea-6e14-404c-bfbb-0e25ace43988
+	sourceLineageTag: [dbo].[silver_building_master]
+
+	measure 'Avg EPC Class Numeric' =
+			VAR _weighted_sum =
+			    SUMX(
+			        silver_building_master,
+			        VAR _b_id  = silver_building_master[building_id]
+			        VAR _area  = silver_building_master[conditioned_area_m2]
+			        VAR _epc_text =
+			            LOOKUPVALUE(
+			                silver_epc_ratings[epc_class],
+			                silver_epc_ratings[building_id], _b_id
+			            )
+			        VAR _num =
+			            SWITCH(
+			                UPPER(_epc_text),
+			                "A+", 0,
+			                "A",  1,
+			                "B",  2,
+			                "C",  3,
+			                "D",  4,
+			                "E",  5,
+			                "F",  6,
+			                "G",  7,
+			                BLANK()
+			            )
+			        RETURN
+			            IF(ISBLANK(_num), 0, _num * _area)
+			    )
+			VAR _total_area_with_epc =
+			    SUMX(
+			        silver_building_master,
+			        VAR _b_id = silver_building_master[building_id]
+			        VAR _has_epc =
+			            NOT ISBLANK(
+			                LOOKUPVALUE(
+			                    silver_epc_ratings[epc_class],
+			                    silver_epc_ratings[building_id], _b_id
+			                )
+			            )
+			        RETURN
+			            IF(_has_epc, silver_building_master[conditioned_area_m2], 0)
+			    )
+			RETURN
+			    DIVIDE(_weighted_sum, _total_area_with_epc)
+		formatString: 0.00
+		displayFolder: EPC Compliance
+		lineageTag: caec0a24-a48e-4965-aa7d-c43567d56112
+
+	measure 'Avg EPC Class Text' =
+			VAR _num = [Avg EPC Class Numeric]
+			    RETURN
+			        SWITCH(
+			            TRUE(),
+			            ISBLANK(_num), "—",
+			            _num < 0.5,    "A+",
+			            _num < 1.5,    "A",
+			            _num < 2.5,    "B",
+			            _num < 3.5,    "C",
+			            _num < 4.5,    "D",
+			            _num < 5.5,    "E",
+			            _num < 6.5,    "F",
+			            "G"
+			        )
+		formatString: #,##0.0
+		displayFolder: EPC Compliance
+		lineageTag: fbcad332-7170-4b4f-9bf5-04838e2df7b5
+
+	measure 'Solar Capacity kWp' = SUM( silver_building_master[pv_capacity_kwp] )
+		formatString: #,##0
+		displayFolder: Solar - Realtime & Opportunity
+		lineageTag: 8ce8da59-3a4f-43b0-b26f-ecfb7c925b30
+
+	column building_id
+		dataType: string
+		lineageTag: 2e8762bc-b4a8-4f8e-9ccb-74015a8a59f8
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column organization_id
+		dataType: string
+		lineageTag: 05bf1baa-a84e-4d6e-af80-2d4ec927cd31
+		sourceLineageTag: organization_id
+		summarizeBy: none
+		sourceColumn: organization_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_name
+		dataType: string
+		lineageTag: 3621902a-ac36-44fb-8ad5-802f0f763667
+		sourceLineageTag: building_name
+		summarizeBy: none
+		sourceColumn: building_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column country_code
+		dataType: string
+		lineageTag: eed64f7f-3305-4dd8-bc0e-d82001931e0e
+		sourceLineageTag: country_code
+		dataCategory: County
+		summarizeBy: none
+		sourceColumn: country_code
+
+		changedProperty = DataCategory
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column city
+		dataType: string
+		lineageTag: eca2ea47-bc51-4916-9d91-9f5d727159a4
+		sourceLineageTag: city
+		summarizeBy: none
+		sourceColumn: city
+
+		annotation SummarizationSetBy = Automatic
+
+	column climate_zone
+		dataType: string
+		lineageTag: 276a4203-7854-46a5-a7cd-d3d2eeff3d62
+		sourceLineageTag: climate_zone
+		summarizeBy: none
+		sourceColumn: climate_zone
+
+		annotation SummarizationSetBy = Automatic
+
+	column gross_floor_area_m2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 0c03f99f-0c59-4de0-88f7-785532706090
+		sourceLineageTag: gross_floor_area_m2
+		summarizeBy: sum
+		sourceColumn: gross_floor_area_m2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column conditioned_area_m2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 3850f644-80f5-41e7-b90f-1bdd11a95172
+		sourceLineageTag: conditioned_area_m2
+		summarizeBy: sum
+		sourceColumn: conditioned_area_m2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column year_built
+		dataType: int64
+		formatString: 0
+		lineageTag: 3081da5e-d7ba-4d73-81cc-e62e2d10d7de
+		sourceLineageTag: year_built
+		summarizeBy: sum
+		sourceColumn: year_built
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_type
+		dataType: string
+		lineageTag: 168ddb4a-c62f-46c9-9e58-3e9b1a5635a7
+		sourceLineageTag: building_type
+		summarizeBy: none
+		sourceColumn: building_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column subscription_tier
+		dataType: string
+		lineageTag: 116b7dfe-b232-479f-a943-339e90ccdd24
+		sourceLineageTag: subscription_tier
+		summarizeBy: none
+		sourceColumn: subscription_tier
+
+		annotation SummarizationSetBy = Automatic
+
+	column has_pv
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 863b34bf-9d1a-4169-89d3-c06202b5d2ed
+		sourceLineageTag: has_pv
+		summarizeBy: none
+		sourceColumn: has_pv
+
+		annotation SummarizationSetBy = Automatic
+
+	column pv_capacity_kwp
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 70a96be9-ca66-42d0-b55a-7008e8ab49a0
+		sourceLineageTag: pv_capacity_kwp
+		summarizeBy: sum
+		sourceColumn: pv_capacity_kwp
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column roof_area_m2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: bf8988ae-070e-4d9a-995a-b43a111dd6b8
+		sourceLineageTag: roof_area_m2
+		summarizeBy: sum
+		sourceColumn: roof_area_m2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column roof_orientation
+		dataType: string
+		lineageTag: f65546ec-731f-499a-b2b2-21cd4cf283f0
+		sourceLineageTag: roof_orientation
+		summarizeBy: none
+		sourceColumn: roof_orientation
+
+		annotation SummarizationSetBy = Automatic
+
+	column roof_tilt_deg
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 746d798f-777f-4a89-9450-7b45a46a899e
+		sourceLineageTag: roof_tilt_deg
+		summarizeBy: sum
+		sourceColumn: roof_tilt_deg
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column has_battery
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: d768da68-7e30-4bff-9309-65d9eaf0e985
+		sourceLineageTag: has_battery
+		summarizeBy: none
+		sourceColumn: has_battery
+
+		annotation SummarizationSetBy = Automatic
+
+	column battery_capacity_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: d44eddf1-3d51-4126-83a5-86c4759287af
+		sourceLineageTag: battery_capacity_kwh
+		summarizeBy: sum
+		sourceColumn: battery_capacity_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_technology
+		dataType: string
+		lineageTag: 853ef41a-7fb8-43ce-8dba-77d616a06a58
+		sourceLineageTag: battery_technology
+		summarizeBy: none
+		sourceColumn: battery_technology
+
+		annotation SummarizationSetBy = Automatic
+
+	column battery_strategy
+		dataType: string
+		lineageTag: 9c44bc66-5d14-4ee4-9385-46e1a6b61551
+		sourceLineageTag: battery_strategy
+		summarizeBy: none
+		sourceColumn: battery_strategy
+
+		annotation SummarizationSetBy = Automatic
+
+	column has_heat_pump
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 93c4f94f-8a63-4441-a75f-88b0466d46ce
+		sourceLineageTag: has_heat_pump
+		summarizeBy: none
+		sourceColumn: has_heat_pump
+
+		annotation SummarizationSetBy = Automatic
+
+	column heat_pump_cop_rated
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: cad27764-0733-4a2f-a308-d3929acfa07d
+		sourceLineageTag: heat_pump_cop_rated
+		summarizeBy: sum
+		sourceColumn: heat_pump_cop_rated
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column heat_pump_capacity_kw
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: f51a40a6-f3eb-44cf-bba7-ffc7242fbdf1
+		sourceLineageTag: heat_pump_capacity_kw
+		summarizeBy: sum
+		sourceColumn: heat_pump_capacity_kw
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column has_hvac_traditional
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 81919d66-056d-44a1-a585-a5929861fcce
+		sourceLineageTag: has_hvac_traditional
+		summarizeBy: none
+		sourceColumn: has_hvac_traditional
+
+		annotation SummarizationSetBy = Automatic
+
+	column has_ev_charging
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: bdfa3364-9f2f-48d4-abc2-64cf4cba49d5
+		sourceLineageTag: has_ev_charging
+		summarizeBy: none
+		sourceColumn: has_ev_charging
+
+		annotation SummarizationSetBy = Automatic
+
+	column has_led_lighting
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: a4dc8d95-f3c3-468a-811b-5d3601e1a332
+		sourceLineageTag: has_led_lighting
+		summarizeBy: none
+		sourceColumn: has_led_lighting
+
+		annotation SummarizationSetBy = Automatic
+
+	column wall_u_value
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: ffa43fa6-e42b-4ee1-aa50-422cf7cb0bd2
+		sourceLineageTag: wall_u_value
+		summarizeBy: sum
+		sourceColumn: wall_u_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column roof_u_value
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 02692f29-6a89-47f1-9f6d-681be6fd8175
+		sourceLineageTag: roof_u_value
+		summarizeBy: sum
+		sourceColumn: roof_u_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column floor_u_value
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 476544a9-ed09-4494-93c8-591cb5ee1be3
+		sourceLineageTag: floor_u_value
+		summarizeBy: sum
+		sourceColumn: floor_u_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column window_u_value
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 489c52b4-7389-4fd8-94ed-75c25993ddbc
+		sourceLineageTag: window_u_value
+		summarizeBy: sum
+		sourceColumn: window_u_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column window_to_wall_ratio
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 10144e3b-d311-4573-b013-1e5aa49a67ff
+		sourceLineageTag: window_to_wall_ratio
+		summarizeBy: sum
+		sourceColumn: window_to_wall_ratio
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column air_tightness_ach
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 0c23c1dc-cab6-4349-80af-f7599daecfed
+		sourceLineageTag: air_tightness_ach
+		summarizeBy: sum
+		sourceColumn: air_tightness_ach
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column thermal_mass_level
+		dataType: string
+		lineageTag: 04fcea6c-8f44-45b6-9799-1c9e3f1204b1
+		sourceLineageTag: thermal_mass_level
+		summarizeBy: none
+		sourceColumn: thermal_mass_level
+
+		annotation SummarizationSetBy = Automatic
+
+	column insulation_year
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: ed771e6d-9eb0-40b8-bb8d-67645cb9faa8
+		sourceLineageTag: insulation_year
+		summarizeBy: sum
+		sourceColumn: insulation_year
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column has_thermal_bridge
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 8f6d9ab0-7d33-4c88-9ebc-ec9256da4b7f
+		sourceLineageTag: has_thermal_bridge
+		summarizeBy: none
+		sourceColumn: has_thermal_bridge
+
+		annotation SummarizationSetBy = Automatic
+
+	column energy_certificate
+		dataType: string
+		lineageTag: 6d6d96ba-3118-4abe-9e29-55a55b713e0d
+		sourceLineageTag: energy_certificate
+		summarizeBy: none
+		sourceColumn: energy_certificate
+
+		annotation SummarizationSetBy = Automatic
+
+	column energy_certificate_year
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 0b16643a-7280-4211-8190-ff83ce4a657f
+		sourceLineageTag: energy_certificate_year
+		summarizeBy: sum
+		sourceColumn: energy_certificate_year
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column regulatory_profile_id
+		dataType: string
+		lineageTag: 991c2327-09f9-49c2-bb10-e5f5dbd114f9
+		sourceLineageTag: regulatory_profile_id
+		summarizeBy: none
+		sourceColumn: regulatory_profile_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column iso50001_certified
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 0acb40bb-f724-4046-bd4d-0a89334c4d4b
+		sourceLineageTag: iso50001_certified
+		summarizeBy: none
+		sourceColumn: iso50001_certified
+
+		annotation SummarizationSetBy = Automatic
+
+	column load_timestamp
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 66065019-3c2c-4a78-9edf-f2e412f43848
+		sourceLineageTag: load_timestamp
+		summarizeBy: none
+		sourceColumn: load_timestamp
+
+		annotation SummarizationSetBy = Automatic
+
+	column emission_factor_kg_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 014892d6-7766-4ce7-b9e8-965de5947af5
+		sourceLineageTag: emission_factor_kg_kwh
+		summarizeBy: sum
+		sourceColumn: emission_factor_kg_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column utc_offset_hours
+		dataType: int64
+		formatString: 0
+		lineageTag: c51b536d-a94c-4ac2-bfae-f8056dec0c5c
+		sourceLineageTag: utc_offset_hours
+		summarizeBy: sum
+		sourceColumn: utc_offset_hours
+
+		annotation SummarizationSetBy = Automatic
+
+	column updated_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 6228459c-c0d8-4ee6-8bf2-826ec07670ac
+		sourceLineageTag: updated_at
+		summarizeBy: none
+		sourceColumn: updated_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column has_gas_heating
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 50aa7962-ca0e-4c81-b42c-1029682758e6
+		sourceLineageTag: has_gas_heating
+		summarizeBy: none
+		sourceColumn: has_gas_heating
+
+		annotation SummarizationSetBy = Automatic
+
+	column has_diesel_generator
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: b8593c21-b868-485a-a499-76e9e008e505
+		sourceLineageTag: has_diesel_generator
+		summarizeBy: none
+		sourceColumn: has_diesel_generator
+
+		annotation SummarizationSetBy = Automatic
+
+	column primary_hvac_system
+		dataType: string
+		lineageTag: 34c20bba-1e1d-4d38-a5f6-a6e91c5bcd18
+		sourceLineageTag: primary_hvac_system
+		summarizeBy: none
+		sourceColumn: primary_hvac_system
+
+		annotation SummarizationSetBy = Automatic
+
+	column max_occupants
+		dataType: int64
+		formatString: 0
+		lineageTag: 990d449b-3e58-4bd2-ac7c-05a834da4da7
+		sourceLineageTag: max_occupants
+		summarizeBy: sum
+		sourceColumn: max_occupants
+
+		annotation SummarizationSetBy = Automatic
+
+	column unit_count
+		dataType: int64
+		formatString: 0
+		lineageTag: 62315f08-5eb8-428a-a067-70c140958fef
+		sourceLineageTag: unit_count
+		summarizeBy: sum
+		sourceColumn: unit_count
+
+		annotation SummarizationSetBy = Automatic
+
+	column common_area_m2
+		dataType: double
+		lineageTag: 7d461029-1682-49e5-8739-995297e9912f
+		sourceLineageTag: common_area_m2
+		summarizeBy: sum
+		sourceColumn: common_area_m2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition silver_building_master = entity
+		mode: directLake
+		source
+			entityName: silver_building_master
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

@@ -1,0 +1,202 @@
+table gold_iot_daily_summary
+	lineageTag: 2c9e2f73-27c7-44fe-9304-da032c066397
+	sourceLineageTag: [dbo].[gold_iot_daily_summary]
+
+	measure 'V2 Sensor Uptime Pct' = AVERAGE( gold_iot_daily_summary[sensor_uptime_pct] )
+		formatString: 0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: 653ad15d-2986-494d-a7f9-87df47097776
+
+	measure 'V2 Uptime Color Index' = VAR u=[V2 Sensor Uptime Pct] RETURN SWITCH( TRUE(), ISBLANK(u),"#AAAAAA", u>=95,"#2ECC40", u>=85,"#FF851B", "#FF4136" )
+		displayFolder: IoT (Page 8)
+		lineageTag: 07944346-3fe6-4dd2-aa26-20cacbe8e969
+
+	measure 'Data Quality Pct' = VAR d=MAX(gold_iot_daily_summary[event_date]) RETURN CALCULATE( AVERAGE(gold_iot_daily_summary[sensor_uptime_pct]), gold_iot_daily_summary[event_date]=d )
+		formatString: 0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: e26687fd-2e0c-45f9-8d36-e193cac9a977
+
+	measure 'Sensor Anomaly Rate Pct' = VAR d=MAX(gold_iot_daily_summary[event_date]) RETURN CALCULATE( AVERAGE(gold_iot_daily_summary[anomaly_rate_pct]), gold_iot_daily_summary[event_date]=d )
+		formatString: 0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: 1b9de423-5179-4e62-8ae5-e16e68c3f90c
+
+	measure 'Data Quality Display' = VAR q=[Data Quality Pct] RETURN IF( ISBLANK(q), "--", FORMAT(q,"0.0") & "% data quality" )
+		displayFolder: IoT (Page 8)
+		lineageTag: 261f3e1b-9d58-4db7-9dff-642c6b99d573
+
+	measure 'Data Quality Color' = VAR q=[Data Quality Pct] RETURN SWITCH( TRUE(), ISBLANK(q),"#AAAAAA", q>=95,"#2ECC40", q>=85,"#FF851B", "#FF4136" )
+		displayFolder: IoT (Page 8)
+		lineageTag: 62cc2056-184a-44e8-80c2-55277def8df5
+
+	column event_date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 2db64192-754a-4e26-a67b-971ccf26739e
+		sourceLineageTag: event_date
+		summarizeBy: none
+		sourceColumn: event_date
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_id
+		dataType: string
+		lineageTag: 6b119552-79cb-447d-981a-b2afabea1fb1
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column sensor_type
+		dataType: string
+		lineageTag: e47f9a61-cc8f-4b81-9a07-5a4ee5afcf0d
+		sourceLineageTag: sensor_type
+		summarizeBy: none
+		sourceColumn: sensor_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column avg_reading_value
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 22feb5ab-a4ae-4d1e-8706-22d69c54b4ee
+		sourceLineageTag: avg_reading_value
+		summarizeBy: sum
+		sourceColumn: avg_reading_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column min_reading_value
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 6cb9aba0-2ca7-434e-b7af-dc0be27f4e66
+		sourceLineageTag: min_reading_value
+		summarizeBy: sum
+		sourceColumn: min_reading_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column max_reading_value
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: a4c92749-28dd-4d21-8dcf-2d99f0586eda
+		sourceLineageTag: max_reading_value
+		summarizeBy: sum
+		sourceColumn: max_reading_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column total_readings
+		dataType: int64
+		formatString: 0
+		lineageTag: f9fac6d6-e782-4931-a611-fff4142dd05a
+		sourceLineageTag: total_readings
+		summarizeBy: sum
+		sourceColumn: total_readings
+
+		annotation SummarizationSetBy = Automatic
+
+	column anomaly_count
+		dataType: int64
+		formatString: 0
+		lineageTag: 731b4683-a634-46a3-a2a0-607a0edbb5e7
+		sourceLineageTag: anomaly_count
+		summarizeBy: sum
+		sourceColumn: anomaly_count
+
+		annotation SummarizationSetBy = Automatic
+
+	column high_severity_count
+		dataType: int64
+		formatString: 0
+		lineageTag: 70b3ea1c-f8e9-4ebc-9310-acd0e24cef59
+		sourceLineageTag: high_severity_count
+		summarizeBy: sum
+		sourceColumn: high_severity_count
+
+		annotation SummarizationSetBy = Automatic
+
+	column avg_reading_quality
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 0d84a401-b75f-4591-bc1c-55087fe9d445
+		sourceLineageTag: avg_reading_quality
+		summarizeBy: sum
+		sourceColumn: avg_reading_quality
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column active_sensors
+		dataType: int64
+		formatString: 0
+		lineageTag: fbe3d7fe-4ede-4d87-8a8a-32bdfe8b3328
+		sourceLineageTag: active_sensors
+		summarizeBy: sum
+		sourceColumn: active_sensors
+
+		annotation SummarizationSetBy = Automatic
+
+	column anomaly_rate_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: fcff2915-4953-4116-88d5-61b2fc31fc74
+		sourceLineageTag: anomaly_rate_pct
+		summarizeBy: sum
+		sourceColumn: anomaly_rate_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column sensor_uptime_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 397b4fc1-7e9e-4ce3-be7a-e4804a613f40
+		sourceLineageTag: sensor_uptime_pct
+		summarizeBy: sum
+		sourceColumn: sensor_uptime_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column total_cost_eur_estimate
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: a034c0ca-01de-442a-803f-f9c3e640e7a0
+		sourceLineageTag: total_cost_eur_estimate
+		summarizeBy: sum
+		sourceColumn: total_cost_eur_estimate
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column compliance_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: f9e5b854-267f-470e-adcf-d1e5d5949db0
+		sourceLineageTag: compliance_pct
+		summarizeBy: sum
+		sourceColumn: compliance_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition gold_iot_daily_summary = entity
+		mode: directLake
+		source
+			entityName: gold_iot_daily_summary
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

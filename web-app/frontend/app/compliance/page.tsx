@@ -27,8 +27,10 @@ import { MepsRadar } from "@/components/compliance/MepsRadar"
 import { SectionNav, type NavSection } from "@/components/compliance/SectionNav"
 import { TaxonomyScreen } from "@/components/compliance/TaxonomyScreen"
 import { ComplianceReportMenu } from "@/components/compliance/ComplianceReportMenu"
+import { ComplianceScreeningSection } from "@/components/compliance/ComplianceScreeningSection"
 import { fetchEsrsReport } from "@/lib/api/esrs"
 import { fetchPortfolioBuildings } from "@/lib/api/portfolio"
+import { fetchPortfolioEstimatesServer } from "@/lib/api/estimation"
 import { authOptions } from "@/lib/auth/options"
 import { summarizeCompliance } from "@/lib/compliance"
 import { summarizeStranding } from "@/lib/crrem"
@@ -55,9 +57,10 @@ export default async function CompliancePage({
     ? `?building_id=${encodeURIComponent(building_id)}`
     : ""
 
-  const [buildingsResult, esrsResult] = await Promise.all([
+  const [buildingsResult, esrsResult, estimates] = await Promise.all([
     fetchPortfolioBuildings(session.accessToken),
     fetchEsrsReport(session.accessToken, scoped ? building_id : undefined),
+    fetchPortfolioEstimatesServer(session.accessToken),
   ])
 
   // Building list rows already carry per-building compliance signals, so the
@@ -87,6 +90,9 @@ export default async function CompliancePage({
       { id: "flexibility", label: "Flexibility" },
       { id: "taxonomy", label: "EU Taxonomy" }
     )
+  }
+  if (estimates && estimates.estimated_count > 0) {
+    sections.push({ id: "screening", label: "Screening" })
   }
   if (esrsResult.ok) {
     sections.push({ id: "esrs", label: "ESRS-E1" })
@@ -204,6 +210,12 @@ export default async function CompliancePage({
               <TaxonomyScreen buildings={buildings} />
             </section>
           </>
+        )}
+
+        {estimates && estimates.estimated_count > 0 && (
+          <section id="screening" className="scroll-mt-24">
+            <ComplianceScreeningSection data={estimates} />
+          </section>
         )}
 
         {!esrsResult.ok ? (

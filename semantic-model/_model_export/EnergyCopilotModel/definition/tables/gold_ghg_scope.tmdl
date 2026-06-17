@@ -1,0 +1,538 @@
+table gold_ghg_scope
+	lineageTag: ddcfb1aa-644e-4f86-95a2-fd5b5b145181
+	sourceLineageTag: [dbo].[gold_ghg_scope]
+
+	measure 'Scope 1 Share Pct' =
+			DIVIDE(
+			        SUM(gold_ghg_scope[scope1_total_tco2]),
+			        SUM(gold_ghg_scope[total_ghg_location_tco2])
+			    )
+		formatString: 0.0%
+		displayFolder: GHG Breakdown
+		lineageTag: 3904397d-aceb-48c9-b390-f671b33d1951
+
+	measure 'Scope 2 Location Share Pct' =
+			DIVIDE(
+			        SUM(gold_ghg_scope[scope2_location_tco2]),
+			        SUM(gold_ghg_scope[total_ghg_location_tco2])
+			    )
+		formatString: 0.0%
+		displayFolder: GHG Breakdown
+		lineageTag: ae259549-63b2-4612-8b91-d800c1767174
+
+	measure 'Scope 3 Share Pct' =
+			DIVIDE(
+			        SUM(gold_ghg_scope[scope3_estimated_tco2]),
+			        SUM(gold_ghg_scope[total_ghg_location_tco2])
+			    )
+		formatString: 0.0%
+		displayFolder: GHG Breakdown
+		lineageTag: 07856de9-d654-4570-9708-bedefc1709a9
+
+	measure 'Scope 1 tCO2' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope1_total_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Breakdown
+		lineageTag: 10b9eb52-5f00-44e8-9084-e49792a9bb4a
+
+	measure 'Scope 2 Location tCO2' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope2_location_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Breakdown
+		lineageTag: 3e120ef3-7d0f-48c2-8c40-15d4476d5c06
+
+	measure 'Scope 3 Est tCO2' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope3_estimated_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Breakdown
+		lineageTag: ec0da670-690f-46b7-8a07-f4536c6e4b55
+
+	measure 'Carbon Intensity S1S2 kgCO2 m2 yr' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			VAR _s1s2 = CALCULATE ( SUMX ( gold_ghg_scope, gold_ghg_scope[scope1_total_tco2] + gold_ghg_scope[scope2_location_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+			VAR _area = SUMX ( silver_building_master, silver_building_master[conditioned_area_m2] )
+			RETURN DIVIDE ( _s1s2 * 1000, _area )
+		formatString: #,##0.0
+		displayFolder: Page 6 ESG (v57)
+		lineageTag: 4e183c9e-8ff7-4438-9be7-83be03d22aa4
+
+	measure 'CSRD Disclosure Readiness Pct' = VAR _hasS1    = IF( CALCULATE( SUM(gold_ghg_scope[scope1_total_tco2]) ) > 0, 1, 0 ) VAR _hasS2loc = IF( CALCULATE( SUM(gold_ghg_scope[scope2_location_tco2]) ) > 0, 1, 0 ) VAR _hasS2mkt = IF( CALCULATE( SUM(gold_ghg_scope[scope2_market_tco2]) ) > 0, 1, 0 ) VAR _hasS3    = IF( CALCULATE( SUM(gold_ghg_scope[scope3_estimated_tco2]) ) > 0, 1, 0 ) VAR _hasLineage = 1 RETURN DIVIDE( _hasS1 + _hasS2loc + _hasS2mkt + _hasS3 + _hasLineage, 5 )
+		formatString: 0%
+		displayFolder: Page 6 ESG (v57)
+		lineageTag: 61a5d2e4-2e63-4d16-b6fe-bcc8151d5e16
+
+	measure 'Scope 1 Gas tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope1_gas_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: e662ed36-aaa2-4159-9f01-f96905fde3d7
+
+	measure 'Scope 1 Diesel tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope1_diesel_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: c985eb8d-1ac6-4a8a-8193-d4b944d48f2d
+
+	measure 'Scope 1 Refrigerant tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope1_refrigerant_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: b4d366c4-d97c-4963-bad0-574be00d3420
+
+	measure 'Scope 1 Total tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope1_total_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: 2701f05c-6e08-44c8-a019-6b36b41a58a5
+
+	measure 'Scope 2 Location tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope2_location_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: 50863062-6a28-4aca-9df3-b286de044bbd
+
+	measure 'Scope 2 Market tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope2_market_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: 5f4fc528-db22-46d6-8438-b106b58c688d
+
+	measure 'Scope 2 Market vs Location tCO2e' = [Scope 2 Market tCO2e] - [Scope 2 Location tCO2e]
+		formatString: #,0.0
+		displayFolder: GHG Scopes
+		lineageTag: 06368050-aeb3-42f4-8ade-659bcbabb458
+
+	measure 'Scope 3 Cat1 Embodied tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope3_cat1_embodied_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: 4ed746b6-6a0d-4582-b488-b8f20865001f
+
+	measure 'Scope 3 Cat3 Fuel Energy tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope3_cat3_fuelenergy_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: d0d4c866-6457-44b1-9863-56f5f0601142
+
+	measure 'Scope 3 Cat5 Waste tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope3_cat5_waste_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: c56fa5ca-682e-46e7-b332-16d9b31814f0
+
+	measure 'Scope 3 Cat6 Travel tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope3_cat6_travel_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: 4d6af208-5394-4b99-93c4-194a79ef210b
+
+	measure 'Scope 3 Cat7 Commute tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope3_cat7_commute_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: 5f7b63d8-1169-4a0d-b54c-c7e2c1b50ff9
+
+	measure 'Scope 3 Cat13 Leased tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope3_cat13_leased_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: 6c1c6b76-7a67-4f32-9b11-64993be60201
+
+	measure 'Scope 3 Total (est.) tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[scope3_estimated_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: 5909d64b-6102-49a9-ac95-95404a0ebbbf
+
+	measure 'Total GHG Location tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[total_ghg_location_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: f6f2d12f-eb40-4e03-b555-794704248eb6
+
+	measure 'Total GHG Market tCO2e' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE ( SUM ( gold_ghg_scope[total_ghg_market_tco2] ), gold_ghg_scope[reporting_year] = _yr )
+		formatString: #,##0.0
+		displayFolder: GHG Scopes
+		lineageTag: 3a3bf478-d4c6-496c-83d7-264c46023f44
+
+	measure 'Scope 2 Method' = SWITCH ( SELECTEDVALUE ( gold_ghg_scope[scope2_method], "mixed" ), "market_based_contract", "Contract (GoO / PPA)", "residual_mix_no_instrument", "Residual mix (no instrument)", "location_fallback_full_disclosure", "Location (full-disclosure)", SELECTEDVALUE ( gold_ghg_scope[scope2_method], "mixed" ) )
+		displayFolder: GHG Scopes
+		lineageTag: 8f232b96-2008-48b9-99dd-621205d85ffe
+
+	measure 'Scope 3 Disclosure Label' = IF ( SELECTEDVALUE ( gold_ghg_scope[scope3_disclosure_grade] ) = FALSE (), "Estimated — not disclosure-grade", "Disclosure-grade" )
+		displayFolder: GHG Scopes
+		lineageTag: fdc4c728-439a-4410-bdd7-4d5a4e8c881c
+
+	column building_id
+		dataType: string
+		lineageTag: e3c53b81-2b62-42f8-9a7c-c12b4fcec4b4
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column year_month
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: e5dab01c-94d1-4860-96a0-b705e447543c
+		sourceLineageTag: year_month
+		summarizeBy: none
+		sourceColumn: year_month
+
+		annotation SummarizationSetBy = Automatic
+
+	column reporting_year
+		dataType: int64
+		formatString: 0
+		lineageTag: 61e1cb6c-513a-4f33-ac4e-dac6a53c4fca
+		sourceLineageTag: reporting_year
+		summarizeBy: sum
+		sourceColumn: reporting_year
+
+		annotation SummarizationSetBy = Automatic
+
+	column reporting_month
+		dataType: int64
+		formatString: 0
+		lineageTag: e0e7298b-18b3-49ba-9794-d75426ac2578
+		sourceLineageTag: reporting_month
+		summarizeBy: sum
+		sourceColumn: reporting_month
+
+		annotation SummarizationSetBy = Automatic
+
+	column scope1_gas_tco2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: e20325cd-0f16-448d-a3c5-9ffefbfeaf5e
+		sourceLineageTag: scope1_gas_tco2
+		summarizeBy: sum
+		sourceColumn: scope1_gas_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column scope1_diesel_tco2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 1242233f-3546-4386-a504-0471cfd8ad63
+		sourceLineageTag: scope1_diesel_tco2
+		summarizeBy: sum
+		sourceColumn: scope1_diesel_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column scope1_total_tco2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 66fcd340-e506-49b7-8d96-ddb74fbbaa41
+		sourceLineageTag: scope1_total_tco2
+		summarizeBy: sum
+		sourceColumn: scope1_total_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column scope2_location_tco2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 5dd1daaa-cb7e-43f8-88ba-8d0f481d5fab
+		sourceLineageTag: scope2_location_tco2
+		summarizeBy: sum
+		sourceColumn: scope2_location_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column scope2_market_tco2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 60d55daf-b1c9-4e13-b679-daa9eeb22db7
+		sourceLineageTag: scope2_market_tco2
+		summarizeBy: sum
+		sourceColumn: scope2_market_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column scope3_estimated_tco2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: f8659e31-6ebb-43db-8acd-2eb6d430d094
+		sourceLineageTag: scope3_estimated_tco2
+		summarizeBy: sum
+		sourceColumn: scope3_estimated_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column total_ghg_location_tco2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 7829c19a-f255-4e49-92a1-009614fd6b51
+		sourceLineageTag: total_ghg_location_tco2
+		summarizeBy: sum
+		sourceColumn: total_ghg_location_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column total_ghg_market_tco2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 4a6be3ef-7966-4f1a-b98c-4940b61560d3
+		sourceLineageTag: total_ghg_market_tco2
+		summarizeBy: sum
+		sourceColumn: total_ghg_market_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column emission_factor_grid
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: ac8d2255-9ea8-4ac5-9013-baeaa04a23ac
+		sourceLineageTag: emission_factor_grid
+		summarizeBy: sum
+		sourceColumn: emission_factor_grid
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column data_quality_flag
+		dataType: string
+		lineageTag: 2b06060e-2589-459f-b2c3-ded87e31366a
+		sourceLineageTag: data_quality_flag
+		summarizeBy: none
+		sourceColumn: data_quality_flag
+
+		annotation SummarizationSetBy = Automatic
+
+	column updated_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: cbd7b70b-b894-4800-8e3b-68487fbd4fed
+		sourceLineageTag: updated_at
+		summarizeBy: none
+		sourceColumn: updated_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column scope2_method
+		dataType: string
+		lineageTag: b650aa21-2fa8-46cd-9560-b488b2adb096
+		sourceLineageTag: scope2_method
+		summarizeBy: none
+		sourceColumn: scope2_method
+
+		annotation SummarizationSetBy = Automatic
+
+	column scope3_method
+		dataType: string
+		lineageTag: 622e3cb2-0c86-463e-bf67-fa1ba13c5314
+		sourceLineageTag: scope3_method
+		summarizeBy: none
+		sourceColumn: scope3_method
+
+		annotation SummarizationSetBy = Automatic
+
+	column scope3_disclosure_grade
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 9ee8e7e3-8540-4a3c-a2a3-f2d5a3822415
+		sourceLineageTag: scope3_disclosure_grade
+		summarizeBy: none
+		sourceColumn: scope3_disclosure_grade
+
+		annotation SummarizationSetBy = Automatic
+
+	column emission_factor_source
+		dataType: string
+		lineageTag: 12f628bc-c8ec-4c1d-84d3-ddca72a72eb4
+		sourceLineageTag: emission_factor_source
+		summarizeBy: none
+		sourceColumn: emission_factor_source
+
+		annotation SummarizationSetBy = Automatic
+
+	column scope1_refrigerant_tco2
+		dataType: double
+		lineageTag: 68921366-9e64-4690-8745-4b34b525e7f6
+		sourceLineageTag: scope1_refrigerant_tco2
+		summarizeBy: sum
+		sourceColumn: scope1_refrigerant_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column scope2_market_factor
+		dataType: double
+		lineageTag: 22ebd42a-90d4-470c-9065-7172dab2a608
+		sourceLineageTag: scope2_market_factor
+		summarizeBy: sum
+		sourceColumn: scope2_market_factor
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column scope3_cat1_embodied_tco2
+		dataType: double
+		lineageTag: 54576b0d-347e-4cde-8e3f-5ccf164f2343
+		sourceLineageTag: scope3_cat1_embodied_tco2
+		summarizeBy: sum
+		sourceColumn: scope3_cat1_embodied_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column scope3_cat3_fuelenergy_tco2
+		dataType: double
+		lineageTag: b08fa21e-3866-4318-b573-ec84ecfbd134
+		sourceLineageTag: scope3_cat3_fuelenergy_tco2
+		summarizeBy: sum
+		sourceColumn: scope3_cat3_fuelenergy_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column scope3_cat5_waste_tco2
+		dataType: double
+		lineageTag: e9f63cf7-6962-48c7-8cea-48178f7d986d
+		sourceLineageTag: scope3_cat5_waste_tco2
+		summarizeBy: sum
+		sourceColumn: scope3_cat5_waste_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column scope3_cat6_travel_tco2
+		dataType: double
+		lineageTag: 2b11c4a1-1cca-451f-8fd5-5d8c6b44e1f4
+		sourceLineageTag: scope3_cat6_travel_tco2
+		summarizeBy: sum
+		sourceColumn: scope3_cat6_travel_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column scope3_cat7_commute_tco2
+		dataType: double
+		lineageTag: 96a299ca-453e-47e1-bbb4-a9d2d9f5c356
+		sourceLineageTag: scope3_cat7_commute_tco2
+		summarizeBy: sum
+		sourceColumn: scope3_cat7_commute_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column scope3_cat13_leased_tco2
+		dataType: double
+		lineageTag: 01b35974-d1f7-4165-af05-e758be4b2991
+		sourceLineageTag: scope3_cat13_leased_tco2
+		summarizeBy: sum
+		sourceColumn: scope3_cat13_leased_tco2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition gold_ghg_scope = entity
+		mode: directLake
+		source
+			entityName: gold_ghg_scope
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

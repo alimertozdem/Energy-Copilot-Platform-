@@ -1,0 +1,438 @@
+table gold_recommendations
+	lineageTag: 2132f479-0325-49f6-9dc3-74cf8be5f864
+	sourceLineageTag: [dbo].[gold_recommendations]
+
+	measure 'Total Annual Saving EUR' = ```
+			
+			SUM(gold_recommendations[annual_saving_eur])
+			
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 794d883d-a8d7-4a7a-9410-51f5afacbffe
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total CO2 Saving kg' = ```
+			
+			SUM(gold_recommendations[co2_saving_kg])
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 60685761-ffe1-4b07-a6a8-1ede40823f91
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total CO2 Saving tCO2' = ```
+			
+			[Total CO2 Saving kg] / 1000
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 3816896e-a5c5-4147-a3e2-38167ebdc1a5
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total Capex EUR' = ```
+			
+			SUM(gold_recommendations[capex_eur])
+			
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 1c8c6699-7759-4ed8-b557-7195c3d45500
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total Grant EUR' =
+			
+			SUM ( gold_recommendations[grant_eur] )
+		formatString: #,##0.0
+		lineageTag: e996e0e6-7cff-4cae-b89e-deb9aacfbf21
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Total Net Capex EUR' = ```
+			
+			SUM(gold_recommendations[net_capex_eur])
+			
+			```
+		formatString: #,##0.0
+		lineageTag: cc089f27-a1f2-40ea-b9cd-e5ee5bfa1434
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Avg Payback Years' = ```
+			
+			CALCULATE (
+			    AVERAGE ( gold_recommendations[payback_years] ),
+			    NOT ISBLANK ( gold_recommendations[payback_years] )
+			)
+			
+			```
+		formatString: #,##0.0
+		lineageTag: da0b9a97-87b5-4ba6-83fb-153463103a73
+
+		changedProperty = Name
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Critical Recommendations' = ```
+			
+			CALCULATE(
+			    COUNTROWS(gold_recommendations),
+			    gold_recommendations[priority_label] = "Critical"
+			)
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 9e547d18-714a-4f0b-9bf2-465dc7306f13
+
+		changedProperty = Name
+
+	measure 'High Priority Recommendations' = ```
+			
+			CALCULATE(
+			    COUNTROWS(gold_recommendations),
+			    gold_recommendations[priority_label] IN {"Critical", "High"}
+			)
+			
+			
+			```
+		formatString: #,##0.0
+		lineageTag: 83bfffe6-eaf3-48bf-9c9f-8ed5ba51576f
+
+		changedProperty = Name
+
+	measure 'Total Recommendations' = ```
+			
+			COUNTROWS(gold_recommendations)
+			
+			
+			```
+		formatString: #,##0.0
+		lineageTag: c48ce8c8-8765-47b1-9651-1161834ff88c
+
+		changedProperty = Name
+
+	measure 'Priority Sort Order' =
+			
+			SWITCH (
+			    SELECTEDVALUE ( gold_recommendations[priority_label] ),
+			    "CRITICAL",      1,
+			    "HIGH",          2,
+			    "MEDIUM",        3,
+			    "LOW",           4,
+			    "INFORMATIONAL", 5,
+			    99
+			)
+		formatString: #,##0.0
+		lineageTag: bf5acd66-43d6-4875-8d0e-e0ea2f63a9f1
+
+		changedProperty = Name
+
+	measure 'Savings Potential EUR CRITICAL' = CALCULATE ( SUM ( gold_recommendations[annual_saving_eur] ), gold_recommendations[priority_label] = "CRITICAL" )
+		formatString: "€" #,##0
+		lineageTag: 80785fe5-4fce-4bb4-946d-42ee0d35a165
+
+	measure 'Savings Annual Target EUR' = VAR _target = 300000 RETURN _target
+		formatString: "€" #,##0
+		lineageTag: 0f308840-a1d5-491e-84de-413a5b2a76ce
+
+	measure 'Savings Achievement Pct' = VAR _actual = [Savings Potential EUR CRITICAL] VAR _target = [Savings Annual Target EUR] RETURN IF ( NOT ISBLANK ( _actual ) && _target > 0, ROUND ( DIVIDE ( _actual, _target ) * 100, 1 ), BLANK () )
+		formatString: +0.0%;-0.0%;"—"
+		lineageTag: 73e3afc5-28f8-4710-b0ba-c8eaca1c1b3b
+
+	measure 'INSTALL_SOLAR Opportunities' = CALCULATE( COUNTROWS( gold_recommendations ), gold_recommendations[action_type] = "INSTALL_SOLAR" )
+		formatString: #,##0
+		displayFolder: Solar - Realtime & Opportunity
+		lineageTag: 94eeb0da-3c60-49a7-9f3a-16c72215186c
+
+	measure 'Feed-in Tariff EUR kWh' = LOOKUPVALUE( gold_country_regulations[feed_in_tariff_eur_per_kwh], gold_country_regulations[country_code], SELECTEDVALUE( gold_recommendations[country_code] ) )
+		formatString: 0.000
+		displayFolder: Solar - Realtime & Opportunity
+		lineageTag: 83fd1a75-754f-4017-9a8f-7270d2114847
+
+	column building_id
+		dataType: string
+		lineageTag: 6e3fffe7-1e29-428e-aa9d-dc5b8d67d634
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_name
+		dataType: string
+		lineageTag: 489441f9-a051-4cb4-95ec-91e40c481874
+		sourceLineageTag: building_name
+		summarizeBy: none
+		sourceColumn: building_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column country_code
+		dataType: string
+		lineageTag: ea38a726-62ff-4592-81de-6c9aa894f948
+		sourceLineageTag: country_code
+		summarizeBy: none
+		sourceColumn: country_code
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_type
+		dataType: string
+		lineageTag: ba9fdc49-d91e-4d2c-b7af-3a89074ddd98
+		sourceLineageTag: building_type
+		summarizeBy: none
+		sourceColumn: building_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column subscription_tier
+		dataType: string
+		lineageTag: e0732e74-962f-4dc8-96c8-932152082a6f
+		sourceLineageTag: subscription_tier
+		summarizeBy: none
+		sourceColumn: subscription_tier
+
+		annotation SummarizationSetBy = Automatic
+
+	column rank
+		dataType: int64
+		formatString: 0
+		lineageTag: 4a04584e-c07c-486a-a8c0-ba74f7770d9b
+		sourceLineageTag: rank
+		summarizeBy: sum
+		sourceColumn: rank
+
+		annotation SummarizationSetBy = Automatic
+
+	column action_type
+		dataType: string
+		lineageTag: 52ec5ac5-cc64-4da9-a211-8188b40722dc
+		sourceLineageTag: action_type
+		summarizeBy: none
+		sourceColumn: action_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column priority_label
+		dataType: string
+		lineageTag: d6c6115a-b9bf-47da-a58a-c86b65b54d54
+		sourceLineageTag: priority_label
+		summarizeBy: none
+		sourceColumn: priority_label
+		sortByColumn: priority_sort_order
+
+		changedProperty = SortByColumn
+
+		annotation SummarizationSetBy = Automatic
+
+	column priority_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: c3fbee17-ce5c-4472-b804-7d740fe47ca1
+		sourceLineageTag: priority_score
+		summarizeBy: sum
+		sourceColumn: priority_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column compliance_driver
+		dataType: string
+		lineageTag: e5b32c77-89d1-4ad2-a2ac-b1d0827912dd
+		sourceLineageTag: compliance_driver
+		summarizeBy: none
+		sourceColumn: compliance_driver
+
+		annotation SummarizationSetBy = Automatic
+
+	column annual_saving_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: de4804cb-7ea0-45e7-90f0-ff21886ee124
+		sourceLineageTag: annual_saving_eur
+		summarizeBy: sum
+		sourceColumn: annual_saving_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column co2_saving_kg
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: dfd7ef49-818e-4f7a-8604-1c8a3e6b1798
+		sourceLineageTag: co2_saving_kg
+		summarizeBy: sum
+		sourceColumn: co2_saving_kg
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column capex_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 8f6376a2-6ffb-4748-a957-fc6cfbd95e69
+		sourceLineageTag: capex_eur
+		summarizeBy: sum
+		sourceColumn: capex_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column net_capex_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: f8918e83-db0c-4fd4-bac7-d0503ec7b5c5
+		sourceLineageTag: net_capex_eur
+		summarizeBy: sum
+		sourceColumn: net_capex_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column grant_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: a3035595-c843-4ce0-8ae3-62dd1c2aed66
+		sourceLineageTag: grant_eur
+		summarizeBy: sum
+		sourceColumn: grant_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column payback_years
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 20910287-a717-4942-9fb7-35c3eeb3462a
+		sourceLineageTag: payback_years
+		summarizeBy: sum
+		sourceColumn: payback_years
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column npv_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 8476ffe6-3243-43d8-9e4d-1182c6692275
+		sourceLineageTag: npv_eur
+		summarizeBy: sum
+		sourceColumn: npv_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column grant_programs
+		dataType: string
+		lineageTag: d31e89c8-e235-44fb-b321-06d6fba2f3d2
+		sourceLineageTag: grant_programs
+		summarizeBy: none
+		sourceColumn: grant_programs
+
+		annotation SummarizationSetBy = Automatic
+
+	column title_en
+		dataType: string
+		lineageTag: 195466ba-a062-48af-a6a2-475b730fa214
+		sourceLineageTag: title_en
+		summarizeBy: none
+		sourceColumn: title_en
+
+		annotation SummarizationSetBy = Automatic
+
+	column title_de
+		dataType: string
+		lineageTag: b2116d9f-6396-44e3-8e3d-d5285dd20ed7
+		sourceLineageTag: title_de
+		summarizeBy: none
+		sourceColumn: title_de
+
+		annotation SummarizationSetBy = Automatic
+
+	column title_tr
+		dataType: string
+		lineageTag: a345ddf0-0303-49fe-9ccc-76de9a2c5063
+		sourceLineageTag: title_tr
+		summarizeBy: none
+		sourceColumn: title_tr
+
+		annotation SummarizationSetBy = Automatic
+
+	column description_en
+		dataType: string
+		lineageTag: f394aeea-274b-4da9-ad2f-abe04590cbdd
+		sourceLineageTag: description_en
+		summarizeBy: none
+		sourceColumn: description_en
+
+		annotation SummarizationSetBy = Automatic
+
+	column description_de
+		dataType: string
+		lineageTag: e00998ba-b88e-4133-a499-7359407666ed
+		sourceLineageTag: description_de
+		summarizeBy: none
+		sourceColumn: description_de
+
+		annotation SummarizationSetBy = Automatic
+
+	column description_tr
+		dataType: string
+		lineageTag: 76891885-16a3-42b3-b204-7b66294705cb
+		sourceLineageTag: description_tr
+		summarizeBy: none
+		sourceColumn: description_tr
+
+		annotation SummarizationSetBy = Automatic
+
+	column assessed_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: b26a68e6-1bc1-42a4-8fe4-067358bd21b6
+		sourceLineageTag: assessed_at
+		summarizeBy: none
+		sourceColumn: assessed_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column priority_sort_order
+		dataType: int64
+		formatString: 0
+		lineageTag: 4446dee4-c392-4773-9068-e6d0d6e9b813
+		sourceLineageTag: priority_sort_order
+		summarizeBy: sum
+		sourceColumn: priority_sort_order
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_recommendations = entity
+		mode: directLake
+		source
+			entityName: gold_recommendations
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

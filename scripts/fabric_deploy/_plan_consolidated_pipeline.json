@@ -1,0 +1,297 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "name": "00_reference_data_loader",
+        "type": "TridentNotebook",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "a2f9c3ab-da58-441e-a193-87b223a6e198",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      },
+      {
+        "name": "01_bronze_ingestion",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "00_reference_data_loader",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "daaf03f0-2dc4-4f3a-aae0-c5c88f545052",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      },
+      {
+        "name": "02_openmeteo_weather_loader",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "01_bronze_ingestion",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "026242c4-2f18-4415-9810-dac53046f5d9",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      },
+      {
+        "name": "02_silver_transformation",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "02_openmeteo_weather_loader",
+            "dependencyConditions": [
+              "Succeeded",
+              "Failed",
+              "Skipped"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "970bb769-497f-4a38-a9ab-3b56d5af67b9",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      },
+      {
+        "name": "08_occupancy_prediction",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "02_silver_transformation",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "26a32e3f-90a9-4506-9aef-ed9225acd41e",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      },
+      {
+        "name": "03_gold_kpi_engine",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "08_occupancy_prediction",
+            "dependencyConditions": [
+              "Succeeded",
+              "Failed",
+              "Skipped"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "623125e6-2cb3-4e3c-b379-58d43917d3f1",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      },
+      {
+        "name": "04_simulation_engine",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "03_gold_kpi_engine",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "15ee1973-3b76-48ae-a42b-8f74a58a7c63",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      },
+      {
+        "name": "09_ghg_scope_engine",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "04_simulation_engine",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "b7181427-053c-46aa-bf62-17fb072fce70",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      },
+      {
+        "name": "10_crrem_pathway_loader",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "09_ghg_scope_engine",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "542ec4db-e767-4404-9fda-ab5222a15278",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      },
+      {
+        "name": "anomaly_detection",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "10_crrem_pathway_loader",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "a22d08d6-466d-4956-94d8-d6580f1333a5",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      },
+      {
+        "name": "05_compliance_checker",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "anomaly_detection",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "59f3350b-149d-4fea-a552-d3756e3a0240",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      },
+      {
+        "name": "06_recommendation_engine",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "05_compliance_checker",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "c618ff3b-254a-4b58-bd64-5968e796068a",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      },
+      {
+        "name": "11_hvac_analytics_engine",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "06_recommendation_engine",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "38d584f8-fa0f-445e-918e-101643f1ddc8",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      },
+      {
+        "name": "07_consumption_forecast",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "11_hvac_analytics_engine",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.02:00:00",
+          "retry": 2,
+          "retryIntervalInSeconds": 120
+        },
+        "typeProperties": {
+          "notebookId": "94c97b46-b114-4333-a8fd-2f378765ec99",
+          "workspaceId": "6b78345d-d672-40ed-8ac5-258b58d60af9"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,563 @@
+table gold_kpi_hourly
+	lineageTag: 3f532580-cb14-4509-8e17-2b70c74af763
+	sourceLineageTag: [dbo].[gold_kpi_hourly]
+
+	measure 'TS Consumption kWh' = SUM( gold_kpi_hourly[total_consumption_kwh] )
+		formatString: #,##0
+		displayFolder: Time Series (v58)
+		lineageTag: 65a352a6-28ef-48ae-846f-84b4cf9cccf9
+
+	measure 'TS Avg Demand kW' = AVERAGE( gold_kpi_hourly[peak_demand_kw] )
+		formatString: #,##0.0
+		displayFolder: Time Series (v58)
+		lineageTag: 7c57c0ed-7915-4fe8-9c1e-a172f105ce35
+
+	measure 'TS Peak Demand kW' = MAX( gold_kpi_hourly[peak_demand_kw] )
+		formatString: #,##0.0
+		displayFolder: Time Series (v58)
+		lineageTag: 389d10d2-8eb3-4c79-8740-cb2b5a23a5ef
+
+	measure 'TS Solar Generated kWh' = SUM( gold_kpi_hourly[solar_generated_kwh] )
+		formatString: #,##0
+		displayFolder: Time Series (v58)
+		lineageTag: 48254fa1-372a-4a8d-ad7d-f25f8e24bd80
+
+	measure 'TS Solar Self-Consumed kWh' = SUM( gold_kpi_hourly[solar_self_consumed_kwh] )
+		formatString: #,##0
+		displayFolder: Time Series (v58)
+		lineageTag: 47322653-79a1-48de-bef3-20e08065dd28
+
+	measure 'TS Net Grid kWh' = SUM( gold_kpi_hourly[net_grid_consumption_kwh] )
+		formatString: #,##0
+		displayFolder: Time Series (v58)
+		lineageTag: 4e057249-6cfd-49ae-85ac-60fd0a566772
+
+	measure 'TS CO2 kg' = SUM( gold_kpi_hourly[co2_emissions_kg] )
+		formatString: #,##0
+		displayFolder: Time Series (v58)
+		lineageTag: de5eb695-ebfd-4cfa-a1f9-6b168e148075
+
+	measure 'TS Avg Temperature C' = AVERAGE( gold_kpi_hourly[avg_temperature_c] )
+		formatString: #,##0.0
+		displayFolder: Time Series (v58)
+		lineageTag: 97acdb97-db67-4888-9abc-178434ba0a39
+
+	measure 'TS Battery SoC Pct' = AVERAGE( gold_kpi_hourly[battery_soc_avg_pct] )
+		formatString: #,##0
+		displayFolder: Time Series (v58)
+		lineageTag: 938153ea-f331-40cb-b6b3-3b6c3f92e578
+
+	measure 'Profile Avg Demand by Hour kW' = AVERAGE( gold_kpi_hourly[peak_demand_kw] )
+		formatString: #,##0.0
+		displayFolder: Time Series (v58)
+		lineageTag: cc746495-5c2a-4eb6-934f-7a5656288f39
+
+	measure 'Profile Avg Consumption by Hour kWh' = AVERAGE( gold_kpi_hourly[total_consumption_kwh] )
+		formatString: #,##0.0
+		displayFolder: Time Series (v58)
+		lineageTag: cdf874cf-affc-4292-b896-6e87cc015c16
+
+	measure 'Profile Avg Solar by Hour kWh' = AVERAGE( gold_kpi_hourly[solar_generated_kwh] )
+		formatString: #,##0.0
+		displayFolder: Time Series (v58)
+		lineageTag: 870e0c43-71d0-4117-b11a-8c50a39f6589
+
+	measure 'Base Load Ratio Pct' = VAR _night = CALCULATE( AVERAGE(gold_kpi_hourly[peak_demand_kw]), gold_kpi_hourly[hour] IN {2,3,4} ) VAR _peak = CALCULATE( MAX(gold_kpi_hourly[peak_demand_kw]), gold_kpi_hourly[hour] IN {9,10,11,12,13,14,15,16,17} ) RETURN DIVIDE( _night, _peak )
+		formatString: 0.0%
+		displayFolder: Time Series (v58)
+		lineageTag: dfb451ba-0f57-427e-af31-42be51113268
+
+	measure 'Selected Grain Label' = VAR _g = SELECTEDVALUE( 'Time Grain'[Time Grain Order], 1 ) RETURN SWITCH( _g, 0, "Hourly", 1, "Daily", 2, "Monthly", "Daily" )
+		displayFolder: Time Series (v58)
+		lineageTag: 889d8910-db76-405d-827e-48250098c13e
+
+	column building_id
+		dataType: string
+		lineageTag: ef7821ab-d1cc-45d7-b7da-fa84ff14b5ba
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column hour_utc
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 8016ba0b-163e-4b4a-be5f-508ca08d229a
+		sourceLineageTag: hour_utc
+		summarizeBy: none
+		sourceColumn: hour_utc
+
+		annotation SummarizationSetBy = Automatic
+
+	column year
+		dataType: int64
+		formatString: 0
+		lineageTag: fddf3535-b93a-42e0-ac7e-474e1db09664
+		sourceLineageTag: year
+		summarizeBy: sum
+		sourceColumn: year
+
+		annotation SummarizationSetBy = Automatic
+
+	column month
+		dataType: int64
+		formatString: 0
+		lineageTag: c0930aba-f5e2-47c1-b66e-60643dd45dce
+		sourceLineageTag: month
+		summarizeBy: sum
+		sourceColumn: month
+
+		annotation SummarizationSetBy = Automatic
+
+	column day
+		dataType: int64
+		formatString: 0
+		lineageTag: dc102a31-892e-4db7-9db5-4f3eb02622f6
+		sourceLineageTag: day
+		summarizeBy: sum
+		sourceColumn: day
+
+		annotation SummarizationSetBy = Automatic
+
+	column hour
+		dataType: int64
+		formatString: 0
+		lineageTag: 533ed648-49ac-48a4-b504-ea6c038f605f
+		sourceLineageTag: hour
+		summarizeBy: sum
+		sourceColumn: hour
+
+		annotation SummarizationSetBy = Automatic
+
+	column date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 4d8050d4-09f9-4a5a-b53f-0a6480512dff
+		sourceLineageTag: date
+		summarizeBy: none
+		sourceColumn: date
+
+		annotation SummarizationSetBy = Automatic
+
+	column total_consumption_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: f1657663-b1d0-4fd2-8862-7bd9e2f0e096
+		sourceLineageTag: total_consumption_kwh
+		summarizeBy: sum
+		sourceColumn: total_consumption_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column peak_demand_kw
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: e412e17a-432a-4b50-8758-eba7cfb77b0f
+		sourceLineageTag: peak_demand_kw
+		summarizeBy: sum
+		sourceColumn: peak_demand_kw
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column load_factor
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: dc00040a-7d68-40af-8ce8-92c78634f659
+		sourceLineageTag: load_factor
+		summarizeBy: sum
+		sourceColumn: load_factor
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column is_night_hour
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 29ef0363-4783-4022-b235-6277d45ab13e
+		sourceLineageTag: is_night_hour
+		summarizeBy: none
+		sourceColumn: is_night_hour
+
+		annotation SummarizationSetBy = Automatic
+
+	column reading_count
+		dataType: int64
+		formatString: 0
+		lineageTag: 82d6dd61-51e1-452c-9b7a-85e22276f398
+		sourceLineageTag: reading_count
+		summarizeBy: sum
+		sourceColumn: reading_count
+
+		annotation SummarizationSetBy = Automatic
+
+	column solar_generated_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 6f508eab-65ed-41b8-9e08-01bad976b9e2
+		sourceLineageTag: solar_generated_kwh
+		summarizeBy: sum
+		sourceColumn: solar_generated_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column solar_self_consumed_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 578720d2-aa32-4935-8aad-64c93144d4f3
+		sourceLineageTag: solar_self_consumed_kwh
+		summarizeBy: sum
+		sourceColumn: solar_self_consumed_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column solar_exported_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 522af968-5b50-4799-aea3-cea963ad31b3
+		sourceLineageTag: solar_exported_kwh
+		summarizeBy: sum
+		sourceColumn: solar_exported_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column solar_performance_ratio
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: d922aab7-3f7b-477f-812d-ddd1f2dd90b6
+		sourceLineageTag: solar_performance_ratio
+		summarizeBy: sum
+		sourceColumn: solar_performance_ratio
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column self_consumption_rate
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 8d6b7050-b982-47ae-805b-238db2383439
+		sourceLineageTag: self_consumption_rate
+		summarizeBy: sum
+		sourceColumn: self_consumption_rate
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column self_sufficiency_rate
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 929b6d5e-73c8-4fc5-900a-ac555e33cbae
+		sourceLineageTag: self_sufficiency_rate
+		summarizeBy: sum
+		sourceColumn: self_sufficiency_rate
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_charged_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 72ae7c19-460c-4bbd-b546-f4085f90412f
+		sourceLineageTag: battery_charged_kwh
+		summarizeBy: sum
+		sourceColumn: battery_charged_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_discharged_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 9760b833-c69e-4c15-b44c-2083d9274265
+		sourceLineageTag: battery_discharged_kwh
+		summarizeBy: sum
+		sourceColumn: battery_discharged_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_soc_min_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 5c598c3d-c35b-4494-8a9a-e1ad7db53f9e
+		sourceLineageTag: battery_soc_min_pct
+		summarizeBy: sum
+		sourceColumn: battery_soc_min_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_soc_max_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 8c764b61-c290-4694-9e69-f19c0e95f9ad
+		sourceLineageTag: battery_soc_max_pct
+		summarizeBy: sum
+		sourceColumn: battery_soc_max_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_soc_avg_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: f89666ab-b10f-4074-b269-b9f83f505f60
+		sourceLineageTag: battery_soc_avg_pct
+		summarizeBy: sum
+		sourceColumn: battery_soc_avg_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column roundtrip_efficiency
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: ec6f362d-836f-4abb-8f20-c00281269042
+		sourceLineageTag: roundtrip_efficiency
+		summarizeBy: sum
+		sourceColumn: roundtrip_efficiency
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_cycle_fraction
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 4709c304-75f0-41fc-8973-bdb38a0b629a
+		sourceLineageTag: battery_cycle_fraction
+		summarizeBy: sum
+		sourceColumn: battery_cycle_fraction
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column avg_temperature_c
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: bbc9d1d0-e1a3-4706-99ff-5a37b8bc2af3
+		sourceLineageTag: avg_temperature_c
+		summarizeBy: sum
+		sourceColumn: avg_temperature_c
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column avg_irradiance_wm2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 880a8415-7698-467e-88b9-135c6e60680c
+		sourceLineageTag: avg_irradiance_wm2
+		summarizeBy: sum
+		sourceColumn: avg_irradiance_wm2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column hdd_hour
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: d6900919-43da-40bb-916c-68dff3b2142d
+		sourceLineageTag: hdd_hour
+		summarizeBy: sum
+		sourceColumn: hdd_hour
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column cdd_hour
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 9ba785cf-43cd-46a1-9155-b9a3ff47b704
+		sourceLineageTag: cdd_hour
+		summarizeBy: sum
+		sourceColumn: cdd_hour
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column net_grid_consumption_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 19dd195c-ec71-4b20-8bba-5c81259b782f
+		sourceLineageTag: net_grid_consumption_kwh
+		summarizeBy: sum
+		sourceColumn: net_grid_consumption_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column co2_emissions_kg
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 5c9e7a66-3291-4011-bf1f-8294c173ecbf
+		sourceLineageTag: co2_emissions_kg
+		summarizeBy: sum
+		sourceColumn: co2_emissions_kg
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column co2_savings_from_solar_kg
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 390615cc-6e70-4218-8ad3-c9b9f7dd2c83
+		sourceLineageTag: co2_savings_from_solar_kg
+		summarizeBy: sum
+		sourceColumn: co2_savings_from_solar_kg
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column emission_factor_kg_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 3f387a68-2676-4056-98bd-6c5eeafb50db
+		sourceLineageTag: emission_factor_kg_kwh
+		summarizeBy: sum
+		sourceColumn: emission_factor_kg_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column floor_area_m2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 233e8ac3-50b1-4761-b64b-66bbf1dd0731
+		sourceLineageTag: floor_area_m2
+		summarizeBy: sum
+		sourceColumn: floor_area_m2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column pv_capacity_kwp
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 73e876c0-05f8-434b-8adb-c3541fb8e149
+		sourceLineageTag: pv_capacity_kwp
+		summarizeBy: sum
+		sourceColumn: pv_capacity_kwp
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_capacity_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 1b4ea355-6b33-49a9-898e-244b6199ec6e
+		sourceLineageTag: battery_capacity_kwh
+		summarizeBy: sum
+		sourceColumn: battery_capacity_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column has_pv
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 85013024-40eb-42b2-8d43-cf3022db12be
+		sourceLineageTag: has_pv
+		summarizeBy: none
+		sourceColumn: has_pv
+
+		annotation SummarizationSetBy = Automatic
+
+	column has_battery
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 8544b8cb-0a3b-42bd-a61f-9a99e3cb7fb7
+		sourceLineageTag: has_battery
+		summarizeBy: none
+		sourceColumn: has_battery
+
+		annotation SummarizationSetBy = Automatic
+
+	column has_heat_pump
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 69992b00-5543-4582-802e-b621b67cb876
+		sourceLineageTag: has_heat_pump
+		summarizeBy: none
+		sourceColumn: has_heat_pump
+
+		annotation SummarizationSetBy = Automatic
+
+	column subscription_tier
+		dataType: string
+		lineageTag: d996858a-728d-48e2-926e-9061d15ed6a6
+		sourceLineageTag: subscription_tier
+		summarizeBy: none
+		sourceColumn: subscription_tier
+
+		annotation SummarizationSetBy = Automatic
+
+	column processed_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 971e3cc9-1df0-4db9-85af-87d0d4a87350
+		sourceLineageTag: processed_at
+		summarizeBy: none
+		sourceColumn: processed_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column country_code
+		dataType: string
+		lineageTag: 5ef3b007-e2ed-40bc-af8d-0862a53dc27c
+		sourceLineageTag: country_code
+		summarizeBy: none
+		sourceColumn: country_code
+
+		annotation SummarizationSetBy = Automatic
+
+	column eff_emission_factor
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: a810d57a-fc2c-471f-8291-4df925ec509f
+		sourceLineageTag: eff_emission_factor
+		summarizeBy: sum
+		sourceColumn: eff_emission_factor
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition gold_kpi_hourly = entity
+		mode: directLake
+		source
+			entityName: gold_kpi_hourly
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

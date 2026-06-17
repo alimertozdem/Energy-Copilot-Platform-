@@ -1,0 +1,357 @@
+table gold_battery_simulation
+	lineageTag: f28b3f67-9f61-46f4-9cef-2a3b8d4e80a1
+	sourceLineageTag: [dbo].[gold_battery_simulation]
+
+	measure 'C2 Payback Years' = VAR best = MINX( FILTER( gold_battery_simulation, gold_battery_simulation[total_capex_eur] > 0 && gold_battery_simulation[annual_savings_eur] > 0 ), DIVIDE( gold_battery_simulation[total_capex_eur], gold_battery_simulation[annual_savings_eur] ) ) RETURN IF( best > 25, 25, best )
+		formatString: 0.0
+		displayFolder: Page 9 / KPI
+		lineageTag: 8cd43cd5-c9f5-4981-be16-ed46a3203e16
+
+	measure 'C5 EU Compliance Status Text' =
+			VAR _active_tech =
+			    CALCULATE(
+			        MAX( gold_battery_dispatch[battery_type] ),
+			        gold_battery_dispatch[is_simulated] = FALSE()
+			    )
+			VAR _country =
+			    SELECTEDVALUE( silver_building_master[country_code], "DE" )
+			VAR _is_eu_member =
+			    CALCULATE( MAX(gold_country_regulations[is_eu_member]),
+			               gold_country_regulations[country_code] = _country )
+			VAR _nmc_allowed =
+			    CALCULATE( MAX(gold_country_regulations[nmc_allowed_new_2025]),
+			               gold_country_regulations[country_code] = _country )
+			VAR _battery_eu_compliant =
+			    CALCULATE(
+			        MAX( gold_battery_dispatch[eu_compliant] ),
+			        gold_battery_dispatch[is_simulated] = FALSE()
+			    )
+			RETURN
+			    SWITCH( TRUE(),
+			        ISBLANK(_active_tech),                                   "— No active battery",
+			        _active_tech = "NMC" && _country IN {"DE","AT"} && NOT _nmc_allowed,
+			                            "❌ NMC banned for new installs in " & _country,
+			        NOT _battery_eu_compliant && _is_eu_member,
+			                            "⚠ Non-compliant under EU 2023/1670",
+			        _is_eu_member && _battery_eu_compliant,
+			                            "✓ EU 2023/1670 compliant",
+			        NOT _is_eu_member,  "ℹ Outside EU framework",
+			        "ℹ Status unknown" )
+		formatString: #,##0.0
+		displayFolder: Page 9 / KPI
+		lineageTag: f1897c37-026a-461c-9587-47a89bfb087e
+
+	measure 'C2 Payback Status Label' =
+			VAR _y = [C2 Payback Years]
+			RETURN
+			    SWITCH( TRUE(),
+			        ISBLANK(_y),       "—",
+			        _y <= 5,           "✓ Excellent",
+			        _y <= 8,           "✓ Good",
+			        _y <= 12,          "⚠ Acceptable",
+			        "✗ Poor" )
+		formatString: #,##0.0
+		displayFolder: Page 9 / KPI
+		lineageTag: 13b7130e-d1ce-4512-bbf1-055161d152f1
+
+	measure 'V3 CAPEX EUR' = AVERAGE( gold_battery_simulation[total_capex_eur] )
+		formatString: € #,##0
+		displayFolder: Page 9 / V3
+		lineageTag: f0ad2bb9-9a4a-406b-a7af-900c07ca1ed9
+
+	measure 'V3 Payback Years' =
+			VAR _p = AVERAGE ( gold_battery_simulation[payback_years] )
+			RETURN
+			    IF ( ISBLANK ( _p ), BLANK (), MIN ( _p, 25 ) )
+		formatString: 0.0
+		displayFolder: Page 9 / V3
+		lineageTag: 45963a1c-3ea6-4a4d-a341-1e60c7cd4052
+
+	measure 'V3 Battery Chemistry Color' =
+			VAR _tech =
+			    SELECTEDVALUE( gold_battery_simulation[battery_type], "LFP" )
+			RETURN
+			    SWITCH( TRUE(),
+			        _tech = "LFP",                   "#27AE60",
+			        _tech = "Sodium-Ion",            "#F1C40F",
+			        _tech = "Solid-State",           "#9B59B6",
+			        _tech = "LFP-V2G",               "#16A085",
+			        _tech IN {"NMC","NCA"},          "#E67E22",
+			        _tech = "Second-Life NMC",       "#7F8C8D",
+			        _tech = "LFP-Supercap-Hybrid",   "#2980B9",
+			        "#95A5A6" )
+		formatString: #,##0.0
+		displayFolder: Page 9 / V3
+		lineageTag: 86fad795-f132-4600-9d7b-1dfb7ce1d9bf
+
+	measure 'V3 Payback Years Clean' = VAR cap = SUM( gold_battery_simulation[total_capex_eur] ) VAR sav = SUM( gold_battery_simulation[annual_savings_eur] ) VAR p = DIVIDE( cap, sav ) RETURN IF( sav > 0 && p > 0 && p <= 25, ROUND( p, 1 ), BLANK() )
+		formatString: 0.0
+		displayFolder: Page 9 / V3
+		lineageTag: 63fe9d27-cad6-4f95-b9d3-9214c4404339
+
+	measure 'Scenario Payback Years' =
+			VAR _p = DIVIDE ( SUM ( gold_battery_simulation[total_capex_eur] ),
+			                  SUM ( gold_battery_simulation[annual_savings_eur] ) )
+			RETURN IF ( _p <= 0, BLANK (), MIN ( _p, 25 ) )
+		formatString: 0.0
+		displayFolder: Battery
+		lineageTag: 40d10444-9bbd-4a97-8e75-853653710e36
+
+	column scenario_id
+		dataType: string
+		lineageTag: 7d9d7498-6114-43d6-b9bc-a2fa53ed317a
+		sourceLineageTag: scenario_id
+		summarizeBy: none
+		sourceColumn: scenario_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_id
+		dataType: string
+		lineageTag: 2af55250-b6e4-41af-bf53-2d7df72a4feb
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_name
+		dataType: string
+		lineageTag: 6166147a-00aa-4e25-b790-f5eb74564dee
+		sourceLineageTag: building_name
+		summarizeBy: none
+		sourceColumn: building_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column battery_type
+		dataType: string
+		lineageTag: 7699998a-6c8c-4c78-acd8-0dc043a10cef
+		sourceLineageTag: battery_type
+		summarizeBy: none
+		sourceColumn: battery_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column battery_capacity_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 2b393c25-0a3f-4219-98c6-54731e311d0b
+		sourceLineageTag: battery_capacity_kwh
+		summarizeBy: sum
+		sourceColumn: battery_capacity_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column pv_capacity_kwp
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 53af0269-8d65-4b12-8a8a-65be1b6abb17
+		sourceLineageTag: pv_capacity_kwp
+		summarizeBy: sum
+		sourceColumn: pv_capacity_kwp
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column total_capex_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: f8fa5f68-a644-48af-bbcb-bdf7c8f810d4
+		sourceLineageTag: total_capex_eur
+		summarizeBy: sum
+		sourceColumn: total_capex_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column strategy
+		dataType: string
+		lineageTag: 22e92012-9a2d-492b-a856-239fd63ef919
+		sourceLineageTag: strategy
+		summarizeBy: none
+		sourceColumn: strategy
+
+		annotation SummarizationSetBy = Automatic
+
+	column strategy_label
+		dataType: string
+		lineageTag: 206fdfa8-8385-4aa3-8338-9e82a90a9ab4
+		sourceLineageTag: strategy_label
+		summarizeBy: none
+		sourceColumn: strategy_label
+
+		annotation SummarizationSetBy = Automatic
+
+	column annual_savings_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 360f2069-e576-4fb3-99a7-5e84e31bd90f
+		sourceLineageTag: annual_savings_eur
+		summarizeBy: sum
+		sourceColumn: annual_savings_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column annual_co2_avoided_kg
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 8b392c2e-988a-4246-9cd8-b03f41107278
+		sourceLineageTag: annual_co2_avoided_kg
+		summarizeBy: sum
+		sourceColumn: annual_co2_avoided_kg
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column payback_years
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 7a2a4118-700a-4217-83cc-e004ca210e8c
+		sourceLineageTag: payback_years
+		summarizeBy: sum
+		sourceColumn: payback_years
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column npv_10yr_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 1d04bee2-3048-4cea-a0f5-e0688e755e09
+		sourceLineageTag: npv_10yr_eur
+		summarizeBy: sum
+		sourceColumn: npv_10yr_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column irr_percent
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 027ac603-cb39-400b-b751-748778da02f5
+		sourceLineageTag: irr_percent
+		summarizeBy: sum
+		sourceColumn: irr_percent
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column avg_round_trip_efficiency_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: a2e4c8bf-13c3-4c1c-9ed5-e8633d395019
+		sourceLineageTag: avg_round_trip_efficiency_pct
+		summarizeBy: sum
+		sourceColumn: avg_round_trip_efficiency_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column comparison_score
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 21c5e89f-f473-4796-b82a-02da0c969a07
+		sourceLineageTag: comparison_score
+		summarizeBy: sum
+		sourceColumn: comparison_score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column eu_compliant
+		dataType: string
+		lineageTag: 6e5a510c-e7b1-4afa-82f8-ce34ca97c40b
+		sourceLineageTag: eu_compliant
+		summarizeBy: none
+		sourceColumn: eu_compliant
+
+		annotation SummarizationSetBy = Automatic
+
+	column battery_cost_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 62a2fa11-ec91-43b6-ae90-3eadd54f4a4f
+		sourceLineageTag: battery_cost_eur
+		summarizeBy: sum
+		sourceColumn: battery_cost_eur
+
+		annotation SummarizationSetBy = Automatic
+
+	column country_code
+		dataType: string
+		lineageTag: e84968f0-b77f-4070-b77d-11222e50b0f6
+		sourceLineageTag: country_code
+		summarizeBy: none
+		sourceColumn: country_code
+
+		annotation SummarizationSetBy = Automatic
+
+	column processed_at
+		dataType: string
+		lineageTag: 3f262b6f-a699-4dbc-bb52-0147e566e079
+		sourceLineageTag: processed_at
+		summarizeBy: none
+		sourceColumn: processed_at
+
+		annotation SummarizationSetBy = Automatic
+
+	column is_active_strategy
+		dataType: string
+		lineageTag: 3495518b-360c-4106-b74a-2eb02631be5d
+		sourceLineageTag: is_active_strategy
+		summarizeBy: none
+		sourceColumn: is_active_strategy
+
+		annotation SummarizationSetBy = Automatic
+
+	column scenario_label
+		dataType: string
+		lineageTag: b9903a88-0a6e-462b-bd74-da7568cf418e
+		sourceLineageTag: scenario_label
+		summarizeBy: none
+		sourceColumn: scenario_label
+
+		annotation SummarizationSetBy = Automatic
+
+	column pv_sc_adjustment
+		dataType: double
+		lineageTag: 1229f126-39a1-4bcc-a182-b68d4c2f6f5b
+		sourceLineageTag: pv_sc_adjustment
+		summarizeBy: sum
+		sourceColumn: pv_sc_adjustment
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column strategy_factor
+		dataType: double
+		lineageTag: 4ec88e00-c5a6-4570-acdf-791537c12f7a
+		sourceLineageTag: strategy_factor
+		summarizeBy: sum
+		sourceColumn: strategy_factor
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition gold_battery_simulation = entity
+		mode: directLake
+		source
+			entityName: gold_battery_simulation
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

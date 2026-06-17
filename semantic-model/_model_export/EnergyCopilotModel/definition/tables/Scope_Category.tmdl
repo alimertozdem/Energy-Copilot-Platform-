@@ -1,0 +1,40 @@
+/// Disconnected dimension for Scope Mix donut on Page 6
+table Scope_Category
+	lineageTag: 5d0914cc-abd6-4668-b092-030e9d6cf4c8
+
+	measure 'Selected Scope tCO2' =
+			VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), "@n", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+			VAR _maxN = MAXX ( _years, [@n] )
+			VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+			RETURN
+			CALCULATE (
+			    SWITCH (
+			        SELECTEDVALUE ( Scope_Category[Scope] ),
+			        "Scope 1 - Direct",      SUM ( gold_ghg_scope[scope1_total_tco2] ),
+			        "Scope 2 - Electricity", SUM ( gold_ghg_scope[scope2_location_tco2] ),
+			        "Scope 3 - Indirect",    SUM ( gold_ghg_scope[scope3_estimated_tco2] ),
+			        BLANK ()
+			    ),
+			    gold_ghg_scope[reporting_year] = _yr
+			)
+		formatString: #,##0.0
+		displayFolder: GHG Breakdown
+		lineageTag: 2e3007c7-e5c0-41bc-bbd8-8333f3d3f824
+
+	column Scope
+		lineageTag: 2c335c82-2e91-4e34-bd3c-e06143857493
+		isNameInferred
+		sourceColumn: [Scope]
+
+	partition Scope_Category = calculated
+		mode: import
+		source =
+				DATATABLE(
+				            "Scope", STRING,
+				            {
+				                {"Scope 1 - Direct"},
+				                {"Scope 2 - Electricity"},
+				                {"Scope 3 - Indirect"}
+				            }
+				        )
+

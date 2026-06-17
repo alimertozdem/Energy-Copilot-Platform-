@@ -1,0 +1,130 @@
+table silver_epc_ratings
+	lineageTag: c831e75c-0501-470a-bca1-b32cbde46636
+	sourceLineageTag: [dbo].[silver_epc_ratings]
+
+	measure 'EPC Score Area-Weighted kWh m2' = VAR _num = SUMX( silver_epc_ratings, silver_epc_ratings[epc_score_kwh_m2] * RELATED( silver_building_master[conditioned_area_m2] ) ) VAR _den = SUMX( silver_epc_ratings, RELATED( silver_building_master[conditioned_area_m2] ) ) RETURN DIVIDE( _num, _den )
+		formatString: 0.0
+		displayFolder: Page 6 ESG (v57)
+		lineageTag: 1f75169a-93c1-47c9-bcd9-7aaa1917b060
+
+	measure 'EPC Class Area-Weighted' = VAR _s = [EPC Score Area-Weighted kWh m2] RETURN SWITCH( TRUE(), ISBLANK(_s), "—", _s<=50, "A", _s<=100, "B", _s<=150, "C", _s<=200, "D", _s<=250, "E", _s<=300, "F", "G" )
+		formatString: #,##0.0
+		displayFolder: Page 6 ESG (v57)
+		lineageTag: d5816971-2823-4dfe-b8ad-fcde93cdaa29
+
+	column building_id
+		dataType: string
+		lineageTag: 13863aa3-ee68-4078-9b9b-fd6675d64d17
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column epc_class
+		dataType: string
+		lineageTag: eddce8a4-4f82-4d39-abf2-e7566240be09
+		sourceLineageTag: epc_class
+		summarizeBy: none
+		sourceColumn: epc_class
+
+		annotation SummarizationSetBy = Automatic
+
+	column epc_score_kwh_m2
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 0ceab600-c2dd-4219-9cf3-08ba0dea31e7
+		sourceLineageTag: epc_score_kwh_m2
+		summarizeBy: sum
+		sourceColumn: epc_score_kwh_m2
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column co2_kg_m2_year
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: debc9b04-5803-4d45-b0fb-5e81fb7490c1
+		sourceLineageTag: co2_kg_m2_year
+		summarizeBy: sum
+		sourceColumn: co2_kg_m2_year
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column valid_from
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 067c3498-2918-4b2b-a8fa-627e0af143ad
+		sourceLineageTag: valid_from
+		summarizeBy: none
+		sourceColumn: valid_from
+
+		annotation SummarizationSetBy = Automatic
+
+	column valid_to
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 52e8ebeb-2108-4d84-bd48-71f38b2760c5
+		sourceLineageTag: valid_to
+		summarizeBy: none
+		sourceColumn: valid_to
+
+		annotation SummarizationSetBy = Automatic
+
+	column assessment_year
+		dataType: int64
+		formatString: 0
+		lineageTag: 6515424b-e98f-4f87-ad14-f79cb6763e06
+		sourceLineageTag: assessment_year
+		summarizeBy: sum
+		sourceColumn: assessment_year
+
+		annotation SummarizationSetBy = Automatic
+
+	column certifying_body
+		dataType: string
+		lineageTag: 6187bbc1-7c50-40f4-a3bf-0ee3af8a31f1
+		sourceLineageTag: certifying_body
+		summarizeBy: none
+		sourceColumn: certifying_body
+
+		annotation SummarizationSetBy = Automatic
+
+	column country
+		dataType: string
+		lineageTag: 8bfbe4b5-244c-4978-8b19-5adc3bdd99c6
+		sourceLineageTag: country
+		summarizeBy: none
+		sourceColumn: country
+
+		annotation SummarizationSetBy = Automatic
+
+	column methodology
+		dataType: string
+		lineageTag: 48c9c6b0-a922-44c8-ab0f-9fb00f566adb
+		sourceLineageTag: methodology
+		summarizeBy: none
+		sourceColumn: methodology
+
+		annotation SummarizationSetBy = Automatic
+
+	column updated_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: fa367e61-66a7-498d-adaf-d75e53aeb3de
+		sourceLineageTag: updated_at
+		summarizeBy: none
+		sourceColumn: updated_at
+
+		annotation SummarizationSetBy = Automatic
+
+	partition silver_epc_ratings = entity
+		mode: directLake
+		source
+			entityName: silver_epc_ratings
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

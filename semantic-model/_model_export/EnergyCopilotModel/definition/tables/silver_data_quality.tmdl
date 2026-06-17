@@ -1,0 +1,135 @@
+table silver_data_quality
+	lineageTag: 05e58010-93f1-4032-89f8-b3de984f9da8
+	sourceLineageTag: [dbo].[silver_data_quality]
+
+	column building_id
+		dataType: string
+		lineageTag: f8a05d73-46c8-495a-9429-54faaa3b35a9
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column report_month
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 735ed0f8-5486-4212-a1ec-4ccc56da61bd
+		sourceLineageTag: report_month
+		summarizeBy: none
+		sourceColumn: report_month
+
+		annotation SummarizationSetBy = Automatic
+
+	column total_readings
+		dataType: int64
+		formatString: 0
+		lineageTag: d9eafb2e-f532-4f01-9782-a369f821b7fb
+		sourceLineageTag: total_readings
+		summarizeBy: sum
+		sourceColumn: total_readings
+
+		annotation SummarizationSetBy = Automatic
+
+	column ok_readings
+		dataType: int64
+		formatString: 0
+		lineageTag: 87c8f41f-ae93-447c-a09d-6e5725d09f6c
+		sourceLineageTag: ok_readings
+		summarizeBy: sum
+		sourceColumn: ok_readings
+
+		annotation SummarizationSetBy = Automatic
+
+	column interpolated_readings
+		dataType: int64
+		formatString: 0
+		lineageTag: 9912fd41-cf86-4d49-a5d5-8737e13bd1a4
+		sourceLineageTag: interpolated_readings
+		summarizeBy: sum
+		sourceColumn: interpolated_readings
+
+		annotation SummarizationSetBy = Automatic
+
+	column missing_readings
+		dataType: int64
+		formatString: 0
+		lineageTag: 55999087-ae75-4390-8ec6-297f3ecc73a5
+		sourceLineageTag: missing_readings
+		summarizeBy: sum
+		sourceColumn: missing_readings
+
+		annotation SummarizationSetBy = Automatic
+
+	column anomaly_readings
+		dataType: int64
+		formatString: 0
+		lineageTag: 8b36ee31-3f01-48ee-b197-75ebb50ab12f
+		sourceLineageTag: anomaly_readings
+		summarizeBy: sum
+		sourceColumn: anomaly_readings
+
+		annotation SummarizationSetBy = Automatic
+
+	column quality_score_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 2186e683-3556-4d06-8564-c352d2b55eca
+		sourceLineageTag: quality_score_pct
+		summarizeBy: sum
+		sourceColumn: quality_score_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column completeness_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 1f613773-d451-4024-8e03-9bbfa4a3d6bc
+		sourceLineageTag: completeness_pct
+		summarizeBy: sum
+		sourceColumn: completeness_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column interpolation_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 48713aa3-f631-47b0-9750-e3017b1d017b
+		sourceLineageTag: interpolation_pct
+		summarizeBy: sum
+		sourceColumn: interpolation_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column quality_grade
+		dataType: string
+		lineageTag: 59e3586b-3913-4bf9-8319-b877c261b2e4
+		sourceLineageTag: quality_grade
+		summarizeBy: none
+		sourceColumn: quality_grade
+
+		annotation SummarizationSetBy = Automatic
+
+	column updated_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 9bbb6053-fd8e-4b23-af0e-e9ac4fed3e2b
+		sourceLineageTag: updated_at
+		summarizeBy: none
+		sourceColumn: updated_at
+
+		annotation SummarizationSetBy = Automatic
+
+	partition silver_data_quality = entity
+		mode: directLake
+		source
+			entityName: silver_data_quality
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

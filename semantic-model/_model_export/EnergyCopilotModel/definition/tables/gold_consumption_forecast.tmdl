@@ -1,0 +1,134 @@
+table gold_consumption_forecast
+	lineageTag: d7254716-52ca-47e8-b10f-0e37084471f6
+	sourceLineageTag: [dbo].[gold_consumption_forecast]
+
+	measure 'Forecast Predicted kWh' = SUM( gold_consumption_forecast[predicted_kwh] )
+		formatString: #,##0
+		displayFolder: Forecast (Page 4)
+		lineageTag: 64faa1d9-55de-43ff-ad43-7a744f0e42d3
+
+	measure 'Forecast Lower Bound kWh' = SUM( gold_consumption_forecast[lower_bound_kwh] )
+		formatString: #,##0
+		displayFolder: Forecast (Page 4)
+		lineageTag: a1ebfa89-74fb-45a8-9721-c4216ababe19
+
+	measure 'Forecast Upper Bound kWh' = SUM( gold_consumption_forecast[upper_bound_kwh] )
+		formatString: #,##0
+		displayFolder: Forecast (Page 4)
+		lineageTag: afc982b6-547b-445e-bf9c-d30b83d2b3a4
+
+	column building_id
+		dataType: string
+		lineageTag: f119c37e-4dd7-4ddd-bd47-b9ab23b76bc9
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column forecast_date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: f8650fdd-b019-46e8-8dc2-61d2b913122e
+		sourceLineageTag: forecast_date
+		summarizeBy: none
+		sourceColumn: forecast_date
+
+		annotation SummarizationSetBy = Automatic
+
+	column predicted_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 48ae338d-a9d9-4d3f-8bee-c3006b3f8a0f
+		sourceLineageTag: predicted_kwh
+		summarizeBy: sum
+		sourceColumn: predicted_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column lower_bound_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 38524024-0a7f-4401-a725-9b69ac0453bf
+		sourceLineageTag: lower_bound_kwh
+		summarizeBy: sum
+		sourceColumn: lower_bound_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column upper_bound_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 3a351713-6b3c-4aa8-a803-416bba3beb5a
+		sourceLineageTag: upper_bound_kwh
+		summarizeBy: sum
+		sourceColumn: upper_bound_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column confidence_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: f8467980-b240-4719-8b8b-6f14eeff7d4e
+		sourceLineageTag: confidence_pct
+		summarizeBy: sum
+		sourceColumn: confidence_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column model_mape_pct
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 26fd1118-f156-4cdb-8c22-a9a092a194c1
+		sourceLineageTag: model_mape_pct
+		summarizeBy: sum
+		sourceColumn: model_mape_pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column trained_on_days
+		dataType: int64
+		formatString: 0
+		lineageTag: 785dd743-02b7-48fa-a055-f9471c1efd2d
+		sourceLineageTag: trained_on_days
+		summarizeBy: sum
+		sourceColumn: trained_on_days
+
+		annotation SummarizationSetBy = Automatic
+
+	column model_version
+		dataType: string
+		lineageTag: cb17c991-8d17-45fe-a143-410136857a12
+		sourceLineageTag: model_version
+		summarizeBy: none
+		sourceColumn: model_version
+
+		annotation SummarizationSetBy = Automatic
+
+	column forecasted_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: dee9ab18-6149-4f4f-9929-2ea3c0651189
+		sourceLineageTag: forecasted_at
+		summarizeBy: none
+		sourceColumn: forecasted_at
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_consumption_forecast = entity
+		mode: directLake
+		source
+			entityName: gold_consumption_forecast
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

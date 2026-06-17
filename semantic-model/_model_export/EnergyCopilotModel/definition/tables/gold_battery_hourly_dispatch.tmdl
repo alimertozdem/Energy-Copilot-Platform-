@@ -1,0 +1,190 @@
+table gold_battery_hourly_dispatch
+	lineageTag: 3fad40fa-9e6b-4f6d-9286-56ea9ee5d992
+	sourceLineageTag: [dbo].[gold_battery_hourly_dispatch]
+
+	measure 'V6 Charge Rate' = AVERAGE( gold_battery_hourly_dispatch[charge_kwh] )
+		formatString: #,##0.0
+		displayFolder: Battery 24h (V6)
+		lineageTag: 9c2fd4ab-77aa-47f9-8a46-60f4f7ff3337
+
+	measure 'V6 Discharge Rate' = AVERAGE( gold_battery_hourly_dispatch[discharge_kwh] )
+		formatString: #,##0.0
+		displayFolder: Battery 24h (V6)
+		lineageTag: 6c3c5126-a1de-4c8c-8007-789935f06daa
+
+	measure 'V6 SoC Pct' = AVERAGE( gold_battery_hourly_dispatch[soc_percent] )
+		formatString: 0.0
+		displayFolder: Battery 24h (V6)
+		lineageTag: b3dfc2ab-9102-4b97-8687-8fdb07898203
+
+	measure 'V6 Price Index' = AVERAGE( gold_battery_hourly_dispatch[grid_price_index] )
+		formatString: 0.00
+		displayFolder: Battery 24h (V6)
+		lineageTag: a7327242-6c55-47e3-acf4-fecc4411f16b
+
+	measure 'V2 Avg Grid Price EUR kWh' = AVERAGE( gold_battery_hourly_dispatch[grid_price_eur_mwh] ) / 1000.0
+		formatString: 0.000
+		displayFolder: Battery 24h (V6)
+		lineageTag: e3afeeb1-94d8-4795-8161-7ca42519f547
+
+	column building_id
+		dataType: string
+		lineageTag: 717a9747-b61a-42eb-9ac6-c82b0fa05ed3
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_name
+		dataType: string
+		lineageTag: 5fb02da9-0d77-4c65-aa19-4c58507927ee
+		sourceLineageTag: building_name
+		summarizeBy: none
+		sourceColumn: building_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column strategy
+		dataType: string
+		lineageTag: e7dee32f-0f83-4f7d-b76c-a51e8bc5d5c0
+		sourceLineageTag: strategy
+		summarizeBy: none
+		sourceColumn: strategy
+
+		annotation SummarizationSetBy = Automatic
+
+	column strategy_label
+		dataType: string
+		lineageTag: c11fd76f-cdd8-4eb9-9ceb-1bcf6cba4da2
+		sourceLineageTag: strategy_label
+		summarizeBy: none
+		sourceColumn: strategy_label
+
+		annotation SummarizationSetBy = Automatic
+
+	column is_active_strategy
+		dataType: string
+		lineageTag: 1a612aa4-28fb-4289-9765-04a76152b933
+		sourceLineageTag: is_active_strategy
+		summarizeBy: none
+		sourceColumn: is_active_strategy
+
+		annotation SummarizationSetBy = Automatic
+
+	column hour_of_day
+		dataType: int64
+		formatString: 0
+		lineageTag: 1c7ce673-8009-49f6-aff5-2bf40804064f
+		sourceLineageTag: hour_of_day
+		summarizeBy: sum
+		sourceColumn: hour_of_day
+
+		annotation SummarizationSetBy = Automatic
+
+	column hour_label
+		dataType: string
+		lineageTag: 5a290e0a-f69e-43fa-ae6a-55f3803a849f
+		sourceLineageTag: hour_label
+		summarizeBy: none
+		sourceColumn: hour_label
+
+		annotation SummarizationSetBy = Automatic
+
+	column charge_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 25a921ee-18db-4880-8279-ed1d684513f5
+		sourceLineageTag: charge_kwh
+		summarizeBy: sum
+		sourceColumn: charge_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column discharge_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 2a0226f5-89fb-45fd-8d01-5d0c88c79843
+		sourceLineageTag: discharge_kwh
+		summarizeBy: sum
+		sourceColumn: discharge_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column soc_percent
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: eb2e56b5-76db-4c4a-9eb7-7edce216e1bb
+		sourceLineageTag: soc_percent
+		summarizeBy: sum
+		sourceColumn: soc_percent
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column battery_capacity_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 979a8d9b-60cd-4eb7-8739-073b6eb7a63c
+		sourceLineageTag: battery_capacity_kwh
+		summarizeBy: sum
+		sourceColumn: battery_capacity_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column grid_price_eur_mwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 0a8fa22e-26ed-4eba-9b23-908ce3475720
+		sourceLineageTag: grid_price_eur_mwh
+		summarizeBy: sum
+		sourceColumn: grid_price_eur_mwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column grid_price_index
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 8ccff03f-f791-4374-b4e6-4fdedd996463
+		sourceLineageTag: grid_price_index
+		summarizeBy: sum
+		sourceColumn: grid_price_index
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column is_cheap_hour
+		dataType: string
+		lineageTag: b4944cda-3d22-4941-9011-39e65775eb07
+		sourceLineageTag: is_cheap_hour
+		summarizeBy: none
+		sourceColumn: is_cheap_hour
+
+		annotation SummarizationSetBy = Automatic
+
+	column is_peak_price_hour
+		dataType: string
+		lineageTag: 3cbda446-a57c-49fa-b075-e7060ddd2aed
+		sourceLineageTag: is_peak_price_hour
+		summarizeBy: none
+		sourceColumn: is_peak_price_hour
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_battery_hourly_dispatch = entity
+		mode: directLake
+		source
+			entityName: gold_battery_hourly_dispatch
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

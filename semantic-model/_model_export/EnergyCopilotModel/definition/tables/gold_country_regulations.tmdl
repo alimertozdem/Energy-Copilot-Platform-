@@ -1,0 +1,324 @@
+table gold_country_regulations
+	lineageTag: 46c1bdbd-2124-4054-8438-2b38a40130f2
+	sourceLineageTag: [dbo].[gold_country_regulations]
+
+	measure 'V5 Country Chemistry Flag' =
+			VAR _country = SELECTEDVALUE( gold_country_regulations[country_code] )
+			VAR _chem    = SELECTEDVALUE( gold_battery_technologies[battery_type] )
+			VAR _is_eu   = CALCULATE( MAX(gold_country_regulations[is_eu_member]),
+			                          gold_country_regulations[country_code] = _country )
+			VAR _nmc_ok  = CALCULATE( MAX(gold_country_regulations[nmc_allowed_new_2025]),
+			                          gold_country_regulations[country_code] = _country )
+			VAR _sodium_ok = CALCULATE( MAX(gold_country_regulations[sodium_ion_approved]),
+			                            gold_country_regulations[country_code] = _country )
+			VAR _ss_ok   = CALCULATE( MAX(gold_country_regulations[solid_state_pilot]),
+			                          gold_country_regulations[country_code] = _country )
+			RETURN
+			    SWITCH( TRUE(),
+			        ISBLANK(_country) || ISBLANK(_chem), BLANK(),
+			        _chem = "LFP",                                       1,
+			        _chem = "LFP-V2G",                                   IF(_is_eu, 1, 0),
+			        _chem = "LFP-Supercap-Hybrid",                       1,
+			        _chem = "NMC" && _nmc_ok,                            0,
+			        _chem = "NMC" && NOT _nmc_ok,                       -1,
+			        _chem = "Second-Life NMC",                           IF(_is_eu, 0, -1),
+			        _chem = "NCA",                                       0,
+			        _chem = "Sodium-Ion" && _sodium_ok,                  1,
+			        _chem = "Sodium-Ion" && NOT _sodium_ok,              0,
+			        _chem = "Solid-State" && _ss_ok,                     1,
+			        _chem = "Solid-State",                               0,
+			        0 )
+		formatString: #,##0.0
+		displayFolder: Page 9 / V5
+		lineageTag: f9b5f5e0-2082-464c-b651-57bc974bab3f
+
+	measure 'V5 Country Chemistry Symbol' =
+			VAR _f = [V5 Country Chemistry Flag]
+			RETURN
+			    SWITCH( TRUE(),
+			        ISBLANK(_f), "—",
+			        _f = 1,      "✓",
+			        _f = 0,      "⚠",
+			        _f = -1,     "✗",
+			        "" )
+		formatString: #,##0.0
+		displayFolder: Page 9 / V5
+		lineageTag: c5c50baa-e910-4865-99dd-e5734ef5f1a2
+
+	measure 'I2 Chemistry Recommendation Text' = VAR cc = SELECTEDVALUE( silver_building_master[country_code] ) VAR ctry = LOOKUPVALUE( gold_country_regulations[country_name], gold_country_regulations[country_code], cc ) VAR nmcOk = LOOKUPVALUE( gold_country_regulations[nmc_allowed_new_2025], gold_country_regulations[country_code], cc ) RETURN IF( ISBLANK(cc), "Select a single building for a chemistry recommendation.", "Recommended: LFP — EU 2023/1670 compliant, best cost / safety / cycle-life for " & ctry & "." & IF( nmcOk = FALSE(), " Avoid NMC: restricted for new installs in " & ctry & " (2025).", "" ) )
+		formatString: #,##0.0
+		displayFolder: Insights (I)
+		lineageTag: e38131c9-e7a8-4a72-a125-6d18673f754c
+
+	measure 'I3 Compliance Flag Text' = VAR cc = SELECTEDVALUE( silver_building_master[country_code] ) VAR ctry = LOOKUPVALUE( gold_country_regulations[country_name], gold_country_regulations[country_code], cc ) VAR lfpOk = LOOKUPVALUE( gold_country_regulations[lfp_allowed], gold_country_regulations[country_code], cc ) VAR nmcOk = LOOKUPVALUE( gold_country_regulations[nmc_allowed_new_2025], gold_country_regulations[country_code], cc ) RETURN IF( ISBLANK(cc), "Select a single building to check compliance.", "EU 2023/1670 in " & ctry & ": LFP " & IF( lfpOk = TRUE(), "approved", "restricted" ) & ", NMC (new installs 2025) " & IF( nmcOk = TRUE(), "approved", "restricted" ) & "." )
+		formatString: #,##0.0
+		displayFolder: Insights (I)
+		lineageTag: d6c76ffe-1360-40c5-bdde-6d2ad66e02a9
+
+	column country_code
+		dataType: string
+		lineageTag: c03c6274-601b-48f4-a30e-06fa914e84d9
+		sourceLineageTag: country_code
+		summarizeBy: none
+		sourceColumn: country_code
+
+		annotation SummarizationSetBy = Automatic
+
+	column country_name
+		dataType: string
+		lineageTag: 9813dd7f-f4e4-4b09-85f2-162c4b3c0fe2
+		sourceLineageTag: country_name
+		summarizeBy: none
+		sourceColumn: country_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column region_group
+		dataType: string
+		lineageTag: c8f4c844-9c9a-4eac-a1e8-4ff3291d5c5c
+		sourceLineageTag: region_group
+		summarizeBy: none
+		sourceColumn: region_group
+
+		annotation SummarizationSetBy = Automatic
+
+	column is_eu_member
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 547b9e30-bcfa-4e1f-889f-4dd384560176
+		sourceLineageTag: is_eu_member
+		summarizeBy: none
+		sourceColumn: is_eu_member
+
+		annotation SummarizationSetBy = Automatic
+
+	column lfp_allowed
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 91024d8c-78ae-466d-8e13-3dacb49c7300
+		sourceLineageTag: lfp_allowed
+		summarizeBy: none
+		sourceColumn: lfp_allowed
+
+		annotation SummarizationSetBy = Automatic
+
+	column nmc_allowed_new_2025
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: d2a77ff3-a34f-4652-8e34-cdaab62c88b4
+		sourceLineageTag: nmc_allowed_new_2025
+		summarizeBy: none
+		sourceColumn: nmc_allowed_new_2025
+
+		annotation SummarizationSetBy = Automatic
+
+	column nca_allowed
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 6f8130ee-0136-4855-8ffa-a04d0206d495
+		sourceLineageTag: nca_allowed
+		summarizeBy: none
+		sourceColumn: nca_allowed
+
+		annotation SummarizationSetBy = Automatic
+
+	column sodium_ion_approved
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 2a6a0cca-0971-4caa-a61f-b94e3b53c312
+		sourceLineageTag: sodium_ion_approved
+		summarizeBy: none
+		sourceColumn: sodium_ion_approved
+
+		annotation SummarizationSetBy = Automatic
+
+	column solid_state_pilot
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 73d0b08c-fdfd-4611-ba70-4d4b5430adb1
+		sourceLineageTag: solid_state_pilot
+		summarizeBy: none
+		sourceColumn: solid_state_pilot
+
+		annotation SummarizationSetBy = Automatic
+
+	column v2g_grid_code_ready
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 0375ac66-e016-4f03-99bb-1a0f98519c1f
+		sourceLineageTag: v2g_grid_code_ready
+		summarizeBy: none
+		sourceColumn: v2g_grid_code_ready
+
+		annotation SummarizationSetBy = Automatic
+
+	column frequency_market_eligible
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: e0496a15-a62c-45ca-8e9d-a63cf30f0b3e
+		sourceLineageTag: frequency_market_eligible
+		summarizeBy: none
+		sourceColumn: frequency_market_eligible
+
+		annotation SummarizationSetBy = Automatic
+
+	column capacity_market_eligible
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: 4171c88b-996e-4e94-943e-b785f27cc583
+		sourceLineageTag: capacity_market_eligible
+		summarizeBy: none
+		sourceColumn: capacity_market_eligible
+
+		annotation SummarizationSetBy = Automatic
+
+	column sub_metering_required
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: bd85986f-9ed3-40a0-a784-4c613f59fc4c
+		sourceLineageTag: sub_metering_required
+		summarizeBy: none
+		sourceColumn: sub_metering_required
+
+		annotation SummarizationSetBy = Automatic
+
+	column min_carbon_threshold_kg_co2_per_kwh
+		dataType: int64
+		formatString: 0
+		lineageTag: c1fed990-4207-4ec8-aef1-21241b3e8967
+		sourceLineageTag: min_carbon_threshold_kg_co2_per_kwh
+		summarizeBy: sum
+		sourceColumn: min_carbon_threshold_kg_co2_per_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+	column min_recycled_content_pct
+		dataType: int64
+		formatString: 0
+		lineageTag: 8c7d7ad3-04d8-4539-b0c1-eed4484f1227
+		sourceLineageTag: min_recycled_content_pct
+		summarizeBy: sum
+		sourceColumn: min_recycled_content_pct
+
+		annotation SummarizationSetBy = Automatic
+
+	column digital_passport_required_from
+		dataType: string
+		lineageTag: 1137a197-fbf1-41cb-bbf1-8343fae6d3b2
+		sourceLineageTag: digital_passport_required_from
+		summarizeBy: none
+		sourceColumn: digital_passport_required_from
+
+		annotation SummarizationSetBy = Automatic
+
+	column feed_in_tariff_eur_per_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 94bea408-c395-4236-9145-256fffc88add
+		sourceLineageTag: feed_in_tariff_eur_per_kwh
+		summarizeBy: sum
+		sourceColumn: feed_in_tariff_eur_per_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column demand_charge_eur_per_kw_month
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: d21e1154-cb8d-4ca7-9dff-cdbf52871f53
+		sourceLineageTag: demand_charge_eur_per_kw_month
+		summarizeBy: sum
+		sourceColumn: demand_charge_eur_per_kw_month
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column grid_price_peak_eur_per_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 80489df1-4cd6-4983-bdf3-5bf868f80794
+		sourceLineageTag: grid_price_peak_eur_per_kwh
+		summarizeBy: sum
+		sourceColumn: grid_price_peak_eur_per_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column grid_price_offpeak_eur_per_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 5034532a-e34a-4da4-a592-79c87c0f0da0
+		sourceLineageTag: grid_price_offpeak_eur_per_kwh
+		summarizeBy: sum
+		sourceColumn: grid_price_offpeak_eur_per_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column co2_intensity_grid_g_per_kwh
+		dataType: int64
+		formatString: 0
+		lineageTag: 0544b248-ff75-45bd-9a20-247afc3b06e2
+		sourceLineageTag: co2_intensity_grid_g_per_kwh
+		summarizeBy: sum
+		sourceColumn: co2_intensity_grid_g_per_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+	column primary_regulator
+		dataType: string
+		lineageTag: 0617286d-b93b-4027-ae8d-eff503bf00ea
+		sourceLineageTag: primary_regulator
+		summarizeBy: none
+		sourceColumn: primary_regulator
+
+		annotation SummarizationSetBy = Automatic
+
+	column regulation_short_name
+		dataType: string
+		lineageTag: 1c4bb7f4-f577-4c67-ae6a-727c50d82fc1
+		sourceLineageTag: regulation_short_name
+		summarizeBy: none
+		sourceColumn: regulation_short_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column regulation_url
+		dataType: string
+		lineageTag: c0e82feb-4dab-4e75-b0a6-1325e9bb9eca
+		sourceLineageTag: regulation_url
+		summarizeBy: none
+		sourceColumn: regulation_url
+
+		annotation SummarizationSetBy = Automatic
+
+	column notes
+		dataType: string
+		lineageTag: e509484b-859f-4838-b4f4-e1fcebfa44bb
+		sourceLineageTag: notes
+		summarizeBy: none
+		sourceColumn: notes
+
+		annotation SummarizationSetBy = Automatic
+
+	column last_updated_date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 1bdb1220-6618-4341-865d-2af6d707fc09
+		sourceLineageTag: last_updated_date
+		summarizeBy: none
+		sourceColumn: last_updated_date
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_country_regulations = entity
+		mode: directLake
+		source
+			entityName: gold_country_regulations
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

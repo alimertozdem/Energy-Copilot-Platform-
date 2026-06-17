@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "skipLibCheck": true, "noEmit": true, "incremental": false },
+  "exclude": ["node_modules", ".next"],
+  "include": [
+    "types/**/*.ts","types/**/*.d.ts","lib/**/*.ts",
+    "app/buildings/BuildingBaselineStrip.tsx",
+    "app/buildings/by-id/[building_id]/page.tsx",
+    "app/api/installer-requests/route.ts",
+    "app/compliance/**/*.tsx",
+    "components/compliance/**/*.tsx","components/ui/glass-card.tsx","components/motifs/ComplianceMotif.tsx","components/report/**/*.tsx"
+  ]
+}

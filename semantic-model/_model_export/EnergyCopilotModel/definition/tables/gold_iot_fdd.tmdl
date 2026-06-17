@@ -1,0 +1,382 @@
+table gold_iot_fdd
+	lineageTag: 14a3971c-df94-4d73-b7b9-e9a34ac75eff
+	sourceLineageTag: [dbo].[gold_iot_fdd]
+
+	measure 'IoT FDD Findings Today' = CALCULATE( COUNTROWS(gold_iot_fdd), gold_iot_fdd[event_date] = TODAY() )
+		formatString: #,##0
+		displayFolder: IoT FDD (v59)
+		lineageTag: 1d12483a-3c9d-4b16-94a9-bb4a2a3a23f4
+
+	measure 'IoT FDD High Today' = VAR d=MAX(gold_iot_fdd[event_date]) RETURN CALCULATE( COUNTROWS(gold_iot_fdd), gold_iot_fdd[severity]="High", gold_iot_fdd[event_date]=d )
+		formatString: #,##0
+		displayFolder: IoT (Page 8)
+		lineageTag: 1354d689-bd54-4a06-8e03-a85b6c2c7c79
+
+	measure 'IoT FDD Cost Today EUR' = VAR d=MAX(gold_iot_fdd[event_date]) RETURN CALCULATE( SUM(gold_iot_fdd[cost_eur_estimate]), gold_iot_fdd[event_date]=d )
+		formatString: #,##0.00
+		displayFolder: IoT (Page 8)
+		lineageTag: d7af81e2-6f2b-4d2a-a46a-ef2a40d26986
+
+	measure 'IoT FDD Count by Rule' = COUNTROWS( gold_iot_fdd )
+		formatString: #,##0
+		displayFolder: IoT FDD (v59)
+		lineageTag: d581065d-0d17-4d6c-b77f-f433c3e00580
+
+	measure 'IoT FDD Severity Sort' = SWITCH( MAX(gold_iot_fdd[severity]), "High", 3, "Medium", 2, "Low", 1, 0 )
+		formatString: 0
+		displayFolder: IoT FDD (v59)
+		lineageTag: 2e0bb751-fdb0-40e7-ac14-3cfb21cd8dfb
+
+	measure 'IoT FDD Cost Label' = VAR _c = SUM(gold_iot_fdd[cost_eur_estimate]) RETURN IF( ISBLANK(_c), "--", "Est. €" & FORMAT(_c, "0.00") )
+		formatString: #,##0.0
+		displayFolder: IoT FDD (v59)
+		lineageTag: be418351-04f9-4737-a37b-9a7bcb97af79
+
+	measure 'IoT C4 Label v59' = VAR f=[IoT FDD High Today] VAR c=[IoT FDD Cost Today EUR] RETURN IF( f=0 && (c=0 || ISBLANK(c)), "All Clear", FORMAT(f,"0") & " faults - Est. EUR " & FORMAT(ROUND(c,0),"0") & " today" )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: 572a621c-ac05-4289-84eb-31b13e82f912
+
+	measure 'IoT C4 Color v59' = VAR f=[IoT FDD High Today] RETURN SWITCH( TRUE(), ISBLANK(f) || f=0,"#2ECC40", f<=2,"#FF851B", "#FF4136" )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: 60074792-f1f0-4ca3-a8f9-df8b9c29ff1e
+
+	measure 'IoT Total Cost Today EUR' = [IoT FDD Cost Today EUR] + CALCULATE( SUM(gold_iot_realtime[cost_eur_window]), gold_iot_realtime[event_date] = TODAY() )
+		formatString: #,##0.00
+		displayFolder: IoT FDD (v59)
+		lineageTag: 76f3b878-6524-4b57-9ad1-0d447b73e0a7
+
+	measure 'IoT FDD Diagnoses Today' = VAR d=MAX(gold_iot_fdd[event_date]) RETURN CALCULATE( COUNTROWS(gold_iot_fdd), gold_iot_fdd[event_date]=d )
+		formatString: #,##0
+		displayFolder: IoT (Page 8)
+		lineageTag: d161602b-1cda-4d78-b985-9998e9019979
+
+	measure 'IoT FDD Max Priority' = MAXX( gold_iot_fdd, gold_iot_fdd[priority_score] )
+		formatString: 0
+		displayFolder: IoT (Page 8)
+		lineageTag: 9ee15ce0-d008-4570-bc0f-414aea8d3180
+
+	measure 'IoT FDD Avg Confidence' = AVERAGE( gold_iot_fdd[confidence] )
+		formatString: 0.00
+		displayFolder: IoT (Page 8)
+		lineageTag: 7987b3bf-8f99-4793-9c5d-83a261aa738a
+
+	measure 'IoT FDD Avg Confidence Pct' = VAR c=[IoT FDD Avg Confidence] RETURN IF( ISBLANK(c), "--", FORMAT(c,"0%") )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: a830e64d-5058-479e-885b-39f0047cff9e
+
+	measure 'IoT FDD Energy Impact kWh Today' = VAR d=MAX(gold_iot_fdd[event_date]) RETURN CALCULATE( SUM(gold_iot_fdd[energy_impact_kwh]), gold_iot_fdd[event_date]=d )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: 11be104a-fe3b-445e-9b1c-35c0522bc41d
+
+	measure 'IoT FDD Row Confidence' = VAR c=AVERAGE(gold_iot_fdd[confidence]) RETURN IF( ISBLANK(c), "--", FORMAT(c,"0%") )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: 0fad13d9-147c-42a8-a82a-b2a49caa859a
+
+	measure 'IoT FDD Priority Band' = VAR p=MAX(gold_iot_fdd[priority_score]) RETURN SWITCH( TRUE(), ISBLANK(p),"--", p>=60,"Urgent", p>=35,"High", p>=20,"Medium", "Low" )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: d8ff4233-b44b-4cb2-8797-78e2f5761dc1
+
+	measure 'IoT FDD Priority Color' = VAR p=MAX(gold_iot_fdd[priority_score]) RETURN SWITCH( TRUE(), ISBLANK(p),"#AAAAAA", p>=60,"#FF4136", p>=35,"#FF851B", p>=20,"#FFDC00", "#2ECC40" )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: 27ef4497-113a-4dd4-8024-063f7f55bfc7
+
+	measure 'IoT FDD Row Cost Label' = VAR c=SUM(gold_iot_fdd[cost_eur_estimate]) RETURN IF( ISBLANK(c) || c=0, "--", "Est. EUR " & FORMAT(c,"0.00") )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: 3299128c-948c-4069-9408-56a41d8aad4f
+
+	measure 'IoT FDD Top Diagnosis' = VAR _top = TOPN(1, gold_iot_fdd, gold_iot_fdd[priority_score], DESC) RETURN CONCATENATEX( _top, gold_iot_fdd[equipment] & " — " & gold_iot_fdd[fault_code] & " (" & FORMAT(gold_iot_fdd[confidence], "0%") & ")", ", " )
+		formatString: #,##0.0
+		displayFolder: IoT Priority (v60)
+		lineageTag: d5403151-2b6e-4be4-a331-6def3295d058
+
+	measure 'PV Underperformance Count' = CALCULATE( COUNTROWS( gold_iot_fdd ), gold_iot_fdd[fault_code] = "PV_UNDERPERFORMANCE" )
+		formatString: #,##0
+		displayFolder: Solar - Realtime & Opportunity
+		lineageTag: 431c3b17-994d-4058-b701-01c3faba01dd
+
+	measure 'PV Loss EUR' = CALCULATE( SUM( gold_iot_fdd[cost_eur_estimate] ), gold_iot_fdd[fault_code] = "PV_UNDERPERFORMANCE" )
+		formatString: #,##0
+		displayFolder: Solar - Realtime & Opportunity
+		lineageTag: 249b6b23-dc86-4b16-a6e4-285d1ff174e8
+
+	measure 'IoT FDD Priority Sort' = MAX(gold_iot_fdd[priority_score])
+		formatString: 0
+		displayFolder: IoT (Page 8)
+		lineageTag: 427a2e46-288d-4724-a7ca-8a78aa626094
+
+	measure 'IoT Waste Cost EUR' = SUM( gold_iot_fdd[cost_eur_estimate] )
+		formatString: #,##0.00
+		displayFolder: IoT (Page 8)
+		lineageTag: f0eca948-d06c-43a6-a230-144badc0e2fc
+
+	measure 'IoT Waste Energy kWh' = SUM( gold_iot_fdd[energy_impact_kwh] )
+		formatString: #,##0.0
+		displayFolder: IoT (Page 8)
+		lineageTag: 23af83c9-5dd4-42a2-9dc0-46851057f8db
+
+	measure 'IoT Waste Cost EUR Annual Est' = VAR d=CALCULATE( DISTINCTCOUNT(gold_iot_fdd[event_date]) ) VAR w=SUM(gold_iot_fdd[cost_eur_estimate]) RETURN ROUND( DIVIDE(w,d) * 365, 0 )
+		formatString: #,##0
+		displayFolder: IoT (Page 8)
+		lineageTag: 2bef40cb-960f-45d3-a550-beef633ecb5d
+
+	measure 'IoT Waste Energy kWh Annual Est' = VAR d=CALCULATE( DISTINCTCOUNT(gold_iot_fdd[event_date]) ) VAR w=SUM(gold_iot_fdd[energy_impact_kwh]) RETURN ROUND( DIVIDE(w,d) * 365, 0 )
+		formatString: #,##0
+		displayFolder: IoT (Page 8)
+		lineageTag: e6586c43-d555-41be-bcdd-ea91ab7d795d
+
+	measure 'IoT FDD Severity Color' = VAR s=MAX(gold_iot_fdd[severity]) RETURN SWITCH( TRUE(), s="High","#FF4136", s="Medium","#FF851B", s="Low","#2ECC40", "#AAAAAA" )
+		displayFolder: IoT (Page 8)
+		lineageTag: 5c2740db-b1c0-4f2e-b251-e7f4aeb2eca5
+
+	measure 'IoT FDD Cost Heat' = VAR c=SUM(gold_iot_fdd[cost_eur_estimate]) RETURN SWITCH( TRUE(), ISBLANK(c) || c=0,"#777777", c>=20,"#FF4136", c>=8,"#FF851B", "#2ECC40" )
+		displayFolder: IoT (Page 8)
+		lineageTag: 31ba235b-bd2d-49f7-87c1-92b9bdeaf78d
+
+	measure 'IoT FDD Confidence Color' = VAR c=AVERAGE(gold_iot_fdd[confidence]) RETURN SWITCH( TRUE(), ISBLANK(c),"#AAAAAA", c>=0.8,"#2ECC40", c>=0.5,"#FFDC00", "#FF851B" )
+		displayFolder: IoT (Page 8)
+		lineageTag: 5d7baff9-e1a6-42cc-a5d8-c2437969b233
+
+	column building_id
+		dataType: string
+		lineageTag: 98490132-db58-4ba9-b99f-11500bf0a483
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column equipment
+		dataType: string
+		lineageTag: a0c658bf-1a3a-4fd2-aa57-d830bc40123e
+		sourceLineageTag: equipment
+		summarizeBy: none
+		sourceColumn: equipment
+
+		annotation SummarizationSetBy = Automatic
+
+	column equipment_type
+		dataType: string
+		lineageTag: 130c045b-a448-4e25-83ca-ca9cd5548d28
+		sourceLineageTag: equipment_type
+		summarizeBy: none
+		sourceColumn: equipment_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column point_group
+		dataType: string
+		lineageTag: 906411b2-5c91-4de0-a320-c3286e9bf5cb
+		sourceLineageTag: point_group
+		summarizeBy: none
+		sourceColumn: point_group
+
+		annotation SummarizationSetBy = Automatic
+
+	column fdd_rule
+		dataType: string
+		lineageTag: 81727dfd-0bd2-46d7-941c-9a4a67fc7086
+		sourceLineageTag: fdd_rule
+		summarizeBy: none
+		sourceColumn: fdd_rule
+
+		annotation SummarizationSetBy = Automatic
+
+	column fault_code
+		dataType: string
+		lineageTag: 090111a4-d643-43bf-ac2d-52d6bcc0f03d
+		sourceLineageTag: fault_code
+		summarizeBy: none
+		sourceColumn: fault_code
+
+		annotation SummarizationSetBy = Automatic
+
+	column severity
+		dataType: string
+		lineageTag: d1c59490-6e1e-40a2-b308-58ae422cee4d
+		sourceLineageTag: severity
+		summarizeBy: none
+		sourceColumn: severity
+
+		annotation SummarizationSetBy = Automatic
+
+	column confidence
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 5c4c96bf-e7ca-4254-a0a3-816c432f7c62
+		sourceLineageTag: confidence
+		summarizeBy: sum
+		sourceColumn: confidence
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column priority_score
+		dataType: int64
+		formatString: 0
+		lineageTag: 4c65f76e-e654-445a-ad91-184b86d9d35b
+		sourceLineageTag: priority_score
+		summarizeBy: sum
+		sourceColumn: priority_score
+
+		annotation SummarizationSetBy = Automatic
+
+	column description
+		dataType: string
+		lineageTag: 32d94450-8a61-44d8-8662-13b291b56905
+		sourceLineageTag: description
+		summarizeBy: none
+		sourceColumn: description
+
+		annotation SummarizationSetBy = Automatic
+
+	column probable_cause
+		dataType: string
+		lineageTag: 4d008674-4e07-4221-966a-545c3723f693
+		sourceLineageTag: probable_cause
+		summarizeBy: none
+		sourceColumn: probable_cause
+
+		annotation SummarizationSetBy = Automatic
+
+	column recommended_action
+		dataType: string
+		lineageTag: 7f0f2daa-2f09-42ea-8304-515a93d49323
+		sourceLineageTag: recommended_action
+		summarizeBy: none
+		sourceColumn: recommended_action
+
+		annotation SummarizationSetBy = Automatic
+
+	column occurrence_count
+		dataType: int64
+		formatString: 0
+		lineageTag: d1c17407-5d56-4572-a769-a854b8b9a9f1
+		sourceLineageTag: occurrence_count
+		summarizeBy: sum
+		sourceColumn: occurrence_count
+
+		annotation SummarizationSetBy = Automatic
+
+	column first_seen
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 44674fa2-5429-477f-8c28-a76c0d88c20a
+		sourceLineageTag: first_seen
+		summarizeBy: none
+		sourceColumn: first_seen
+
+		annotation SummarizationSetBy = Automatic
+
+	column last_seen
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 5faa8839-1de5-4b97-ae44-532a6aa9bcbc
+		sourceLineageTag: last_seen
+		summarizeBy: none
+		sourceColumn: last_seen
+
+		annotation SummarizationSetBy = Automatic
+
+	column timestamp
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 00d8bc49-ef37-4ef7-b7f4-7267609c6bf2
+		sourceLineageTag: timestamp
+		summarizeBy: none
+		sourceColumn: timestamp
+
+		annotation SummarizationSetBy = Automatic
+
+	column power_waste_kw
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 624a2d02-a0de-4947-9d54-97a101e6b5b9
+		sourceLineageTag: power_waste_kw
+		summarizeBy: sum
+		sourceColumn: power_waste_kw
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column energy_impact_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: a6025f55-b516-4451-b02f-fe8d0472d6e2
+		sourceLineageTag: energy_impact_kwh
+		summarizeBy: sum
+		sourceColumn: energy_impact_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column cost_eur_estimate
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 4b5cb0fa-9eba-4c4f-97ac-7792aac3f9fb
+		sourceLineageTag: cost_eur_estimate
+		summarizeBy: sum
+		sourceColumn: cost_eur_estimate
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column grid_price
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 7f20ee62-b062-42d5-88bb-a4263d5ce185
+		sourceLineageTag: grid_price
+		summarizeBy: sum
+		sourceColumn: grid_price
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column building_type
+		dataType: string
+		lineageTag: 0499502c-1f20-43eb-8c13-33b9380fab98
+		sourceLineageTag: building_type
+		summarizeBy: none
+		sourceColumn: building_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column event_date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: ab79e377-8a96-41b6-9c03-88aa51317449
+		sourceLineageTag: event_date
+		summarizeBy: none
+		sourceColumn: event_date
+
+		annotation SummarizationSetBy = Automatic
+
+	column detected_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 27d0dff6-7961-4e92-a753-5328f095a68e
+		sourceLineageTag: detected_at
+		summarizeBy: none
+		sourceColumn: detected_at
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_iot_fdd = entity
+		mode: directLake
+		source
+			entityName: gold_iot_fdd
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

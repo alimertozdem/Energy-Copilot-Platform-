@@ -1,0 +1,228 @@
+table gold_battery_daily_summary
+	lineageTag: 59f4db4c-14eb-4ffb-8eb6-1daa69404bf1
+	sourceLineageTag: [dbo].[gold_battery_daily_summary]
+
+	column date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: ee65a545-212e-4ee5-bc44-1d397f161823
+		sourceLineageTag: date
+		summarizeBy: none
+		sourceColumn: date
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_id
+		dataType: string
+		lineageTag: 7c145eeb-133d-4f55-ac65-117d2e55ac0f
+		sourceLineageTag: building_id
+		summarizeBy: none
+		sourceColumn: building_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column building_name
+		dataType: string
+		lineageTag: 6b754403-2b76-4428-bcad-c2b0e5c77e40
+		sourceLineageTag: building_name
+		summarizeBy: none
+		sourceColumn: building_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column country
+		dataType: string
+		lineageTag: d3871658-1762-4e56-bb8f-9a174935813b
+		sourceLineageTag: country
+		summarizeBy: none
+		sourceColumn: country
+
+		annotation SummarizationSetBy = Automatic
+
+	column strategy
+		dataType: string
+		lineageTag: 362dc4f8-e326-4cca-b826-10d06abdfcbe
+		sourceLineageTag: strategy
+		summarizeBy: none
+		sourceColumn: strategy
+
+		annotation SummarizationSetBy = Automatic
+
+	column battery_type
+		dataType: string
+		lineageTag: 791eaa7c-fddc-4847-8551-2986a8b58848
+		sourceLineageTag: battery_type
+		summarizeBy: none
+		sourceColumn: battery_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column eu_compliant
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: eeece776-774e-47ad-a439-733e6e9d66aa
+		sourceLineageTag: eu_compliant
+		summarizeBy: none
+		sourceColumn: eu_compliant
+
+		annotation SummarizationSetBy = Automatic
+
+	column avg_soc_start_percent
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 724ee1f3-2d1e-43fe-859c-dec2057f214b
+		sourceLineageTag: avg_soc_start_percent
+		summarizeBy: sum
+		sourceColumn: avg_soc_start_percent
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column avg_soc_end_percent
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 85c71b01-583b-4a4a-8e29-6ff8906e102a
+		sourceLineageTag: avg_soc_end_percent
+		summarizeBy: sum
+		sourceColumn: avg_soc_end_percent
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column charge_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 8b722925-79ae-49f1-94be-9eb8a692af61
+		sourceLineageTag: charge_kwh
+		summarizeBy: sum
+		sourceColumn: charge_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column discharge_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: dd7e5612-57cb-4d43-8f99-ad5c51cfd7c0
+		sourceLineageTag: discharge_kwh
+		summarizeBy: sum
+		sourceColumn: discharge_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column pv_generation_kwh
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 839e616d-94ec-4346-a6d6-9154cc991f68
+		sourceLineageTag: pv_generation_kwh
+		summarizeBy: sum
+		sourceColumn: pv_generation_kwh
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column round_trip_efficiency
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: da3e82fe-1a82-4ce5-a3c3-be19caaa084b
+		sourceLineageTag: round_trip_efficiency
+		summarizeBy: sum
+		sourceColumn: round_trip_efficiency
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column daily_net_savings_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 7a16221a-4891-4060-88e2-365b89baa0ec
+		sourceLineageTag: daily_net_savings_eur
+		summarizeBy: sum
+		sourceColumn: daily_net_savings_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column daily_co2_avoided_kg
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 357a8b90-e80b-4860-9377-d0b04416d299
+		sourceLineageTag: daily_co2_avoided_kg
+		summarizeBy: sum
+		sourceColumn: daily_co2_avoided_kg
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column total_cycles_cumulative
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: 2a5ef7ea-2261-4654-b87a-7cd543db11cb
+		sourceLineageTag: total_cycles_cumulative
+		summarizeBy: sum
+		sourceColumn: total_cycles_cumulative
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column total_cost_avoided_eur
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: bc33fd25-e6fc-4db1-a0c6-9e7e5d6ce3e9
+		sourceLineageTag: total_cost_avoided_eur
+		summarizeBy: sum
+		sourceColumn: total_cost_avoided_eur
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column total_co2_avoided_kg
+		dataType: double
+		formatString: #,##0.0
+		lineageTag: b57c6146-4169-4273-818c-5fce4ffb7fde
+		sourceLineageTag: total_co2_avoided_kg
+		summarizeBy: sum
+		sourceColumn: total_co2_avoided_kg
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column is_simulated
+		dataType: boolean
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		lineageTag: b69a8e8c-9e1f-4ded-9dae-8af9bb35cc01
+		sourceLineageTag: is_simulated
+		summarizeBy: none
+		sourceColumn: is_simulated
+
+		annotation SummarizationSetBy = Automatic
+
+	column processed_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 4d40458e-0cd8-463b-afe6-211992cb04b7
+		sourceLineageTag: processed_at
+		summarizeBy: none
+		sourceColumn: processed_at
+
+		annotation SummarizationSetBy = Automatic
+
+	partition gold_battery_daily_summary = entity
+		mode: directLake
+		source
+			entityName: gold_battery_daily_summary
+			schemaName: dbo
+			expressionSource: 'DirectLake - EnergyCopilotLakehouse'
+

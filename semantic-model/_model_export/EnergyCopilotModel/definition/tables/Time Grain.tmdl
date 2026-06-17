@@ -1,0 +1,49 @@
+table 'Time Grain'
+	lineageTag: e2dcacc6-e8ce-4938-bb50-7aa8cb160bff
+
+	column 'Time Grain'
+		lineageTag: ce3da372-0a89-4e81-9046-e1f3188ca640
+		summarizeBy: none
+		sourceColumn: [Value1]
+		sortByColumn: 'Time Grain Order'
+
+		relatedColumnDetails
+			groupByColumn: 'Time Grain Fields'
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Time Grain Fields'
+		isHidden
+		lineageTag: 49a69921-6e41-44fd-810c-1b69714bdb31
+		summarizeBy: none
+		sourceColumn: [Value2]
+		sortByColumn: 'Time Grain Order'
+
+		extendedProperty ParameterMetadata =
+				{
+				  "version": 3,
+				  "kind": 2
+				}
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Time Grain Order'
+		isHidden
+		formatString: 0
+		lineageTag: 531b6a4a-e3cd-41cd-9639-48669b3878be
+		summarizeBy: sum
+		sourceColumn: [Value3]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'Time Grain' = calculated
+		mode: import
+		source =
+				{
+				    ("hour_utc", NAMEOF('gold_kpi_hourly'[hour_utc]), 0),
+				    ("Date", NAMEOF('''Date'''[Date]), 1),
+				    ("YearMonth", NAMEOF('''Date'''[YearMonth]), 2)
+				}
+
+	annotation PBI_Id = 865390260e794706965e673a9e68ab3d
+
