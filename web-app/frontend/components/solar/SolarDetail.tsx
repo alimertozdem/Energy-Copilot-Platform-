@@ -6,6 +6,7 @@
 import type { SolarDetailResponse, SolarSeriesPoint, SolarSummary } from "@/lib/api/solar"
 import { InfoTip } from "@/components/ui/info-tip"
 import type { TermKey } from "@/lib/glossary"
+import { DataProvenanceBadge, type DataBasis } from "@/components/ui/DataProvenanceBadge"
 
 const AMBER = "#F59E0B"
 const EMERALD = "#1D9E75"
@@ -87,20 +88,23 @@ export function SolarDetail({ data }: { data: SolarDetailResponse }) {
 function DataBasisBadge({ summary }: { summary: SolarSummary }) {
   const live = summary.real_building_count
   const sim = summary.simulated_building_count
-  let cfg = { dot: "#6B7280", label: "Sample data — connect an inverter for live readings" }
-  if (summary.data_basis === "telemetry") {
-    cfg = { dot: EMERALD, label: `Live telemetry · ${live} building${live === 1 ? "" : "s"}` }
-  } else if (summary.data_basis === "simulated") {
-    cfg = { dot: "#3B82F6", label: `Simulated demo feed · ${sim} building${sim === 1 ? "" : "s"} — not a real device` }
-  } else if (summary.data_basis === "mixed") {
-    cfg = { dot: AMBER, label: `Mixed feed · ${live} live, ${sim} demo, rest sample` }
-  }
-  return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-bg-elevated/40 px-3 py-1 text-xs text-text-muted">
-      <span className="size-2 rounded-full" style={{ backgroundColor: cfg.dot }} />
-      {cfg.label}
-    </div>
-  )
+  const basis: DataBasis =
+    summary.data_basis === "telemetry"
+      ? "measured"
+      : summary.data_basis === "simulated"
+        ? "simulated"
+        : summary.data_basis === "mixed"
+          ? "mixed"
+          : "sample"
+  const detail =
+    basis === "measured"
+      ? `${live} building${live === 1 ? "" : "s"} live`
+      : basis === "simulated"
+        ? `${sim} demo building${sim === 1 ? "" : "s"}`
+        : basis === "mixed"
+          ? `${live} live · ${sim} demo`
+          : "connect an inverter for live readings"
+  return <DataProvenanceBadge basis={basis} detail={detail} />
 }
 
 function Stat({

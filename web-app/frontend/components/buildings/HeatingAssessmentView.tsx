@@ -11,6 +11,7 @@ import { Flame, Snowflake, Square, TrendingDown, CalendarClock, AlertTriangle, G
 import type { HeatingAssessment, HeatingMeasure } from "@/lib/api/heating"
 import { strandingYearForIntensity, crremSource, type StrandingStatus } from "@/lib/crrem"
 import { SubsidyPanel } from "@/components/buildings/SubsidyPanel"
+import { DataProvenanceBadge } from "@/components/ui/DataProvenanceBadge"
 
 function fmtEnergy(kwh: number): string {
   if (kwh >= 1_000_000) return `${(kwh / 1_000_000).toFixed(1)} GWh`
@@ -97,15 +98,7 @@ export function HeatingAssessmentView({ data, buildingId }: { data: HeatingAsses
         <div className="mb-3 flex items-center gap-2">
           <Flame className="h-4 w-4 text-amber-300" aria-hidden />
           <h2 className="text-sm font-semibold text-text-primary">Heat demand &amp; cost</h2>
-          <span
-            className={`rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
-              estimated
-                ? "border-amber-400/30 bg-amber-400/5 text-amber-300"
-                : "border-brand-emerald/30 bg-brand-emerald/5 text-brand-emerald"
-            }`}
-          >
-            {estimated ? "Estimated" : "From your data"}
-          </span>
+          <DataProvenanceBadge basis={estimated ? "estimated" : "measured"} />
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Tile

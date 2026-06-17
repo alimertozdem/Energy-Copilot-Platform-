@@ -11,6 +11,7 @@
 import { Sparkles } from "lucide-react"
 
 import type { BaselineEstimate } from "@/lib/api/baseline"
+import { DataProvenanceBadge } from "@/components/ui/DataProvenanceBadge"
 
 function fmtEnergy(kwh: number): string {
   if (kwh >= 1_000_000) return `${(kwh / 1_000_000).toFixed(1)} GWh`
@@ -47,9 +48,7 @@ export function EstimatedBaselineCard({ estimate }: { estimate: BaselineEstimate
           <Sparkles className="h-4 w-4 text-amber-300" aria-hidden />
           <h3 className="text-sm font-semibold text-text-primary">Estimated preview</h3>
         </div>
-        <span className="rounded border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-300">
-          Estimated
-        </span>
+        <DataProvenanceBadge basis="estimated" />
       </div>
 
       <p className="mb-3 text-xs text-text-muted">
