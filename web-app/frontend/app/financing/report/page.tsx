@@ -1,9 +1,9 @@
 /**
  * /financing/report — print-optimised subsidy application pack (Download as PDF).
  *
- * Server component, force-dynamic, auth-guarded. Reuses fetchActions — no new
- * backend, no Fabric change. Wraps FinancingReportDocument in the shared
- * ReportFrame (print stylesheet + branded header + PrintButton).
+ * Server component, force-dynamic, auth-guarded. Reads /financing/summary (the
+ * new finance_model engine — same data as the on-screen page). Wraps
+ * FinancingReportDocument in the shared ReportFrame (print stylesheet + header).
  */
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
@@ -11,7 +11,7 @@ import { getServerSession } from "next-auth"
 import { FinancingReportDocument } from "@/components/report/FinancingReportDocument"
 import { ReportFrame } from "@/components/report/reportKit"
 import { authOptions } from "@/lib/auth/options"
-import { fetchActions } from "@/lib/api/actions"
+import { fetchFinancingSummary } from "@/lib/api/financing"
 
 export const dynamic = "force-dynamic"
 
@@ -21,7 +21,7 @@ export default async function FinancingReportPage() {
     redirect("/")
   }
 
-  const result = await fetchActions(session.accessToken, { limit: 500 })
+  const result = await fetchFinancingSummary(session.accessToken)
 
   const generatedAt = new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
@@ -43,7 +43,7 @@ export default async function FinancingReportPage() {
       footerCenter="Indicative — verify against the live programme"
     >
       <FinancingReportDocument
-        actions={result.ok ? result.data.actions : []}
+        summary={result.ok ? result.data : null}
         error={result.ok ? null : result.error}
       />
     </ReportFrame>

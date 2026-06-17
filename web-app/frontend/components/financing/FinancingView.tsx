@@ -91,6 +91,17 @@ export function FinancingView({ summary }: { summary: FinancingSummary }) {
         <Card label="Net after grant" value={eur(p.total_net_after_grant_eur)} hint="grant-midpoint" />
       </div>
 
+      <div className="flex justify-end">
+        <Link
+          href="/financing/report"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-md border border-brand-emerald/40 bg-brand-emerald/5 px-3 py-1.5 text-sm font-medium text-brand-emerald transition-colors hover:border-brand-emerald hover:bg-brand-emerald/10"
+        >
+          Export application pack (PDF)
+        </Link>
+      </div>
+
       {/* Scenario NPV — the decision artifact */}
       {p.scenarios.length > 0 && (
         <section>
