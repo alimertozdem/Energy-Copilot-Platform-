@@ -212,6 +212,8 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
               buildingName={savedName}
               buildingId={savedId}
               dataMethod={data.data_method}
+              epcClass={data.epc_class || null}
+              heatingSystem={data.heating_system || null}
               onAddAnother={resetForAnother}
             />
           )}

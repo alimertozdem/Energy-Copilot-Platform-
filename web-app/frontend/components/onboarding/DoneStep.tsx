@@ -14,7 +14,16 @@
  *    is promoted to primary and we deep-link straight to the new building there.
  */
 import Link from "next/link"
-import { ArrowRight, CheckCircle2, Circle, Clock, Cpu, FileUp } from "lucide-react"
+import { ArrowRight, CheckCircle2, Circle, Clock, Cpu, FileUp, Sparkles } from "lucide-react"
+
+import { buildAdvisorInsights, type Insight } from "@/lib/insights/buildingAdvisor"
+
+const SEV_DOT: Record<Insight["severity"], string> = {
+  action: "bg-red-400",
+  watch: "bg-amber-400",
+  info: "bg-sky-400",
+  good: "bg-brand-emerald",
+}
 
 function Step({
   state,
@@ -44,11 +53,15 @@ export function DoneStep({
   buildingName,
   buildingId,
   dataMethod,
+  epcClass,
+  heatingSystem,
   onAddAnother,
 }: {
   buildingName: string
   buildingId?: string
   dataMethod?: string | null
+  epcClass?: string | null
+  heatingSystem?: string | null
   onAddAnother: () => void
 }) {
   // Deep-link to the building's own page (where the no-hardware baseline upload
@@ -65,6 +78,15 @@ export function DoneStep({
   // The user's stated intent in the wizard. "live" → promote the device-wiring
   // path; everything else keeps the hardware-free upload path primary.
   const isLive = dataMethod === "live"
+
+  // Immediate value: what the declared EPC + heating already tell us (advisor
+  // profile path — no data upload needed). Brings the "aha" forward to step 5.
+  const teaser = buildAdvisorInsights({
+    kpis: null,
+    topActions: [],
+    isResidential: false,
+    profile: { epc_class: epcClass ?? null, heating_system: heatingSystem ?? null },
+  }).slice(0, 2)
 
   return (
     <div className="text-center">
@@ -89,6 +111,34 @@ export function DoneStep({
           </>
         )}
       </p>
+
+      {teaser.length > 0 && (
+        <div className="mx-auto mb-6 max-w-sm space-y-2 text-left">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-text-faint">
+            <Sparkles className="h-3 w-3" aria-hidden /> What we can already tell you
+          </div>
+          {teaser.map((ins) => (
+            <div key={ins.id} className="rounded-lg border border-border-subtle bg-bg-elevated/40 p-3">
+              <div className="flex items-center gap-1.5">
+                <span className={`h-1.5 w-1.5 rounded-full ${SEV_DOT[ins.severity]}`} aria-hidden />
+                <span className="text-[13px] font-medium text-text-primary">{ins.title}</span>
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-text-muted">{ins.detail}</p>
+              {ins.href && ins.cta && (
+                <Link
+                  href={ins.href}
+                  className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-brand-emerald hover:underline"
+                >
+                  {ins.cta} <ArrowRight className="h-3 w-3" aria-hidden />
+                </Link>
+              )}
+            </div>
+          ))}
+          <p className="text-[10px] text-text-faint">
+            From your declared EPC &amp; heating — add a baseline for the full picture.
+          </p>
+        </div>
+      )}
 
       {/* What happens next — adapts to the chosen data path. */}
       <div className="mx-auto mb-6 max-w-xs space-y-2.5 text-left">
