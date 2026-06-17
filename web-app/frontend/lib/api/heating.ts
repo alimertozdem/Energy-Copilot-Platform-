@@ -4,14 +4,18 @@
  */
 export type HeatingDemand = {
   heating_kwh: number
+  heating_kwh_low: number
+  heating_kwh_high: number
   heating_eui_kwh_m2: number | null
   heating_share_pct: number
   total_kwh: number
   basis: "measured" | "estimated" | "unknown"
+  band_pct: number
 }
 
 export type HeatingSupply = {
   fuel_type: string
+  fuel_assumed: boolean
   heat_cost_eur: number
   heat_co2_kg: number
   price_eur_kwh: number
@@ -30,12 +34,35 @@ export type HeatingMeasure = {
   label: string
   tier: string
   saving_kwh: number | null
+  saving_kwh_gross: number | null
   saving_eur: number
   saving_co2_kg: number
   capex_gross: number
   capex_net: number
   payback_years: number | null
   note: string
+}
+
+export type HeatingPackageStep = {
+  key: string
+  label: string
+  tier: string
+  cumulative_reduction_pct: number
+  cumulative_capex_net: number
+  cumulative_saving_eur: number
+  cumulative_co2_saved_kg: number
+  heating_eui_after: number | null
+  payback_years: number | null
+}
+
+export type HeatingPackageFull = {
+  reduction_pct: number
+  capex_net: number
+  saving_eur: number
+  co2_saved_kg: number
+  payback_years: number | null
+  eui_before: number | null
+  eui_after: number | null
 }
 
 export type HeatingAssessment = {
@@ -47,6 +74,8 @@ export type HeatingAssessment = {
     realistic_reduction_low_pct: number
     realistic_reduction_high_pct: number
     note: string
+    steps: HeatingPackageStep[]
+    full: HeatingPackageFull | null
   }
   assumptions: Record<string, string>
 }
