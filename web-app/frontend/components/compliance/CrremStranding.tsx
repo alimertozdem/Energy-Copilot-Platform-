@@ -13,6 +13,8 @@ import { CrremSparkline } from "@/components/compliance/CrremSparkline"
 
 import type { PortfolioBuildingRow } from "@/lib/api/portfolio"
 import {
+  crremSource,
+  crremVersion,
   PATHWAY_END_YEAR,
   PATHWAY_START_YEAR,
   summarizeStranding,
@@ -93,13 +95,23 @@ export function CrremStranding({ buildings }: { buildings: PortfolioBuildingRow[
       </div>
 
       <div className="rounded-lg border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm text-sky-200/90">
-        <span className="font-medium">Illustrative pathways.</span> These 1.5°C
-        curves are indicative, not the official licensed CRREM dataset (available
-        via a CRREM License Partner agreement). The method is CRREM-standard; only
-        the curve values are placeholders, swappable from one module. Carbon
-        intensity is annualised from a 30-day window, so a heating- or
-        cooling-heavy month can shift the stranding year — read it as
-        indicative.
+        {crremSource() === "official" ? (
+          <>
+            <span className="font-medium">Official CRREM pathways ({crremVersion()}).</span> Licensed
+            1.5°C curves. Carbon intensity is annualised from a 30-day window, so a heating- or
+            cooling-heavy month can shift the stranding year — read it as indicative.
+          </>
+        ) : (
+          <>
+            <span className="font-medium">Illustrative pathways.</span> These 1.5°C
+            curves are indicative, not the official licensed CRREM dataset (available
+            via a CRREM License Partner agreement). The method is CRREM-standard; only
+            the curve values are placeholders, swappable from one module. Carbon
+            intensity is annualised from a 30-day window, so a heating- or
+            cooling-heavy month can shift the stranding year — read it as
+            indicative.
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

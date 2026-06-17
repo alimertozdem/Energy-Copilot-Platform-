@@ -9,7 +9,7 @@ import Link from "next/link"
 import { Flame, Snowflake, Square, TrendingDown, CalendarClock, AlertTriangle, Gauge, BadgeCheck, ArrowRight } from "lucide-react"
 
 import type { HeatingAssessment, HeatingMeasure } from "@/lib/api/heating"
-import { strandingYearForIntensity, type StrandingStatus } from "@/lib/crrem"
+import { strandingYearForIntensity, crremSource, type StrandingStatus } from "@/lib/crrem"
 import { SubsidyPanel } from "@/components/buildings/SubsidyPanel"
 
 function fmtEnergy(kwh: number): string {
@@ -345,8 +345,10 @@ export function HeatingAssessmentView({ data, buildingId }: { data: HeatingAsses
             <p className="mt-2 text-xs text-brand-emerald">The package delays stranding by ~{delay} {delay === 1 ? "year" : "years"}.</p>
           )}
           <p className="mt-2 text-[11px] leading-relaxed text-text-faint">
-            Indicative 1.5&deg;C pathway (not the licensed CRREM dataset) vs the building&rsquo;s {c.basis}
-            {" "}whole-building carbon (heating + non-heating electricity). The package cuts heating carbon
+            {crremSource() === "official"
+              ? "Official CRREM 1.5\u00b0C pathway"
+              : "Indicative 1.5\u00b0C pathway (not the licensed CRREM dataset)"}{" "}
+            vs the building&rsquo;s {c.basis} whole-building carbon (heating + non-heating electricity). The package cuts heating carbon
             only &mdash; for an electricity-heavy building, decarbonising power matters too.{" "}
             <Link href="/compliance" className="text-brand-emerald hover:underline">Compliance &amp; CRREM</Link>
           </p>
