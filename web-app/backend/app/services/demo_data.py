@@ -41,7 +41,7 @@ from datetime import date, timedelta
 
 import pyodbc
 
-from app.integrations import fabric_sql, pbi_embed
+from app.integrations import fabric_sql, gold_read, pbi_embed
 from app.schemas.demo import DemoBuilding, DemoBuildingsResponse, DemoEmbedTokenResponse
 
 logger = logging.getLogger(__name__)
@@ -174,7 +174,7 @@ def _get_demo_buildings_from_fabric() -> DemoBuildingsResponse:
         f"FROM [dbo].[gold_kpi_daily] "
         f"WHERE building_id IN ({ph})"
     )
-    anchor: date | None = fabric_sql.execute_scalar(anchor_sql, ids_params)
+    anchor: date | None = gold_read.scalar(anchor_sql, ids_params)
 
     if anchor is None:
         start_date = end_date = date.today()
@@ -212,7 +212,7 @@ def _get_demo_buildings_from_fabric() -> DemoBuildingsResponse:
         *ids_params,                             # outer WHERE
     )
 
-    rows = fabric_sql.execute_query(sql, params)
+    rows = gold_read.query(sql, params)
     buildings = [
         DemoBuilding(
             fabric_building_id=r["building_id"],
@@ -248,7 +248,7 @@ def _all_demo_visible_building_ids() -> list[str]:
     renders the core six.
     """
     try:
-        rows = fabric_sql.execute_query(
+        rows = gold_read.query(
             "SELECT DISTINCT building_id FROM [dbo].[silver_building_master] "
             "WHERE building_id IS NOT NULL"
         )

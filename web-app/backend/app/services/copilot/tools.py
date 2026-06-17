@@ -30,7 +30,7 @@ from sqlalchemy import select
 
 from app.db.models.recommendation import RecommendationStatus
 from app.db.models.building import Building
-from app.integrations import fabric_sql
+from app.integrations import fabric_sql, gold_read
 from app.services.llm import ToolDefinition
 
 # =====================================================================
@@ -152,7 +152,7 @@ def query_kpi(
 
     # Anchor to MAX(date) for this building — see portfolio_metrics.py rationale.
     anchor_sql = "SELECT MAX([date]) FROM [dbo].[gold_kpi_daily] WHERE building_id = ?"
-    anchor = fabric_sql.execute_scalar(anchor_sql, (building_id,))
+    anchor = gold_read.scalar(anchor_sql, (building_id,))
     if anchor is None:
         return {
             "error": f"No KPI data found for building '{building_id}'.",
@@ -193,7 +193,7 @@ def query_kpi(
         area.building_name AS name
     FROM cur CROSS JOIN prev CROSS JOIN area
     """
-    rows = fabric_sql.execute_query(
+    rows = gold_read.query(
         sql,
         (
             building_id, cur_start, cur_end,
@@ -314,7 +314,7 @@ def compare_buildings(
         f"SELECT MAX([date]) FROM [dbo].[gold_kpi_daily] "
         f"WHERE building_id IN ({ph})"
     )
-    anchor = fabric_sql.execute_scalar(anchor_sql, params)
+    anchor = gold_read.scalar(anchor_sql, params)
     if anchor is None:
         return {"error": "No KPI data for the requested buildings."}
 
@@ -337,7 +337,7 @@ def compare_buildings(
     WHERE b.building_id IN ({ph})
     GROUP BY b.building_id, b.building_name, b.city, b.gross_floor_area_m2
     """
-    rows = fabric_sql.execute_query(sql, (cur_start, anchor, *params))
+    rows = gold_read.query(sql, (cur_start, anchor, *params))
 
     items: list[dict[str, Any]] = []
     for r in rows:
@@ -464,7 +464,7 @@ def list_recommendations(
     WHERE building_id = ?{where_extra}
     ORDER BY priority_sort_order ASC, ISNULL(priority_score, 0) DESC
     """
-    rows = fabric_sql.execute_query(sql, (limit, *params))
+    rows = gold_read.query(sql, (limit, *params))
 
     def _synth_id(building: str, rank: Any) -> str:
         """Synthetic recommendation identifier — unique within (org, building)."""
@@ -592,7 +592,7 @@ def get_anomalies(
         "SELECT MAX(detected_at) FROM [dbo].[gold_anomaly_log] "
         "WHERE building_id = ?"
     )
-    anchor = fabric_sql.execute_scalar(anchor_sql, (building_id,))
+    anchor = gold_read.scalar(anchor_sql, (building_id,))
     if anchor is None:
         return {
             "building_id": building_id,
@@ -634,7 +634,7 @@ def get_anomalies(
       {sev_clause}
     ORDER BY detected_at DESC
     """
-    rows = fabric_sql.execute_query(sql, tuple(params))
+    rows = gold_read.query(sql, tuple(params))
 
     # Severity distribution (across full window, not just TOP N)
     dist_sql = f"""
@@ -645,7 +645,7 @@ def get_anomalies(
       {resolved_clause}
     GROUP BY severity
     """
-    dist_rows = fabric_sql.execute_query(dist_sql, (building_id, window_start))
+    dist_rows = gold_read.query(dist_sql, (building_id, window_start))
     by_sev = {r["severity"]: int(r["n"]) for r in dist_rows}
 
     def _deviation_pct(metric: Any, threshold: Any) -> float | None:
@@ -780,7 +780,7 @@ def simulate_battery_scenario(
     ORDER BY ISNULL(npv_10yr_eur, 0) DESC
     """
     try:
-        rows = fabric_sql.execute_query(sql, tuple(params))
+        rows = gold_read.query(sql, tuple(params))
     except Exception as exc:
         # Defensive: schema could still drift over time. Surface to the LLM
         # so it can apologize instead of crashing the stream.
