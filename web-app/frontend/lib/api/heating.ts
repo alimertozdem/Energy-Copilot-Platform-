@@ -58,11 +58,24 @@ export type HeatingPackageStep = {
 export type HeatingPackageFull = {
   reduction_pct: number
   capex_net: number
+  capex_net_low: number
+  capex_net_high: number
   saving_eur: number
   co2_saved_kg: number
   payback_years: number | null
+  payback_years_low: number | null
+  payback_years_high: number | null
+  payback_years_2030_carbon: number | null
   eui_before: number | null
   eui_after: number | null
+}
+
+export type HeatingPackageSensitivity = {
+  capex_band_pct: number
+  value_band_pct: number
+  carbon_price_now: number
+  carbon_price_2030: number
+  note: string
 }
 
 export type HeatingCarbon = {
@@ -80,6 +93,18 @@ export type HeatingRegulation = {
   note: string
 }
 
+export type HeatingEpc = {
+  scale: string
+  eui_now_kwh_m2: number | null
+  eui_after_kwh_m2: number | null
+  class_now: string | null
+  class_after: string | null
+  meps_milestone: "2030" | "2033" | null
+  clears_meps: boolean
+  anchored_to_epc: boolean
+  basis: "measured" | "estimated" | "unknown"
+}
+
 export type HeatingAssessment = {
   demand: HeatingDemand
   supply: HeatingSupply
@@ -91,9 +116,11 @@ export type HeatingAssessment = {
     note: string
     steps: HeatingPackageStep[]
     full: HeatingPackageFull | null
+    sensitivity?: HeatingPackageSensitivity | null
   }
   carbon: HeatingCarbon
   regulation: HeatingRegulation
+  epc: HeatingEpc
   assumptions: Record<string, string>
 }
 
@@ -140,6 +167,16 @@ export type ComfortAssessment = {
   humidity: { avg: number; in_band_pct: number; samples: number } | null
   delta_t: number | null
   operational_hint: string | null
+  actions: ComfortAction[]
+}
+
+export type ComfortAction = {
+  key: string
+  kind: "savings" | "comfort" | "iaq"
+  title: string
+  detail: string
+  saving_pct_low: number | null
+  saving_pct_high: number | null
 }
 
 export async function fetchBuildingComfortServer(

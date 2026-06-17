@@ -63,11 +63,24 @@ class PackageStep(BaseModel):
 class PackageFull(BaseModel):
     reduction_pct: float
     capex_net: float
+    capex_net_low: float
+    capex_net_high: float
     saving_eur: float
     co2_saved_kg: float
     payback_years: float | None
+    payback_years_low: float | None
+    payback_years_high: float | None
+    payback_years_2030_carbon: float | None
     eui_before: float | None
     eui_after: float | None
+
+
+class PackageSensitivity(BaseModel):
+    capex_band_pct: float
+    value_band_pct: float
+    carbon_price_now: float
+    carbon_price_2030: float
+    note: str
 
 
 class HeatingPackage(BaseModel):
@@ -76,6 +89,7 @@ class HeatingPackage(BaseModel):
     note: str
     steps: list[PackageStep]
     full: PackageFull | None
+    sensitivity: PackageSensitivity | None = None
 
 
 class HeatingCarbon(BaseModel):
@@ -93,6 +107,18 @@ class HeatingRegulation(BaseModel):
     note: str
 
 
+class HeatingEpc(BaseModel):
+    scale: str
+    eui_now_kwh_m2: float | None
+    eui_after_kwh_m2: float | None
+    class_now: str | None
+    class_after: str | None
+    meps_milestone: str | None   # "2030" | "2033" | None
+    clears_meps: bool
+    anchored_to_epc: bool
+    basis: str
+
+
 class HeatingAssessmentResponse(BaseModel):
     demand: HeatingDemand
     supply: HeatingSupply
@@ -101,4 +127,5 @@ class HeatingAssessmentResponse(BaseModel):
     package: HeatingPackage
     carbon: HeatingCarbon
     regulation: HeatingRegulation
+    epc: HeatingEpc
     assumptions: dict[str, str]

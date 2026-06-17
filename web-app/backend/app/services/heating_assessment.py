@@ -89,6 +89,8 @@ PACKAGE_MAX_REDUCTION = 0.72
 # Uncertainty band (+/-) on screening figures: wider when estimated, tighter when metered.
 RANGE_EST = 0.25
 RANGE_MEAS = 0.10
+CAPEX_BAND = 0.30          # +/- on screening CapEx (archetype per-m2 -> wide)
+CARBON_PRICE_2030_T = 149.0  # EUR/t CO2, nEHS/ETS2 trajectory (sensitivity scenario)
 
 # GEG Anlage 7 component U-limits (W/m2K) — also the retrofit "after" targets.
 GEG_LIMIT = {"wall": 0.24, "roof": 0.20, "window": 1.30}
@@ -103,6 +105,42 @@ CAPEX_PER_M2 = {"wall": 160.0, "roof": 40.0, "window": 443.0}
 ENVELOPE_SUBSIDY = 0.20  # BAFA BEG + iSFP bonus
 OP_CAPEX_PER_M2_FLOOR = 3.0  # hydraulic balancing + curve, per m2 floor (realistic commercial)
 OP_SUBSIDY = 0.15            # BAFA Heizungsoptimierung (Einzelmassnahme)
+
+# German Energieausweis (Endenergie) class upper bounds, kWh/m2.yr (public scale).
+# Indicative for non-residential (no national letter scale); residential-calibrated.
+EPC_BANDS = [(30, "A+"), (50, "A"), (75, "B"), (100, "C"),
+             (130, "D"), (160, "E"), (200, "F"), (250, "G")]
+_MEPS_WORST = {"F", "G", "H"}  # EPBD renovation-priority bands (triage)
+
+
+def _epc_class(eui: float | None) -> str | None:
+    if eui is None:
+        return None
+    for hi, label in EPC_BANDS:
+        if eui < hi:
+            return label
+    return "H"
+
+
+def _meps_milestone(cls: str | None) -> str | None:
+    # Same EPBD triage as the /compliance module: G->2030, F->2033.
+    if cls in ("G", "H"):
+        return "2030"
+    if cls == "F":
+        return "2033"
+    return None
+
+
+_EPC_LETTERS = ["A+", "A", "B", "C", "D", "E", "F", "G", "H"]
+
+
+def _norm_epc(v) -> str | None:
+    if not v:
+        return None
+    t = str(v).strip().upper()
+    if t.startswith("A+"):
+        return "A+"
+    return t[:1] if t[:1] in _EPC_LETTERS else None
 
 
 def _f(v: Any) -> float | None:
@@ -155,6 +193,7 @@ def assess(building, consumption_annual_kwh: float | None) -> dict:
     # fabric measures and to sequence the package on the actual load.
     thermal_demand_kwh = heating_kwh * (JAZ if hp else ETA_GAS)
     fabric_cap_kwh = FABRIC_ADDRESSABLE_SHARE * thermal_demand_kwh  # thermal
+    band = RANGE_MEAS if demand_basis == "measured" else RANGE_EST
 
     # --- fuel model -------------------------------------------------------
     # heating_kwh is the heating energy AS METERED in the building's fuel. Cost/CO2 =
@@ -290,7 +329,7 @@ def assess(building, consumption_annual_kwh: float | None) -> dict:
     # switch is excluded from the reduction stack (it changes carrier, not demand).
     package = _build_package(
         measures, thermal_demand_kwh, heating_kwh, area, heating_eui,
-        price, factor, co2_price_kwh, _fuel_saved_from_thermal)
+        price, factor, co2_price_kwh, _fuel_saved_from_thermal, band)
 
     # --- CRREM carbon intensity (stranding year is derived on the FE from lib/crrem.ts) ---
     # Whole-building operational carbon = heating fuel carbon + non-heating electricity
@@ -327,13 +366,40 @@ def assess(building, consumption_annual_kwh: float | None) -> dict:
         geg = {"status": "met",
                "note": "Non-fossil / electric heating — the GEG section 71 65%-renewable rule is already met for replacements."}
 
+    # --- EPC class & EPBD MEPS (whole-building final-energy intensity) ----------
+    # Energieausweis is whole-building Endenergie, not heating-only. Map the building's
+    # total EUI now and after the package's heating cut to the German class scale.
+    eui_now = (total_kwh / area) if area else None
+    total_after = total_kwh - (heating_kwh * reduction_frac)
+    eui_after = (total_after / area) if area else None
+    class_now_est = _epc_class(eui_now)
+    class_after_est = _epc_class(eui_after)
+    on_file = _norm_epc(getattr(building, "epc_class", None))
+    # Anchor to the registered Energieausweis when on file (authoritative): keep the
+    # PACKAGE'S band-improvement (computed from the EUI cut) but apply it from the real
+    # current class. Else fall back to the EUI-estimated bands.
+    if on_file and class_now_est and class_after_est:
+        delta = _EPC_LETTERS.index(class_after_est) - _EPC_LETTERS.index(class_now_est)
+        after_idx = min(len(_EPC_LETTERS) - 1, max(0, _EPC_LETTERS.index(on_file) + delta))
+        class_now, class_after, anchored = on_file, _EPC_LETTERS[after_idx], True
+    else:
+        class_now, class_after, anchored = class_now_est, class_after_est, False
+    epc = {
+        "scale": "DE_Energieausweis",
+        "eui_now_kwh_m2": round(eui_now, 1) if eui_now else None,
+        "eui_after_kwh_m2": round(eui_after, 1) if eui_after else None,
+        "class_now": class_now,
+        "class_after": class_after,
+        "meps_milestone": _meps_milestone(class_now),
+        "clears_meps": bool(class_now in _MEPS_WORST and class_after not in _MEPS_WORST),
+        "anchored_to_epc": anchored,
+        "basis": demand_basis,
+    }
+
     # strip internal helper keys
     for m in measures:
         m.pop("_thermal_useful", None)
         m.pop("_capex_net", None)
-
-    # --- uncertainty band -------------------------------------------------
-    band = RANGE_MEAS if demand_basis == "measured" else RANGE_EST
 
     return {
         "demand": {
@@ -359,6 +425,7 @@ def assess(building, consumption_annual_kwh: float | None) -> dict:
         "package": package,
         "carbon": carbon,
         "regulation": geg,
+        "epc": epc,
         "assumptions": {
             "method": "Transmission GROSS: dU x A x Gt x 24 / 1000 / eta (Gt=3500, eta=0.90); delivered = GROSS x gain-utilisation. Operational 7-11%. HP via JAZ 3.0.",
             "grade": "Screening-grade / indicative — a building audit replaces these before commitment.",
@@ -370,7 +437,7 @@ def assess(building, consumption_annual_kwh: float | None) -> dict:
 
 
 def _build_package(measures, thermal_demand_kwh, heating_kwh, area, heating_eui,
-                   price, factor, co2_price_kwh, fuel_saved_from_thermal) -> dict:
+                   price, factor, co2_price_kwh, fuel_saved_from_thermal, band) -> dict:
     """Sequence demand-reducing measures on the remaining load; report cumulative
     capex/saving/EUI per step + the full-package outcome, clamped to a realistic
     ceiling. Returns a JSON-safe dict (no internal keys)."""
@@ -422,14 +489,34 @@ def _build_package(measures, thermal_demand_kwh, heating_kwh, area, heating_eui,
         })
 
     last = steps[-1]
+    cap = last["cumulative_capex_net"]
+    ann = last["cumulative_saving_eur"] + last["cumulative_co2_saved_kg"] * co2_price_kwh
+    ann_2030 = last["cumulative_saving_eur"] + last["cumulative_co2_saved_kg"] * (CARBON_PRICE_2030_T / 1000.0)
+    # Payback range: CapEx +/-CAPEX_BAND and annual value -/+ the demand band (best case =
+    # low capex + high saving; worst = high capex + low saving). 2030 carbon = sensitivity.
+    pb_low = (cap * (1 - CAPEX_BAND)) / (ann * (1 + band)) if ann > 0 else None
+    pb_high = (cap * (1 + CAPEX_BAND)) / (ann * (1 - band)) if ann > 0 else None
+    pb_2030 = (cap / ann_2030) if ann_2030 > 0 else None
     base["steps"] = steps
     base["full"] = {
         "reduction_pct": last["cumulative_reduction_pct"],
-        "capex_net": last["cumulative_capex_net"],
+        "capex_net": cap,
+        "capex_net_low": round(cap * (1 - CAPEX_BAND)),
+        "capex_net_high": round(cap * (1 + CAPEX_BAND)),
         "saving_eur": last["cumulative_saving_eur"],
         "co2_saved_kg": last["cumulative_co2_saved_kg"],
         "payback_years": last["payback_years"],
+        "payback_years_low": round(pb_low, 1) if pb_low else None,
+        "payback_years_high": round(pb_high, 1) if pb_high else None,
+        "payback_years_2030_carbon": round(pb_2030, 1) if pb_2030 else None,
         "eui_before": round(heating_eui, 1) if heating_eui else None,
         "eui_after": last["heating_eui_after"],
+    }
+    base["sensitivity"] = {
+        "capex_band_pct": round(CAPEX_BAND * 100),
+        "value_band_pct": round(band * 100),
+        "carbon_price_now": round(CARBON_PRICE_T),
+        "carbon_price_2030": round(CARBON_PRICE_2030_T),
+        "note": "Payback range = CapEx +/-30% (screening) and energy-saving band; the low end uses the 2030 carbon price (~149 EUR/t), which raises the value of CO2 saved.",
     }
     return base

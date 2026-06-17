@@ -79,7 +79,9 @@ export default async function HvacPage({ searchParams }: PageProps) {
         {cop && <CopCard cop={cop} buildingId={selected} />}
 
         {/* Comfort / operation analytics: live IoT */}
-        {comfort && <ComfortPanel comfort={comfort} buildingId={selected} />}
+        {comfort && (
+          <ComfortPanel comfort={comfort} buildingId={selected} heatCostEur={heating?.supply.heat_cost_eur ?? null} />
+        )}
       </div>
     </AppChrome>
   )

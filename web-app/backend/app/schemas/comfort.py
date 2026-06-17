@@ -29,6 +29,15 @@ class HumidityComfort(BaseModel):
     samples: int
 
 
+class ComfortAction(BaseModel):
+    key: str
+    kind: str  # savings | comfort | iaq
+    title: str
+    detail: str
+    saving_pct_low: float | None
+    saving_pct_high: float | None
+
+
 class ComfortResponse(BaseModel):
     has_data: bool
     window_hours: int
@@ -38,3 +47,4 @@ class ComfortResponse(BaseModel):
     humidity: HumidityComfort | None
     delta_t: float | None
     operational_hint: str | None
+    actions: list[ComfortAction] = []

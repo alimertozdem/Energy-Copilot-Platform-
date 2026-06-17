@@ -24,9 +24,11 @@ function Bar({ segments }: { segments: { pct: number; cls: string }[] }) {
 export function ComfortPanel({
   comfort,
   buildingId,
+  heatCostEur,
 }: {
   comfort: ComfortAssessment
   buildingId: string
+  heatCostEur?: number | null
 }) {
   const connectHref = `/connections?building_id=${encodeURIComponent(buildingId)}`
 
@@ -117,10 +119,52 @@ export function ComfortPanel({
         )}
       </div>
 
-      {comfort.operational_hint && (
-        <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-400/30 bg-amber-400/5 px-3 py-2 text-[11px] text-amber-200">
-          <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>{comfort.operational_hint}</span>
+      {comfort.actions && comfort.actions.length > 0 && (
+        <div className="mt-3 space-y-2">
+          <div className="text-[11px] font-medium uppercase tracking-wide text-text-faint">
+            Operational actions — low / no CapEx
+          </div>
+          {comfort.actions.map((a) => {
+            const tone =
+              a.kind === "savings"
+                ? "border-brand-emerald/25 bg-brand-emerald/5"
+                : a.kind === "comfort"
+                  ? "border-amber-400/25 bg-amber-400/5"
+                  : "border-sky-400/25 bg-sky-400/5"
+            const hasEur =
+              a.kind === "savings" && a.saving_pct_low != null && a.saving_pct_high != null && heatCostEur != null && heatCostEur > 0
+            const eurLow = hasEur ? Math.round((heatCostEur as number) * (a.saving_pct_low as number) / 100) : null
+            const eurHigh = hasEur ? Math.round((heatCostEur as number) * (a.saving_pct_high as number) / 100) : null
+            return (
+              <div key={a.key} className={`flex items-start gap-2 rounded-md border px-3 py-2 ${tone}`}>
+                <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                    <span className="text-xs font-medium text-text-primary">{a.title}</span>
+                    {hasEur ? (
+                      <span className="text-xs font-semibold tabular-nums text-brand-emerald">
+                        €{new Intl.NumberFormat("en-US").format(eurLow as number)}–€
+                        {new Intl.NumberFormat("en-US").format(eurHigh as number)}/yr
+                        <span className="ml-1 text-[10px] font-normal text-text-faint">
+                          ({a.saving_pct_low}–{a.saving_pct_high}%)
+                        </span>
+                      </span>
+                    ) : a.kind === "savings" && a.saving_pct_low != null ? (
+                      <span className="text-[10px] text-text-faint">{a.saving_pct_low}–{a.saving_pct_high}% heating</span>
+                    ) : (
+                      <span className="text-[10px] uppercase tracking-wide text-text-faint">
+                        {a.kind === "iaq" ? "air quality" : "comfort"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-[11px] leading-relaxed text-text-faint">{a.detail}</div>
+                </div>
+              </div>
+            )
+          })}
+          <p className="text-[10px] text-text-faint">
+            Operational tuning — overlaps the package&rsquo;s hydraulic-balancing (T0) step; don&rsquo;t add it on top of the retrofit total.
+          </p>
         </div>
       )}
 

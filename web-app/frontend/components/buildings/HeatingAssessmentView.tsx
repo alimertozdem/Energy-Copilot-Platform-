@@ -6,10 +6,11 @@
  * artifact) shows the realistic combined outcome — not additive single rows.
  */
 import Link from "next/link"
-import { Flame, Snowflake, Square, TrendingDown, CalendarClock, AlertTriangle } from "lucide-react"
+import { Flame, Snowflake, Square, TrendingDown, CalendarClock, AlertTriangle, Gauge, BadgeCheck, ArrowRight } from "lucide-react"
 
 import type { HeatingAssessment, HeatingMeasure } from "@/lib/api/heating"
 import { strandingYearForIntensity, type StrandingStatus } from "@/lib/crrem"
+import { SubsidyPanel } from "@/components/buildings/SubsidyPanel"
 
 function fmtEnergy(kwh: number): string {
   if (kwh >= 1_000_000) return `${(kwh / 1_000_000).toFixed(1)} GWh`
@@ -27,6 +28,13 @@ function strandLabel(strandingYear: number | null, status: StrandingStatus): str
   if (status === "stranded_now") return "Stranded now"
   if (status === "on_track") return "On track to 2050"
   return `Strands ${strandingYear}`
+}
+function epcTone(cls: string | null): string {
+  if (!cls) return "text-text-muted border-border-subtle bg-white/[0.02]"
+  const c = cls.charAt(0)
+  if (c === "F" || c === "G" || c === "H") return "text-red-300 border-red-400/30 bg-red-400/5"
+  if (c === "D" || c === "E") return "text-amber-300 border-amber-400/30 bg-amber-400/5"
+  return "text-brand-emerald border-brand-emerald/30 bg-brand-emerald/5"
 }
 
 const EL_LABEL: Record<string, string> = { wall: "Walls", roof: "Roof", window: "Windows" }
@@ -74,6 +82,7 @@ export function HeatingAssessmentView({ data, buildingId }: { data: HeatingAsses
   const hasBand = d.heating_kwh_low != null && d.heating_kwh_high != null
   const c = data.carbon
   const reg = data.regulation
+  const epc = data.epc
   const strandNow = c ? strandingYearForIntensity(c.building_type, c.total_co2_intensity_kg_m2) : null
   const strandAfter = c ? strandingYearForIntensity(c.building_type, c.total_co2_intensity_after_kg_m2) : null
   const delay =
@@ -195,8 +204,16 @@ export function HeatingAssessmentView({ data, buildingId }: { data: HeatingAsses
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Tile label="Heat reduction" value={`${full.reduction_pct}%`} sub={`realistic ${pkg.realistic_reduction_low_pct}–${pkg.realistic_reduction_high_pct}%`} />
             <Tile label="Heating EUI" value={full.eui_after != null ? `${full.eui_after}` : "—"} sub={full.eui_before != null ? `from ${full.eui_before} kWh/m²·yr` : "kWh/m²·yr"} />
-            <Tile label="Net CapEx (full)" value={eur(full.capex_net)} sub={`saves ${eur(full.saving_eur)}/yr`} />
-            <Tile label="Blended payback" value={full.payback_years != null ? `${full.payback_years} yr` : "—"} sub={`${tco2(full.co2_saved_kg)} CO₂/yr`} />
+            <Tile label="Net CapEx (full)" value={eur(full.capex_net)} sub={`${eur(full.capex_net_low)}–${eur(full.capex_net_high)} · saves ${eur(full.saving_eur)}/yr`} />
+            <Tile
+              label="Blended payback"
+              value={full.payback_years != null ? `${full.payback_years} yr` : "—"}
+              sub={
+                full.payback_years_low != null && full.payback_years_high != null
+                  ? `${full.payback_years_low}–${full.payback_years_high} yr · ${tco2(full.co2_saved_kg)}/yr`
+                  : `${tco2(full.co2_saved_kg)} CO₂/yr`
+              }
+            />
           </div>
           <div className="mt-3 overflow-x-auto rounded-lg border border-border-subtle">
             <table className="w-full text-xs">
@@ -243,6 +260,59 @@ export function HeatingAssessmentView({ data, buildingId }: { data: HeatingAsses
             >
               Decarbonisation
             </Link>
+          </p>
+          {pkg.sensitivity && full.payback_years_2030_carbon != null && (
+            <p className="mt-1 text-[11px] leading-relaxed text-text-faint">
+              Range = CapEx &plusmn;{pkg.sensitivity.capex_band_pct}% (screening) and the energy-saving band. At the
+              2030 carbon price (~&euro;{pkg.sensitivity.carbon_price_2030}/t vs &euro;{pkg.sensitivity.carbon_price_now} today),
+              blended payback falls to ~{full.payback_years_2030_carbon} yr.
+            </p>
+          )}
+        </section>
+      )}
+
+      <SubsidyPanel measures={data.measures} />
+
+      {epc && epc.class_now && epc.class_after && (
+        <section>
+          <div className="mb-2 flex items-center gap-2">
+            <Gauge className="h-4 w-4 text-brand-emerald" aria-hidden />
+            <h2 className="text-sm font-semibold text-text-primary">EPC class &amp; EPBD MEPS</h2>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className={`flex h-16 w-16 flex-col items-center justify-center rounded-xl border ${epcTone(epc.class_now)}`}>
+              <span className="text-[10px] uppercase tracking-wide text-text-faint">Now</span>
+              <span className="text-2xl font-bold tabular-nums">{epc.class_now}</span>
+            </div>
+            <ArrowRight className="h-5 w-5 text-text-faint" aria-hidden />
+            <div className={`flex h-16 w-16 flex-col items-center justify-center rounded-xl border ${epcTone(epc.class_after)}`}>
+              <span className="text-[10px] uppercase tracking-wide text-text-faint">After</span>
+              <span className="text-2xl font-bold tabular-nums">{epc.class_after}</span>
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              {epc.clears_meps ? (
+                <div className="flex items-center gap-1.5 text-sm font-medium text-brand-emerald">
+                  <BadgeCheck className="h-4 w-4" aria-hidden />
+                  Clears the {epc.meps_milestone} EPBD MEPS milestone
+                </div>
+              ) : epc.meps_milestone ? (
+                <div className="text-sm font-medium text-amber-300">
+                  EPC {epc.class_now}: {epc.meps_milestone} MEPS renovation-priority — package improves to {epc.class_after}, still in F–G
+                </div>
+              ) : (
+                <div className="text-sm text-text-muted">Not in the EPBD renovation-priority scope (F–G).</div>
+              )}
+              <div className="mt-0.5 text-[11px] text-text-faint">
+                {epc.eui_now_kwh_m2}&nbsp;&rarr;&nbsp;{epc.eui_after_kwh_m2} kWh/m&sup2;&middot;yr (whole building)
+              </div>
+            </div>
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-text-faint">
+            German Energieausweis (Endenergie) scale &mdash;{" "}
+            {epc.anchored_to_epc ? "anchored to your registered EPC" : "estimated from energy use"}; indicative,
+            and a registered Energieausweis is authoritative. MEPS milestones (EPC G&rarr;2030, F&rarr;2033) are
+            EPBD triage, not a national compliance verdict.{" "}
+            <Link href="/compliance" className="text-brand-emerald hover:underline">Compliance</Link>
           </p>
         </section>
       )}

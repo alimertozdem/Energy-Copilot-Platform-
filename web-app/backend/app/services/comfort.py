@@ -87,13 +87,50 @@ def assess_comfort(db: Session, building, hours: int = 168) -> dict:
     if supply and ret:
         delta_t = round(sum(supply) / len(supply) - sum(ret) / len(ret), 1)
 
-    # Operational savings hook: meaningful over-heating => setback/curve opportunity.
-    op_hint = None
-    if temp_block and temp_block["over_pct"] >= 15.0:
-        op_hint = (
-            f"{temp_block['over_pct']}% of readings are above {TEMP_HIGH}°C — lowering setpoints / "
-            "night setback / a heating-curve tune typically cuts heating ~7-11% (see retrofit measures)."
-        )
+    # Operational actions from live telemetry. saving_pct_* is a heating-energy %
+    # range; the FE multiplies it by the building's heat cost to show EUR/yr. These
+    # are low/no-CapEx operational levers and OVERLAP the package's T0 step -- the UI
+    # says so, so they are not summed on top of the retrofit package.
+    actions: list[dict] = []
+    avg_supply = (sum(supply) / len(supply)) if supply else None
+
+    if temp_block and temp_block["over_pct"] >= 10.0:
+        avg = temp_block["avg"]
+        # Headroom to the 22 C mid-band, capped 2 C; heating falls ~6% per 1 C (rule of thumb).
+        dz = min(max(avg - 22.0, 0.5), 2.0)
+        actions.append({
+            "key": "setpoint", "kind": "savings",
+            "title": "Lower setpoints / night setback",
+            "detail": f"{temp_block['over_pct']}% of readings above {TEMP_HIGH}°C (avg {avg}°C). ~6% heating per 1°C; about {dz:.1f}°C headroom.",
+            "saving_pct_low": round(6.0 * dz * 0.8), "saving_pct_high": round(6.0 * dz * 1.2),
+        })
+
+    if avg_supply is not None and (avg_supply > 50.0 or (delta_t is not None and delta_t > 15.0)):
+        actions.append({
+            "key": "hydraulic", "kind": "savings",
+            "title": "Hydraulic balancing + heating-curve tune",
+            "detail": f"Flow temp ~{round(avg_supply)}°C" + (f", ΔT {delta_t}°C" if delta_t is not None else "") + " — a hot/unbalanced loop; a curve tune lowers it.",
+            "saving_pct_low": 7, "saving_pct_high": 11,
+        })
+
+    if co2_block and co2_block["poor_pct"] >= 10.0:
+        actions.append({
+            "key": "ventilation", "kind": "iaq",
+            "title": "CO₂-led (demand-controlled) ventilation",
+            "detail": f"{co2_block['poor_pct']}% of readings above {int(CO2_POOR)} ppm — demand-controlled ventilation improves air quality without over-ventilating.",
+            "saving_pct_low": None, "saving_pct_high": None,
+        })
+
+    if temp_block and temp_block["under_pct"] >= 15.0:
+        actions.append({
+            "key": "underheat", "kind": "comfort",
+            "title": "Under-heating — comfort risk",
+            "detail": f"{temp_block['under_pct']}% of readings below {TEMP_LOW}°C — check schedules/zoning before cutting heat.",
+            "saving_pct_low": None, "saving_pct_high": None,
+        })
+
+    # legacy single hint (kept for back-compat; FE renders the actions list)
+    op_hint = actions[0]["detail"] if actions and actions[0]["kind"] == "savings" else None
 
     has_any = any([temp_block, co2_block, rh_block, delta_t is not None])
     return {
@@ -105,4 +142,5 @@ def assess_comfort(db: Session, building, hours: int = 168) -> dict:
         "humidity": rh_block,
         "delta_t": delta_t,
         "operational_hint": op_hint,
+        "actions": actions,
     }
