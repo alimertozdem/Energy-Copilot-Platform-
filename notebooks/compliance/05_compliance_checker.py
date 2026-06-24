@@ -253,8 +253,18 @@ def score_to_status(score_col):
 
 log_step("READ", "Loading input tables …")
 
-df_building   = spark.read.format("delta").load(SILVER_PATHS["building_master"])
-df_kpi_m      = spark.read.format("delta").load(GOLD_PATHS["kpi_monthly"])
+# 2026-06-21: silver_building_master + gold_kpi_monthly also exist as catalog (dbo)
+# tables with the full 10-building set; the flat Tables/ path is a stale 6-row copy.
+# Read catalog-first (fall back to flat) so 05 covers ALL buildings - otherwise
+# compliance + CO2 levy silently cover only B001-B006.
+try:
+    df_building = spark.table("silver_building_master")
+except Exception:
+    df_building = spark.read.format("delta").load(SILVER_PATHS["building_master"])
+try:
+    df_kpi_m = spark.table("gold_kpi_monthly")
+except Exception:
+    df_kpi_m = spark.read.format("delta").load(GOLD_PATHS["kpi_monthly"])
 # 2026-06-12: 04 now writes gold_simulation_results via saveAsTable (dbo). Read catalog-first
 # (fall back to flat for older runs) so 05 sees the fresh table incl. the B011 residential row.
 try:
@@ -828,29 +838,37 @@ df_base = df_base.withColumn("csrd_score", spark_round(csrd_score_expr, 1))
 
 log_step("CO2", "Computing CO₂-Preis cost estimates …")
 
-# Gas energy fraction by heating type (empirical estimate per building type)
-gas_share_by_fuel = (
-    when(col("heating_fuel_type") == "HEAT_PUMP",     lit(0.05))  # minimal gas backup
-    .when(col("heating_fuel_type") == "GAS",           lit(0.45))  # gas-dominant building
-    .when(col("heating_fuel_type") == "DISTRICT_HEAT", lit(0.08))  # some residual
-    .when(col("heating_fuel_type") == "ELECTRIC",      lit(0.00))
-    .when(col("heating_fuel_type") == "BIOMASS",       lit(0.00))  # biomass: CO₂-neutral
-    .otherwise(lit(0.25))    # unknown → moderate assumption
+# 2026-06-21: levy now uses the GHG engine's REAL Scope 1 gas (actual fuel CO2,
+# trailing 12 months) instead of an EUI-fraction estimate. Reconciles the levy with
+# gold_ghg_scope and stops inventing a fuel levy for electrically-heated buildings
+# (e.g. data centres: real gas = 0 -> levy = 0). NOTE: 09_ghg_scope_engine must run
+# before 05 so gold_ghg_scope is fresh.
+try:
+    df_ghg = spark.table("gold_ghg_scope")
+except Exception:
+    df_ghg = spark.read.format("delta").load("Tables/gold_ghg_scope")
+
+df_ghg = df_ghg.withColumn("_period", col("reporting_year") * 12 + col("reporting_month"))
+_max_period = df_ghg.agg(spark_max("_period").alias("m")).collect()[0]["m"]
+df_real_gas = (
+    df_ghg
+    .filter(col("_period") > (_max_period - 12))   # most recent 12 months
+    .groupBy("building_id")
+    .agg(spark_sum("scope1_gas_tco2").alias("real_gas_tco2"))
 )
 
 df_base = (
     df_base
-    .withColumn("_gas_energy_kwh",
-        col("annual_consumption_kwh") * gas_share_by_fuel)
+    .join(broadcast(df_real_gas), on="building_id", how="left")
     .withColumn("est_gas_co2_tonnes",
-        spark_round(col("_gas_energy_kwh") * GAS_CO2_KG_PER_KWH / 1000.0, 2))
+        spark_round(coalesce(col("real_gas_tco2"), lit(0.0)), 2))
     .withColumn("co2_levy_cost_2026_eur",
         when(col("country_code").isin("DE", "AT"),
              spark_round(col("est_gas_co2_tonnes") * CO2_PREIS_DE_2026, 0))
-        .otherwise(lit(None)))    # TR: no mechanism; NL: ETS2 from 2027
+        .otherwise(lit(None)))    # TR/NL: no 2026 mechanism; ETS2 from 2027
     .withColumn("co2_levy_cost_2027_ets2_eur",
         spark_round(col("est_gas_co2_tonnes") * CO2_PREIS_ETS2_2027, 0))
-    .drop("_gas_energy_kwh")
+    .drop("real_gas_tco2")
 )
 
 

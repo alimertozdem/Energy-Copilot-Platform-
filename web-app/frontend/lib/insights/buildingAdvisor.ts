@@ -49,7 +49,7 @@ export type DeclaredProfile = {
 // Indicative typical EUI bands (kWh/m²·yr) by building type. These are public
 // benchmark ranges (ENERGY STAR / CIBSE TM46 / EU typical), NOT site-specific
 // targets — shown as "indicative" wherever used. One place to refine.
-const EUI_BANDS: { match: RegExp; low: number; high: number; label: string }[] = [
+export const EUI_BANDS: { match: RegExp; low: number; high: number; label: string }[] = [
   { match: /hospital|health|clinic|care/, low: 250, high: 450, label: "healthcare" },
   { match: /hotel|hospitality|lodg/, low: 200, high: 350, label: "hotel" },
   { match: /retail|mall|shop|store|supermarket/, low: 150, high: 300, label: "retail" },
@@ -58,7 +58,12 @@ const EUI_BANDS: { match: RegExp; low: number; high: number; label: string }[] =
   { match: /residential|apartment|wohn|multi.?family/, low: 100, high: 180, label: "residential" },
   { match: /office|commercial|mixed/, low: 100, high: 200, label: "office" },
 ]
-const EUI_DEFAULT = { low: 100, high: 250, label: "mixed commercial" }
+export const EUI_DEFAULT = { low: 100, high: 250, label: "mixed commercial" }
+
+/** Type-specific indicative EUI band (shared with the portfolio report). */
+export function euiBandFor(type: string) {
+  return EUI_BANDS.find((b) => b.match.test((type || "").toLowerCase())) ?? EUI_DEFAULT
+}
 
 // Indicative grid prices (€/kWh) — mirrors the anomaly-cost logic in CLAUDE.md.
 const PRICE_BY_COUNTRY: Record<string, number> = { DE: 0.20, AT: 0.21, FR: 0.19, NL: 0.20, TR: 0.14 }
@@ -72,7 +77,7 @@ function eur(n: number): string {
   return "€" + new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n)
 }
 
-function isDatacenter(type: string): boolean {
+export function isDatacenter(type: string): boolean {
   return /data\s*cent|datacenter|data_center|server\s*farm/.test(type)
 }
 

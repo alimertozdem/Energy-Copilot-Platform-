@@ -4,7 +4,7 @@
  * Step 2 — building basics. Name is required; everything else optional.
  * Uses the login/signup raw-input styling so it matches the onboarding shell.
  */
-import { type OnboardingData, BUILDING_TYPES, EPC_CLASSES } from "@/app/onboarding/types"
+import { type OnboardingData, BUILDING_TYPES, EPC_CLASSES, COUNTRIES } from "@/app/onboarding/types"
 
 const inputCls =
   "w-full bg-bg-input border border-border-faint text-text-primary rounded-md px-3 py-2 text-sm placeholder:text-text-faint focus:outline-none focus:ring-2 focus:ring-brand-emerald focus:border-transparent transition-all"
@@ -102,19 +102,21 @@ export function BuildingBasicsStep({
           </div>
           <div>
             <label htmlFor="b-country" className={labelCls}>
-              Country (ISO-2)
+              Country
             </label>
-            <input
+            <select
               id="b-country"
-              type="text"
-              maxLength={2}
               value={data.country_code}
-              onChange={(e) =>
-                update({ country_code: e.target.value.toUpperCase() })
-              }
-              placeholder="DE"
-              className={`${inputCls} uppercase`}
-            />
+              onChange={(e) => update({ country_code: e.target.value })}
+              className={inputCls}
+            >
+              <option value="">Select country…</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

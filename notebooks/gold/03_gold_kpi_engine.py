@@ -107,7 +107,7 @@ print(f"   broadcastJoinThreshold = 10 MB")
 
 # Anomali eşikleri (production'da veritabanından/config'den gelir)
 MIN_IRRADIANCE_WM2  = 50.0   # Bu değerin altında PR hesaplanmaz (gece/gölge)
-PR_MAX_PLAUSIBLE   = 1.1    # PR üst sınırı; üstü düşük-güneş numerik artefaktı (IEC 61724 -> clamp)
+PR_MAX_PLAUSIBLE   = 0.95   # PR ust siniri (energy-basis). Gercek PV PR ~0.90 max; >1.0 = sensor/veri hatasi. IEC 61724 enerji-bazli tavan.
 MIN_PR_THRESHOLD    = 0.65   # Bu altı = solar panel sorunu (soiling, arıza)
 SOC_MIN_THRESHOLD   = 10.0   # % — batarya over-discharge eşiği
 SOC_MAX_THRESHOLD   = 98.0   # % — batarya over-charge eşiği
@@ -530,6 +530,12 @@ print("="*60)
 
 # Gold hourly'yi metastore'dan oku (saveAsTable ile kayıtlı tablo)
 # FIX (2026-05-18): path-based load yerine spark.table() — managed table için doğru yol
+# Page 10 fix (2026-06-22): yeni solar_ref_yield_kwh_m2 kolonu MERGE ile eklenecek.
+# merge_to_gold whenMatchedUpdateAll/InsertAll -> sema evrimi icin autoMerge SART
+# (yoksa MERGE yeni kolon eklemez -> kolon duser). Mevcut satirlarin avg_solar_pr da
+# bu MERGE de yeniden yazilir (energy-basis duzeltme tum tarihe uygulanir).
+spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
+
 df_h = spark.table("gold_kpi_hourly")
 
 df_gold_daily = (
@@ -545,7 +551,10 @@ df_gold_daily = (
         spark_sum("solar_generated_kwh").alias("solar_generated_kwh"),
         spark_sum("solar_self_consumed_kwh").alias("solar_self_consumed_kwh"),
         spark_sum("solar_exported_kwh").alias("solar_exported_kwh"),
-        spark_avg("solar_performance_ratio").alias("avg_solar_pr"),
+        # Page 10 fix (2026-06-22): energy-basis PR icin gunluk reference yield (insolation).
+        # Sum(saatlik avg W/m2)/1000 = gunluk kWh/m2 = peak-sun-hours. avg_solar_pr asagida
+        # withColumn ile enerji-bazli hesaplanir (Sumgen/(kWp x Sumref)), oran-ortalamasi DEGIL.
+        (spark_sum("avg_irradiance_wm2") / 1000.0).alias("solar_ref_yield_kwh_m2"),
         spark_avg("self_consumption_rate").alias("avg_self_consumption_rate"),
         spark_avg("self_sufficiency_rate").alias("avg_self_sufficiency_rate"),
 
@@ -638,6 +647,24 @@ df_gold_daily = (
             .otherwise(lit(None)), 4)
     )
 
+    # Page 10 fix (2026-06-22): ENERGY-BASIS Performance Ratio (IEC 61724).
+    # PR = Sum uretim / (kurulu guc x Sum reference yield). Oran-ortalamasi dusuk-isik
+    # gununde kucuk payda -> PR>1 artefakti uretiyordu; enerji-bazli buna dayanikli +
+    # uretim-agirlikli. Tavan PR_MAX_PLAUSIBLE; Sumref<0.5 kWh/m2 (kapali gun) -> NULL
+    # (yield-gating: dusuk isikta PR guvenilmez).
+    .withColumn("avg_solar_pr",
+        when(
+            (col("has_pv") == True) & (col("pv_capacity_kwp") > 0) & (col("solar_ref_yield_kwh_m2") > 0.5),
+            spark_round(
+                when(
+                    col("solar_generated_kwh") / (col("pv_capacity_kwp") * col("solar_ref_yield_kwh_m2")) > PR_MAX_PLAUSIBLE,
+                    lit(PR_MAX_PLAUSIBLE),
+                ).otherwise(
+                    col("solar_generated_kwh") / (col("pv_capacity_kwp") * col("solar_ref_yield_kwh_m2"))
+                ), 4)
+        ).otherwise(lit(None))
+    )
+
     .withColumn("processed_at", current_timestamp())
 )
 
@@ -684,7 +711,8 @@ df_gold_monthly = (
         spark_sum("solar_generated_kwh").alias("solar_generated_kwh"),
         spark_sum("solar_self_consumed_kwh").alias("solar_self_consumed_kwh"),
         spark_sum("solar_exported_kwh").alias("solar_exported_kwh"),
-        spark_avg("avg_solar_pr").alias("avg_solar_pr"),
+        # Page 10 fix (2026-06-22): aylik energy-basis PR icin Sum reference yield tasi.
+        spark_sum("solar_ref_yield_kwh_m2").alias("solar_ref_yield_kwh_m2"),
         spark_avg("avg_self_sufficiency_rate").alias("avg_self_sufficiency_rate"),
 
         spark_sum("battery_charged_kwh").alias("battery_charged_kwh"),
@@ -744,6 +772,20 @@ df_gold_monthly = (
                  col("co2_savings_from_solar_kg") /
                  (col("co2_emissions_kg") + col("co2_savings_from_solar_kg")) * 100)
             .otherwise(lit(0.0)), 2)
+    )
+
+    # Page 10 fix (2026-06-22): aylik ENERGY-BASIS PR (Sumgen/(kWp x Sumref)), clamp + gating.
+    .withColumn("avg_solar_pr",
+        when(
+            (col("has_pv") == True) & (col("pv_capacity_kwp") > 0) & (col("solar_ref_yield_kwh_m2") > 0.5),
+            spark_round(
+                when(
+                    col("solar_generated_kwh") / (col("pv_capacity_kwp") * col("solar_ref_yield_kwh_m2")) > PR_MAX_PLAUSIBLE,
+                    lit(PR_MAX_PLAUSIBLE),
+                ).otherwise(
+                    col("solar_generated_kwh") / (col("pv_capacity_kwp") * col("solar_ref_yield_kwh_m2"))
+                ), 4)
+        ).otherwise(lit(None))
     )
 
     .withColumn("processed_at", current_timestamp())

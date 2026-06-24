@@ -601,27 +601,40 @@ print(f"   → {len(cop_rows)} COP degradasyon tespit edildi")
 
 print("\n── 3/7 Solar Underperformance Tespiti ──")
 
+# B3 (2026-06-19): per-DAY -> SUSTAINED MONTHLY. The old rule flagged every day with
+# PR<threshold, so cloudy/winter days produced ~2,400 false anomalies (81% of all).
+# Now aggregate to building-month and flag only if the month average PR is below
+# threshold across enough generating days — a real persistent inverter/soiling issue,
+# not weather noise. Collapses to <=1 anomaly/building/month.
+from pyspark.sql.functions import avg as _savg, count as _scount, max as _smax, substring as _substr
+
+SOLAR_MIN_GEN_DAYS = 10   # need >=10 generating days in a month to judge sustained PR
+
 df_solar = (
     df_daily
     .filter(
         (col("has_pv") == "true") &
         (col("pv_capacity_kwp") > lit(0)) &
-        (coalesce(col("avg_solar_pr"), lit(1.0)) < lit(SOLAR_PR_LOW)) &
-        # avg_irradiance_wm2 gold_kpi_daily'de yok.
-        # Proxy: solar_generated_kwh > 0 → inverter çalışıyor, güneş var
-        # ama PR hâlâ düşük → gerçek underperformance
-        (coalesce(col("solar_generated_kwh"), lit(0.0)) > lit(0.5))
+        (coalesce(col("solar_generated_kwh"), lit(0.0)) > lit(0.5))   # only generating days
     )
-    .select("building_id", "date", "avg_solar_pr", "solar_generated_kwh", "pv_capacity_kwp")
+    .withColumn("_ym", _substr(col("date"), 1, 7))                    # "YYYY-MM"
+    .groupBy("building_id", "_ym")
+    .agg(
+        _savg("avg_solar_pr").alias("month_pr"),
+        _scount(lit(1)).alias("gen_days"),
+        _smax("pv_capacity_kwp").alias("cap"),
+    )
+    .filter((col("month_pr") < lit(SOLAR_PR_LOW)) & (col("gen_days") >= lit(SOLAR_MIN_GEN_DAYS)))
 )
 
 solar_rows = df_solar.collect()
 for row in solar_rows:
     bid  = row["building_id"]
-    dt   = row["date"]
-    pr   = round(row["avg_solar_pr"] or 0, 3)
-    gen  = round(row["solar_generated_kwh"] or 0, 1)
-    cap  = row["pv_capacity_kwp"]
+    ym   = row["_ym"]
+    pr   = round(row["month_pr"] or 0, 3)
+    days = int(row["gen_days"])
+    cap  = row["cap"]
+    dt   = f"{ym}-15"                     # mid-month representative date
     sev  = SEV_CRITICAL if pr < 0.50 else (SEV_HIGH if pr < 0.58 else SEV_MEDIUM)
 
     all_anomaly_rows.append(build_anomaly_row(
@@ -631,13 +644,13 @@ for row in solar_rows:
         detected_date  = dt,
         metric_value   = pr,
         threshold_value= SOLAR_PR_LOW,
-        desc_en = f"Solar Performance Ratio {pr:.3f} is below threshold {SOLAR_PR_LOW} despite active generation ({gen:.1f} kWh). System capacity: {cap} kWp.",
-        desc_de = f"Solar-Performance-Ratio {pr:.3f} unterschreitet Schwellenwert {SOLAR_PR_LOW} trotz aktiver Erzeugung ({gen:.1f} kWh). Anlagenkapazität: {cap} kWp.",
-        desc_tr = f"Solar Performans Oranı {pr:.3f}, aktif üretim ({gen:.1f} kWh) olmasına rağmen {SOLAR_PR_LOW} eşiğinin altında. Sistem kapasitesi: {cap} kWp.",
-        action_en = f"Check inverter status, panel soiling/shading, string fuses, and monitoring data for gaps. Consider professional IR inspection.",
+        desc_en = f"Sustained low solar performance: monthly average PR {pr:.3f} across {days} generating days is below threshold {SOLAR_PR_LOW}. System capacity: {cap} kWp.",
+        desc_de = f"Anhaltend niedrige Solarleistung: monatlicher PR-Durchschnitt {pr:.3f} ueber {days} Erzeugungstage unter Schwellenwert {SOLAR_PR_LOW}. Anlagenkapazitaet: {cap} kWp.",
+        desc_tr = f"Surekli dusuk solar performansi: aylik ortalama PR {pr:.3f}, {days} uretim gunu boyunca {SOLAR_PR_LOW} esiginin altinda. Sistem kapasitesi: {cap} kWp.",
+        action_en = f"Check inverter status, panel soiling/shading, string fuses, and monitoring data. Consider professional IR inspection.",
     ))
 
-print(f"   → {len(solar_rows)} solar underperformance tespit edildi")
+print(f"   → {len(solar_rows)} sustained solar underperformance (aylik) tespit edildi")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -873,27 +886,44 @@ df_weekday_avg = (
     .agg(spark_avg("eui_kwh_m2").alias("weekday_avg_eui"))
 )
 
+# B3 (2026-06-19): per-weekend-DAY -> SUSTAINED MONTHLY (same fix as solar). The old
+# rule flagged every high-weekend day, so one chronic schedule issue produced dozens of
+# daily rows. Now flag a building-MONTH whose AVERAGE weekend EUI exceeds the threshold
+# across enough weekend days — one anomaly/building/month for a persistent issue.
+from pyspark.sql.functions import count as _whcount, max as _whmax, substring as _whsub
+
+AFTER_HOURS_MIN_WEEKEND_DAYS = 4   # >=4 weekend days in a month to judge sustained waste
+
 df_weekend_check = (
     df_weekend
     .filter(col("is_weekend") == lit(True))
     .join(df_weekday_avg, on="building_id", how="left")
+    .withColumn("_ym", _whsub(col("date"), 1, 7))                 # "YYYY-MM"
+    .groupBy("building_id", "_ym")
+    .agg(
+        spark_avg("eui_kwh_m2").alias("month_weekend_eui"),
+        _whmax("weekday_avg_eui").alias("weekday_avg_eui"),       # per-building constant
+        _whcount(lit(1)).alias("weekend_days"),
+    )
     .withColumn("waste_threshold", col("weekday_avg_eui") * lit(AFTER_HOURS_WASTE_PCT * 2))
     .filter(
         (col("weekday_avg_eui").isNotNull()) &
-        (col("eui_kwh_m2") > col("waste_threshold")) &
-        (col("weekday_avg_eui") > lit(0.0))
+        (col("weekday_avg_eui") > lit(0.0)) &
+        (col("month_weekend_eui") > col("waste_threshold")) &
+        (col("weekend_days") >= lit(AFTER_HOURS_MIN_WEEKEND_DAYS))
     )
-    .select("building_id", "date", "eui_kwh_m2", "waste_threshold", "weekday_avg_eui")
 )
 
 waste_rows = df_weekend_check.collect()
 for row in waste_rows:
     bid  = row["building_id"]
-    dt   = row["date"]
-    val  = round(row["eui_kwh_m2"], 4)
+    ym   = row["_ym"]
+    val  = round(row["month_weekend_eui"], 4)
     thr  = round(row["waste_threshold"], 4)
     avg  = round(row["weekday_avg_eui"], 4)
+    days = int(row["weekend_days"])
     pct  = round(val / avg * 100, 1) if avg > 0 else 0
+    dt   = f"{ym}-15"
     sev  = SEV_MEDIUM
 
     all_anomaly_rows.append(build_anomaly_row(
@@ -903,13 +933,13 @@ for row in waste_rows:
         detected_date  = dt,
         metric_value   = val,
         threshold_value= thr,
-        desc_en = f"Weekend EUI {val:.4f} kWh/m² is {pct:.0f}% of weekday average ({avg:.4f}), exceeding {AFTER_HOURS_WASTE_PCT*200:.0f}% threshold.",
-        desc_de = f"Wochenend-EUI {val:.4f} kWh/m² beträgt {pct:.0f}% des Werktag-Durchschnitts ({avg:.4f}) und überschreitet den Schwellenwert.",
-        desc_tr = f"Hafta sonu EUI {val:.4f} kWh/m², hafta içi ortalamasının ({avg:.4f}) %{pct:.0f}'ini oluşturuyor; eşik aşıldı.",
+        desc_en = f"Sustained weekend waste: monthly weekend EUI {val:.4f} kWh/m2 is {pct:.0f}% of weekday average ({avg:.4f}) across {days} weekend days, exceeding {AFTER_HOURS_WASTE_PCT*200:.0f}% threshold.",
+        desc_de = f"Anhaltender Wochenend-Mehrverbrauch: monatliche Wochenend-EUI {val:.4f} kWh/m2 betraegt {pct:.0f}% des Werktag-Durchschnitts ({avg:.4f}) ueber {days} Wochenendtage.",
+        desc_tr = f"Surekli hafta sonu israfi: aylik hafta sonu EUI {val:.4f} kWh/m2, hafta ici ortalamasinin ({avg:.4f}) %{pct:.0f}'i, {days} hafta sonu gunu boyunca esigi asiyor.",
         action_en = f"Review weekend HVAC schedules, lighting timers, and standby loads. Implement building automation setbacks for unoccupied periods.",
     ))
 
-print(f"   → {len(waste_rows)} after-hours waste tespit edildi")
+print(f"   → {len(waste_rows)} sustained after-hours waste (aylik) tespit edildi")
 
 
 # =============================================================================

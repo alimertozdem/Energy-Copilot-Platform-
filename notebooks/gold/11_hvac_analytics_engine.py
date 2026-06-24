@@ -341,7 +341,7 @@ df_bldg = df_bldg.withColumn(
 for elem, w in INSULATION_WEIGHTS.items():
     target  = U_BENCHMARK[elem]   # GEG referans (70 puan eşiği)
     passive = U_PASSIVE[elem]     # Passive House (100 puan)
-    target_2x = 2.0 * target      # 2× GEG (0 puan)
+    target_2x = {"wall": 2.0, "roof": 1.5, "floor": 1.2, "window": 5.0}[elem]      # 2× GEG (0 puan)
 
     u_col = col(f"u_{elem}")
 
@@ -732,6 +732,16 @@ win_rolling = (Window.partitionBy("building_id").orderBy("year_month")
                     .rowsBetween(-2, 0))  # 3 aylık rolling
 
 # 2026-05-20 BUG FIX: GSHP ve WSHP de heat pump ailesinde → SCOP hesabına dahil
+# G1 (2026-06-21): COP rated-proxy. Actual COP unmeasured (BMS=Phase 2) -> cop_actual_avg
+# was NULL -> "HVAC Avg COP" card blank. Fill from rated spec for the heat-pump family so
+# the COP card + SCOP populate (labelled "rated" in the report). Gas/district/chiller stay NULL.
+df_heat_loss = df_heat_loss.withColumn(
+    "cop_actual_avg",
+    when(col("system_type").isin("heat_pump", "gshp", "wshp"),
+         coalesce(col("cop_actual_avg"), col("cop_rated")))
+    .otherwise(col("cop_actual_avg"))
+)
+
 df_with_scop = df_heat_loss.withColumn(
     "scop_rolling",
     when(
@@ -934,7 +944,7 @@ FINAL_COLS = [
     "renovation_priority", "renovation_reason",
 ]
 
-df_final = df_with_reno.select(FINAL_COLS).withColumn("updated_at", current_timestamp())
+df_final = df_with_reno.select(FINAL_COLS).withColumn("updated_at", current_timestamp()).filter(col("reporting_year") >= 2024)  # G3 (2026-06-21): 2023 has no HDD/CDD -> drop sham rows
 
 # Doğrulama özeti
 print("\n📊 Çıktı özeti:")
@@ -1004,6 +1014,15 @@ else:
 # =============================================================================
 # BÖLÜM 14 — Z-ORDER OPTIMIZE
 # =============================================================================
+
+# =============================================================================
+# BOLUM 13b - G3 (2026-06-21): purge pre-2024 rows (2023 has no HDD/CDD -> split=0)
+# MERGE does NOT delete source-absent rows, so df_final's >=2024 filter leaves stale
+# 2023 rows in gold. Delete them explicitly. Idempotent (every run sweeps pre-2024).
+# =============================================================================
+DeltaTable.forPath(spark, OUTPUT_TABLE).delete("reporting_year < 2024")
+print("G3: reporting_year < 2024 rows purged (2023 = no weather data)")
+
 
 spark.sql(f"""
     OPTIMIZE delta.`{OUTPUT_TABLE}`

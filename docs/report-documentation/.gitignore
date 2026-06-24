@@ -1,0 +1,6 @@
+# LibreOffice / soffice transient artifacts from docx->pdf rendering
+*.tmp
+.~lock.*#
+
+# Optional: PDF previews are regenerable from the .docx; uncomment to exclude
+# *.pdf

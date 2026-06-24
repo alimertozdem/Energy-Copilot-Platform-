@@ -203,7 +203,9 @@ export function EsrsE1ReportDocument({
       <div style={{ fontSize: 10, color: FAINT, marginTop: 6 }}>
         E1-5 disaggregation: renewable = on-site solar self-consumed; non-renewable = grid
         electricity + fossil heating fuel. A finer fossil split (coal / oil / gas) follows
-        the fuel mix; nuclear is not applicable on-site. Energy intensity per net revenue
+        the fuel mix; nuclear is not applicable on-site. Purchased renewable electricity (green tariffs /
+        Guarantees of Origin) is not counted here, so the renewable share is conservative.
+        Energy intensity per net revenue
         (the E1-5 monetary datapoint) requires a revenue figure — [add company net revenue
         to complete].
       </div>

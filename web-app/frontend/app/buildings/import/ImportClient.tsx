@@ -32,6 +32,24 @@ import {
 
 const MAX_ROWS = 200
 
+// Human-readable column reference shown on the intake screen so users see the
+// expected shape without opening the raw CSV. Mirrors templateCsv() headers.
+const TEMPLATE_COLUMNS: {
+  key: string
+  desc: string
+  example: string
+  required?: boolean
+}[] = [
+  { key: "name", desc: "Building name", example: "Berlin HQ", required: true },
+  { key: "building_type", desc: "Office, Retail, Hotel, Healthcare, Logistics, Datacenter, Residential, Mixed", example: "Office" },
+  { key: "city", desc: "City", example: "Berlin" },
+  { key: "country_code", desc: "ISO-2 country code", example: "DE" },
+  { key: "floor_area_m2", desc: "Floor area in m²", example: "5200" },
+  { key: "construction_year", desc: "Year built", example: "2008" },
+  { key: "epc_class", desc: "EPC rating A–G", example: "C" },
+  { key: "heating_system", desc: "gas_boiler, heat_pump, district_heating, electric, oil, biomass", example: "district_heating" },
+]
+
 export function ImportClient() {
   const [parsed, setParsed] = useState<ParseResult | null>(null)
   const [excluded, setExcluded] = useState<Set<number>>(new Set())
@@ -303,11 +321,36 @@ export function ImportClient() {
       )}
 
       {!parsed && (
-        <div className="rounded-lg border border-dashed border-border-subtle bg-bg-elevated/20 p-8 text-center">
-          <FileSpreadsheet className="mx-auto mb-2 h-6 w-6 text-text-faint" aria-hidden />
-          <div className="mb-1 text-sm text-text-primary">No file chosen yet</div>
-          <div className="text-xs text-text-muted">
-            Choose a CSV (or download the template to see the expected columns).
+        <div className="space-y-4">
+          <div className="rounded-lg border border-border-subtle bg-bg-elevated/20 p-4">
+            <div className="mb-3 text-[11px] font-medium uppercase tracking-wide text-text-faint">
+              Expected columns
+            </div>
+            <ul className="space-y-1.5 text-xs">
+              {TEMPLATE_COLUMNS.map((c) => (
+                <li key={c.key} className="flex items-baseline gap-3">
+                  <code className="w-44 shrink-0 text-brand-emerald">
+                    {c.key}
+                    {c.required && <span className="text-amber-300"> *</span>}
+                  </code>
+                  <span className="flex-1 text-text-muted">{c.desc}</span>
+                  <code className="hidden shrink-0 text-text-faint sm:inline">
+                    {c.example}
+                  </code>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-[11px] leading-relaxed text-text-faint">
+              <span className="text-amber-300">*</span> required · column order
+              doesn’t matter · unknown columns are ignored · download the
+              template for a ready-to-fill file.
+            </p>
+          </div>
+          <div className="rounded-lg border border-dashed border-border-subtle bg-bg-elevated/20 p-6 text-center">
+            <FileSpreadsheet className="mx-auto mb-2 h-6 w-6 text-text-faint" aria-hidden />
+            <div className="text-xs text-text-muted">
+              Choose a CSV above, or download the template to start from a filled example.
+            </div>
           </div>
         </div>
       )}

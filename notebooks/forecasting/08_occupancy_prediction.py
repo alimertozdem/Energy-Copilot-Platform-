@@ -341,8 +341,17 @@ if not table_exists(PATHS["building"]):
     notebook_exit("silver_building_master tablosu bulunamadı. Silver transformation önce çalışmalı.")
 
 log("Reading silver_building_master …")
+def _read_catalog_first(table_name, flat_path):
+    """Catalog (dbo) first, fall back to flat Tables/ path. The flat copies are
+    stale 6-row snapshots (B001-B006); the catalog tables carry all 10 buildings."""
+    try:
+        return spark.table(table_name)
+    except Exception:
+        return spark.read.format("delta").load(flat_path)
+
+
 df_building = (
-    spark.read.format("delta").load(PATHS["building"])
+    _read_catalog_first("silver_building_master", PATHS["building"])
     .select(
         "building_id",
         "building_type",
@@ -359,7 +368,7 @@ log(f"Reading silver_energy_readings_clean (last {LOOKBACK_DAYS} days) …")
 cutoff_ts = F.date_sub(F.current_date(), LOOKBACK_DAYS)
 
 df_readings = (
-    spark.read.format("delta").load(PATHS["energy_readings"])
+    _read_catalog_first("silver_energy_readings_clean", PATHS["energy_readings"])
     .filter(F.to_date(F.col("timestamp_utc")) >= cutoff_ts)  # FIX: no 'date' col, derive from timestamp_utc
     .select(
         "building_id",

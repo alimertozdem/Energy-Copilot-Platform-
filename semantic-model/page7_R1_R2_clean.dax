@@ -1,0 +1,34 @@
+HVAC CO2 v43 =
+VAR _gasF = 0.2017
+VAR _elecF = 0.350
+VAR _months = DISTINCTCOUNT ( gold_hvac_analytics[year_month] )
+VAR _total_kg =
+    SUMX (
+        VALUES ( gold_hvac_analytics[building_id] ),
+        VAR _sys = CALCULATE ( MAX ( gold_hvac_analytics[system_type] ) )
+        VAR _isS1 = _sys = "gas_boiler" || _sys = "hybrid" || _sys = "biomass"
+        VAR _hkwh = CALCULATE ( SUM ( gold_hvac_analytics[heating_energy_kwh] ) )
+        VAR _ckwh = CALCULATE ( SUM ( gold_hvac_analytics[cooling_energy_kwh] ) )
+        VAR _vkwh = CALCULATE ( SUM ( gold_hvac_analytics[ventilation_kwh] ) )
+        VAR _hkg = IF ( _isS1, COALESCE ( _hkwh, 0 ) * _gasF, COALESCE ( _hkwh, 0 ) * _elecF )
+        RETURN _hkg + COALESCE ( _ckwh, 0 ) * _elecF + COALESCE ( _vkwh, 0 ) * _elecF
+    )
+VAR _annual_kg = DIVIDE ( _total_kg * 12, _months )
+RETURN
+    IF ( ISBLANK ( _annual_kg ), "—", FORMAT ( ROUND ( DIVIDE ( _annual_kg, 1000 ), 1 ), "0.0" ) & " tCO₂" )
+
+
+
+
+Heat Loss Label v43 =
+VAR _hl_monthly = AVERAGE ( gold_hvac_analytics[heat_loss_kwh_m2] )
+VAR _hl = _hl_monthly * 12
+RETURN
+    SWITCH ( TRUE (),
+        ISBLANK ( _hl ), "No data",
+        _hl <= 30, "🟢 Very low transmission loss",
+        _hl <= 55, "🟢 Low transmission loss",
+        _hl <= 90, "🟡 Moderate — EU-typical envelope",
+        _hl <= 150, "🟠 High envelope loss — retrofit",
+        "🔴 Critical loss — envelope priority"
+    )

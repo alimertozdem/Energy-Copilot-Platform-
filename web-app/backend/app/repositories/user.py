@@ -101,3 +101,23 @@ def is_platform_admin(db: Session, user_id: UUID) -> bool:
 def get_email(db: Session, user_id: UUID) -> str | None:
     """The user's email -- used to flag shared demo/test accounts."""
     return db.scalar(select(User.email).where(User.id == user_id))
+
+
+def set_email_password(db: Session, *, user_id: UUID, password_hash: str) -> bool:
+    """Update the bcrypt hash on a user's 'email' provider link. Caller commits.
+
+    Returns True if an email/password link existed and was updated, False if the
+    user has no 'email' provider (e.g. they only signed in with Google/Microsoft,
+    so there is no password to reset).
+    """
+    auth = db.scalar(
+        select(UserAuthProvider).where(
+            UserAuthProvider.user_id == user_id,
+            UserAuthProvider.provider == "email",
+        )
+    )
+    if auth is None:
+        return False
+    auth.password_hash = password_hash
+    db.add(auth)
+    return True

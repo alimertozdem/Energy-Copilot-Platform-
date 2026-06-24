@@ -170,10 +170,10 @@ HEAT_RECOVERY_CAPEX_M2       = 22.0   # €22/m² conditioned area
 # Battery Expansion
 BAT_EXP_CAPEX_PER_KWH        = 550.0  # €550/kWh additional capacity (LFP commercial 2024)
 BAT_EXP_FRACTION             = 0.50   # Add 50% to existing battery capacity
-BAT_EXP_SAVING_PCT           = 0.06   # 6% of annual cost (self-consumption + peak shaving gain)
+BAT_EXP_SAVING_PCT           = 0.045  # 4.5% of annual cost (self-consumption uplift). Distinct from PEAK 5.5% (demand-charge) so the two measures no longer return identical savings. ENERGY-REVIEW PARAM.
 
 # Peak Demand Management
-PEAK_MGMT_SAVING_PCT         = 0.06   # 6% of annual electricity cost (demand charge reduction)
+PEAK_MGMT_SAVING_PCT         = 0.055  # 5.5% of annual electricity cost (demand-charge reduction). Distinct from BAT_EXP 4.5% / SUBMETER 5% so flat-% measures stop returning identical euro savings. ENERGY-REVIEW PARAM.
 PEAK_MGMT_CAPEX_FIXED        = 18000.0 # Fixed software + monitoring hardware
 PEAK_MGMT_CAPEX_M2           = 3.0    # €3/m² additional sensors
 
@@ -2031,6 +2031,77 @@ try:
 except Exception as _cap_e:
     print(f"⚠️  Savings cap atlandı (baseline okunamadı?): {str(_cap_e)[:160]}")
 
+
+# ============================================================================
+# 9b-bis. CAPEX REALISM FLOOR (payback/CAPEX model fix, 2026-06-22)
+# ----------------------------------------------------------------------------
+# Engineered capex is sized per m2 (EUR/m2) but savings scale with energy
+# THROUGHPUT (kWh). For energy-dense buildings (data centre, hospital) the saving
+# (proportional to consumption) dwarfs the area-based capex, giving physically
+# implausible sub-year paybacks (0.1-0.7 yr). We floor capex to a realistic
+# minimum implied by the building's OWN saving: no commercial energy measure pays
+# back faster than MIN_PLAUSIBLE_PAYBACK_YR once soft costs (design, procurement,
+# installation, commissioning, integration) are included. Because the floor scales
+# with the saving (hence with consumption / building size), it only binds on the
+# distorted high-intensity cases and leaves normal buildings untouched. payback and
+# npv are recomputed; npv uses each row's own implied annuity (from the post-cap
+# npv) so measure-specific economics are preserved.
+# ENERGY-REVIEW PARAM: MIN_PLAUSIBLE_PAYBACK_YR (Mert to confirm).
+# ============================================================================
+MIN_PLAUSIBLE_PAYBACK_YR = 1.5
+
+df_ranked = (
+    df_ranked
+    .withColumn("_imp_annuity",
+        when(col("annual_saving_eur") > 0,
+             (col("npv_eur") + col("net_capex_eur")) / col("annual_saving_eur"))
+        .otherwise(lit(0.0)))
+    .withColumn("_capex_floored",
+        (col("annual_saving_eur") > 0) & col("net_capex_eur").isNotNull() &
+        (col("net_capex_eur") < col("annual_saving_eur") * lit(MIN_PLAUSIBLE_PAYBACK_YR)))
+    .withColumn("net_capex_eur",
+        when(col("_capex_floored"),
+             spark_round(col("annual_saving_eur") * lit(MIN_PLAUSIBLE_PAYBACK_YR), 0))
+        .otherwise(col("net_capex_eur")))
+    .withColumn("capex_eur",
+        when(col("_capex_floored") & (col("capex_eur") < col("net_capex_eur")),
+             col("net_capex_eur"))
+        .otherwise(col("capex_eur")))
+    .withColumn("payback_years",
+        when(col("_capex_floored"),
+             spark_round(col("net_capex_eur") / col("annual_saving_eur"), 1))
+        .otherwise(col("payback_years")))
+    .withColumn("npv_eur",
+        when(col("_capex_floored"),
+             spark_round(col("annual_saving_eur") * col("_imp_annuity") - col("net_capex_eur"), 0))
+        .otherwise(col("npv_eur")))
+    .drop("_imp_annuity", "_capex_floored")
+)
+
+
+
+
+# ── 9c. ECONOMIC VIABILITY GATE (NPV) — approved 2026-06-22 ───────────────
+# Applied AFTER the 9b savings cap so it sees each row's FINAL npv_eur. An
+# OPTIONAL investment that loses money (NPV <= 0; payback >= ~12 yr at the 12x
+# annuity factor) is NOT an opportunity -> cap its priority below LOW so it lands
+# in INFORMATIONAL and never ranks MEDIUM/HIGH. Compliance-MANDATED retrofits
+# (heat pump, insulation, deep retrofit, audit) are EXEMPT: legal duty outranks
+# ROI. NULL-npv rows (e.g. audit) are never gated. rank + priority_label are
+# recomputed from the gated score. Root fix for "negative-NPV solar as MEDIUM".
+COMPLIANCE_MANDATED = ["INSTALL_HEAT_PUMP", "IMPROVE_INSULATION", "DEEP_RETROFIT", "ENERGY_AUDIT"]
+df_ranked = (
+    df_ranked
+    .withColumn("priority_score",
+        when(
+            col("npv_eur").isNotNull()
+            & (col("npv_eur") <= 0)
+            & (~col("action_type").isin(COMPLIANCE_MANDATED)),
+            least(col("priority_score"), lit(PRIORITY_LOW - 0.1)),
+        ).otherwise(col("priority_score")))
+    .withColumn("rank", row_number().over(window_spec))
+    .withColumn("priority_label", priority_label(col("priority_score")))
+)
 
 
 # ── 10. FINAL SELECT ───────────────────────────────────────────────────────────

@@ -17,6 +17,7 @@ import { Loader2, Plus, X } from "lucide-react"
 import Link from "next/link"
 
 import { createBuilding, type BuildingCreateRequest } from "@/lib/api/buildings"
+import { COUNTRIES } from "@/app/onboarding/types"
 
 const BUILDING_TYPES = [
   "Office",
@@ -145,14 +146,15 @@ export function AddBuildingModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <div>
-            <label className={lbl}>Country (2-letter)</label>
-            <input
-              value={country}
-              onChange={(e) => setCountry(e.target.value.toUpperCase().slice(0, 2))}
-              placeholder="DE"
-              maxLength={2}
-              className={field}
-            />
+            <label className={lbl}>Country</label>
+            <select value={country} onChange={(e) => setCountry(e.target.value)} className={field}>
+              <option value="">—</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className={lbl}>Floor area (m²)</label>

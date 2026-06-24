@@ -10,6 +10,7 @@ function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const justRegistered = searchParams.get("registered") === "1"
+  const justReset = searchParams.get("reset") === "1"
   // Where to land after a successful sign-in. Defaults to /dashboard so
   // existing behavior is unchanged; /invite passes its own URL here.
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"
@@ -67,6 +68,12 @@ function LoginForm() {
           {justRegistered && (
             <div className="text-sm text-brand-mint bg-brand-emerald/10 border border-brand-emerald/30 rounded-md px-3 py-2 mb-4">
               Account created. Please sign in to continue.
+            </div>
+          )}
+
+          {justReset && (
+            <div className="text-sm text-brand-mint bg-brand-emerald/10 border border-brand-emerald/30 rounded-md px-3 py-2 mb-4">
+              Password updated. Sign in with your new password.
             </div>
           )}
 

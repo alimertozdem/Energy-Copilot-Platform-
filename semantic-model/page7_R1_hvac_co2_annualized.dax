@@ -1,0 +1,44 @@
+// =====================================================================
+// Page 7 — R1 fix (2026-06-21): HVAC CO2 card annualization
+// =====================================================================
+// PROBLEM: card showed 16,545.9 tCO2 labelled "/yr" but it was a multi-month
+// CUMULATIVE total (28 months = 2.33 yr of data). Two root causes:
+//   1. FILTER(gold_hvac_analytics, building_id=_bid) reset the date context ->
+//      the per-building sums ALWAYS summed every month, ignoring any date slicer.
+//   2. No annualization -> the result was a 28-month cumulative mislabeled /yr.
+//
+// FIX:
+//   1. Drop the explicit FILTER; use plain CALCULATE (context transition from the
+//      SUMX row over building_id) so per-building sums respect the filter context.
+//   2. Annualize: total * 12 / distinct-months-in-context -> true tCO2/yr.
+//
+// VALIDATED vs Supabase mv_hvac_analytics: cumulative 16,545.9 -> annual 7,091.1 tCO2/yr
+//   (~33% of the ~21.8k tCO2/yr portfolio total; B009 datacenter-cooling dominated).
+//
+// NOTE: annualize-by-months assumes a roughly full-year (or full-period) selection.
+// If a SEASONAL subset is sliced (e.g. winter only), x12/months extrapolates and skews.
+// For the default all-period / full-year view it is accurate.
+//
+// Keep the SAME measure name ("HVAC CO2 v43") so the visual binding is preserved —
+// replace only the formula body in PBI Desktop.
+// =====================================================================
+
+HVAC CO2 v43 =
+VAR _gasF   = 0.2017   // kgCO₂/kWh — natural gas Scope 1 (BAFA/IPCC 2024)
+VAR _elecF  = 0.350    // kgCO₂e/kWh — EU grid average Scope 2 (EEA 2024)
+VAR _months = DISTINCTCOUNT ( gold_hvac_analytics[year_month] )   // R1: months in context
+VAR _total_kg =
+    SUMX (
+        VALUES ( gold_hvac_analytics[building_id] ),
+        VAR _sys  = CALCULATE ( MAX ( gold_hvac_analytics[system_type] ) )
+        VAR _isS1 = _sys = "gas_boiler" || _sys = "hybrid" || _sys = "biomass"
+        VAR _hkwh = CALCULATE ( SUM ( gold_hvac_analytics[heating_energy_kwh] ) )
+        VAR _ckwh = CALCULATE ( SUM ( gold_hvac_analytics[cooling_energy_kwh] ) )
+        VAR _vkwh = CALCULATE ( SUM ( gold_hvac_analytics[ventilation_kwh] ) )
+        VAR _hkg  = IF ( _isS1, COALESCE ( _hkwh, 0 ) * _gasF, COALESCE ( _hkwh, 0 ) * _elecF )
+        RETURN _hkg + COALESCE ( _ckwh, 0 ) * _elecF + COALESCE ( _vkwh, 0 ) * _elecF
+    )
+VAR _annual_kg = DIVIDE ( _total_kg * 12, _months )   // R1: cumulative -> annual rate
+RETURN
+    IF ( ISBLANK ( _annual_kg ), "—",
+         FORMAT ( ROUND ( DIVIDE ( _annual_kg, 1000 ), 1 ), "0.0" ) & " tCO₂" )

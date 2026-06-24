@@ -36,6 +36,7 @@ import {
   tdR,
   thStyle,
 } from "./reportKit"
+import { euiBandFor, isDatacenter } from "@/lib/insights/buildingAdvisor"
 
 type Props = {
   kpis: PortfolioKPIs | null
@@ -70,11 +71,18 @@ function deltaInfo(
   return { text: `${arrow} ${Math.abs(pct).toFixed(1)}%`, color }
 }
 
-function euiColor(eui: number | null): string {
-  if (eui === null || eui === 0) return FAINT
-  if (eui <= 100) return GOOD
-  if (eui <= 200) return BAD
-  return "#b91c1c"
+// EUI coloured against the type-specific public-benchmark band (the same bands the
+// in-app advisor uses) rather than a flat threshold — so a hotel at 250 or a
+// datacenter at 1500 is no longer mis-flagged "bad". Datacenters are excluded:
+// per-area EUI is not a meaningful yardstick for them (PUE is).
+function euiCell(type: string, eui: number | null): { color: string; suffix: string } {
+  if (eui === null || eui === 0) return { color: FAINT, suffix: "" }
+  if (isDatacenter((type || "").toLowerCase())) return { color: FAINT, suffix: " *" }
+  const band = euiBandFor(type)
+  if (eui < band.low) return { color: GOOD, suffix: "" }
+  if (eui <= band.high) return { color: INK, suffix: "" }
+  if (eui > band.high * 1.25) return { color: "#b91c1c", suffix: "" }
+  return { color: BAD, suffix: "" }
 }
 
 function anomalyColor(n: number): string {
@@ -225,9 +233,15 @@ export function PortfolioReportDocument({
                   {b.building_type.replace(/_/g, " ")}
                 </td>
                 <td style={tdR}>{fmtInt(b.floor_area_m2)} m²</td>
-                <td style={{ ...tdR, color: euiColor(b.eui_kwh_m2_yr), fontWeight: 600 }}>
-                  {b.eui_kwh_m2_yr === null ? "—" : fmtCompact(b.eui_kwh_m2_yr, 0)}
-                </td>
+                {(() => {
+                  const e = euiCell(b.building_type, b.eui_kwh_m2_yr)
+                  return (
+                    <td style={{ ...tdR, color: e.color, fontWeight: 600 }}>
+                      {b.eui_kwh_m2_yr === null ? "—" : fmtCompact(b.eui_kwh_m2_yr, 0)}
+                      {e.suffix}
+                    </td>
+                  )
+                })()}
                 <td style={tdR}>{fmtCompact(b.kwh_30d)} kWh</td>
                 <td style={tdR}>€{fmtCompact(b.cost_30d_eur)}</td>
                 <td style={tdR}>{fmtCompact(b.co2_30d_kg)} kg</td>
@@ -247,6 +261,14 @@ export function PortfolioReportDocument({
             ))}
           </tbody>
         </table>
+      )}
+      {buildings.length > 0 && !buildingsError && (
+        <div style={{ marginTop: 6, fontSize: 10, lineHeight: 1.5, color: FAINT }}>
+          EUI is coloured against the typical public-benchmark band for each building type
+          (indicative, not weather-corrected): green = below · neutral = within · amber/red =
+          above. <strong>*</strong> Datacenters are excluded — per-area EUI is not a meaningful
+          yardstick (track PUE instead).
+        </div>
       )}
     </>
   )

@@ -207,7 +207,8 @@ export function GhgInventoryReportDocument({
         Prepared with reference to the GHG Protocol Corporate Accounting and Reporting
         Standard and the Scope 2 Guidance (location- and market-based). Emission factors:
         national grid factors (Scope 2 location), supplier/GoO factors where available
-        (Scope 2 market), BEHG/standard fuel factors (Scope 1). Scope 3 is a screening
+        (Scope 2 market), BEHG/standard fuel factors (Scope 1), each at the most recent published vintage for the
+        reporting year (state the exact factor source year in the final report). Scope 3 is a screening
         estimate covering categories 1 and 13 only and is not disclosure-grade; remaining
         categories, biogenic CO₂ and removals are excluded. This inventory is reporting
         support — it has not been independently verified or assured.

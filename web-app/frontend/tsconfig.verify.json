@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "next-env.d.ts",
+    "lib/config/reportPages.ts",
+    "components/report/ReportCompanion.tsx",
+    "app/buildings/[fabric_building_id]/reports/ReportSectionShell.tsx",
+    "app/buildings/[fabric_building_id]/BuildingReportShell.tsx",
+    "components/buildings/AddBuildingModal.tsx",
+    "app/buildings/BuildingsListClient.tsx"
+  ]
+}

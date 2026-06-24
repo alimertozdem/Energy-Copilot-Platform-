@@ -1,0 +1,30 @@
+// =====================================================================
+// Page 7 — R2 fix (2026-06-21): Heat Loss badge — drop false EPC/NZEB claim
+// =====================================================================
+// PROBLEM: the badge classified an envelope TRANSMISSION heat-loss density
+// (heat_loss_kwh_m2 * 12 = annual conduction loss through the envelope) using
+// EPC / NZEB class labels. That is a category error: EPC (Energieausweis) class
+// is set by TOTAL final energy (Endenergie: heating + DHW + lighting + plug ...),
+// not by envelope transmission loss. So "54 kWh/m² -> EPC A — NZEB Compliant" both
+// mislabels the metric AND overclaims a compliance status the data cannot establish.
+// (cf. memory: never overclaim compliance terms.)
+//
+// FIX: same thresholds (product-owner calibration kept) — relabel to honest
+// transmission-loss quality bands, no EPC/NZEB claims.
+//
+// Only the LABEL measure changes. "Heat Loss v43" (value) and "Heat Loss YoY v43"
+// (tooltip) are correct and unchanged. Keep the measure name "Heat Loss Label v43".
+// =====================================================================
+
+Heat Loss Label v43 =
+VAR _hl_monthly = AVERAGE ( gold_hvac_analytics[heat_loss_kwh_m2] )
+VAR _hl = _hl_monthly * 12   // annual transmission heat-loss density (kWh/m²·yr, envelope conduction)
+RETURN
+    SWITCH ( TRUE (),
+        ISBLANK ( _hl ), "No data",
+        _hl <= 30,  "🟢 Very low transmission loss",
+        _hl <= 55,  "🟢 Low transmission loss",
+        _hl <= 90,  "🟡 Moderate — EU-typical envelope",
+        _hl <= 150, "🟠 High envelope loss — retrofit",
+                    "🔴 Critical loss — envelope priority"
+    )

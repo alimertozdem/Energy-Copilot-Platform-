@@ -86,6 +86,42 @@ export const BUILDING_TYPES = [
   "Mixed",
 ] as const
 
+// Country options for the building location. value = ISO-3166-1 alpha-2 (stored
+// as country_code on the building); label = display name. Primary EU markets
+// first, then the rest of the EU + key neighbours. Extend as needed.
+export const COUNTRIES = [
+  { value: "DE", label: "Germany" },
+  { value: "AT", label: "Austria" },
+  { value: "CH", label: "Switzerland" },
+  { value: "NL", label: "Netherlands" },
+  { value: "BE", label: "Belgium" },
+  { value: "FR", label: "France" },
+  { value: "LU", label: "Luxembourg" },
+  { value: "IT", label: "Italy" },
+  { value: "ES", label: "Spain" },
+  { value: "PT", label: "Portugal" },
+  { value: "IE", label: "Ireland" },
+  { value: "GB", label: "United Kingdom" },
+  { value: "DK", label: "Denmark" },
+  { value: "SE", label: "Sweden" },
+  { value: "NO", label: "Norway" },
+  { value: "FI", label: "Finland" },
+  { value: "PL", label: "Poland" },
+  { value: "CZ", label: "Czechia" },
+  { value: "SK", label: "Slovakia" },
+  { value: "HU", label: "Hungary" },
+  { value: "SI", label: "Slovenia" },
+  { value: "HR", label: "Croatia" },
+  { value: "RO", label: "Romania" },
+  { value: "BG", label: "Bulgaria" },
+  { value: "GR", label: "Greece" },
+  { value: "EE", label: "Estonia" },
+  { value: "LV", label: "Latvia" },
+  { value: "LT", label: "Lithuania" },
+  { value: "TR", label: "Türkiye" },
+  { value: "US", label: "United States" },
+] as const
+
 // Data-source intent (Phase 2 IoT interoperability protocols + simple options).
 export const DATA_SOURCES = [
   "Manual entry",

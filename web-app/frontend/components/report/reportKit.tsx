@@ -102,15 +102,28 @@ export function SectionTitle({ children }: { children: ReactNode }) {
   return (
     <div
       style={{
-        fontSize: 12,
-        fontWeight: 700,
-        color: INK,
-        textTransform: "uppercase",
-        letterSpacing: 0.8,
-        margin: "18px 0 8px",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        margin: "20px 0 9px",
+        breakAfter: "avoid",
       }}
     >
-      {children}
+      <span
+        aria-hidden
+        style={{ width: 4, height: 14, borderRadius: 2, backgroundColor: EMERALD, flexShrink: 0 }}
+      />
+      <span
+        style={{
+          fontSize: 12,
+          fontWeight: 700,
+          color: INK,
+          textTransform: "uppercase",
+          letterSpacing: 0.8,
+        }}
+      >
+        {children}
+      </span>
     </div>
   )
 }
@@ -175,6 +188,7 @@ export function StatCard({
         borderTop: `3px solid ${EMERALD}`,
         borderRadius: 8,
         padding: "12px 14px",
+        breakInside: "avoid",
       }}
     >
       <div
@@ -200,6 +214,9 @@ export function StatCard({
 const PRINT_CSS = `
   @page { size: A4 landscape; margin: 10mm; }
   html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #f8fafc; }
+  .report-surface table { border-collapse: collapse; }
+  .report-surface thead { display: table-header-group; }
+  .report-surface tr { break-inside: avoid; page-break-inside: avoid; }
   @media print {
     .no-print { display: none !important; }
     .report-surface { box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important; }
@@ -254,6 +271,8 @@ export function ReportFrame({
           boxShadow: "0 1px 3px rgba(15,23,42,0.12)",
           padding: "28px 32px",
           color: INK,
+          fontSize: 13,
+          lineHeight: 1.5,
           fontFamily:
             "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
         }}
@@ -289,6 +308,11 @@ export function ReportFrame({
             )}
           </div>
         </div>
+
+        <div
+          aria-hidden
+          style={{ height: 3, backgroundColor: EMERALD, borderRadius: 999, margin: "0 2px 16px" }}
+        />
 
         {children}
 

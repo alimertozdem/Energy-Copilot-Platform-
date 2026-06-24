@@ -208,6 +208,21 @@ summary:focus-visible,
   border-radius: 3px;
 }
 
+/* Native <select> dropdown popups inherit the OS default (white) background,
+   but our text color is white (--color-text-primary) -> white-on-white, so the
+   option labels are invisible when the list opens. Force the option list onto
+   the dark theme so labels are readable in every native select app-wide. */
+select option,
+select optgroup {
+  background-color: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+select option:checked,
+select option:hover {
+  background-color: var(--color-bg-input);
+  color: var(--color-text-primary);
+}
+
 /* Respect reduced-motion: damp ping/pulse/spin animations + transitions. */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -143,7 +143,7 @@ export function FinancingReportDocument({
               <th style={thStyle("left")}>Programme</th>
               <th style={thStyle("right")}>Rate</th>
               <th style={thStyle("right")}>Grant (range)</th>
-              <th style={thStyle("right")}>Payback</th>
+              <th style={thStyle("right")}>Simple payback</th>
               <th style={thStyle("right")}>NPV (base)</th>
             </tr>
           </thead>

@@ -90,3 +90,38 @@ class LoginResponse(BaseModel):
     avatar_url: str | None
     # JWT for subsequent backend API calls.
     access_token: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Request a password-reset link for an email/password account."""
+
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    """Always-ok response -- never reveals whether the account exists."""
+
+    ok: bool = True
+
+
+class ResetPasswordRequest(BaseModel):
+    """Complete a reset with the emailed token + a new password.
+
+    Same password policy as registration (>= 8 chars, contains a digit).
+    """
+
+    token: str = Field(min_length=16, max_length=256)
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def password_must_contain_digit(cls, v: str) -> str:
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit")
+        return v
+
+
+class ResetPasswordResponse(BaseModel):
+    """Result of a successful password reset."""
+
+    ok: bool = True
