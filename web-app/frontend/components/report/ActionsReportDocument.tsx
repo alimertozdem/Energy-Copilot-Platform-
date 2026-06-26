@@ -27,6 +27,7 @@ import {
   tdL,
   tdR,
   thStyle,
+  fmtPayback,
 } from "./reportKit"
 
 const STATUS_META: Record<ActionStatus, { label: string; color: string }> = {
@@ -38,10 +39,8 @@ const STATUS_META: Record<ActionStatus, { label: string; color: string }> = {
 }
 
 function payback(yrs: number | null): string {
-  // null or the backend "no real payback" sentinel (~99 yr) -> not a financial
-  // measure; show a dash rather than a misleading "99.0 yr".
-  if (yrs === null || yrs >= 50) return "—"
-  return `${yrs.toFixed(1)} yr`
+  // Delegated to the shared guard (null / negative / >= MAX_PLAUSIBLE_PAYBACK_YEARS -> "—").
+  return fmtPayback(yrs)
 }
 
 export function ActionsReportDocument({

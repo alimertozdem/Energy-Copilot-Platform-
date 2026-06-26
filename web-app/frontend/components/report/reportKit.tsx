@@ -74,6 +74,15 @@ export function fmtDateTime(iso: string | null): string {
   return `${d} ${t.slice(0, 5)}`
 }
 
+// Payback display guard. A payback beyond ~40 years exceeds any equipment service
+// life, so it is not a real financial payback — the measure is compliance / CO₂-
+// driven. Show a dash rather than a misleading "999 yr".
+export const MAX_PLAUSIBLE_PAYBACK_YEARS = 40
+export function fmtPayback(years: number | null | undefined): string {
+  if (years == null || years < 0 || years >= MAX_PLAUSIBLE_PAYBACK_YEARS) return "—"
+  return `${years.toFixed(1)} yr`
+}
+
 // ---- table cell styles ----
 const TH_BASE: CSSProperties = {
   padding: "8px 10px",

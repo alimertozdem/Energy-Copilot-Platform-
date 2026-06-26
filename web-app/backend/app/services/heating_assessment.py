@@ -68,6 +68,19 @@ GAS_PRICE = 0.11      # EUR/kWh (2026 working price)
 HP_ELEC_PRICE = 0.25  # EUR/kWh (heat-pump tariff)
 DISTRICT_PRICE = 0.13 # EUR/kWh (DE Fernwaerme working price)
 GAS_CO2 = 0.201       # kg CO2 / kWh (natural gas)
+
+# A payback beyond this many years exceeds equipment service life, so it is not a
+# real financial payback (the measure is compliance / CO2-driven). Reported as None
+# rather than a misleading huge number ("529 yr", "999 yr").
+MAX_PLAUSIBLE_PAYBACK_YEARS = 40.0
+
+
+def _plausible_pb(payback):
+    """Round a payback; drop implausible (>= MAX_PLAUSIBLE_PAYBACK_YEARS) to None."""
+    if not payback or payback <= 0:
+        return None
+    pb = round(payback, 1)
+    return pb if pb < MAX_PLAUSIBLE_PAYBACK_YEARS else None
 DISTRICT_CO2 = 0.20   # kg CO2 / kWh (DE district-heat mix, conservative proxy)
 CARBON_PRICE_T = finance_model.CARBON_PRICE_NOW  # centralised carbon path (2026 corridor mid ~60)
 
@@ -265,7 +278,7 @@ def assess(building, consumption_annual_kwh: float | None) -> dict:
             "saving_kwh_gross": round(gross_fuel_kwh) if gross_fuel_kwh is not None else None,
             "saving_eur": round(saving_eur), "saving_co2_kg": round(saving_co2),
             "capex_gross": round(capex_gross), "capex_net": round(capex_net),
-            "payback_years": round(payback, 1) if payback else None, "note": note,
+            "payback_years": _plausible_pb(payback), "note": note,
             "_thermal_useful": thermal_useful, "_capex_net": capex_net,
         }
 
@@ -318,7 +331,7 @@ def assess(building, consumption_annual_kwh: float | None) -> dict:
             "saving_kwh": None, "saving_kwh_gross": None,
             "saving_eur": round(save_eur), "saving_co2_kg": round(save_co2),
             "capex_gross": round(capex_gross), "capex_net": round(capex_net),
-            "payback_years": round(payback, 1) if payback else None,
+            "payback_years": _plausible_pb(payback),
             "note": "Fuel switch (JAZ 3.0); the big CO2 + regulation lever, not a % saving.",
             "_thermal_useful": 0.0, "_capex_net": capex_net,
         })
@@ -486,7 +499,7 @@ def _build_package(measures, thermal_demand_kwh, heating_kwh, area, heating_eui,
             "cumulative_saving_eur": round(saving_eur),
             "cumulative_co2_saved_kg": round(saving_co2),
             "heating_eui_after": round(eui_after, 1) if eui_after is not None else None,
-            "payback_years": round(payback, 1) if payback else None,
+            "payback_years": _plausible_pb(payback),
         })
 
     last = steps[-1]
@@ -507,9 +520,9 @@ def _build_package(measures, thermal_demand_kwh, heating_kwh, area, heating_eui,
         "saving_eur": last["cumulative_saving_eur"],
         "co2_saved_kg": last["cumulative_co2_saved_kg"],
         "payback_years": last["payback_years"],
-        "payback_years_low": round(pb_low, 1) if pb_low else None,
-        "payback_years_high": round(pb_high, 1) if pb_high else None,
-        "payback_years_2030_carbon": round(pb_2030, 1) if pb_2030 else None,
+        "payback_years_low": _plausible_pb(pb_low),
+        "payback_years_high": _plausible_pb(pb_high),
+        "payback_years_2030_carbon": _plausible_pb(pb_2030),
         "eui_before": round(heating_eui, 1) if heating_eui else None,
         "eui_after": last["heating_eui_after"],
     }

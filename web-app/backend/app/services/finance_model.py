@@ -153,10 +153,16 @@ def estimate_subsidy(measure_type: str | None, capex_eur: float | None,
 # ---------------------------------------------------------------------------
 # Discounted cash flow: NPV + payback, with energy inflation + carbon escalation
 # ---------------------------------------------------------------------------
+# A payback beyond ~40 years exceeds equipment service life — not a real financial
+# payback. Capped to None so reports never show "999 yr".
+MAX_PLAUSIBLE_PAYBACK_YEARS = 40.0
+
+
 def simple_payback(capex_net: float, annual_saving_eur: float) -> float | None:
     if annual_saving_eur is None or annual_saving_eur <= 0:
         return None
-    return round(capex_net / annual_saving_eur, 1)
+    pb = round(capex_net / annual_saving_eur, 1)
+    return pb if pb < MAX_PLAUSIBLE_PAYBACK_YEARS else None
 
 
 def npv_case(capex_net: float, annual_energy_saving_eur: float, annual_co2_t: float,

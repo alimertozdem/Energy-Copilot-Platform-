@@ -32,6 +32,7 @@ import {
   tdL,
   tdR,
   thStyle,
+  fmtPayback,
 } from "./reportKit"
 
 // EnEfG / EDL-G thresholds (2026 Novelle; GWh of total final energy per year).
@@ -167,7 +168,7 @@ export function EnefgReportDocument({
                   <td style={tdR}>{eur(a.annual_saving_eur)}</td>
                   <td style={tdR}>{a.co2_saving_kg != null ? fmtInt(a.co2_saving_kg / 1000) : "—"}</td>
                   <td style={tdR}>{eur(a.net_capex_eur ?? a.capex_eur)}</td>
-                  <td style={tdR}>{a.payback_years != null ? `${a.payback_years.toFixed(1)} yr` : "—"}</td>
+                  <td style={tdR}>{fmtPayback(a.payback_years)}</td>
                   <td style={{ ...tdR, color: (a.npv_eur ?? 0) > 0 ? GOOD : BAD, fontWeight: 600 }}>{eur(a.npv_eur)}</td>
                 </tr>
               ))}

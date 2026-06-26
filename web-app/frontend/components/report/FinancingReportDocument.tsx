@@ -20,6 +20,7 @@ import {
   tdL,
   tdR,
   thStyle,
+  fmtPayback,
 } from "./reportKit"
 
 function eur(n: number | null): string {
@@ -160,7 +161,7 @@ export function FinancingReportDocument({
                   {m.rate_low_pct}{m.rate_high_pct > m.rate_low_pct ? `–${m.rate_high_pct}` : ""}%
                 </td>
                 <td style={{ ...tdR, fontWeight: 700, color: EMERALD }}>{eurRange(m.grant_low_eur, m.grant_high_eur)}</td>
-                <td style={tdR}>{m.simple_payback_years != null ? `${m.simple_payback_years} yr` : "—"}</td>
+                <td style={tdR}>{fmtPayback(m.simple_payback_years)}</td>
                 <td style={{ ...tdR, color: m.npv_base_eur != null && m.npv_base_eur < 0 ? "#b91c1c" : INK }}>
                   {m.npv_base_eur != null ? eur(m.npv_base_eur) : "—"}
                 </td>

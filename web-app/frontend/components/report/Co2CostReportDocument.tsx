@@ -30,6 +30,7 @@ import {
   tdL,
   tdR,
   thStyle,
+  fmtPayback,
 } from "./reportKit"
 
 const eur = (v: number | null): string => (v === null ? "—" : "€" + fmtInt(v))
@@ -300,11 +301,7 @@ export function Co2CostReportDocument({
               <td style={tdR}>
                 {eur(decarbMeasure.net_capex_eur ?? decarbMeasure.capex_eur)}
               </td>
-              <td style={tdR}>
-                {decarbMeasure.payback_years != null
-                  ? `${decarbMeasure.payback_years.toFixed(1)} yr`
-                  : "\u2014"}
-              </td>
+              <td style={tdR}>{fmtPayback(decarbMeasure.payback_years)}</td>
               <td style={tdR}>
                 {decarbMeasure.co2_saving_kg != null
                   ? `${fmtInt(decarbMeasure.co2_saving_kg / 1000)} t/yr`

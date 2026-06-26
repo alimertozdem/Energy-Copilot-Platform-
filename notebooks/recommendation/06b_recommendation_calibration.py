@@ -169,7 +169,11 @@ df = (
     .withColumn("_saving_capped",
         when(col("action_type") == "SUBMETERING_UPGRADE", lit(0.0))
         .when(col("action_type") == "ENERGY_AUDIT", col("annual_saving_eur"))  # compliance, keep (null)
-        .when(col("action_type") == "INSTALL_HEAT_PUMP", col("_hp_saving"))
+        # Heat pump that does NOT cut CO2 (carbon-heavy grid, e.g. TR) is not a
+        # decarbonisation measure -> null its saving so it is not promoted as a win.
+        .when(col("action_type") == "INSTALL_HEAT_PUMP",
+              when(coalesce(col("co2_saving_kg"), lit(0.0)) <= 0, lit(None).cast("double"))
+              .otherwise(col("_hp_saving")))
         .otherwise(
             least(coalesce(col("annual_saving_eur"), lit(0.0)),
                   col("_cap_pct") * coalesce(col("annual_total_cost"), lit(0.0)))))
@@ -202,7 +206,10 @@ df = (
         .otherwise(spark_round(coalesce(col("co2_saving_kg"), lit(0.0)) * col("_co2_ratio"), 0)))
     # recompute payback + npv from the final saving
     .withColumn("_payback_final",
-        when((col("_saving_final").isNotNull()) & (col("_saving_final") > 0),
+        # >= 40 yr exceeds equipment life -> not a real payback; null it (matches the
+        # web-app display guard) so the data itself never carries a "121 yr".
+        when((col("_saving_final").isNotNull()) & (col("_saving_final") > 0)
+             & ((col("net_capex_eur") / col("_saving_final")) < 40.0),
              spark_round(col("net_capex_eur") / col("_saving_final"), 1))
         .otherwise(lit(None).cast("double")))
     .withColumn("_npv_final",
