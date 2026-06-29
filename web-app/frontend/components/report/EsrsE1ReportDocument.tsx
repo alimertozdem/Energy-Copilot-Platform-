@@ -113,6 +113,11 @@ export function EsrsE1ReportDocument({
   const crrem = buildingsError ? null : summarizeStranding(buildings)
 
   const totalGhg = g ? num(g.total_location_tco2e) : "—"
+  const operationalLoc = g ? g.scope1_tco2e + g.scope2_location_tco2e : null
+  const operationalIntensityKg =
+    g && esrs && esrs.floor_area_m2 > 0
+      ? ((g.scope1_tco2e + g.scope2_location_tco2e) * 1000) / esrs.floor_area_m2
+      : null
   const strandedNow = crrem?.strandedNow ?? null
   const strandedBy2030 = crrem?.strandedBy2030 ?? null
   const avgStrandYear = crrem?.avgStrandingYear ?? null
@@ -219,7 +224,21 @@ export function EsrsE1ReportDocument({
             <StatCard label="Scope 1" value={num(g.scope1_tco2e)} hint="tCO₂e — direct combustion" />
             <StatCard label="Scope 2 (location)" value={num(g.scope2_location_tco2e)} hint="tCO₂e — grid" />
             <StatCard label="Scope 2 (market)" value={num(g.scope2_market_tco2e)} hint="tCO₂e — contractual" />
-            <StatCard label="Scope 3 (est.)" value={num(g.scope3_tco2e)} color={BAD} hint="tCO₂e — value chain" />
+            <StatCard label="Scope 3 (est.)" value={num(g.scope3_tco2e)} color={BAD} hint="tCO₂e — value chain, incl. commuting (est.)" />
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
+            <StatCard
+              label="Operational (Scope 1+2)"
+              value={operationalLoc != null ? num(operationalLoc) : "—"}
+              color={INK}
+              hint="tCO₂e — building energy (EPBD/CRREM basis)"
+            />
+            <StatCard
+              label="Operational intensity"
+              value={operationalIntensityKg != null ? num(operationalIntensityKg, 1) : "—"}
+              color={INK}
+              hint="kg CO₂e/m²·yr — building energy"
+            />
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
             <StatCard label="Total (location)" value={num(g.total_location_tco2e)} color={BAD} hint="S1+S2(loc)+S3" />
@@ -227,7 +246,7 @@ export function EsrsE1ReportDocument({
             <StatCard
               label="GHG intensity"
               value={esrs.ghg_intensity_tco2e_m2 != null ? num(esrs.ghg_intensity_tco2e_m2, 3) : "—"}
-              hint="tCO₂e/m²"
+              hint="tCO₂e/m² — incl. value chain"
             />
             <StatCard
               label="Data quality"
@@ -268,7 +287,7 @@ export function EsrsE1ReportDocument({
           )}
           <div style={{ fontSize: 10, color: FAINT, marginTop: 6 }}>
             Scope 1+2 are disclosure-grade (metered building energy). Scope 3 is a screening
-            estimate (categories 1 + 13 only) and not disclosure-grade. Gross emissions are
+            estimate (categories 1, 3, 5, 6, 7 and 13 — incl. business travel & employee commuting) and not disclosure-grade. Gross emissions are
             shown without netting (no removals or credits deducted). GHG is reported as CO₂e
             using IPCC AR6 GWP-100; building emissions are predominantly CO₂ (on-site
             combustion + grid electricity). No biogenic CO₂ arises in this portfolio (it is

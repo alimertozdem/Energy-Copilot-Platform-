@@ -57,6 +57,13 @@ export function GhgInventoryReportDocument({
 
   const g = esrs.ghg
 
+  // Operational carbon = Scope 1 + Scope 2 (the building's own energy footprint).
+  // This is the EPBD / CRREM basis. Full inventory (incl. value-chain Scope 3 such
+  // as commuting & business travel) is shown separately below.
+  const operationalLoc = g.scope1_tco2e + g.scope2_location_tco2e
+  const operationalIntensityKg =
+    esrs.floor_area_m2 > 0 ? (operationalLoc * 1000) / esrs.floor_area_m2 : null
+
   return (
     <div>
       <div style={{ marginBottom: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -86,13 +93,36 @@ export function GhgInventoryReportDocument({
         <strong>Consolidation:</strong> 100% of operated assets (operational-control approach).
       </div>
 
+      {/* ---- Operational carbon (the building-energy basis) ---- */}
+      <SectionTitle>Operational carbon — Scope 1 + 2 (tCO₂e)</SectionTitle>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <StatCard
+          label="Operational total"
+          value={num(operationalLoc)}
+          color={INK}
+          hint="Scope 1 + 2 — building energy"
+        />
+        <StatCard
+          label="Operational intensity"
+          value={operationalIntensityKg != null ? num(operationalIntensityKg, 1) : "—"}
+          color={INK}
+          hint="kg CO₂e/m²·yr — EPBD / CRREM basis"
+        />
+      </div>
+      <div style={{ marginTop: 6, fontSize: 10, color: FAINT, lineHeight: 1.5 }}>
+        Operational carbon is the building&rsquo;s own energy footprint (on-site
+        combustion + purchased electricity) — the basis for EPBD and CRREM. The full
+        inventory below adds estimated value-chain (Scope 3) emissions such as employee
+        commuting and business travel.
+      </div>
+
       {/* ---- Emissions by scope ---- */}
       <SectionTitle>Emissions by scope (tCO₂e)</SectionTitle>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <StatCard label="Scope 1 — direct" value={num(g.scope1_tco2e)} hint="on-site fuel combustion" />
         <StatCard label="Scope 2 — location" value={num(g.scope2_location_tco2e)} hint="grid-average electricity" />
         <StatCard label="Scope 2 — market" value={num(g.scope2_market_tco2e)} hint="contractual / supplier" />
-        <StatCard label="Scope 3 — value chain" value={num(g.scope3_tco2e)} color={BAD} hint="estimated (Cat 1 + 13)" />
+        <StatCard label="Scope 3 — value chain" value={num(g.scope3_tco2e)} color={BAD} hint="estimated value chain — incl. commuting & travel" />
       </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
         <StatCard
@@ -110,7 +140,7 @@ export function GhgInventoryReportDocument({
         <StatCard
           label="GHG intensity"
           value={esrs.ghg_intensity_tco2e_m2 != null ? num(esrs.ghg_intensity_tco2e_m2, 3) : "—"}
-          hint="tCO₂e/m² (location)"
+          hint="tCO₂e/m² — incl. value chain"
         />
         <StatCard
           label="Renewable electricity"
@@ -147,8 +177,9 @@ export function GhgInventoryReportDocument({
           <tr>
             <td style={{ ...tdL, fontWeight: 600 }}>Scope 3</td>
             <td style={tdL}>
-              Value chain — Cat 1 (purchased goods / embodied) + Cat 13 (downstream leased).
-              Other categories not yet quantified.
+              Value chain — screening estimate spanning purchased goods/embodied (Cat 1),
+              fuel &amp; energy (Cat 3), waste (Cat 5), business travel (Cat 6), employee
+              commuting (Cat 7) and downstream leased assets (Cat 13).
             </td>
             <td style={{ ...tdL, color: BAD }}>Estimated — not disclosure-grade</td>
           </tr>
@@ -209,8 +240,8 @@ export function GhgInventoryReportDocument({
         national grid factors (Scope 2 location), supplier/GoO factors where available
         (Scope 2 market), BEHG/standard fuel factors (Scope 1), each at the most recent published vintage for the
         reporting year (state the exact factor source year in the final report). Scope 3 is a screening
-        estimate covering categories 1 and 13 only and is not disclosure-grade; remaining
-        categories, biogenic CO₂ and removals are excluded. This inventory is reporting
+        estimate spanning categories 1, 3, 5, 6, 7 and 13 (incl. business travel and
+        employee commuting) and is not disclosure-grade; biogenic CO₂ and removals are excluded. This inventory is reporting
         support — it has not been independently verified or assured.
       </div>
     </div>

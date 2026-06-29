@@ -267,7 +267,7 @@ export function ReportFrame({
         <Link href={backHref} style={{ fontSize: 13, color: "#475569", textDecoration: "none" }}>
           ← {backLabel}
         </Link>
-        <PrintButton />
+        <PrintButton downloadName={title} />
       </div>
 
       <div

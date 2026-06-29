@@ -124,3 +124,15 @@ GESOBAU, Empira, Purpose Green, dieBauingenieure, Green Lion, STADT UND LAND, ha
 3. **One follow-up only** if no reply after ~5 days. Stop at 2 touches.
 4. **freelancermap "Projekte finden":** check for new Power BI, Fabric, Energie, ESG, Nachhaltigkeit, Data projects and draft applications. UI is automation-blocked, so browse manually and paste anything you want me to tailor.
 5. **Update the tracker** when you send (name, company, sent date, replied, follow-up date).
+
+---
+
+## SENT LOG — 2026-06-26 (sent by Claude via LinkedIn Chrome, with Ali Mert's approval)
+3 connection invites SENT, each with its tailored note:
+- **NHW → Daniel Cannas** — Strategischer Energiekoordinator (2nd-degree, mutual: Paul) — note B (residential). Profile: /in/daniel-cannas-57a20718b
+- **GRR Group → Dr. Astrid Keller** — Senior ESG- und Research Managerin (3rd-degree) — note C (commercial/retail). Profile: /in/dr-astrid-keller-5bbb3a102. ALT if no reply: Rebecca Veksler (ESG Lead, Asset Mgmt @ GRR, 2nd-degree)
+- **HIH Invest → Iris Hagdorn** — Head of Sustainability (2nd-degree, mutual: Jenny) — note F (ESG fund). Profile: /in/iris-hagdorn-b22292b1
+
+NOT sent — already contacted on 2026-06-24 (logged in memory, not in the md batch files): **STADT UND LAND** (Sebastian Kühner), **Real I.S.**, **INDUSTRIA**, **Tattersall Lorenz**, Gewobag. The 06-25/06-26 drafts re-listed these by mistake. Treureal + STADT UND LAND have no clean sustainability lead (target MD/Leiter Technik if pursued).
+
+Pipeline now ~13 pending accepts (06-23 ×5 + 06-24 ×5 + 06-26 ×3). Next action = when someone accepts, send the tailored follow-up + sample PDF + demo link. Still un-contacted from the lists: hallo theo, Ralph Management, Bossert, Domicil, IC Immobilien, CBRE.
