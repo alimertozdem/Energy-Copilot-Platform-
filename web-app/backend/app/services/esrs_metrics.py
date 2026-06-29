@@ -60,10 +60,25 @@ def _fetch(reader, ghg_t, bldg_t, kpi_t, year_expr, building_ids):
     expression differ (Postgres EXTRACT vs T-SQL YEAR([date])).
     """
     ph, ids_params = reader.format_in_clause(building_ids)
+    # Reporting period = latest COMPLETE year (>= 12 months of data). A partial
+    # current year (e.g. 4 months YTD) would understate annual totals and intensity,
+    # so it is skipped unless no complete year exists (then fall back to latest).
     year_val = reader.execute_scalar(
-        f"SELECT MAX(reporting_year) FROM {ghg_t} WHERE building_id IN ({ph})",
+        f"""SELECT MAX(reporting_year) FROM (
+            SELECT reporting_year
+            FROM {ghg_t}
+            WHERE building_id IN ({ph})
+            GROUP BY reporting_year
+            HAVING COUNT(DISTINCT reporting_month) >= 12
+        ) t""",
         ids_params,
     )
+    if year_val is None:
+        # No complete year yet -> fall back to the latest available (may be partial).
+        year_val = reader.execute_scalar(
+            f"SELECT MAX(reporting_year) FROM {ghg_t} WHERE building_id IN ({ph})",
+            ids_params,
+        )
     if year_val is None:
         return None
     year = int(year_val)
