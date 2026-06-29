@@ -199,6 +199,7 @@ def get_portfolio_buildings(building_ids: list[str]) -> PortfolioBuildingsRespon
 
     start_date = anchor - timedelta(days=29)
     end_date = anchor
+    year_start = anchor - timedelta(days=364)  # trailing 12 months for annual carbon
 
     ph, ids_params = fabric_sql.format_in_clause(building_ids)
 
@@ -218,6 +219,7 @@ def get_portfolio_buildings(building_ids: list[str]) -> PortfolioBuildingsRespon
         ISNULL(k.kwh_30d,  0) AS kwh_30d,
         ISNULL(k.cost_30d, 0) AS cost_30d,
         ISNULL(k.co2_30d,  0) AS co2_30d,
+        ISNULL(k365.co2_365, 0) AS co2_365,
         ISNULL(a.open_anom, 0) AS open_anomalies,
         ISNULL(r.rec_count, 0) AS open_recommendations,
         CASE WHEN i.building_id IS NOT NULL THEN CAST(1 AS bit) ELSE CAST(0 AS bit) END AS has_iot
@@ -232,6 +234,15 @@ def get_portfolio_buildings(building_ids: list[str]) -> PortfolioBuildingsRespon
         WHERE building_id IN ({ph}) AND [date] BETWEEN ? AND ?
         GROUP BY building_id
     ) k ON k.building_id = b.building_id
+    LEFT JOIN (
+        -- Trailing 12 months of operational CO2 -> annual carbon intensity
+        -- (consistent with the GHG/ESRS operational figure; avoids the seasonal
+        -- bias of annualising a single 30-day window).
+        SELECT building_id, SUM(co2_emissions_kg) AS co2_365
+        FROM [dbo].[gold_kpi_daily]
+        WHERE building_id IN ({ph}) AND [date] BETWEEN ? AND ?
+        GROUP BY building_id
+    ) k365 ON k365.building_id = b.building_id
     LEFT JOIN (
         -- Distinct OPEN issue types, not raw daily events: gold_anomaly_log keys
         -- by (building, type, DATE), so a chronic fault would otherwise count as
@@ -260,11 +271,12 @@ def get_portfolio_buildings(building_ids: list[str]) -> PortfolioBuildingsRespon
     """
 
     params = (
-        *ids_params, start_date, end_date,
-        *ids_params,
-        *ids_params,
-        *ids_params,
-        *ids_params,
+        *ids_params, start_date, end_date,   # k  (30-day window)
+        *ids_params, year_start, end_date,   # k365 (trailing 12 months)
+        *ids_params,                         # a  (anomalies)
+        *ids_params,                         # r  (recommendations)
+        *ids_params,                         # i  (iot)
+        *ids_params,                         # WHERE
     )
 
     rows = gold_read.query(sql, params)
@@ -300,6 +312,7 @@ def _row_to_building(r: dict) -> PortfolioBuildingRow:
         kwh_30d=kwh,
         cost_30d_eur=_safe_float(r.get("cost_30d")),
         co2_30d_kg=_safe_float(r.get("co2_30d")),
+        co2_365_kg=_safe_float(r.get("co2_365")),
         eui_kwh_m2_yr=eui,
         open_anomalies=int(r.get("open_anomalies") or 0),
         open_recommendations=int(r.get("open_recommendations") or 0),

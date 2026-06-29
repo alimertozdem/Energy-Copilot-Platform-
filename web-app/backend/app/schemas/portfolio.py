@@ -71,6 +71,7 @@ class PortfolioBuildingRow(BaseModel):
     kwh_30d: float
     cost_30d_eur: float
     co2_30d_kg: float
+    co2_365_kg: float = 0.0  # trailing 12-month operational CO2 (annual intensity)
     eui_kwh_m2_yr: float | None = Field(
         default=None,
         description="Annualized EUI (kWh/m2/yr). None when floor area is zero or missing.",

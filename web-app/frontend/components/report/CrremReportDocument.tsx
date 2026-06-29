@@ -176,8 +176,8 @@ export function CrremReportDocument({
         </table>
       )}
       <div style={{ fontSize: 10, color: FAINT, marginTop: 6 }}>
-        Intensity and pathway are in kgCO₂/m²·yr. Intensity is annualised from the latest
-        ~30 days of operational emissions and held flat — a conservative screening view that
+        Intensity and pathway are in kgCO₂/m²·yr. Intensity is the building&rsquo;s trailing
+        twelve-month operational carbon per m², held flat — a conservative screening view that
         does not credit planned decarbonisation. Improving efficiency or electrifying heat
         (see the recommendations) pushes the stranding year out.
       </div>

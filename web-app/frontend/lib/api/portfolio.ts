@@ -46,6 +46,7 @@ export type PortfolioBuildingRow = {
   kwh_30d: number
   cost_30d_eur: number
   co2_30d_kg: number
+  co2_365_kg?: number
   eui_kwh_m2_yr: number | null
   open_anomalies: number
   open_recommendations: number

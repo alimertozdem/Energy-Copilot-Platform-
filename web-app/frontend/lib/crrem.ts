@@ -166,6 +166,12 @@ export type StrandingResult = {
 /** Annualised operational carbon intensity (kgCO2/m2.yr) from recent data. */
 export function carbonIntensity(b: PortfolioBuildingRow): number | null {
   if (!b.floor_area_m2 || b.floor_area_m2 <= 0) return null
+  // Prefer a full trailing-year operational figure — consistent with the GHG /
+  // ESRS operational intensity. Annualising a single 30-day window (x12) is
+  // seasonally biased (a mild month understates the year), so use it only as fallback.
+  if (b.co2_365_kg != null && b.co2_365_kg > 0) {
+    return b.co2_365_kg / b.floor_area_m2
+  }
   if (b.co2_30d_kg == null) return null
   return (b.co2_30d_kg * ANNUALIZE) / b.floor_area_m2
 }
