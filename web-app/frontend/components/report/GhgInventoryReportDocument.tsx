@@ -9,7 +9,7 @@
  * plugs into <ReportFrame>. Inline-styled, print-safe.
  *
  * Honesty: Scope 1+2 are disclosure-grade (from real building energy); Scope 3 is an
- * estimate covering only categories 1 + 13. Not an audited or assured inventory.
+ * estimate covering Scope 3 categories 1, 3, 5, 6, 7 and 13. Not an audited or assured inventory.
  */
 import type { EsrsReport } from "@/lib/api/esrs"
 

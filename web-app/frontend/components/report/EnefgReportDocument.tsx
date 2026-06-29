@@ -35,10 +35,11 @@ import {
   fmtPayback,
 } from "./reportKit"
 
-// EnEfG / EDL-G thresholds (2026 Novelle; GWh of total final energy per year).
-const GWH_UMSETZUNGSPLAN = 2.5 // §9 implementation-plan publication duty
-const GWH_AUDIT = 2.77 // §8 / EDL-G energy audit (DIN EN 16247) unless certified EnMS
-const GWH_ENMS = 23.6 // EnMS (ISO 50001) / EMAS duty
+// EnEfG thresholds (total final energy, GWh/yr; 3-yr average per BAFA).
+// §9 Umsetzungsplan >= 2.77 GWh; §8 EnMS/EMAS >= 7.5 GWh. The DIN EN 16247 energy
+// audit is an EDL-G duty for non-SMEs (size-based, every 4 yr) — not a GWh threshold.
+const GWH_UMSETZUNGSPLAN = 2.77 // §9 EnEfG — publish implementation plan of economic measures
+const GWH_ENMS = 7.5 // §8 EnEfG — operate ISO 50001 / EMAS
 
 const eur = (v: number | null): string => (v === null ? "—" : "€" + fmtInt(v))
 
@@ -64,7 +65,6 @@ export function EnefgReportDocument({
   const totalMwh = esrs?.energy_total_mwh ?? null
   const gwh = totalMwh != null ? totalMwh / 1000 : null
   const inUmsetzung = gwh != null && gwh >= GWH_UMSETZUNGSPLAN
-  const inAudit = gwh != null && gwh >= GWH_AUDIT
   const inEnMS = gwh != null && gwh >= GWH_ENMS
 
   // Economic measures (NPV-positive) = the implementation-plan content.
@@ -93,9 +93,9 @@ export function EnefgReportDocument({
           value={gwh != null ? `${gwh.toFixed(2)} GWh` : "—"}
           hint="portfolio final energy / yr"
         />
-        <StatCard label="Implementation plan (§9)" value={dutyChip(inUmsetzung).text} color={dutyChip(inUmsetzung).color} hint="> 2.5 GWh" />
-        <StatCard label="Energy audit (§8)" value={dutyChip(inAudit).text} color={dutyChip(inAudit).color} hint="> 2.77 GWh — DIN EN 16247" />
-        <StatCard label="EnMS / ISO 50001" value={dutyChip(inEnMS).text} color={dutyChip(inEnMS).color} hint="> 23.6 GWh" />
+        <StatCard label="Implementation plan (§9)" value={dutyChip(inUmsetzung).text} color={dutyChip(inUmsetzung).color} hint="> 2.77 GWh" />
+        <StatCard label="EnMS / EMAS (§8)" value={dutyChip(inEnMS).text} color={dutyChip(inEnMS).color} hint="> 7.5 GWh — ISO 50001 / EMAS" />
+        <StatCard label="Energy audit (EDL-G)" value="Size-based" color={MUTED} hint="non-SME · DIN EN 16247 · every 4 yr" />
       </div>
       {esrsError && (
         <div style={{ marginTop: 6 }}>
@@ -106,13 +106,11 @@ export function EnefgReportDocument({
         {gwh == null ? (
           "Connect portfolio energy to determine EnEfG scope."
         ) : inEnMS ? (
-          <>This portfolio exceeds <strong>23.6 GWh/yr</strong> — an energy- or environmental-management system (ISO 50001 / EMAS) <strong>and</strong> a published implementation plan are required.</>
-        ) : inAudit ? (
-          <>This portfolio exceeds <strong>2.77 GWh/yr</strong> — a certified energy audit (DIN EN 16247) every four years <strong>and</strong> a published implementation plan of the economic measures are required.</>
+          <>This portfolio exceeds <strong>7.5 GWh/yr</strong> — an energy- or environmental-management system (ISO 50001 / EMAS, §8) <strong>and</strong> a published implementation plan (§9) are required.</>
         ) : inUmsetzung ? (
-          <>This portfolio exceeds <strong>2.5 GWh/yr</strong> — a published, externally-reviewed implementation plan of the economic measures is required.</>
+          <>This portfolio exceeds <strong>2.77 GWh/yr</strong> — a published, externally-reviewed implementation plan of the economic measures (§9) is required.</>
         ) : (
-          <>This portfolio is below <strong>2.5 GWh/yr</strong>, so the EnEfG audit / plan duties do not currently apply. The measures below are still a voluntary efficiency roadmap.</>
+          <>This portfolio is below <strong>2.77 GWh/yr</strong>, so the EnEfG §8/§9 duties do not currently apply. A DIN EN 16247 energy audit may still apply under EDL-G if the company is not an SME. The measures below are a voluntary efficiency roadmap.</>
         )}
       </div>
       <div style={{ marginTop: 4, fontSize: 10.5, color: MUTED, lineHeight: 1.5 }}>

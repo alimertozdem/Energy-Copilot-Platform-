@@ -230,7 +230,7 @@ export function VsmeReportDocument({
           )}
           <div style={{ fontSize: 10, color: FAINT, marginTop: 6 }}>
             Scope 1+2 are disclosure-grade (metered building energy). Scope 3 is a screening
-            estimate (categories 1 + 13 only) and not disclosure-grade. Energy and GHG per
+            estimate (categories 1, 3, 5, 6, 7 and 13 — incl. business travel & employee commuting) and not disclosure-grade. Energy and GHG per
             unit of revenue (VSME B3 datapoints) require a revenue figure — [add company
             revenue to complete].
           </div>
