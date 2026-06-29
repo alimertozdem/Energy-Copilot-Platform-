@@ -75,6 +75,7 @@ export function GresbReportDocument({
   }
 
   const g = esrs.ghg
+  const operationalLoc = g.scope1_tco2e + g.scope2_location_tco2e
   const energyIntensity = esrs.floor_area_m2 > 0 ? (esrs.energy_total_mwh * 1000) / esrs.floor_area_m2 : null
   const coveragePct = esrs.buildings_total > 0 ? (esrs.buildings_reported / esrs.buildings_total) * 100 : null
 
@@ -123,6 +124,7 @@ export function GresbReportDocument({
 
       <SectionTitle>GH1 · GHG emissions</SectionTitle>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <StatCard label="Operational (S1+2)" value={num(operationalLoc)} hint="tCO₂e — building energy (EPBD/CRREM)" />
         <StatCard label="Scope 1" value={num(g.scope1_tco2e)} hint="tCO₂e — direct" />
         <StatCard label="Scope 2 (location)" value={num(g.scope2_location_tco2e)} hint="tCO₂e — grid" />
         <StatCard label="Scope 3 (est.)" value={num(g.scope3_tco2e)} color={BAD} hint="tCO₂e — value chain" />

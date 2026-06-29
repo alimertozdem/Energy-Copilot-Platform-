@@ -113,6 +113,7 @@ export function VsmeReportDocument({
 }) {
   const year = esrs?.reporting_year ?? null
   const g = esrs?.ghg ?? null
+  const operationalLoc = g ? g.scope1_tco2e + g.scope2_location_tco2e : null
   const crrem = comprehensive ? summarizeStranding(buildings) : null
 
   const text = (code: string) => {
@@ -180,6 +181,7 @@ export function VsmeReportDocument({
       {esrs && esrs.has_data && g ? (
         <>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
+            <StatCard label="Operational (S1+2)" value={operationalLoc != null ? num(operationalLoc) : "—"} hint="tCO₂e — building energy (EPBD/CRREM)" />
             <StatCard label="Scope 1" value={num(g.scope1_tco2e)} hint="tCO₂e — direct combustion" />
             <StatCard label="Scope 2 (location)" value={num(g.scope2_location_tco2e)} hint="tCO₂e — grid" />
             <StatCard label="Scope 2 (market)" value={num(g.scope2_market_tco2e)} hint="tCO₂e — contractual" />
