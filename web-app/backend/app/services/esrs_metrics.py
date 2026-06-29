@@ -89,6 +89,7 @@ def _fetch(reader, ghg_t, bldg_t, kpi_t, year_expr, building_ids):
         b.building_name,
         b.building_type,
         b.gross_floor_area_m2,
+        b.has_gas_heating,
         g.scope1_tco2,
         g.scope2_location_tco2,
         g.scope2_market_tco2,
@@ -177,6 +178,12 @@ def get_esrs_report(building_ids: list[str]) -> EsrsReport:
         rtl = _safe_float(r.get("total_location_tco2"))
         rtm = _safe_float(r.get("total_market_tco2"))
         flag = r.get("dq_flag")
+        # An all-electric building (no gas heating) flagged "missing_gas" is not
+        # missing data — there is simply no on-site gas to report. Reclassify to
+        # "complete" so the report does not show a false data gap.
+        _has_gas = r.get("has_gas_heating")
+        if flag == "missing_gas" and (_has_gas is False or _has_gas == 0):
+            flag = "complete"
 
         s1 += rs1
         s2l += rs2l
