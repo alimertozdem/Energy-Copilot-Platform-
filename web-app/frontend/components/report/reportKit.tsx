@@ -157,6 +157,37 @@ export function Notice({ error, label }: { error: string; label: string }) {
   )
 }
 
+export function PartialYearNotice({
+  months,
+  year,
+}: {
+  months?: number | null
+  year?: number | null
+}) {
+  if (months == null || months >= 12) return null
+  return (
+    <div
+      style={{
+        margin: "0 0 12px",
+        padding: "8px 12px",
+        borderRadius: 6,
+        fontSize: 11,
+        border: "1px solid #fcd34d",
+        backgroundColor: "#fffbeb",
+        color: "#92400e",
+        lineHeight: 1.5,
+      }}
+    >
+      <strong>
+        Partial year — {months} of 12 months{year ? ` of ${year}` : ""}.
+      </strong>{" "}
+      These figures are year-to-date, not a full annual total — totals and intensity
+      are understated until a complete year of data is available (typical for a
+      newly onboarded building).
+    </div>
+  )
+}
+
 export function Chip({ label, color }: { label: string; color: string }) {
   return (
     <span

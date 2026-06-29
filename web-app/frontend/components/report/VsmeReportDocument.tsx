@@ -13,7 +13,8 @@
  */
 import type { EsrsReport } from "@/lib/api/esrs"
 import type { PortfolioBuildingRow } from "@/lib/api/portfolio"
-import { summarizeStranding } from "@/lib/crrem"
+import {
+  PartialYearNotice, summarizeStranding } from "@/lib/crrem"
 import { VSME_ALL_BY_CODE } from "@/lib/vsme/vsmeDisclosures"
 
 import {
@@ -136,6 +137,7 @@ export function VsmeReportDocument({
         estimated. This is not an audited or assured disclosure.
       </div>
 
+      <PartialYearNotice months={esrs?.reporting_months} year={esrs?.reporting_year} />
       <SectionTitle>General information</SectionTitle>
       <NarrativeSlot code="B1" content={text("B1")} saved={isSaved("B1")} />
       <NarrativeSlot

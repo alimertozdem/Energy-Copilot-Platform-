@@ -14,6 +14,7 @@
 import type { EsrsReport } from "@/lib/api/esrs"
 
 import {
+  PartialYearNotice,
   BAD,
   Chip,
   DANGER,
@@ -75,6 +76,7 @@ export function GhgInventoryReportDocument({
       </div>
 
       {/* ---- Inventory scope & boundary ---- */}
+      <PartialYearNotice months={esrs?.reporting_months} year={esrs?.reporting_year} />
       <SectionTitle>Inventory scope &amp; boundary</SectionTitle>
       <div style={{ fontSize: 11.5, color: INK, lineHeight: 1.6 }}>
         <strong>Reporting entity:</strong> portfolio of {esrs.buildings_total}{" "}

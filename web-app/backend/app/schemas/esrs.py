@@ -50,6 +50,9 @@ class EsrsReport(BaseModel):
     reporting_year: int | None = Field(
         default=None, description="Latest reporting year present in gold_ghg_scope."
     )
+    reporting_months: int | None = Field(
+        default=None, description="Months of data in the reporting year (<12 = partial/YTD)."
+    )
     has_data: bool = False
     buildings_total: int = Field(default=0, description="Visible buildings.")
     buildings_reported: int = Field(

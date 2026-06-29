@@ -35,6 +35,7 @@ export type EsrsDataQuality = {
 
 export type EsrsReport = {
   reporting_year: number | null
+  reporting_months?: number | null
   has_data: boolean
   buildings_total: number
   buildings_reported: number

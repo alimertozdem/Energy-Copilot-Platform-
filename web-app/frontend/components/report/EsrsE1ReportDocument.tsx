@@ -13,7 +13,8 @@
  */
 import type { EsrsReport } from "@/lib/api/esrs"
 import type { PortfolioBuildingRow } from "@/lib/api/portfolio"
-import { summarizeStranding } from "@/lib/crrem"
+import {
+  PartialYearNotice, summarizeStranding } from "@/lib/crrem"
 import { E1_BY_CODE } from "@/lib/esrs/e1Disclosures"
 
 import {
@@ -144,6 +145,7 @@ export function EsrsE1ReportDocument({
         This is not an audited or assured disclosure, nor a CSRD filing.
       </div>
 
+      <PartialYearNotice months={esrs?.reporting_months} year={esrs?.reporting_year} />
       <NarrativeSlot
         code="E1-1"
         evidence={

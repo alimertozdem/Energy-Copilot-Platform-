@@ -17,6 +17,7 @@ import type { ActionItem } from "@/lib/api/actions"
 import type { EsrsReport } from "@/lib/api/esrs"
 
 import {
+  PartialYearNotice,
   BAD,
   Chip,
   DANGER,
@@ -86,6 +87,7 @@ export function EnefgReportDocument({
       </div>
 
       {/* Scope check */}
+      <PartialYearNotice months={esrs?.reporting_months} year={esrs?.reporting_year} />
       <SectionTitle>Scope — total final energy vs EnEfG thresholds</SectionTitle>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <StatCard

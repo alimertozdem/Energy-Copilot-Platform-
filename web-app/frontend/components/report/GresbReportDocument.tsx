@@ -14,6 +14,7 @@
 import type { EsrsReport } from "@/lib/api/esrs"
 
 import {
+  PartialYearNotice,
   BAD,
   Chip,
   EMERALD,
@@ -94,6 +95,7 @@ export function GresbReportDocument({
         through the GRESB portal, with data coverage meeting the 75% (area × time) threshold.
       </div>
 
+      <PartialYearNotice months={esrs?.reporting_months} year={esrs?.reporting_year} />
       <SectionTitle>Data coverage</SectionTitle>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <StatCard label="Assets reported" value={`${esrs.buildings_reported}/${esrs.buildings_total}`} hint="with performance data" />

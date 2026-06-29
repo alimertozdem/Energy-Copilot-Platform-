@@ -82,6 +82,15 @@ def _fetch(reader, ghg_t, bldg_t, kpi_t, year_expr, building_ids):
     if year_val is None:
         return None
     year = int(year_val)
+    # How many months of the selected year actually have data. < 12 => a partial
+    # (YTD) year, e.g. a freshly-onboarded building; reports must label this so the
+    # figures are not read as a full annual total.
+    months_val = reader.execute_scalar(
+        f"SELECT COUNT(DISTINCT reporting_month) FROM {ghg_t} "
+        f"WHERE building_id IN ({ph}) AND reporting_year = ?",
+        (*ids_params, year),
+    )
+    months = int(months_val) if months_val is not None else None
 
     rows_sql = f"""
     SELECT
@@ -127,7 +136,7 @@ def _fetch(reader, ghg_t, bldg_t, kpi_t, year_expr, building_ids):
         """,
         (*ids_params, year),
     )
-    return year, rows, energy_rows
+    return year, months, rows, energy_rows
 
 
 # Source priority: Postgres-materialized mv_ tables first (reachable from Azure,
@@ -156,7 +165,7 @@ def get_esrs_report(building_ids: list[str]) -> EsrsReport:
     if data is None:
         return _empty_report(len(building_ids))
 
-    year, rows, energy_rows = data
+    year, months, rows, energy_rows = data
 
     e = energy_rows[0] if energy_rows else {}
     total_kwh = _safe_float(e.get("kwh"))
@@ -217,6 +226,7 @@ def get_esrs_report(building_ids: list[str]) -> EsrsReport:
 
     return EsrsReport(
         reporting_year=year,
+        reporting_months=months,
         has_data=len(out_rows) > 0,
         buildings_total=len(building_ids),
         buildings_reported=len(out_rows),
