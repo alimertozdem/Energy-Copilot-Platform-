@@ -531,6 +531,8 @@ def _build_package(measures, thermal_demand_kwh, heating_kwh, area, heating_eui,
         "value_band_pct": round(band * 100),
         "carbon_price_now": round(CARBON_PRICE_T),
         "carbon_price_2030": round(CARBON_PRICE_2030_T),
-        "note": "Payback range = CapEx +/-30% (screening) and energy-saving band; the low end uses the 2030 carbon price (~149 EUR/t), which raises the value of CO2 saved.",
+        "note": (f"Payback range = CapEx +/-30% (screening) and the energy-saving band; "
+                 f"payback_years_2030_carbon is a sensitivity at the base-scenario 2030 "
+                 f"carbon price (~{round(CARBON_PRICE_2030_T)} EUR/t), which raises the value of CO2 saved."),
     }
     return base

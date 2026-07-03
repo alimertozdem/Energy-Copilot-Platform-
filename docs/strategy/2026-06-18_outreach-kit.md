@@ -4,6 +4,13 @@
 > **Track 2 — LinkedIn free pilot:** land one real, sizable building → product validation + a strong
 > reference → elevates the project toward startup level.
 > Run both in parallel, systematically. Attach the **sample report PDF** to every message.
+>
+> **Two sample artifacts:** (1) the 1-page teaser `EnergyLens_Sample_Report.pdf`
+> (`scripts/build_sample_report.py`) — attach to every first message; (2) the detailed
+> **report pack** in [`../freelance-samples/`](../freelance-samples/README.md) (GHG · ESRS ·
+> CRREM · VSME · GRESB · EnEfG for one synthetic building) — send to engaged prospects as
+> the full deliverable preview. Read that folder's README first (it has a re-export checklist:
+> the bundled PDFs were exported before the latest report fixes and several are stale).
 
 ---
 

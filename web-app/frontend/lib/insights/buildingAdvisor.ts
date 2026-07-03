@@ -247,7 +247,11 @@ function recsInsight(kpis: PortfolioBuildingRow, topActions: ActionItem[]): Insi
     ? `Biggest opportunity: ${top.title ?? top.action_type ?? "a measure"}` +
       (top.annual_saving_eur != null
         ? ` (~${eur(top.annual_saving_eur)}/yr` +
-          (top.payback_years != null ? `, ~${top.payback_years.toFixed(0)} yr payback)` : ")")
+          // Only quote a payback below the 40-yr plausibility ceiling (mirrors
+          // reportKit.fmtPayback); beyond that it's compliance/CO2-driven, not financial.
+          (top.payback_years != null && top.payback_years < 40
+            ? `, ~${top.payback_years.toFixed(0)} yr payback)`
+            : ")")
         : "") +
       "."
     : "Open the list to see each measure quantified by saving and payback."

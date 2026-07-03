@@ -59,10 +59,11 @@ function fmtPaybackYears(years: number | null): string {
 }
 
 // A measure with no quantified financial payback: either it saves nothing
-// (annual_saving_eur null/0) or its payback is the backend "no real payback"
-// sentinel (~99 yr). These are operational / no-capex tweaks — show them as an
-// "Operational" measure instead of a misleading "99.0 yr".
-const OPERATIONAL_PAYBACK_YEARS = 50
+// (annual_saving_eur null/0) or its payback is at/over the platform-wide
+// 40-yr plausibility ceiling (reportKit MAX_PLAUSIBLE_PAYBACK_YEARS, backend
+// guards) — beyond equipment service life, so not a real financial payback.
+// Show these as an "Operational" measure instead of a misleading "115.2 yr".
+const OPERATIONAL_PAYBACK_YEARS = 40
 
 function isOperationalMeasure(a: ActionItem): boolean {
   const noSaving = a.annual_saving_eur === null || a.annual_saving_eur === 0

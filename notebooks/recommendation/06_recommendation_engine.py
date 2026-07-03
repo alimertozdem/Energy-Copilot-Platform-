@@ -145,13 +145,31 @@ RATE_AT  = _t.get("AT", 0.190)
 RATE_NL  = _t.get("NL", 0.205)
 RATE_DEFAULT = _t.get("EU", 0.190)
 
-# BMS Optimisation
-BMS_SAVING_PCT         = 0.08   # 8% total consumption saving — conservative (ISO 50001 studies: 5-15%)
-BMS_CAPEX_EUR_M2       = 22.0   # €22/m² conditioned area (hardware + software + commissioning)
+# BMS Optimisation — BMS-aware capex (cost research 2024-26):
+#   re-commissioning an EXISTING BMS (retro-commissioning): BCA median ~€2.5/m²
+#     (range €0.5-5/m²), payback 2 months-2 years.
+#   INSTALLING a new BMS / controls: ~€20-70/m² ($2-7/sqft, NREL/industry).
+BMS_SAVING_PCT         = 0.08    # 8% total consumption saving — conservative (ISO 50001: 5-15%)
+BMS_SAVING_CEILING_KWH_M2  = 20.0  # max realistic BMS RCx saving (kWh/m2.yr) — bounds energy-dense
+                                   # (datacenter/hospital) where %-of-TOTAL over-states addressable load
+BMS_RECX_FIXED         = 6000.0  # has BMS: re-commissioning engineering base (EUR)
+BMS_RECX_CAPEX_M2      = 2.5     # has BMS: re-commissioning EUR/m²
+BMS_INSTALL_CAPEX_M2   = 28.0    # no BMS: new BMS install EUR/m² (mid of €20-70)
 
-# HVAC Scheduling
-HVAC_SCHED_SAVING_PCT  = 0.12   # 12% of HVAC consumption (setback + scheduling, IEA benchmark)
-HVAC_SCHED_CAPEX_M2    = 10.0   # €10/m² (mostly software, sensors, commissioning)
+# HVAC Scheduling — BMS-aware
+HVAC_SCHED_SAVING_PCT  = 0.12    # 12% of HVAC consumption (setback + scheduling, IEA benchmark)
+HVAC_SAVING_CEILING_KWH_M2 = 15.0  # max realistic HVAC-scheduling saving (kWh/m2.yr)
+HVAC_SCHED_RECX_FIXED  = 4000.0  # has BMS: scheduling/setback re-commissioning base (EUR)
+HVAC_SCHED_RECX_M2     = 1.5     # has BMS: EUR/m²
+HVAC_SCHED_INSTALL_M2  = 15.0    # no BMS: install controls to enable scheduling EUR/m²
+
+# A building is treated as already having a BMS/controls (-> cheap re-commissioning)
+# when reasonably modern or efficient; otherwise controls must first be installed.
+# Proxy from year_built/EPC until an explicit has_bms is captured at onboarding.
+def _bms_present():
+    return (coalesce(col("year_built"), lit(0)) >= 2000) | col("energy_certificate").isin(
+        "A", "A+", "B", "C"
+    )
 
 # CHP Cogeneration
 CHP_SAVING_PCT         = 0.22   # 22% of annual energy cost (combined efficiency vs separate generation)
@@ -312,10 +330,22 @@ log_step("READ", "All tables loaded", rows=df_building.count())
 
 # ── 4. ANNUAL CONSUMPTION FOR LED ESTIMATE ────────────────────────────────────
 
+# ANNUALISE: gold_kpi_monthly spans MULTIPLE years; a raw SUM is the multi-year
+# total (e.g. ~3.3x for a building with 40 months), which inflated every
+# consumption-% saving. Scale to one year by the actual number of months
+# present (one row per building-month). Mirrors 06b's last-12-month cost base.
 df_annual_kwh = (
     df_kpi_m
     .groupBy("building_id")
-    .agg(spark_sum("total_consumption_kwh").alias("annual_consumption_kwh"))
+    .agg(
+        spark_sum("total_consumption_kwh").alias("_tot_kwh"),
+        spark_sum(lit(1)).alias("_n_months"),
+    )
+    .withColumn("annual_consumption_kwh",
+        when(col("_n_months") > 0,
+             spark_round(col("_tot_kwh") * lit(12.0) / col("_n_months"), 0))
+        .otherwise(col("_tot_kwh")))
+    .drop("_tot_kwh", "_n_months")
 )
 
 # ----- 4b. ANNUAL SOLAR IRRADIATION (GHI) FOR INSTALL_SOLAR YIELD -----
@@ -381,6 +411,8 @@ df_base = (
         col("b.has_battery"),
         col("b.has_heat_pump"),
         col("b.has_led_lighting"),
+        col("b.energy_certificate"),
+        col("b.year_built"),
         col("b.pv_capacity_kwp"),
         # Solar (INSTALL_SOLAR sizing + ROI)
         col("b.roof_area_m2"),
@@ -1103,12 +1135,17 @@ df_deep_rec = (
 df_bms_rec = (
     df_base
     .withColumn("_bms_saving_kwh",
-        spark_round(coalesce(col("est_consumption_kwh"), lit(0.0)) * lit(BMS_SAVING_PCT), 0))
+        spark_round(least(
+            coalesce(col("est_consumption_kwh"), lit(0.0)) * lit(BMS_SAVING_PCT),
+            col("conditioned_area_m2") * lit(BMS_SAVING_CEILING_KWH_M2)), 0))
     .withColumn("_rate",  _elec_rate)
     .withColumn("_bms_saving_eur",
         spark_round(col("_bms_saving_kwh") * col("_rate"), 0))
     .withColumn("_bms_capex",
-        spark_round(col("conditioned_area_m2") * lit(BMS_CAPEX_EUR_M2), 0))
+        spark_round(
+            when(_bms_present(),
+                 lit(BMS_RECX_FIXED) + col("conditioned_area_m2") * lit(BMS_RECX_CAPEX_M2))
+            .otherwise(col("conditioned_area_m2") * lit(BMS_INSTALL_CAPEX_M2)), 0))
     .withColumn("_bms_co2",
         spark_round(col("_bms_saving_kwh") * lit(0.4), 0))
     .withColumn("_bms_payback",
@@ -1204,13 +1241,17 @@ df_hvac_sched_rec = (
         .otherwise(lit(0.40)))
     .withColumn("_rate", _elec_rate)
     .withColumn("_hvac_saving_kwh",
-        spark_round(
+        spark_round(least(
             coalesce(col("est_consumption_kwh"), lit(0.0))
-            * col("_hvac_share") * lit(HVAC_SCHED_SAVING_PCT), 0))
+            * col("_hvac_share") * lit(HVAC_SCHED_SAVING_PCT),
+            col("conditioned_area_m2") * lit(HVAC_SAVING_CEILING_KWH_M2)), 0))
     .withColumn("_hvac_saving_eur",
         spark_round(col("_hvac_saving_kwh") * col("_rate"), 0))
     .withColumn("_hvac_capex",
-        spark_round(col("conditioned_area_m2") * lit(HVAC_SCHED_CAPEX_M2), 0))
+        spark_round(
+            when(_bms_present(),
+                 lit(HVAC_SCHED_RECX_FIXED) + col("conditioned_area_m2") * lit(HVAC_SCHED_RECX_M2))
+            .otherwise(col("conditioned_area_m2") * lit(HVAC_SCHED_INSTALL_M2)), 0))
     .withColumn("_hvac_co2",
         spark_round(col("_hvac_saving_kwh") * lit(0.4), 0))
     .withColumn("_hvac_payback",

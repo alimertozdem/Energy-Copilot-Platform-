@@ -290,9 +290,9 @@ except Exception as _e:
 # CELL 7 — SANITY: annual total-energy EUI per building (for review)
 # =============================================================================
 
-print("\n── Annual total-final-energy EUI by building (kWh/m²·yr) ──")
+print("\n── Annual total-final-energy EUI by building × year (kWh/m²·yr) ──")
 (
-    df.groupBy("building_id", "building_type")
+    df.groupBy("building_id", "building_type", "year")
     .agg(
         spark_sum("electricity_kwh").alias("elec_kwh"),
         spark_sum("gas_fuel_kwh").alias("gas_kwh"),
@@ -302,7 +302,7 @@ print("\n── Annual total-final-energy EUI by building (kWh/m²·yr) ──")
     )
     .withColumn("elec_eui",  spark_round(col("elec_kwh")/col("gfa"), 0))
     .withColumn("total_eui", spark_round(col("total_kwh")/col("gfa"), 0))
-    .orderBy(col("total_eui").desc())
+    .orderBy(col("year").desc(), col("total_eui").desc())
     .show(20, truncate=False)
 )
 log_step("✅ 03b complete — gold_energy_ledger ready")

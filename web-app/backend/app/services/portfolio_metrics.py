@@ -220,6 +220,8 @@ def get_portfolio_buildings(building_ids: list[str]) -> PortfolioBuildingsRespon
         ISNULL(k.cost_30d, 0) AS cost_30d,
         ISNULL(k.co2_30d,  0) AS co2_30d,
         ISNULL(k365.co2_365, 0) AS co2_365,
+        ISNULL(k365.kwh_365, 0) AS kwh_365,
+        ISNULL(k365.days_365, 0) AS days_365,
         ISNULL(a.open_anom, 0) AS open_anomalies,
         ISNULL(r.rec_count, 0) AS open_recommendations,
         CASE WHEN i.building_id IS NOT NULL THEN CAST(1 AS bit) ELSE CAST(0 AS bit) END AS has_iot
@@ -235,10 +237,15 @@ def get_portfolio_buildings(building_ids: list[str]) -> PortfolioBuildingsRespon
         GROUP BY building_id
     ) k ON k.building_id = b.building_id
     LEFT JOIN (
-        -- Trailing 12 months of operational CO2 -> annual carbon intensity
-        -- (consistent with the GHG/ESRS operational figure; avoids the seasonal
-        -- bias of annualising a single 30-day window).
-        SELECT building_id, SUM(co2_emissions_kg) AS co2_365
+        -- Trailing 12 months of operational CO2 + energy -> annual carbon
+        -- intensity AND annual EUI (consistent with the GHG/ESRS operational
+        -- figure; avoids the seasonal bias of annualising a single 30-day
+        -- window). days_365 = actual data coverage so a freshly onboarded
+        -- building is annualised over its real coverage, not a fake year.
+        SELECT building_id,
+               SUM(co2_emissions_kg)      AS co2_365,
+               SUM(total_consumption_kwh) AS kwh_365,
+               COUNT(DISTINCT [date])     AS days_365
         FROM [dbo].[gold_kpi_daily]
         WHERE building_id IN ({ph}) AND [date] BETWEEN ? AND ?
         GROUP BY building_id
@@ -298,7 +305,18 @@ def _row_to_building(r: dict) -> PortfolioBuildingRow:
     """Map a SQL row dict to the Pydantic response model."""
     area = _safe_float(r.get("gross_floor_area_m2"))
     kwh = _safe_float(r.get("kwh_30d"))
-    eui = (kwh * ANNUALIZE_FACTOR) / area if area > 0 else None
+    # EUI: trailing-12-month energy annualised over its ACTUAL day coverage
+    # (365.25/days). A full year -> factor ~1 (true annual EUI, no seasonal
+    # bias); a new building with 30 days behaves like the old 30-day run-rate.
+    # Falls back to the 30-day annualisation when the window has no rows.
+    kwh_365 = _safe_float(r.get("kwh_365"))
+    days_365 = _safe_float(r.get("days_365"))
+    if area > 0 and kwh_365 > 0 and days_365 > 0:
+        eui = (kwh_365 * (365.25 / days_365)) / area
+    elif area > 0:
+        eui = (kwh * ANNUALIZE_FACTOR) / area
+    else:
+        eui = None
 
     return PortfolioBuildingRow(
         fabric_building_id=r["building_id"],

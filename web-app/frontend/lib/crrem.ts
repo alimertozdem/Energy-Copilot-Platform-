@@ -15,11 +15,11 @@
  * UI. Real curves also vary by country grid — out of scope for the indicative
  * version.
  *
- * Annualisation caveat (2026-06-16): intensity is scaled from a 30-day CO2
- * window (x365.25/30). A heating- or cooling-heavy 30-day window over- or
- * under-states the annual figure, so the stranding year is indicative. A full
- * trailing-year CO2 figure (a backend field) would remove this; surfaced in the
- * UI as a one-line caveat.
+ * Annualisation (updated 2026-06-29, commit aa2b246): intensity now prefers the
+ * backend's trailing-12-month CO2 figure (co2_365_kg — consistent with the
+ * GHG/ESRS operational number). Only when that field is absent does it fall
+ * back to scaling the 30-day window (x365.25/30), which can over-/under-state
+ * a seasonal month — the UI carries a one-line caveat for that fallback.
  */
 import type { PortfolioBuildingRow } from "@/lib/api/portfolio"
 
