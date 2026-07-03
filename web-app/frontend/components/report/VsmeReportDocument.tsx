@@ -13,8 +13,7 @@
  */
 import type { EsrsReport } from "@/lib/api/esrs"
 import type { PortfolioBuildingRow } from "@/lib/api/portfolio"
-import {
-  PartialYearNotice, summarizeStranding } from "@/lib/crrem"
+import { summarizeStranding } from "@/lib/crrem"
 import { VSME_ALL_BY_CODE } from "@/lib/vsme/vsmeDisclosures"
 
 import {
@@ -28,6 +27,7 @@ import {
   LINE,
   MUTED,
   Notice,
+  PartialYearNotice,
   SectionTitle,
   StatCard,
   tdL,
