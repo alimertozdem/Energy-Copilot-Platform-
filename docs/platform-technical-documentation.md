@@ -182,10 +182,11 @@ as a decarbonisation win; an aggregate ceiling Σ(measures) ≤ 35% × total cos
 **Run order is load-bearing: 03b → 06 → 06b → 50 (materialize).** 06 overwrites 06b's calibration
 whenever it re-runs, so 06b must always run last (this recurred — see §8).
 
-*(Uncommitted work-in-progress on 06, found in this audit: BMS-aware CapEx — re-commissioning
-€2.5/m² + €6k base when a BMS exists vs €28/m² new install; kWh/m² saving ceilings for BMS (20)
-and scheduling (15) so energy-dense types aren't over-credited; and a multi-year → 12-month
-annualisation fix for the consumption base. Compiles clean; needs commit + Fabric run — §8.)*
+*(BMS-aware refinement, committed + verified live 2026-07-03: re-commissioning €2.5/m² + €6k base
+when a BMS exists vs €28/m² new install; kWh/m² saving ceilings for BMS (20) and scheduling (15)
+so energy-dense types aren't over-credited; and a multi-year → 12-month annualisation fix for the
+consumption base. CELL 0 prints an `ENGINE_VERSION` stamp so the run output itself proves which
+version executed.)*
 
 #### 3.1.4 `09_ghg_scope_engine` — GHG Protocol scopes
 `gold_ghg_scope` (building × month): Scope 1 (gas 0.201 kg/kWh HHV-basis BEHG factor, diesel,
@@ -524,7 +525,7 @@ PBI model dump = fresh live export, 329 measures; report/app single-source confi
 ### 8.3 Punch list — to close before saying "waiting for the first pilot building"
 | # | Item | Owner / where |
 |---|---|---|
-| P1 | **Fabric re-run in order: 03b → 06 → 06b → 50-materialize → PBI Service refresh.** Live `mv_recommendations` is currently post-06/pre-06b (B007 battery 115.2 yr, B003 41.8 yr visible to SQL; app now guards, but the data must be re-calibrated). Commit the uncommitted 06 improvements (BMS-aware CapEx + annualisation + ceilings — compiles clean) first. | Mert (Fabric) |
+| P1 | ~~Fabric re-run in order: 03b → 06 → 06b → 50-materialize → PBI refresh.~~ **DONE 2026-07-03 evening** — verified live: BMS-aware CapEx formulas (28/15 €/m²) + annualised base in gold, 06b calibration applied (max payback 31.3, zero ≥40 rows, sub-metering 0, HP CO₂-guard), mirrored to Postgres 16:43. Capex forensics note: the BMS-aware engine had in fact been live since 06-29. Run one final PBI model refresh (post-16:43 write). | ✓ done |
 | P2 | Re-materialize scope: `mv_building_master` has 10 rows vs 14 in `mv_kpi_daily` (B012–B015 orphans); `mv_sync_log` only logs 3 tables. Extend the live 50-materialize TABLES dict + logging. | Mert (Fabric) |
 | P3 | Mirror live notebooks into the repo: live 09 GHG (6-category Scope 3) and live 50-materialize (TABLES-dict version) differ from the repo copies; nb16 is mirrored but sits in `_deferred/` with a stale README. | Mert paste → repo |
 | P4 | Password-reset activation: Resend account + DNS + `FRONTEND_BASE_URL` + `alembic upgrade head` (head c1d2e3f4a5b6) + deploy. Add rate-limiting follow-up. | Mert (ops) |
