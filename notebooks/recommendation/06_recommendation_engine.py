@@ -145,6 +145,9 @@ RATE_AT  = _t.get("AT", 0.190)
 RATE_NL  = _t.get("NL", 0.205)
 RATE_DEFAULT = _t.get("EU", 0.190)
 
+ENGINE_VERSION = "06 v2026-07-03 BMS-aware + annualized-base"
+print(f"NOTEBOOK {ENGINE_VERSION}")
+
 # BMS Optimisation — BMS-aware capex (cost research 2024-26):
 #   re-commissioning an EXISTING BMS (retro-commissioning): BCA median ~€2.5/m²
 #     (range €0.5-5/m²), payback 2 months-2 years.

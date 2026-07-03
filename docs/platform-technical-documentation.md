@@ -333,7 +333,9 @@ renewable share from solar self-consumption. Labelled **"ESRS-E1-aligned support
 #### 3.2.9 Solar detail + telemetry rollup (`solar_detail.py`, `solar_telemetry_rollup.py`)
 /solar is **real-first, sample-fallback per building**: buildings with telemetry in the 90-day
 window serve from `gold_solar_daily` (loader: generation = counter-delta or power-trapezoid
-integration; IEC PR clamp; self-consumption = ∫min(PV, load)dt only when a load meter exists —
+integration with a 6-h gap guard; IEC PR NULL below 0.05 kWh/m² irradiation and clamped ≤ 1.1 —
+deliberately looser than the synthetic gold's 0.95 because a real POA sensor can read PR > 1.0 on
+cold clear days; self-consumption = ∫min(PV, load)dt only when a load meter exists —
 inverter-only sites get `self_consumption_available = false`, never an estimate, with a coverage %
 stating how much of generation is metered for the split). Portfolio PR is **generation-weighted**
 (Σ PR×gen / Σ gen; sample PR>1.1 building-days excluded as low-sun artefacts). Specific yield is
@@ -513,6 +515,11 @@ PBI model dump = fresh live export, 329 measures; report/app single-source confi
 5. **03b sanity print** now groups by year (a multi-year SUM previously read ~3× annual EUI).
 6. **crrem.ts stale docstring** updated (code already used trailing-12M CO₂).
 7. Repo hygiene: tracked `AppChrome.tsx.bak` removed from the index; `*.bak` gitignored.
+8. **Vercel production build repaired** (broken since 1bbfbe2, 06-29): `PartialYearNotice` was
+   imported from `@/lib/crrem` instead of `./reportKit` in the ESRS-E1 and VSME report documents;
+   fixed, `tsc --noEmit` clean, deploy `ea0a825` Ready in Production.
+9. Ingest/SCADA pass (post-doc audit): telemetry rollup's stale "same cap as 03" comment corrected —
+   measured-telemetry PR ceiling 1.1 (POA basis) is deliberate vs the synthetic gold's 0.95.
 
 ### 8.3 Punch list — to close before saying "waiting for the first pilot building"
 | # | Item | Owner / where |

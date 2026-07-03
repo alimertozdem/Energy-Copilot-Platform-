@@ -28,7 +28,9 @@ PV_ENERGY = {"pv_energy_today_kwh", "solar_generated_kwh", "pv_energy_kwh", "ac_
 IRRADIANCE = {"irradiance", "poa_irradiance", "solar_irradiance"}
 LOAD = {"building_kwh", "building_power", "building_load_kw", "main_power_kw"}
 
-PR_MAX_PLAUSIBLE = 1.1          # same cap as 03_gold_kpi_engine
+PR_MAX_PLAUSIBLE = 1.1          # measured-telemetry ceiling (POA-sensor basis; cold clear
+                                # days can top 1.0). DELIBERATELY looser than notebook 03's
+                                # 0.95, which caps the SYNTHETIC irradiance-proxy PR.
 MIN_IRRADIATION_KWH_M2 = 0.05   # below this, PR denominator is noise -> NULL
 MAX_GAP_H = 6.0                 # do not integrate across holes larger than this
 

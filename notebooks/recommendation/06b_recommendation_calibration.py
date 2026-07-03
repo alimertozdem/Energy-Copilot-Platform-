@@ -66,6 +66,8 @@ FALLBACK_ELEC_TARIFF = 0.30   # €/kWh if a building has no electricity in the 
 REC_TABLE    = "gold_recommendations"
 LEDGER_TABLE = "gold_energy_ledger"
 
+ENGINE_VERSION = "06b v2026-07-03 payback-null>=40 + HP-CO2 guard"
+print(f"NOTEBOOK {ENGINE_VERSION}")
 print(f"✅ CELL 0 | TOTAL_CAP={TOTAL_CAP_PCT} | {len(MEASURE_CAP_PCT)} measure bands")
 
 
