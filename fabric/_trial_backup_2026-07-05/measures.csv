@@ -1,0 +1,1647 @@
+Table Name,Measure Name,Measure Expression,Measure Data Type,Measure Hidden,Measure Display Folder,Measure Description,Format String,Data Category,Detail Rows Definition,Format String Definition
+silver_building_master,Avg EPC Class Numeric,"VAR _weighted_sum =
+    SUMX(
+        silver_building_master,
+        VAR _b_id  = silver_building_master[building_id]
+        VAR _area  = silver_building_master[conditioned_area_m2]
+        VAR _epc_text =
+            LOOKUPVALUE(
+                silver_epc_ratings[epc_class],
+                silver_epc_ratings[building_id], _b_id
+            )
+        VAR _num =
+            SWITCH(
+                UPPER(_epc_text),
+                ""A+"", 0,
+                ""A"",  1,
+                ""B"",  2,
+                ""C"",  3,
+                ""D"",  4,
+                ""E"",  5,
+                ""F"",  6,
+                ""G"",  7,
+                BLANK()
+            )
+        RETURN
+            IF(ISBLANK(_num), 0, _num * _area)
+    )
+VAR _total_area_with_epc =
+    SUMX(
+        silver_building_master,
+        VAR _b_id = silver_building_master[building_id]
+        VAR _has_epc =
+            NOT ISBLANK(
+                LOOKUPVALUE(
+                    silver_epc_ratings[epc_class],
+                    silver_epc_ratings[building_id], _b_id
+                )
+            )
+        RETURN
+            IF(_has_epc, silver_building_master[conditioned_area_m2], 0)
+    )
+RETURN
+    DIVIDE(_weighted_sum, _total_area_with_epc)",Double,False,EPC Compliance,,0.00,,,
+silver_building_master,Avg EPC Class Text,"VAR _num = [Avg EPC Class Numeric]
+    RETURN
+        SWITCH(
+            TRUE(),
+            ISBLANK(_num), ""—"",
+            _num < 0.5,    ""A+"",
+            _num < 1.5,    ""A"",
+            _num < 2.5,    ""B"",
+            _num < 3.5,    ""C"",
+            _num < 4.5,    ""D"",
+            _num < 5.5,    ""E"",
+            _num < 6.5,    ""F"",
+            ""G""
+        )",String,False,EPC Compliance,,"#,##0.0",,,
+silver_building_master,Solar Capacity kWp,SUM( silver_building_master[pv_capacity_kwp] ),Double,False,Solar - Realtime & Opportunity,,"#,##0",,,
+gold_recommendations,Total Annual Saving EUR,"
+SUM(gold_recommendations[annual_saving_eur])
+
+",Double,False,,,"#,##0.0",,,
+gold_recommendations,Total CO2 Saving kg,"
+SUM(gold_recommendations[co2_saving_kg])
+",Double,False,,,"#,##0.0",,,
+gold_recommendations,Total CO2 Saving tCO2,"
+[Total CO2 Saving kg] / 1000
+",Double,False,,,"#,##0.0",,,
+gold_recommendations,Total Capex EUR,"
+SUM(gold_recommendations[capex_eur])
+
+",Double,False,,,"#,##0.0",,,
+gold_recommendations,Total Net Capex EUR,"
+SUM(gold_recommendations[net_capex_eur])
+",Double,False,,,"#,##0.0",,,
+gold_recommendations,Priority Sort Order,"
+SWITCH (
+    SELECTEDVALUE ( gold_recommendations[priority_label] ),
+    ""CRITICAL"",      1,
+    ""HIGH"",          2,
+    ""MEDIUM"",        3,
+    ""LOW"",           4,
+    ""INFORMATIONAL"", 5,
+    99
+)",Int64,False,,,"#,##0.0",,,
+gold_recommendations,Savings Potential EUR CRITICAL,SUM ( gold_recommendations[annual_saving_eur] ),Double,False,,,"""€"" #,##0",,,
+gold_recommendations,Savings Annual Target EUR,VAR _target = 300000 RETURN _target,Int64,False,,,"""€"" #,##0",,,
+gold_recommendations,Savings Achievement Pct,"VAR _actual = [Savings Potential EUR CRITICAL] VAR _target = [Savings Annual Target EUR] RETURN IF ( NOT ISBLANK ( _actual ) && _target > 0, ROUND ( DIVIDE ( _actual, _target ) * 100, 1 ), BLANK () )",Double,False,,,"+0.0%;-0.0%;""—""",,,
+gold_recommendations,INSTALL_SOLAR Opportunities,"CALCULATE( COUNTROWS( gold_recommendations ), gold_recommendations[action_type] = ""INSTALL_SOLAR"" )",Int64,False,Solar - Realtime & Opportunity,,"#,##0",,,
+gold_recommendations,Feed-in Tariff EUR kWh,"LOOKUPVALUE( gold_country_regulations[feed_in_tariff_eur_per_kwh], gold_country_regulations[country_code], SELECTEDVALUE( gold_recommendations[country_code] ) )",Double,False,Solar - Realtime & Opportunity,,0.000,,,
+gold_recommendations,Total Grant EUR,"
+SUM ( gold_recommendations[grant_eur] )",Double,False,,,"#,##0.0",,,
+gold_recommendations,Avg Payback Years,"
+CALCULATE (
+    AVERAGE ( gold_recommendations[payback_years] ),
+    NOT ISBLANK ( gold_recommendations[payback_years] )
+)
+",Double,False,,,"#,##0.0",,,
+gold_recommendations,Critical Recommendations,"
+CALCULATE(
+    COUNTROWS(gold_recommendations),
+    gold_recommendations[priority_label] = ""Critical""
+)
+",Int64,False,,,"#,##0.0",,,
+gold_recommendations,High Priority Recommendations,"
+CALCULATE(
+    COUNTROWS(gold_recommendations),
+    gold_recommendations[priority_label] IN {""Critical"", ""High""}
+)
+
+",Int64,False,,,"#,##0.0",,,
+gold_recommendations,Total Recommendations,"
+COUNTROWS(gold_recommendations)
+
+",Int64,False,,,"#,##0.0",,,
+gold_recommendations,Install Solar Empty State,"// Caption only when there is no ACTIONABLE install-solar row in the current
+// view; otherwise an empty string so the overlay card shows nothing (no dash).
+VAR _n =
+    CALCULATE (
+        COUNTROWS ( gold_recommendations ),
+        gold_recommendations[action_type] = ""INSTALL_SOLAR"",
+        gold_recommendations[priority_label] <> ""INFORMATIONAL""
+    )
+RETURN
+    IF ( ISBLANK ( _n ) || _n = 0, ""No install-solar opportunity for the current selection."", """" )",String,False,Solar - Realtime & Opportunity,,,,,
+'Date',Last Week kWh v14,"
+// Veri setinin en son tarihinden 8–14 gün öncesi (""geçen hafta penceresi"")
+// Örnek: max date = 2026-01-18 → 5–11 Ocak arası
+VAR _maxDate    = CALCULATE ( MAX ( gold_kpi_daily[date] ), REMOVEFILTERS ( '''Date''' ) )
+VAR _weekEnd    = _maxDate - 7      // geçen haftanın son günü
+VAR _weekStart  = _maxDate - 13     // geçen haftanın ilk günü (7 tam gün)
+RETURN
+CALCULATE (
+    [Total Consumption kWh],
+    REMOVEFILTERS ( '''Date''' ),
+    DATESBETWEEN ( '''Date'''[date], _weekStart, _weekEnd )
+)",Double,False,,,"#,##0.0",,,
+'Date',Last 7 Days Cost EUR,"
+// Son 7 günün maliyeti
+VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+RETURN
+CALCULATE(
+    [Total Energy Cost EUR],
+    REMOVEFILTERS('''Date'''),
+    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -7, DAY)
+)",Double,False,,,"#,##0.0",,,
+'Date',Last 30 Days CO2 tCO2,"
+// Son 30 günün CO₂ emisyonu
+VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+RETURN
+CALCULATE(
+    [Total CO2 Emissions tCO2],
+    REMOVEFILTERS('''Date'''),
+    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -30, DAY)
+)
+",Double,False,,,"#,##0.0",,,
+'Date',Previous Period Consumption kWh,"
+CALCULATE(
+    [Total Consumption kWh],
+    PREVIOUSMONTH('''Date'''[Date])
+)
+",Double,False,,,"#,##0.0",,,
+'Date',Consumption Change Pct,"
+DIVIDE(
+    [Total Consumption kWh] - [Previous Period Consumption kWh],
+    [Previous Period Consumption kWh],
+    0
+) * 100
+
+",Double,False,,,"#,##0.0",,,
+'Date',Previous Period Cost EUR,"
+CALCULATE(
+    [Total Energy Cost EUR],
+    PREVIOUSMONTH('''Date'''[Date])
+)
+",Double,False,,,"#,##0.0",,,
+'Date',Cost Change Pct,"
+DIVIDE(
+    [Total Energy Cost EUR] - [Previous Period Cost EUR],
+    [Previous Period Cost EUR],
+    0
+) * 100",Double,False,,,"#,##0.0",,,
+'Date',YTD Consumption kWh,"
+CALCULATE(
+    [Total Consumption kWh],
+    DATESYTD('''Date'''[Date])
+)",Double,False,,,"#,##0.0",,,
+'Date',YTD CO2 Emissions tCO2,"
+CALCULATE(
+    [Total CO2 Emissions tCO2],
+    DATESYTD('''Date'''[Date])
+)",Double,False,,,"#,##0.0",,,
+'Date',Current Week kWh v14,"
+// Veri setinin son 7 günü (""mevcut hafta"" gibi davranır)
+VAR _maxDate = CALCULATE ( MAX ( '''Date'''[date] ), REMOVEFILTERS ( '''Date''' ) )
+RETURN
+CALCULATE (
+    [Total Consumption kWh],
+    REMOVEFILTERS ( '''Date''' ),
+    DATESINPERIOD ( '''Date'''[date], _maxDate, -7, DAY )
+)",Double,False,,,"#,##0.0",,,
+'Date',Week over Week Consumption Pct,"
+// Bu hafta tüketimi / geçen hafta tüketimi karşılaştırması (%)
+// Pozitif = artış, Negatif = azalış
+// FORMAT: ""0.0"" (×100 yapılmış)
+VAR _thisWeek = [Current Week kWh v14]
+VAR _lastWeek = [Last Week kWh v14]
+RETURN
+DIVIDE(_thisWeek - _lastWeek, _lastWeek, BLANK()) * 100",Double,False,,,"#,##0.0",,,
+'Date',Week over Week Arrow v14,"
+// C7 — Haftalık tüketim değişimi, ok etiketi olarak
+// Format: General (text ölçüsü — Standard Card visual kullan, KPI değil)
+VAR _thisWeek = [Current Week kWh v14]
+VAR _lastWeek = [Last Week kWh v14]
+VAR _pct      = DIVIDE ( _thisWeek - _lastWeek, _lastWeek, BLANK() ) * 100
+RETURN
+SWITCH (
+    TRUE (),
+    ISBLANK ( _pct ),   ""—"",
+    _pct > 5,           ""▲▲ "" & FORMAT (      _pct,  ""+0.0"" ) & ""%"",
+    _pct > 0,           ""▲ ""  & FORMAT (      _pct,  ""+0.0"" ) & ""%"",
+    _pct < -5,          ""▼▼ "" & FORMAT ( ABS ( _pct ), ""0.0"" ) & ""%"",
+    _pct < 0,           ""▼ ""  & FORMAT ( ABS ( _pct ), ""0.0"" ) & ""%"",
+                        ""→ 0.0%""
+)",String,False,,,"#,##0.0",,,
+'Date',Last Week Cost EUR,"
+// Geçen haftanın enerji maliyeti (EUR)
+CALCULATE(
+    [Total Energy Cost EUR],
+    '''Date'''[IsLastWeek] = TRUE()
+)",Double,False,,,"#,##0.0",,,
+'Date',Last Week CO2 Emissions tCO2,"
+// Geçen haftanın CO₂ emisyonu (metrik ton)
+CALCULATE(
+    [Total CO2 Emissions tCO2],
+    '''Date'''[IsLastWeek] = TRUE()
+)",Double,False,,,"#,##0.0",,,
+'Date',Last Week Peak Demand kW,"
+// Geçen hafta maksimum güç talebi (kW)
+CALCULATE(
+    [Peak Demand kW],
+    '''Date'''[IsLastWeek] = TRUE()
+)
+",Double,False,,,"#,##0.0",,,
+'Date',Last Week Solar Generated kWh,"
+// Geçen hafta güneş enerjisi üretimi
+CALCULATE(
+    [Total Solar Generated kWh],
+    '''Date'''[IsLastWeek] = TRUE()
+)",Double,False,,,"#,##0.0",,,
+'Date',WoW Solar Change Pct,"
+// Güneş üretiminde haftalık değişim — hava koşulu etkisini takip için
+VAR _thisWeek = CALCULATE([Total Solar Generated kWh], '''Date'''[IsCurrentWeek] = TRUE())
+VAR _lastWeek = [Last Week Solar Generated kWh]
+RETURN
+DIVIDE(_thisWeek - _lastWeek, _lastWeek, BLANK()) * 100",Double,False,,,"#,##0.0",,,
+'Date',Last Month kWh v14,"
+// Veri setinin son tarihinin bir önceki tam takvim ayı
+// Örnek: max date = 2026-01-18 → Ocak değil, Aralık 2025'in tamamı
+VAR _maxDate        = CALCULATE ( MAX ( gold_kpi_daily[date] ), REMOVEFILTERS ( '''Date''' ) )
+VAR _lastMonthEnd   = DATE ( YEAR ( _maxDate ), MONTH ( _maxDate ), 1 ) - 1
+VAR _lastMonthStart = DATE ( YEAR ( _lastMonthEnd ), MONTH ( _lastMonthEnd ), 1 )
+RETURN
+CALCULATE (
+    [Total Consumption kWh],
+    REMOVEFILTERS ( '''Date''' ),
+    DATESBETWEEN ( '''Date'''[date], _lastMonthStart, _lastMonthEnd )
+)",Double,False,,,"#,##0.0",,,
+'Date',Current Month kWh v14,"
+// Veri setinin son tarihinin içinde bulunduğu ayın 1'inden son tarihe kadar
+VAR _maxDate    = CALCULATE ( MAX ( '''Date'''[date] ), REMOVEFILTERS ( '''Date''' ) )
+VAR _monthStart = DATE ( YEAR ( _maxDate ), MONTH ( _maxDate ), 1 )
+RETURN
+CALCULATE (
+    [Total Consumption kWh],
+    REMOVEFILTERS ( '''Date''' ),
+    DATESBETWEEN ( '''Date'''[date], _monthStart, _maxDate )
+)",Double,False,,,"#,##0.0",,,
+'Date',Month over Month Consumption Pct,"
+// Bu ay / geçen ay tüketim değişimi (%)
+// Not: Ay tamamlanmamışsa eksik gün sayısı dikkate alınmaz — tam ay için kullan
+// FORMAT: ""0.0""
+VAR _thisMonth = [Current Month kWh v14]
+VAR _lastMonth = [Last Month kWh v14]
+RETURN
+DIVIDE(_thisMonth - _lastMonth, _lastMonth, BLANK()) * 100",Double,False,,,"#,##0.0",,,
+'Date',Month over Month Arrow v14,"
+// C9 — Aylık tüketim değişimi, ok etiketi olarak
+// Format: General (text ölçüsü)
+VAR _thisMonth = [Current Month kWh v14]
+VAR _lastMonth = [Last Month kWh v14]
+VAR _pct       = DIVIDE ( _thisMonth - _lastMonth, _lastMonth, BLANK() ) * 100
+RETURN
+SWITCH (
+    TRUE (),
+    ISBLANK ( _pct ),   ""—"",
+    _pct > 10,          ""▲▲ "" & FORMAT (      _pct,  ""+0.0"" ) & ""%"",
+    _pct > 0,           ""▲ ""  & FORMAT (      _pct,  ""+0.0"" ) & ""%"",
+    _pct < -10,         ""▼▼ "" & FORMAT ( ABS ( _pct ), ""0.0"" ) & ""%"",
+    _pct < 0,           ""▼ ""  & FORMAT ( ABS ( _pct ), ""0.0"" ) & ""%"",
+                        ""→ 0.0%""
+)",String,False,,,"#,##0.0",,,
+'Date',Last Month Cost EUR,"
+// Geçen ayın enerji maliyeti
+CALCULATE(
+    [Total Energy Cost EUR],
+    '''Date'''[IsLastMonth] = TRUE()
+)",Double,False,,,"#,##0.0",,,
+'Date',Last Month CO2 Emissions tCO2,"
+// Geçen ayın CO₂ emisyonu
+CALCULATE(
+    [Total CO2 Emissions tCO2],
+    '''Date'''[IsLastMonth] = TRUE()
+)",Double,False,,,"#,##0.0",,,
+'Date',Last Month Peak Demand kW,"
+// Geçen ayın pik güç talebi
+CALCULATE(
+    [Peak Demand kW],
+    '''Date'''[IsLastMonth] = TRUE()
+)
+",Double,False,,,"#,##0.0",,,
+'Date',Last Month Solar Generated kWh,"
+// Geçen ayın güneş üretimi
+CALCULATE(
+    [Total Solar Generated kWh],
+    '''Date'''[IsLastMonth] = TRUE()
+)",Double,False,,,"#,##0.0",,,
+'Date',MoM Cost Change Pct,"
+// Maliyet değişimi ay bazında
+VAR _thisMonth = CALCULATE([Total Energy Cost EUR], '''Date'''[IsCurrentMonth] = TRUE())
+VAR _lastMonth = [Last Month Cost EUR]
+RETURN
+DIVIDE(_thisMonth - _lastMonth, _lastMonth, BLANK()) * 100",Double,False,,,"#,##0.0",,,
+'Date',MoM CO2 Change Pct,"
+// CO₂ değişimi ay bazında — emisyon azaltma hedefi takibi için
+VAR _thisMonth = CALCULATE([Total CO2 Emissions tCO2], '''Date'''[IsCurrentMonth] = TRUE())
+VAR _lastMonth = [Last Month CO2 Emissions tCO2]
+RETURN
+DIVIDE(_thisMonth - _lastMonth, _lastMonth, BLANK()) * 100",Double,False,,,"#,##0.0",,,
+'Date',Last 7 Days Consumption kWh,"
+// Son 7 günün tüketimi — rolling pencere (bugün dahil)
+// Slicer'dan bağımsız — her zaman son 7 günü gösterir
+VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+RETURN
+CALCULATE(
+    [Total Consumption kWh],
+    REMOVEFILTERS('''Date'''),
+    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -7, DAY)
+)",Double,False,,,"#,##0.0",,,
+'Date',Last 30 Days Consumption kWh,"
+// Son 30 günün tüketimi — rolling pencere
+VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+RETURN
+CALCULATE(
+    [Total Consumption kWh],
+    REMOVEFILTERS('''Date'''),
+    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -30, DAY)
+)",Double,False,,,"#,##0.0",,,
+'Date',Last 30 Days Cost EUR,"
+// Son 30 günün maliyeti
+VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+RETURN
+CALCULATE(
+    [Total Energy Cost EUR],
+    REMOVEFILTERS('''Date'''),
+    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -30, DAY)
+)",Double,False,,,"#,##0.0",,,
+'Date',Last 7 Days CO2 tCO2,"
+// Son 7 günün CO₂ emisyonu
+VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+RETURN
+CALCULATE(
+    [Total CO2 Emissions tCO2],
+    REMOVEFILTERS('''Date'''),
+    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -7, DAY)
+)",Double,False,,,"#,##0.0",,,
+'Date',Card: Last Week vs Previous Week Pct,"
+// Page 1 KPI card: Geçen hafta / bir önceki hafta karşılaştırması
+// (Bugünkü hafta henüz tamamlanmadı, daha sağlıklı karşılaştırma)
+VAR _last = [Last Week kWh v14]
+VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+VAR _twoWeeksAgo = CALCULATE(
+    [Total Consumption kWh],
+    REMOVEFILTERS('''Date'''),
+    DATESINPERIOD(gold_kpi_daily[date], _maxDate - 7, -7, DAY)
+)
+RETURN
+DIVIDE(_last - _twoWeeksAgo, _twoWeeksAgo, BLANK()) * 100",Double,False,,,"#,##0.0",,,
+'Date',Card: Last Month vs Previous Month Pct,"
+// Page 1 KPI card: Geçen ay / bir önceki ay
+VAR _lastMonth = [Last Month kWh v14]
+VAR _prevMonth = CALCULATE(
+    [Total Consumption kWh],
+    PREVIOUSMONTH(DATESINPERIOD('''Date'''[Date], MIN('''Date'''[Date]), 0, DAY))
+)
+RETURN
+DIVIDE(_lastMonth - _prevMonth, _prevMonth, BLANK()) * 100",Double,False,,,"#,##0.0",,,
+'Date',Card: Weekly Avg Consumption kWh,"
+// Son 4 haftanın haftalık ortalama tüketimi — trend baseline için
+VAR _maxDate = CALCULATE(MAX(gold_kpi_daily[date]), REMOVEFILTERS('''Date'''))
+VAR _28days = CALCULATE(
+    [Total Consumption kWh],
+    REMOVEFILTERS('''Date'''),
+    DATESINPERIOD(gold_kpi_daily[date], _maxDate, -28, DAY)
+)
+RETURN
+DIVIDE(_28days, 4, BLANK())",Double,False,,,"#,##0.0",,,
+gold_occupancy_profile,Avg Business Hours Occupancy Pct,"
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+    gold_occupancy_profile[hour_of_day] >= 9,
+    gold_occupancy_profile[hour_of_day] <= 18
+) * 100
+",Double,False,,,"#,##0.0",,,
+gold_occupancy_profile,Avg After Hours Occupancy Pct,"
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+    gold_occupancy_profile[hour_of_day] >= 20 ||
+    gold_occupancy_profile[hour_of_day] <= 7
+) * 100",Double,False,,,"#,##0.0",,,
+gold_occupancy_profile,Avg Weekend Occupancy Pct,"
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+    gold_occupancy_profile[day_of_week] >= 5
+) * 100",Double,False,,,"#,##0.0",,,
+gold_occupancy_profile,Avg Weekday Occupancy Pct,"
+CALCULATE(
+    AVERAGE(gold_occupancy_profile[occupancy_probability]),
+    gold_occupancy_profile[day_of_week] < 5
+) * 100",Double,False,,,"#,##0.0",,,
+gold_occupancy_profile,Energy per Occupant Goal kWh,"VAR _selected_buildings = DISTINCTCOUNT(gold_occupancy_profile[building_id])
+VAR _building_type =
+    IF(_selected_buildings = 1,
+        CALCULATE(
+            SELECTEDVALUE(silver_building_master[building_type]),
+            TREATAS(VALUES(gold_occupancy_profile[building_id]),
+                    silver_building_master[building_id])),
+        ""Portfolio"")
+RETURN
+    SWITCH(TRUE(),
+        _building_type = ""Office"",      250,
+        _building_type = ""Retail"",      320,
+        _building_type = ""Hotel"",       900,
+        _building_type = ""Healthcare"", 1100,
+        _building_type = ""Education"",   250,
+        _building_type = ""Logistics"",  1000,
+        1200)",Int64,False,Page 5 - Energy Density,,"#,##0",,,
+gold_occupancy_profile,Ghost Load Risk Status,"VAR _after_hours_avg =
+    CALCULATE (
+        AVERAGE ( gold_occupancy_profile[occupancy_probability] ),
+        gold_occupancy_profile[hour_of_day] >= 20
+            || gold_occupancy_profile[hour_of_day] < 7
+    )
+VAR _total_avg = AVERAGE ( gold_occupancy_profile[occupancy_probability] )
+VAR _pct =
+    IF ( _total_avg > 0, DIVIDE ( _after_hours_avg, _total_avg ) * 100, BLANK () )
+VAR _selected_buildings = DISTINCTCOUNT ( gold_occupancy_profile[building_id] )
+VAR _building_type =
+    IF (
+        _selected_buildings = 1,
+        CALCULATE (
+            SELECTEDVALUE ( silver_building_master[building_type] ),
+            TREATAS ( VALUES ( gold_occupancy_profile[building_id] ), silver_building_master[building_id] )
+        ),
+        ""Portfolio""
+    )
+VAR _critical_threshold =
+    SWITCH (
+        TRUE (),
+        _building_type IN { ""Hotel"", ""Healthcare"", ""Data_Center"" }, 130,
+        _building_type = ""Logistics"", 60,
+        35
+    )
+VAR _review_threshold = _critical_threshold * 0.6
+RETURN
+    SWITCH (
+        TRUE (),
+        _selected_buildings <> 1, ""Assess at building level"",
+        ISBLANK ( _pct ), ""—"",
+        _pct < _review_threshold, ""Efficient"",
+        _pct < _critical_threshold, ""Review schedule"",
+        ""Critical ghost load""
+    )",String,False,Page 5 - Decision Support,,"#,##0.0",,,
+gold_occupancy_profile,Occupied Hours Variance Hours,"
+VAR _occupied_threshold = 0.30
+VAR _occupied_count = 
+    CALCULATE(
+        COUNTROWS( gold_occupancy_profile ),
+        gold_occupancy_profile[occupancy_probability] >= _occupied_threshold
+    )
+VAR _profile_count = 
+    MAX( 1, DISTINCTCOUNT( gold_occupancy_profile[profile_source] ) )
+VAR _denominator = 7 * _profile_count
+VAR _actual = DIVIDE( _occupied_count, _denominator )
+VAR _selected_buildings = DISTINCTCOUNT( gold_occupancy_profile[building_id] )
+VAR _building_type = 
+    IF(
+        _selected_buildings = 1,
+        CALCULATE(
+            SELECTEDVALUE( silver_building_master[building_type] ),
+            TREATAS( VALUES( gold_occupancy_profile[building_id] ),
+                     silver_building_master[building_id] )
+        ),
+        ""Portfolio""
+    )
+VAR _goal = 
+    SWITCH(
+        TRUE(),
+        _building_type = ""Office"",       9,
+        _building_type = ""Retail"",      12,
+        _building_type = ""Hotel"",       18,
+        _building_type = ""Healthcare"",  20,
+        _building_type = ""Education"",    8,
+        _building_type = ""Logistics"",   14,
+        10
+    )
+RETURN
+    IF(
+        NOT ISBLANK( _actual ) && _goal > 0,
+        ROUND( _actual - _goal, 1 ),
+        BLANK()
+    )",Double,False,Page 5 - Decision Support,,+0.0;-0.0;0,,,
+gold_occupancy_profile,Occupancy Top Insight,"VAR _after_hours_avg =
+    CALCULATE (
+        AVERAGE ( gold_occupancy_profile[occupancy_probability] ),
+        gold_occupancy_profile[hour_of_day] >= 20
+            || gold_occupancy_profile[hour_of_day] < 7
+    )
+VAR _total_avg = AVERAGE ( gold_occupancy_profile[occupancy_probability] )
+VAR _phantom =
+    IF ( _total_avg > 0, DIVIDE ( _after_hours_avg, _total_avg ) * 100, BLANK () )
+VAR _selected_buildings = DISTINCTCOUNT ( gold_occupancy_profile[building_id] )
+VAR _building_type =
+    IF (
+        _selected_buildings = 1,
+        CALCULATE (
+            SELECTEDVALUE ( silver_building_master[building_type] ),
+            TREATAS ( VALUES ( gold_occupancy_profile[building_id] ), silver_building_master[building_id] )
+        ),
+        ""Portfolio""
+    )
+VAR _is_24_7 = _building_type IN { ""Hotel"", ""Healthcare"", ""Data_Center"" }
+VAR _critical_threshold =
+    SWITCH (
+        TRUE (),
+        _is_24_7, 130,
+        _building_type = ""Logistics"", 60,
+        35
+    )
+VAR _hours_variance = [Occupied Hours Variance Hours]
+VAR _annual_cost = [Ghost Load Annual Cost EUR]
+VAR _cost_text =
+    IF ( ISBLANK ( _annual_cost ), ""n/a"", ""EUR "" & FORMAT ( _annual_cost, ""#,##0"" ) )
+RETURN
+    SWITCH (
+        TRUE (),
+        _selected_buildings <> 1,
+            ""Select a single building to assess ghost-load. Portfolio rollup is not shown."",
+        ISBLANK ( _phantom ),
+            ""Insufficient occupancy data. Verify gold_occupancy_profile load."",
+        _is_24_7 && _phantom < _critical_threshold,
+            ""Normal 24/7 operation profile. After-hours activity is expected for "" & _building_type & "" buildings. No ghost-load concern."",
+        _phantom >= _critical_threshold,
+            ""CRITICAL ghost load. Schedule HVAC/lighting off after 20h. Est. saving: "" & _cost_text & ""/yr. See Page 4 for recommendations."",
+        _phantom >= _critical_threshold * 0.6,
+            ""MODERATE after-hours waste. Review lighting + plug-load scheduling. See Page 4 for recommendations."",
+        NOT ISBLANK ( _hours_variance ) && _hours_variance < -1.5,
+            ""Under-utilized portfolio ("" & FORMAT ( _hours_variance, ""0.0"" ) & ""h below goal). Consider tenant mix review or space consolidation."",
+        ""Healthy utilization pattern. No immediate action required.""
+    )",String,False,Page 5 - Decision Support,,"#,##0.0",,,
+gold_occupancy_profile,Building Avg Headcount Business Hours,"VAR _avg_prob =
+    CALCULATE(
+        AVERAGE( gold_occupancy_profile[occupancy_probability] ),
+        gold_occupancy_profile[hour_of_day] >= 8,
+        gold_occupancy_profile[hour_of_day] <= 18
+    )
+VAR _max_occ =
+    CALCULATE(
+        SUM( silver_building_master[max_occupants] ),
+        TREATAS(
+            VALUES( gold_occupancy_profile[building_id] ),
+            silver_building_master[building_id]
+        )
+    )
+VAR _result = _avg_prob * _max_occ
+RETURN
+    IF( ISBLANK( _avg_prob ) || ISBLANK( _max_occ ) || _max_occ = 0,
+        BLANK(),
+        ROUND( _result, 0 )
+    )",Double,False,Page 5 / Headcount,,"#,0",,,
+gold_occupancy_profile,Building Peak Headcount,"VAR _peak_prob =
+    CALCULATE(
+        MAX( gold_occupancy_profile[occupancy_probability] )
+    )
+VAR _max_occ =
+    CALCULATE(
+        SUM( silver_building_master[max_occupants] ),
+        TREATAS(
+            VALUES( gold_occupancy_profile[building_id] ),
+            silver_building_master[building_id]
+        )
+    )
+VAR _result = _peak_prob * _max_occ
+RETURN
+    IF( ISBLANK( _peak_prob ) || ISBLANK( _max_occ ) || _max_occ = 0,
+        BLANK(),
+        ROUND( _result, 0 )
+    )",Double,False,Page 5 / Headcount,,"#,0",,,
+gold_occupancy_profile,Building Avg Headcount Calc,"VAR _avg_prob =
+    CALCULATE(
+        AVERAGE( gold_occupancy_profile[occupancy_probability] ),
+        gold_occupancy_profile[hour_of_day] >= 8,
+        gold_occupancy_profile[hour_of_day] <= 18
+    )
+VAR _max_occ =
+    CALCULATE(
+        SUM( silver_building_master[max_occupants] ),
+        TREATAS(
+            VALUES( gold_occupancy_profile[building_id] ),
+            silver_building_master[building_id]
+        )
+    )
+VAR _result = _avg_prob * _max_occ
+RETURN
+    IF( ISBLANK( _avg_prob ) || ISBLANK( _max_occ ) || _max_occ = 0,
+        BLANK(),
+        ROUND( _result, 0 )
+    )",Double,False,Page 5 / Headcount,,"#,0",,,
+gold_occupancy_profile,Calibrated Buildings Count,"
+CALCULATE(
+    DISTINCTCOUNT(gold_occupancy_profile[building_id]),
+    gold_occupancy_profile[profile_source] = ""calibrated""
+)",Int64,False,,,"#,##0.0",,,
+gold_occupancy_profile,Avg Profile Confidence,"
+AVERAGE(gold_occupancy_profile[confidence_score])",Double,False,,,"#,##0.0",,,
+gold_occupancy_profile,Ghost Load Risk Pct,"VAR _selected_buildings = DISTINCTCOUNT ( gold_occupancy_profile[building_id] )
+VAR _after_hours_avg =
+    CALCULATE (
+        AVERAGE ( gold_occupancy_profile[occupancy_probability] ),
+        gold_occupancy_profile[hour_of_day] >= 20
+            || gold_occupancy_profile[hour_of_day] < 7
+    )
+VAR _total_avg = AVERAGE ( gold_occupancy_profile[occupancy_probability] )
+RETURN
+    IF (
+        _selected_buildings <> 1,
+        BLANK (),
+        IF (
+            NOT ISBLANK ( _total_avg ) && _total_avg > 0,
+            ROUND ( DIVIDE ( _after_hours_avg, _total_avg ) * 100, 1 ),
+            BLANK ()
+        )
+    )",Double,False,,,"#,##0.0",,,
+gold_occupancy_profile,Building Peak Headcount Calc,"VAR _peak_prob =
+    CALCULATE(
+        MAX( gold_occupancy_profile[occupancy_probability] )
+    )
+VAR _max_occ =
+    CALCULATE(
+        SUM( silver_building_master[max_occupants] ),
+        TREATAS(
+            VALUES( gold_occupancy_profile[building_id] ),
+            silver_building_master[building_id]
+        )
+    )
+VAR _result = _peak_prob * _max_occ
+RETURN
+    IF( ISBLANK( _peak_prob ) || ISBLANK( _max_occ ) || _max_occ = 0,
+        BLANK(),
+        ROUND( _result, 0 )
+    )",Double,False,Page 5 / Headcount,,"#,0",,,
+gold_anomaly_log,P3 Total Anomaly Count,COUNTROWS ( gold_anomaly_log ),Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 Critical Open Count,"CALCULATE (
+    COUNTROWS ( gold_anomaly_log ),
+    gold_anomaly_log[severity] = ""CRITICAL"",
+    gold_anomaly_log[is_resolved] = FALSE
+)",Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 High Anomaly Count,"CALCULATE (
+    COUNTROWS ( gold_anomaly_log ),
+    gold_anomaly_log[severity] = ""HIGH""
+)",Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 High Anomaly Previous Month,"CALCULATE (
+    [P3 High Anomaly Count],
+    DATEADD ( gold_anomaly_log[detected_date], -1, MONTH )
+)",Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 Unresolved Count,"CALCULATE (
+    COUNTROWS ( gold_anomaly_log ),
+    gold_anomaly_log[is_resolved] = FALSE
+)",Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 Unresolved YoY,"CALCULATE (
+    [P3 Unresolved Count],
+    DATEADD ( gold_anomaly_log[detected_date], -1, YEAR )
+)",Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 Data Quality Score,AVERAGE ( silver_data_quality[quality_score_pct] ),Double,False,P3 - Anomalies & Alerts,,0.0,,,
+gold_anomaly_log,P3 Data Quality Target,"VAR _target = 95
+RETURN _target",Int64,False,P3 - Anomalies & Alerts,,0.0,,,
+gold_anomaly_log,P3 Medium Anomaly Count,"CALCULATE (
+    COUNTROWS ( gold_anomaly_log ),
+    gold_anomaly_log[severity] = ""MEDIUM""
+)",Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 Critical Anomaly Count,"CALCULATE (
+    COUNTROWS ( gold_anomaly_log ),
+    gold_anomaly_log[severity] = ""CRITICAL""
+)",Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 Low Anomaly Count,"CALCULATE (
+    COUNTROWS ( gold_anomaly_log ),
+    gold_anomaly_log[severity] = ""LOW""
+)",Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 Anomaly Deviation Pct,"VAR _metric    = AVERAGE ( gold_anomaly_log[metric_value] )
+VAR _threshold = AVERAGE ( gold_anomaly_log[threshold_value] )
+RETURN
+    IF (
+        NOT ISBLANK ( _threshold ) && ABS ( _threshold ) > 0,
+        DIVIDE ( _metric - _threshold, ABS ( _threshold ) ) * 100,
+        BLANK ()
+    )",Double,False,P3 - Anomalies & Alerts,,+0.0;-0.0;—,,,
+gold_anomaly_log,P3 Building Anomaly Share Pct,"VAR _building =
+    [P3 Total Anomaly Count]
+VAR _portfolio =
+    CALCULATE (
+        [P3 Total Anomaly Count],
+        ALL ( silver_building_master )
+    )
+RETURN
+    ROUND ( DIVIDE ( _building, _portfolio ) * 100, 1 )",Double,False,P3 - Anomalies & Alerts,,0.0,,,
+gold_anomaly_log,P3 Anomaly Status,"VAR _open = CALCULATE( COUNTROWS( gold_anomaly_log ), gold_anomaly_log[is_resolved] = FALSE() ) VAR _tot = COUNTROWS( gold_anomaly_log ) RETURN SWITCH( TRUE(), _tot = 0, ""--"", _open > 0, ""Open"", ""Resolved"" )",String,False,P3 - Anomalies & Alerts,,"#,##0.0",,,
+gold_anomaly_log,P3 Avg Days Open,"ROUND (
+    AVERAGEX (
+        FILTER (
+            gold_anomaly_log,
+            gold_anomaly_log[is_resolved] = FALSE
+        ),
+        DATEDIFF ( gold_anomaly_log[detected_date], TODAY (), DAY )
+    ),
+    0
+)",Double,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 High Priority Open Count,"CALCULATE (
+    COUNTROWS ( gold_anomaly_log ),
+    gold_anomaly_log[is_resolved] = FALSE,
+    gold_anomaly_log[severity] IN { ""CRITICAL"", ""HIGH"" }
+)",Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 After Hours Waste Rate Pct,"VAR _ahw =
+    CALCULATE (
+        COUNTROWS ( gold_anomaly_log ),
+        gold_anomaly_log[anomaly_type] = ""AFTER_HOURS_WASTE""
+    )
+RETURN
+    ROUND ( DIVIDE ( _ahw, [P3 Total Anomaly Count], 0 ) * 100, 1 )",Double,False,P3 - Anomalies & Alerts,,0.0,,,
+gold_anomaly_log,P3 Resolution Rate Pct,"DIVIDE (
+    CALCULATE ( COUNTROWS ( gold_anomaly_log ), gold_anomaly_log[is_resolved] = TRUE () ),
+    COUNTROWS ( gold_anomaly_log )
+)",Double,False,Page3 Anomalies,,0.0%,,,
+gold_anomaly_log,P3 Resolution Rate Pct PY,"VAR _resolved_py =
+    CALCULATE (
+        COUNTROWS ( gold_anomaly_log ),
+        gold_anomaly_log[is_resolved] = TRUE,
+        DATEADD ( gold_anomaly_log[detected_date], -1, YEAR )
+    )
+VAR _total_py =
+    CALCULATE (
+        [P3 Total Anomaly Count],
+        DATEADD ( gold_anomaly_log[detected_date], -1, YEAR )
+    )
+RETURN
+    ROUND ( DIVIDE ( _resolved_py, _total_py, 0 ) * 100, 1 )",Double,False,P3 - Anomalies & Alerts,,0.0,,,
+gold_anomaly_log,P3 Top Risk Building Score,"VAR _tbl =
+    ADDCOLUMNS (
+        VALUES ( silver_building_master[building_name] ),
+        ""@cnt"", [P3 Unresolved Count]
+    )
+RETURN
+    MAXX ( TOPN ( 1, _tbl, [@cnt], DESC ), [@cnt] )",Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 Top Risk Building Name,"VAR _tbl =
+    ADDCOLUMNS (
+        VALUES ( silver_building_master[building_name] ),
+        ""@cnt"", [P3 Unresolved Count]
+    )
+RETURN
+    MAXX ( TOPN ( 1, _tbl, [@cnt], DESC ), silver_building_master[building_name] )",String,False,P3 - Anomalies & Alerts,,"#,##0.0",,,
+gold_anomaly_log,P3 Active Anomaly Rate Pct,"VAR _open = [P3 Unresolved Count]
+VAR _total = [P3 Total Anomaly Count]
+RETURN
+    ROUND ( DIVIDE ( _open, _total, 0 ) * 100, 1 )",Double,False,P3 - Anomalies & Alerts,,0.0,,,
+gold_anomaly_log,P3 Open Issue Count,"VAR _open = FILTER ( gold_anomaly_log, gold_anomaly_log[is_resolved] = FALSE )
+RETURN COUNTROWS ( SUMMARIZE ( _open, gold_anomaly_log[building_id], gold_anomaly_log[anomaly_type] ) )",Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 High Open Count,"CALCULATE ( COUNTROWS ( gold_anomaly_log ),
+    gold_anomaly_log[severity] = ""HIGH"", gold_anomaly_log[is_resolved] = FALSE )",Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,Critical Anomaly Count v14,"
+// Uppercase fix — v11 sonrası ""CRITICAL""
+CALCULATE (
+    COUNTROWS ( gold_anomaly_log ),
+    gold_anomaly_log[severity] = ""CRITICAL"",
+    gold_anomaly_log[is_resolved] = FALSE
+)",Int64,False,,,"#,##0.0",,,
+gold_anomaly_log,High Anomaly Count v14,"
+CALCULATE (
+    COUNTROWS ( gold_anomaly_log ),
+    gold_anomaly_log[severity] = ""HIGH"",
+    gold_anomaly_log[is_resolved] = FALSE
+)",Int64,False,,,"#,##0.0",,,
+gold_anomaly_log,Medium Anomaly Count v14,"
+CALCULATE (
+    COUNTROWS ( gold_anomaly_log ),
+    gold_anomaly_log[severity] = ""MEDIUM"",
+    gold_anomaly_log[is_resolved] = FALSE
+)",Int64,False,,,"#,##0.0",,,
+gold_anomaly_log,Low Anomaly Count v14,"
+CALCULATE (
+    COUNTROWS ( gold_anomaly_log ),
+    gold_anomaly_log[severity] = ""LOW"",
+    gold_anomaly_log[is_resolved] = FALSE
+)",Int64,False,,,"#,##0.0",,,
+gold_anomaly_log,P3 Total Anomaly PY,"CALCULATE (
+    [P3 Total Anomaly Count],
+    DATEADD ( gold_anomaly_log[detected_date], -1, YEAR )
+)",Int64,False,P3 - Anomalies & Alerts,,"#,##0",,,
+gold_anomaly_log,P3 Risk Score,"VAR _c = CALCULATE ( COUNTROWS ( gold_anomaly_log ), gold_anomaly_log[is_resolved] = FALSE (), UPPER ( gold_anomaly_log[severity] ) = ""CRITICAL"" )
+VAR _h = CALCULATE ( COUNTROWS ( gold_anomaly_log ), gold_anomaly_log[is_resolved] = FALSE (), UPPER ( gold_anomaly_log[severity] ) = ""HIGH"" )
+VAR _m = CALCULATE ( COUNTROWS ( gold_anomaly_log ), gold_anomaly_log[is_resolved] = FALSE (), UPPER ( gold_anomaly_log[severity] ) = ""MEDIUM"" )
+RETURN _c * 3 + _h * 2 + _m",Int64,False,Page3 Anomalies,,"#,##0",,,
+gold_anomaly_log,P3 Risk Share Pct,"DIVIDE ( [P3 Risk Score], CALCULATE ( [P3 Risk Score], ALL ( silver_building_master ) ) )",Double,False,Page3 Anomalies,,0.0%,,,
+gold_anomaly_log,P3 Top Risk Building,"VAR _t = ADDCOLUMNS ( VALUES ( silver_building_master[building_name] ), ""@r"", [P3 Risk Score] )
+VAR _top = TOPN ( 1, FILTER ( _t, [@r] > 0 ), [@r], DESC )
+RETURN CONCATENATEX ( _top, silver_building_master[building_name], "", "" )",String,False,Page3 Anomalies,,,,,
+gold_anomaly_log,P3 Open Critical,"CALCULATE ( COUNTROWS ( gold_anomaly_log ), gold_anomaly_log[is_resolved] = FALSE (), UPPER ( gold_anomaly_log[severity] ) = ""CRITICAL"" ) + 0",Int64,False,Page3 Anomalies,,"#,##0",,,
+gold_anomaly_log,P3 Open High,"CALCULATE ( COUNTROWS ( gold_anomaly_log ), gold_anomaly_log[is_resolved] = FALSE (), UPPER ( gold_anomaly_log[severity] ) = ""HIGH"" ) + 0",Int64,False,Page3 Anomalies,,"#,##0",,,
+gold_anomaly_log,P3 Open Total,"CALCULATE ( COUNTROWS ( gold_anomaly_log ), gold_anomaly_log[is_resolved] = FALSE () ) + 0",Int64,False,Page3 Anomalies,,"#,##0",,,
+gold_anomaly_log,P3 Top Risk Score,"MAXX ( VALUES ( silver_building_master[building_name] ), [P3 Risk Score] )",Int64,False,Page3 Anomalies,,"#,##0",,,
+gold_anomaly_log,P3 Buildings Affected,"COUNTROWS ( FILTER ( VALUES ( silver_building_master[building_name] ), [P3 Open Total] > 0 ) )",Int64,False,Page3 Anomalies,,"#,##0",,,
+gold_hvac_analytics,HVAC Avg COP,AVERAGE( gold_hvac_analytics[cop_actual_avg] ),Double,False,HVAC (Page 7),,0.0,,,
+gold_hvac_analytics,HVAC Ventilation Share Pct,"DIVIDE( SUM(gold_hvac_analytics[ventilation_kwh]), SUM(gold_hvac_analytics[hvac_total_kwh]) )",Double,False,HVAC (Page 7),,0.0%,,,
+gold_crrem_pathway,CRREM Pathway 2C kgCO2 m2 yr,"VAR bt = SELECTEDVALUE( silver_building_master[building_type] ) RETURN CALCULATE( AVERAGE( gold_crrem_pathway[pathway_2c_kgco2_m2_yr] ), gold_crrem_pathway[building_type] = bt, gold_crrem_pathway[pathway_year] = YEAR( TODAY() ) )",Double,False,Page 6 ESG (v57),,0.0,,,
+gold_crrem_pathway,CRREM Stranding Gap S1S2 kgCO2 m2 yr,[Carbon Intensity S1S2 kgCO2 m2 yr] - [CRREM Pathway 2C kgCO2 m2 yr],Double,False,Page 6 ESG (v57),,0.0,,,
+gold_crrem_pathway,CRREM Stranding Status,"VAR _gap = [CRREM Stranding Gap S1S2 kgCO2 m2 yr] RETURN SWITCH( TRUE(), ISBLANK(_gap), ""No pathway data"", _gap>0, ""STRANDED — above pathway now"", _gap>-2, ""At risk — within 2 kgCO2/m2"", ""On track"" )",String,False,Page 6 ESG (v57),,"#,##0.0",,,
+silver_epc_ratings,EPC Score Area-Weighted kWh m2,"VAR _num = SUMX( silver_epc_ratings, silver_epc_ratings[epc_score_kwh_m2] * RELATED( silver_building_master[conditioned_area_m2] ) ) VAR _den = SUMX( silver_epc_ratings, RELATED( silver_building_master[conditioned_area_m2] ) ) RETURN DIVIDE( _num, _den )",Double,False,Page 6 ESG (v57),,0.0,,,
+silver_epc_ratings,EPC Class Area-Weighted,"VAR _s = [EPC Score Area-Weighted kWh m2] RETURN SWITCH( TRUE(), ISBLANK(_s), ""—"", _s<=50, ""A"", _s<=100, ""B"", _s<=150, ""C"", _s<=200, ""D"", _s<=250, ""E"", _s<=300, ""F"", ""G"" )",String,False,Page 6 ESG (v57),,"#,##0.0",,,
+gold_compliance_results,EU Taxonomy Carbon Score,AVERAGE( gold_compliance_results[csrd_score] ),Double,False,Page 6 ESG (v57),,0.0,,,
+gold_battery_hourly_dispatch,V6 Charge Rate,AVERAGE( gold_battery_hourly_dispatch[charge_kwh] ),Double,False,Battery 24h (V6),,"#,##0.0",,,
+gold_battery_hourly_dispatch,V6 Discharge Rate,AVERAGE( gold_battery_hourly_dispatch[discharge_kwh] ),Double,False,Battery 24h (V6),,"#,##0.0",,,
+gold_battery_hourly_dispatch,V6 SoC Pct,AVERAGE( gold_battery_hourly_dispatch[soc_percent] ),Double,False,Battery 24h (V6),,0.0,,,
+gold_battery_hourly_dispatch,V6 Price Index,AVERAGE( gold_battery_hourly_dispatch[grid_price_index] ),Double,False,Battery 24h (V6),,0.00,,,
+gold_battery_hourly_dispatch,V2 Avg Grid Price EUR kWh,AVERAGE( gold_battery_hourly_dispatch[grid_price_eur_mwh] ) / 1000.0,Double,False,Battery 24h (V6),,0.000,,,
+gold_kpi_daily,Total Consumption kWh,"
+SUM(gold_kpi_daily[total_consumption_kwh])
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Avg Daily Consumption kWh,AVERAGE ( gold_kpi_daily[total_consumption_kwh] ),Double,False,Page2 Building,,"#,##0.0",,,
+gold_kpi_daily,Peak Demand kW,MAX ( gold_kpi_daily[peak_demand_kw] ),Double,False,Page2 Building,,"#,##0.0",,,
+gold_kpi_daily,Avg EUI kWh m2,"
+AVERAGEX(
+    FILTER(gold_kpi_daily, gold_kpi_daily[eui_kwh_m2] <> BLANK()),
+    gold_kpi_daily[eui_kwh_m2]
+)
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Total Grid Consumption kWh,SUM(gold_kpi_daily[net_grid_consumption_kwh]),Double,False,Page 2 - Building Detail,,"#,##0 ""kWh""",,,
+gold_kpi_daily,Total Energy Cost EUR,"
+SUM(gold_kpi_daily[estimated_cost_eur])
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Avg Temperature C,"
+AVERAGE(gold_kpi_daily[avg_temperature_c])
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Buildings Count,"
+DISTINCTCOUNT(gold_kpi_daily[building_id])",Int64,False,,,"#,##0.0",,,
+gold_kpi_daily,Total Solar Generated kWh,SUM ( gold_kpi_daily[solar_generated_kwh] ),Double,False,Page2 Building,,"#,##0",,,
+gold_kpi_daily,Avg Self Sufficiency Rate Pct,"
+AVERAGE(gold_kpi_daily[avg_self_sufficiency_rate]) * 100
+
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Avg Solar PR Pct,"// Generation-weighted Performance Ratio (energy basis).
+// Each day's PR is weighted by that day's generation, so small or low-sun
+// systems cannot inflate the portfolio figure. Daily PR is already energy-basis
+// and clamped at 0.95 in gold. Days with no valid PR (no PV, or low-sun gated)
+// drop out of BOTH numerator and denominator so they neither lift nor dilute.
+VAR _num =
+    SUMX ( gold_kpi_daily, gold_kpi_daily[solar_generated_kwh] * gold_kpi_daily[avg_solar_pr] )
+VAR _den =
+    SUMX (
+        FILTER ( gold_kpi_daily, NOT ISBLANK ( gold_kpi_daily[avg_solar_pr] ) ),
+        gold_kpi_daily[solar_generated_kwh]
+    )
+RETURN
+    DIVIDE ( _num, _den ) * 100",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Total Solar Exported kWh,SUM(gold_kpi_daily[solar_exported_kwh]),Double,False,Page 2 - Building Detail,,"#,##0 ""kWh""",,,
+gold_kpi_daily,Total CO2 Emissions kg,"
+SUM(gold_kpi_daily[co2_emissions_kg])
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Total CO2 Emissions tCO2,"
+[Total CO2 Emissions kg] / 1000
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Total CO2 Savings from Solar kg,"
+SUM(gold_kpi_daily[co2_savings_from_solar_kg])
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Total CO2 Savings from Solar tCO2,"
+[Total CO2 Savings from Solar kg] / 1000
+
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Net Carbon Footprint tCO2,"DIVIDE ( SUM ( gold_kpi_daily[co2_emissions_kg] ), 1000 )",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Avg Carbon Intensity kg m2,AVERAGE ( gold_kpi_daily[carbon_intensity_kg_m2] ),Double,False,Page2 Building,,0.000,,,
+gold_kpi_daily,Total HDD,"
+SUM(gold_kpi_daily[hdd_day])
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Total CDD,"
+SUM(gold_kpi_daily[cdd_day])
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Avg Battery SoC Pct,"IF (
+    CALCULATE ( MAX ( gold_kpi_daily[battery_capacity_kwh] ) ) > 0,
+    AVERAGEX ( gold_kpi_daily,
+        DIVIDE ( gold_kpi_daily[battery_soc_min_pct] + gold_kpi_daily[battery_soc_max_pct], 2 ) ),
+    BLANK ()
+)",Double,False,Page2 Building,,0.0,,,
+gold_kpi_daily,Avg EUI kWh max,1.0,Double,False,Page 2 - Building Detail,,0.00,,,
+gold_kpi_daily,EUI Target Numeric,0.27,Double,False,Page 2 - Building Detail,,0.00,,,
+gold_kpi_daily,Avg Daily Consumption kWh KPI,AVERAGE ( gold_kpi_daily[total_consumption_kwh] ),Double,False,Page2 Building,,"#,##0.0 ""kWh""",,,
+gold_kpi_daily,Peak Demand kW KPI,MAX ( gold_kpi_daily[peak_demand_kw] ),Double,False,Page2 Building,,"#,##0.0 ""kW""",,,
+gold_kpi_daily,Total Solar Generated kWh KPI,SUM ( gold_kpi_daily[solar_generated_kwh] ),Double,False,Page2 Building,,"#,##0 ""kWh""",,,
+gold_kpi_daily,Avg Carbon Intensity kg m2 KPI,"CALCULATE(AVERAGEX(FILTER(gold_kpi_daily, gold_kpi_daily[carbon_intensity_kg_m2] <> BLANK()), gold_kpi_daily[carbon_intensity_kg_m2]), ALLSELECTED())",Double,False,Page 2 - Building Detail,,"0.000 ""kgCO2/m2""",,,
+gold_kpi_daily,Daily Consumption Target,5000,Int64,False,Page 2 - Building Detail,,"#,##0 ""kWh""",,,
+gold_kpi_daily,Peak Demand Target,1200,Int64,False,Page 2 - Building Detail,,"#,##0 ""kW""",,,
+gold_kpi_daily,Carbon Intensity Target,0.15,Double,False,Page 2 - Building Detail,,"0.000 ""kgCO2/m2""",,,
+gold_kpi_daily,Solar Generation Target,2900000,Int64,False,Page 2 - Building Detail,,"#,##0 ""kWh""",,,
+gold_kpi_daily,Solar Self Consumed kWh,SUM(gold_kpi_daily[solar_self_consumed_kwh]),Double,False,Page 2 - Building Detail,,"#,##0 ""kWh""",,,
+gold_kpi_daily,Monthly Actual kWh,"VAR _v = SUM ( gold_kpi_daily[total_consumption_kwh] ) RETURN IF ( ISBLANK ( _v ), BLANK (), _v )",Double,False,,,"#,##0",,,
+gold_kpi_daily,Monthly Forecast kWh,"VAR _maxActualDate = MAXX ( ALL ( gold_kpi_daily ), gold_kpi_daily[date] ) VAR _firstPureForecastMonthStart = DATE ( YEAR ( EDATE ( _maxActualDate, 1 ) ), MONTH ( EDATE ( _maxActualDate, 1 ) ), 1 ) VAR _minForecastInContext = MIN ( gold_consumption_forecast[forecast_date] ) RETURN IF ( NOT ISBLANK ( _minForecastInContext ) && _minForecastInContext >= _firstPureForecastMonthStart, SUM ( gold_consumption_forecast[predicted_kwh] ), BLANK () )",Double,False,,,"#,##0",,,
+gold_kpi_daily,Monthly PY kWh,"VAR _curDate = MAX ( gold_kpi_daily[date] )
+VAR _pyStartDate = DATE ( YEAR ( _curDate ) - 1, MONTH ( _curDate ), 1 )
+VAR _pyEndDate = EDATE ( _pyStartDate, 1 ) - 1
+RETURN
+CALCULATE (
+    SUM ( gold_kpi_daily[total_consumption_kwh] ),
+    REMOVEFILTERS ( '''Date''' ),
+    gold_kpi_daily[date] >= _pyStartDate,
+    gold_kpi_daily[date] <= _pyEndDate
+)",Double,False,,,"#,##0",,,
+gold_kpi_daily,Monthly Actual Cost EUR,"VAR _v = SUM ( gold_kpi_daily[estimated_cost_eur] ) RETURN IF ( ISBLANK ( _v ), BLANK (), _v )",Double,False,,,"""€"" #,##0",,,
+gold_kpi_daily,Monthly YoY Change Pct,"VAR _current = SUM ( gold_kpi_daily[total_consumption_kwh] ) VAR _py = [Monthly PY kWh] RETURN IF ( NOT ISBLANK ( _current ) && NOT ISBLANK ( _py ) && _py > 0, ROUND ( DIVIDE ( _current - _py, _py ) * 100, 1 ), BLANK () )",Double,False,,,+0.0%;-0.0%;0.0%,,,
+gold_kpi_daily,Monthly Forecast vs PY Pct,"VAR _forecast = [Monthly Forecast kWh] VAR _py = [Monthly PY kWh] RETURN IF ( NOT ISBLANK ( _forecast ) && NOT ISBLANK ( _py ) && _py > 0, ROUND ( DIVIDE ( _forecast - _py, _py ) * 100, 1 ), BLANK () )",Double,False,,,+0.0%;-0.0%;0.0%,,,
+gold_kpi_daily,Ghost Load Annual Cost EUR,"VAR _after_hours_avg =
+    CALCULATE (
+        AVERAGE ( gold_occupancy_profile[occupancy_probability] ),
+        gold_occupancy_profile[hour_of_day] >= 20
+            || gold_occupancy_profile[hour_of_day] < 7
+    )
+VAR _total_avg = AVERAGE ( gold_occupancy_profile[occupancy_probability] )
+VAR _phantom_pct =
+    IF ( _total_avg > 0, DIVIDE ( _after_hours_avg, _total_avg ) * 100, BLANK () )
+VAR _selected_buildings = DISTINCTCOUNT ( gold_occupancy_profile[building_id] )
+VAR _building_type =
+    IF (
+        _selected_buildings = 1,
+        CALCULATE (
+            SELECTEDVALUE ( silver_building_master[building_type] ),
+            TREATAS ( VALUES ( gold_occupancy_profile[building_id] ), silver_building_master[building_id] )
+        ),
+        ""Portfolio""
+    )
+VAR _critical_threshold =
+    SWITCH (
+        TRUE (),
+        _building_type IN { ""Hotel"", ""Healthcare"", ""Data_Center"" }, 130,
+        _building_type = ""Logistics"", 60,
+        35
+    )
+VAR _annual_kwh = CALCULATE ( SUM ( gold_kpi_daily[total_consumption_kwh] ) )
+VAR _baseload_factor = 0.20
+VAR _eur_per_kwh = 0.20
+VAR _excess_pct = MAX ( _phantom_pct - _critical_threshold, 0 )
+VAR _wasted_kwh = _annual_kwh * ( _excess_pct / 100 ) * _baseload_factor
+VAR _wasted_eur = _wasted_kwh * _eur_per_kwh
+RETURN
+    IF (
+        _selected_buildings = 1
+            && NOT ISBLANK ( _phantom_pct )
+            && _phantom_pct >= _critical_threshold
+            && _wasted_eur > 0,
+        ROUND ( _wasted_eur, 0 ),
+        BLANK ()
+    )",Double,False,Page 5 - Decision Support,,"""€""#,##0",,,
+gold_kpi_daily,Avg Solar Specific Yield kWh kWp,"VAR _days = CALCULATE( DISTINCTCOUNT( gold_kpi_daily[date] ) )
+RETURN
+DIVIDE(
+    AVERAGEX(
+        VALUES( gold_kpi_daily[building_id] ),
+        DIVIDE(
+            CALCULATE( SUM( gold_kpi_daily[solar_generated_kwh] ) ),
+            CALCULATE( MAX( gold_kpi_daily[pv_capacity_kwp] ) )
+        )
+    ) * 365.0,
+    _days
+)",Double,False,Solar - Realtime & Opportunity,,"#,##0",,,
+gold_kpi_daily,Solar Self-Consumption Rate Pct,"DIVIDE( [Solar Self Consumed kWh], [Total Solar Generated kWh] )",Double,False,Solar - Realtime & Opportunity,,0.0%,,,
+gold_kpi_daily,Renewable Rate Solar Sites Pct,"VAR _solarBuildings = FILTER( VALUES( silver_building_master[building_id] ), CALCULATE( SUM( silver_building_master[pv_capacity_kwp] ) ) > 0 )
+VAR _gen = CALCULATE( [Total Solar Generated kWh], KEEPFILTERS( _solarBuildings ) )
+VAR _con = CALCULATE( [Total Consumption kWh], KEEPFILTERS( _solarBuildings ) )
+RETURN DIVIDE( _gen, _con, 0 ) * 100",Double,False,Solar - Realtime & Opportunity,,"#,##0.0",,,
+gold_kpi_daily,Building Cost EUR (period),SUM ( gold_kpi_daily[estimated_cost_eur] ),Double,False,,,,,,
+gold_kpi_daily,"Building EUI (kWh/m2, period)","DIVIDE ( SUM ( gold_kpi_daily[total_consumption_kwh] ), MAX ( gold_kpi_daily[floor_area_m2] ) )",Double,False,,,,,,
+gold_kpi_daily,Avg EUI Area-Weighted (kWh/m2/day),"
+DIVIDE (
+    SUM ( gold_kpi_daily[total_consumption_kwh] ),
+    SUMX ( VALUES ( gold_kpi_daily[building_id] ),
+           CALCULATE ( MAX ( gold_kpi_daily[floor_area_m2] ) ) )
+    * DISTINCTCOUNT ( gold_kpi_daily[date] )
+)",Double,False,,,,,,
+gold_kpi_daily,Avg EUI Annual kWh m2 yr,[Avg EUI Area-Weighted (kWh/m2/day)] * 365.25,Double,False,EUI,,"#,##0",,,
+gold_kpi_daily,EUI Target Annual kWh m2 yr,"VAR _benchOf =
+    // per-building annual EUI benchmark (kWh/m2/yr) by building_type
+    SUMX (
+        VALUES ( silver_building_master[building_id] ),
+        VAR _bt = LOWER ( CALCULATE ( SELECTEDVALUE ( silver_building_master[building_type] ) ) )
+        VAR _area = CALCULATE ( SUM ( silver_building_master[conditioned_area_m2] ) )
+        VAR _b =
+            SWITCH (
+                TRUE (),
+                CONTAINSSTRING ( _bt, ""data"" ),       1700,
+                CONTAINSSTRING ( _bt, ""health"" ),      300,
+                CONTAINSSTRING ( _bt, ""hospital"" ),    300,
+                CONTAINSSTRING ( _bt, ""lab"" ),         400,
+                CONTAINSSTRING ( _bt, ""hotel"" ),       240,
+                CONTAINSSTRING ( _bt, ""logistic"" ),    90,
+                CONTAINSSTRING ( _bt, ""warehouse"" ),   90,
+                CONTAINSSTRING ( _bt, ""educat"" ),      120,
+                CONTAINSSTRING ( _bt, ""office"" ),      130,
+                CONTAINSSTRING ( _bt, ""residential"" ), 100,
+                150   // default
+            )
+        RETURN _area * _b
+    )
+VAR _area = SUMX ( VALUES ( silver_building_master[building_id] ),
+                   CALCULATE ( SUM ( silver_building_master[conditioned_area_m2] ) ) )
+RETURN
+    DIVIDE ( _benchOf, _area )",Double,False,EUI,,"#,##0",,,
+gold_kpi_daily,EUI vs Target Pct,"VAR _e = [Avg EUI Annual kWh m2 yr]
+VAR _g = [EUI Target Annual kWh m2 yr]
+RETURN IF ( _g > 0, DIVIDE ( _e - _g, _g ), BLANK () )",Double,False,EUI,,+0.0%;-0.0%;0.0%,,,
+gold_kpi_daily,Solar Generated kWh Rolling 12m,"VAR _maxd = MAXX ( ALL ( gold_kpi_daily ), gold_kpi_daily[date] )
+VAR _from = _maxd - 364
+VAR _bldgs = VALUES ( silver_building_master[building_id] )
+RETURN
+CALCULATE (
+    SUM ( gold_kpi_daily[solar_generated_kwh] ),
+    REMOVEFILTERS ( gold_kpi_daily[date] ),
+    gold_kpi_daily[date] >= _from && gold_kpi_daily[date] <= _maxd,
+    TREATAS ( _bldgs, gold_kpi_daily[building_id] )
+)",Double,False,Solar,,"#,##0 ""kWh""",,,
+gold_kpi_daily,Solar CO2 Avoided tCO2 Rolling 12m,"VAR _maxd = MAXX ( ALL ( gold_kpi_daily ), gold_kpi_daily[date] )
+VAR _from = _maxd - 364
+VAR _bldgs = VALUES ( silver_building_master[building_id] )
+RETURN
+CALCULATE (
+    DIVIDE ( SUM ( gold_kpi_daily[co2_savings_from_solar_kg] ), 1000 ),
+    REMOVEFILTERS ( gold_kpi_daily[date] ),
+    gold_kpi_daily[date] >= _from && gold_kpi_daily[date] <= _maxd,
+    TREATAS ( _bldgs, gold_kpi_daily[building_id] )
+)",Double,False,Solar,,"#,##0.0",,,
+gold_kpi_daily,Solar Self Consumed kWh Rolling 12m,"VAR _maxd = MAXX ( ALL ( gold_kpi_daily ), gold_kpi_daily[date] )
+VAR _from = _maxd - 364
+VAR _bldgs = VALUES ( silver_building_master[building_id] )
+RETURN
+CALCULATE (
+    SUM ( gold_kpi_daily[solar_self_consumed_kwh] ),
+    REMOVEFILTERS ( gold_kpi_daily[date] ),
+    gold_kpi_daily[date] >= _from && gold_kpi_daily[date] <= _maxd,
+    TREATAS ( _bldgs, gold_kpi_daily[building_id] )
+)",Double,False,Solar,,"#,##0",,,
+gold_kpi_daily,Solar Exported kWh Rolling 12m,"VAR _maxd = MAXX ( ALL ( gold_kpi_daily ), gold_kpi_daily[date] )
+VAR _from = _maxd - 364
+VAR _bldgs = VALUES ( silver_building_master[building_id] )
+RETURN
+CALCULATE (
+    SUM ( gold_kpi_daily[solar_exported_kwh] ),
+    REMOVEFILTERS ( gold_kpi_daily[date] ),
+    gold_kpi_daily[date] >= _from && gold_kpi_daily[date] <= _maxd,
+    TREATAS ( _bldgs, gold_kpi_daily[building_id] )
+)",Double,False,Solar,,"#,##0",,,
+gold_kpi_daily,Avg HDD Normalized EUI,AVERAGE( gold_kpi_daily[climate_adjusted_eui] ),Double,False,Energy KPIs,,"#,##0.00",,,
+gold_kpi_daily,Total Solar Savings EUR,"
+SUM(gold_kpi_daily[estimated_savings_eur])
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Solar Coverage Pct,"
+DIVIDE(
+    [Total Solar Generated kWh],
+    [Total Consumption kWh],
+    0
+) * 100
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Avg Self Consumption Rate Pct,"
+AVERAGE(gold_kpi_daily[avg_self_consumption_rate]) * 100
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Battery Net kWh,"
+SUM(gold_kpi_daily[battery_charged_kwh]) - SUM(gold_kpi_daily[battery_discharged_kwh])
+
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Avg Battery Cycles Day,"
+AVERAGE(gold_kpi_daily[battery_cycles_day])
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Carbon Reduction from Solar Pct,"
+DIVIDE(
+    [Total CO2 Savings from Solar kg],
+    [Total CO2 Emissions kg] + [Total CO2 Savings from Solar kg],
+    0
+) * 100
+
+",Double,False,,,"#,##0.0",,,
+gold_kpi_daily,Avg Climate-Adjusted EUI,AVERAGE( gold_kpi_daily[climate_adjusted_eui] ),Double,False,Energy KPIs,,"#,##0.00",,,
+gold_kpi_daily,P1 Building EUI,"VAR _days = DISTINCTCOUNT ( gold_kpi_daily[date] )
+VAR _kwh  = SUM ( gold_kpi_daily[total_consumption_kwh] )
+VAR _area = SELECTEDVALUE ( silver_building_master[gross_floor_area_m2] )
+RETURN DIVIDE ( _kwh, _area ) * DIVIDE ( 365, _days )",Double,False,Page1 Portfolio,,"#,##0.0",,,
+gold_kpi_daily,P1 Scorecard EUI,[P1 Building EUI],Double,False,Page1 Portfolio,,"#,##0.0",,,
+gold_kpi_daily,P1 Portfolio EUI,"VAR _days = DISTINCTCOUNT ( gold_kpi_daily[date] )
+VAR _t =
+    ADDCOLUMNS ( VALUES ( silver_building_master[building_id] ),
+        ""@kwh"",  CALCULATE ( SUM ( gold_kpi_daily[total_consumption_kwh] ) ),
+        ""@area"", CALCULATE ( MAX ( silver_building_master[gross_floor_area_m2] ) ) )
+RETURN DIVIDE ( SUMX ( _t, [@kwh] ), SUMX ( _t, [@area] ) ) * DIVIDE ( 365, _days )",Double,False,Page1 Portfolio,,"#,##0.0",,,
+gold_kpi_daily,P1 EUI Type Benchmark,"SWITCH ( SELECTEDVALUE ( silver_building_master[building_type] ),
+    ""Office"",        95,
+    ""Retail"",       165,
+    ""Hotel"",        105,
+    ""Healthcare"",   150,
+    ""Education"",     80,
+    ""Logistics"",     60,
+    ""Data_Center"", 1000,
+    ""Lab"",          300,
+    120 )",Int64,False,Page1 Portfolio,,"#,##0",,,
+gold_kpi_daily,P1 EUI Index Pct,"DIVIDE ( [P1 Building EUI], [P1 EUI Type Benchmark] ) * 100",Double,False,Page1 Portfolio,,"#,##0\%",,,
+gold_kpi_daily,P1 EUI Index Color,"VAR _r = DIVIDE ( [P1 Building EUI], [P1 EUI Type Benchmark] )
+RETURN SWITCH ( TRUE(), _r <= 0.85, 1, _r <= 1.20, 2, 3 )",Int64,False,Page1 Portfolio,,0,,,
+gold_kpi_daily,P1 Scorecard EUI Color,[P1 EUI Index Color],Int64,False,Page1 Portfolio,,0,,,
+gold_kpi_daily,P1 Portfolio EUI Benchmark,"VAR _t =
+    ADDCOLUMNS ( VALUES ( silver_building_master[building_id] ),
+        ""@a"", CALCULATE ( MAX ( silver_building_master[gross_floor_area_m2] ) ),
+        ""@b"", CALCULATE ( [P1 EUI Type Benchmark] ) )
+RETURN DIVIDE ( SUMX ( _t, [@a] * [@b] ), SUMX ( _t, [@a] ) )",Double,False,Page1 Portfolio,,"#,##0.0",,,
+gold_kpi_daily,P1 Active Anomalies,"
+CALCULATE (
+    COUNTROWS ( gold_anomaly_log ),
+    REMOVEFILTERS ( ),
+    gold_anomaly_log[is_resolved] = FALSE ( ),
+    UPPER ( gold_anomaly_log[severity] ) IN { ""HIGH"", ""CRITICAL"" }
+) + 0",Int64,False,Page1 Portfolio,,"#,##0",,,
+gold_kpi_daily,P1 Building Cost EUR,SUM ( gold_kpi_daily[estimated_cost_eur] ),Double,False,Page1 Portfolio,,"€ #,##0",,,
+gold_kpi_daily,P1 EUI Index Hex,"SWITCH ( [P1 EUI Index Color], 1, ""#1D9E75"", 2, ""#EF9F27"", 3, ""#E24B4A"", ""#888888"" )",String,False,Page1 Portfolio,,,,,
+gold_kpi_daily,P2 EUI Gauge Target,100,Int64,False,Page2 Building,,"#,##0",,,
+gold_kpi_daily,P2 EUI Gauge Max,200,Int64,False,Page2 Building,,"#,##0",,,
+gold_kpi_daily,Total CO2 Emissions Trend tCO2,"VAR _minY = YEAR ( CALCULATE ( MIN ( gold_kpi_daily[date] ) ) )
+VAR _maxY = YEAR ( CALCULATE ( MAX ( gold_kpi_daily[date] ) ) )
+VAR _days = CALCULATE ( DISTINCTCOUNT ( gold_kpi_daily[date] ) )
+VAR _factor = IF ( _minY = _maxY && _days > 0 && _days < 330, DIVIDE ( 365.0, _days ), 1 )
+RETURN [Total CO2 Emissions tCO2] * _factor",Double,False,Page 6 ESG (v57),,"#,##0.0",,,
+gold_kpi_daily,Net Carbon Footprint Trend tCO2,"VAR _minY = YEAR ( CALCULATE ( MIN ( gold_kpi_daily[date] ) ) )
+VAR _maxY = YEAR ( CALCULATE ( MAX ( gold_kpi_daily[date] ) ) )
+VAR _days = CALCULATE ( DISTINCTCOUNT ( gold_kpi_daily[date] ) )
+VAR _factor = IF ( _minY = _maxY && _days > 0 && _days < 330, DIVIDE ( 365.0, _days ), 1 )
+RETURN [Net Carbon Footprint tCO2] * _factor",Double,False,Page 6 ESG (v57),,"#,##0.0",,,
+gold_kpi_daily,Total CO2 Savings Trend tCO2,"VAR _minY = YEAR ( CALCULATE ( MIN ( gold_kpi_daily[date] ) ) )
+VAR _maxY = YEAR ( CALCULATE ( MAX ( gold_kpi_daily[date] ) ) )
+VAR _days = CALCULATE ( DISTINCTCOUNT ( gold_kpi_daily[date] ) )
+VAR _factor = IF ( _minY = _maxY && _days > 0 && _days < 330, DIVIDE ( 365.0, _days ), 1 )
+RETURN [Total CO2 Savings from Solar tCO2] * _factor",Double,False,Page 6 ESG (v57),,"#,##0.0",,,
+gold_kpi_daily,PV Underperf Lost Gen kWh (Est),"// Annual generation a building would gain at the healthy target PR.
+// Target PR 0.80. Buildings at or above target return blank. Self-annualizing
+// via solar-day count so the date slicer does not distort the yearly figure.
+VAR _prTarget = 0.80
+VAR _pr = DIVIDE ( [Avg Solar PR Pct], 100 )
+VAR _days = CALCULATE ( DISTINCTCOUNT ( gold_kpi_daily[date] ), gold_kpi_daily[solar_generated_kwh] > 0 )
+VAR _years = DIVIDE ( _days, 365.0 )
+VAR _genAnnual = DIVIDE ( [Total Solar Generated kWh], _years )
+VAR _uplift = MAX ( 0, DIVIDE ( _prTarget - _pr, _pr ) )
+RETURN IF ( _pr > 0 && _uplift > 0, _genAnnual * _uplift, BLANK () )",Double,False,Solar - Realtime & Opportunity,,"#,##0",,,
+gold_kpi_daily,PV Underperf Loss EUR (Est),"// Value of the lost generation at the building's own effective solar tariff
+// (platform savings per self-consumed kWh). Per-building, no hardcoded price.
+VAR _lostKwh = [PV Underperf Lost Gen kWh (Est)]
+VAR _tariff = DIVIDE ( SUM ( gold_kpi_daily[estimated_savings_eur] ), SUM ( gold_kpi_daily[solar_self_consumed_kwh] ) )
+RETURN IF ( NOT ISBLANK ( _lostKwh ) && _lostKwh > 0, _lostKwh * _tariff, BLANK () )",Double,False,Solar - Realtime & Opportunity,,"#,##0",,,
+gold_consumption_forecast,Forecast Lower Bound kWh,SUM( gold_consumption_forecast[lower_bound_kwh] ),Double,False,Forecast (Page 4),,"#,##0",,,
+gold_consumption_forecast,Forecast Upper Bound kWh,SUM( gold_consumption_forecast[upper_bound_kwh] ),Double,False,Forecast (Page 4),,"#,##0",,,
+gold_consumption_forecast,Forecast Predicted kWh,SUM( gold_consumption_forecast[predicted_kwh] ),Double,False,Forecast (Page 4),,"#,##0",,,
+gold_ghg_scope,Scope 1 Share Pct,"DIVIDE(
+        SUM(gold_ghg_scope[scope1_total_tco2]),
+        SUM(gold_ghg_scope[total_ghg_location_tco2])
+    )",Double,False,GHG Breakdown,,0.0%,,,
+gold_ghg_scope,Scope 3 Share Pct,"DIVIDE(
+        SUM(gold_ghg_scope[scope3_estimated_tco2]),
+        SUM(gold_ghg_scope[total_ghg_location_tco2])
+    )",Double,False,GHG Breakdown,,0.0%,,,
+gold_ghg_scope,Scope 1 tCO2,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope1_total_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Breakdown,,"#,##0.0",,,
+gold_ghg_scope,Scope 2 Location tCO2,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope2_location_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Breakdown,,"#,##0.0",,,
+gold_ghg_scope,Carbon Intensity S1S2 kgCO2 m2 yr,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+VAR _s1s2 =
+    CALCULATE (
+        SUMX ( gold_ghg_scope, gold_ghg_scope[scope1_total_tco2] + gold_ghg_scope[scope2_location_tco2] ),
+        gold_ghg_scope[reporting_year] = _yr
+    )
+VAR _months =
+    CALCULATE ( DISTINCTCOUNT ( gold_ghg_scope[reporting_month] ), gold_ghg_scope[reporting_year] = _yr )
+VAR _s1s2_annual =
+    IF ( _months > 0 && _months < 12, DIVIDE ( _s1s2, _months ) * 12, _s1s2 )
+VAR _area = SUMX ( silver_building_master, silver_building_master[conditioned_area_m2] )
+RETURN DIVIDE ( _s1s2_annual * 1000, _area )",Double,False,Page 6 ESG (v57),,"#,##0.0",,,
+gold_ghg_scope,CSRD Disclosure Readiness Pct,"VAR _hasS1    = IF( CALCULATE( SUM(gold_ghg_scope[scope1_total_tco2]) ) > 0, 1, 0 ) VAR _hasS2loc = IF( CALCULATE( SUM(gold_ghg_scope[scope2_location_tco2]) ) > 0, 1, 0 ) VAR _hasS2mkt = IF( CALCULATE( SUM(gold_ghg_scope[scope2_market_tco2]) ) > 0, 1, 0 ) VAR _hasS3    = IF( CALCULATE( SUM(gold_ghg_scope[scope3_estimated_tco2]) ) > 0, 1, 0 ) VAR _hasLineage = 1 RETURN DIVIDE( _hasS1 + _hasS2loc + _hasS2mkt + _hasS3 + _hasLineage, 5 )",Double,False,Page 6 ESG (v57),,0%,,,
+gold_ghg_scope,Scope 1 Total tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope1_total_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Scope 2 Location tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope2_location_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Scope 2 Market tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope2_market_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Scope 2 Market vs Location tCO2e,[Scope 2 Market tCO2e] - [Scope 2 Location tCO2e],Double,False,GHG Scopes,,"#,0.0",,,
+gold_ghg_scope,Scope 3 Total (est.) tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope3_estimated_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Total GHG Location tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[total_ghg_location_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Total GHG Market tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[total_ghg_market_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Scope 2 Method,"SWITCH ( SELECTEDVALUE ( gold_ghg_scope[scope2_method], ""mixed"" ), ""market_based_contract"", ""Contract (GoO / PPA)"", ""residual_mix_no_instrument"", ""Residual mix (no instrument)"", ""location_fallback_full_disclosure"", ""Location (full-disclosure)"", SELECTEDVALUE ( gold_ghg_scope[scope2_method], ""mixed"" ) )",String,False,GHG Scopes,,,,,
+gold_ghg_scope,Scope 3 Disclosure Label,"IF ( SELECTEDVALUE ( gold_ghg_scope[scope3_disclosure_grade] ) = FALSE (), ""Estimated — not disclosure-grade"", ""Disclosure-grade"" )",String,False,GHG Scopes,,,,,
+gold_ghg_scope,Scope 2 Location Share Pct,"DIVIDE(
+        SUM(gold_ghg_scope[scope2_location_tco2]),
+        SUM(gold_ghg_scope[total_ghg_location_tco2])
+    )",Double,False,GHG Breakdown,,0.0%,,,
+gold_ghg_scope,Scope 3 Est tCO2,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope3_estimated_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Breakdown,,"#,##0.0",,,
+gold_ghg_scope,Scope 1 Gas tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope1_gas_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Scope 1 Diesel tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope1_diesel_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Scope 1 Refrigerant tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope1_refrigerant_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Scope 3 Cat1 Embodied tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope3_cat1_embodied_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Scope 3 Cat3 Fuel Energy tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope3_cat3_fuelenergy_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Scope 3 Cat5 Waste tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope3_cat5_waste_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Scope 3 Cat6 Travel tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope3_cat6_travel_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Scope 3 Cat7 Commute tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope3_cat7_commute_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+gold_ghg_scope,Scope 3 Cat13 Leased tCO2e,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE ( SUM ( gold_ghg_scope[scope3_cat13_leased_tco2] ), gold_ghg_scope[reporting_year] = _yr )",Double,False,GHG Scopes,,"#,##0.0",,,
+Scope_Category,Selected Scope tCO2,"VAR _years = ADDCOLUMNS ( VALUES ( gold_ghg_scope[reporting_year] ), ""@n"", CALCULATE ( COUNTROWS ( gold_ghg_scope ) ) )
+VAR _maxN = MAXX ( _years, [@n] )
+VAR _yr = MAXX ( FILTER ( _years, [@n] = _maxN ), gold_ghg_scope[reporting_year] )
+RETURN
+CALCULATE (
+    SWITCH (
+        SELECTEDVALUE ( Scope_Category[Scope] ),
+        ""Scope 1 - Direct"",      SUM ( gold_ghg_scope[scope1_total_tco2] ),
+        ""Scope 2 - Electricity"", SUM ( gold_ghg_scope[scope2_location_tco2] ),
+        ""Scope 3 - Indirect"",    SUM ( gold_ghg_scope[scope3_estimated_tco2] ),
+        BLANK ()
+    ),
+    gold_ghg_scope[reporting_year] = _yr
+)",Double,False,GHG Breakdown,,"#,##0.0",,,
+gold_kpi_hourly,TS Consumption kWh,SUM( gold_kpi_hourly[total_consumption_kwh] ),Double,False,Time Series (v58),,"#,##0",,,
+gold_kpi_hourly,TS Solar Generated kWh,SUM( gold_kpi_hourly[solar_generated_kwh] ),Double,False,Time Series (v58),,"#,##0",,,
+gold_kpi_hourly,TS Solar Self-Consumed kWh,SUM( gold_kpi_hourly[solar_self_consumed_kwh] ),Double,False,Time Series (v58),,"#,##0",,,
+gold_kpi_hourly,TS Net Grid kWh,SUM( gold_kpi_hourly[net_grid_consumption_kwh] ),Double,False,Time Series (v58),,"#,##0",,,
+gold_kpi_hourly,TS Avg Temperature C,AVERAGE( gold_kpi_hourly[avg_temperature_c] ),Double,False,Time Series (v58),,"#,##0.0",,,
+gold_kpi_hourly,TS Battery SoC Pct,AVERAGE( gold_kpi_hourly[battery_soc_avg_pct] ),Double,False,Time Series (v58),,"#,##0",,,
+gold_kpi_hourly,Profile Avg Demand by Hour kW,AVERAGE( gold_kpi_hourly[peak_demand_kw] ),Double,False,Time Series (v58),,"#,##0.0",,,
+gold_kpi_hourly,Base Load Ratio Pct,"VAR _bids = VALUES ( silver_building_master[building_id] )
+VAR _night =
+    CALCULATE ( AVERAGE ( gold_kpi_hourly[peak_demand_kw] ),
+        gold_kpi_hourly[hour] IN { 2, 3, 4 },
+        TREATAS ( _bids, gold_kpi_hourly[building_id] ) )
+VAR _peak =
+    CALCULATE ( MAX ( gold_kpi_hourly[peak_demand_kw] ),
+        gold_kpi_hourly[hour] IN { 9, 10, 11, 12, 13, 14, 15, 16, 17 },
+        TREATAS ( _bids, gold_kpi_hourly[building_id] ) )
+RETURN DIVIDE ( _night, _peak )",Double,False,Page2 Building,,0.0%,,,
+gold_kpi_hourly,TS Avg Demand kW,AVERAGE( gold_kpi_hourly[peak_demand_kw] ),Double,False,Time Series (v58),,"#,##0.0",,,
+gold_kpi_hourly,TS Peak Demand kW,MAX( gold_kpi_hourly[peak_demand_kw] ),Double,False,Time Series (v58),,"#,##0.0",,,
+gold_kpi_hourly,TS CO2 kg,SUM( gold_kpi_hourly[co2_emissions_kg] ),Double,False,Time Series (v58),,"#,##0",,,
+gold_kpi_hourly,Profile Avg Consumption by Hour kWh,AVERAGE( gold_kpi_hourly[total_consumption_kwh] ),Double,False,Time Series (v58),,"#,##0.0",,,
+gold_kpi_hourly,Profile Avg Solar by Hour kWh,AVERAGE( gold_kpi_hourly[solar_generated_kwh] ),Double,False,Time Series (v58),,"#,##0.0",,,
+gold_kpi_hourly,Selected Grain Label,"VAR _g = SELECTEDVALUE( 'Time Grain'[Time Grain Order], 1 ) RETURN SWITCH( _g, 0, ""Hourly"", 1, ""Daily"", 2, ""Monthly"", ""Daily"" )",String,False,Time Series (v58),,,,,
+gold_country_regulations,I2 Chemistry Recommendation Text,"VAR cc = SELECTEDVALUE( silver_building_master[country_code] ) VAR ctry = LOOKUPVALUE( gold_country_regulations[country_name], gold_country_regulations[country_code], cc ) VAR nmcOk = LOOKUPVALUE( gold_country_regulations[nmc_allowed_new_2025], gold_country_regulations[country_code], cc ) RETURN IF( ISBLANK(cc), ""Select a single building for a chemistry recommendation."", ""Recommended: LFP — EU 2023/1542 compliant, best cost / safety / cycle-life for "" & ctry & ""."" & IF( nmcOk = FALSE(), "" Avoid NMC: restricted for new installs in "" & ctry & "" (2025)."", """" ) )",String,False,Insights (I),,"#,##0.0",,,
+gold_country_regulations,I3 Compliance Flag Text,"VAR cc = SELECTEDVALUE( silver_building_master[country_code] ) VAR ctry = LOOKUPVALUE( gold_country_regulations[country_name], gold_country_regulations[country_code], cc ) VAR lfpOk = LOOKUPVALUE( gold_country_regulations[lfp_allowed], gold_country_regulations[country_code], cc ) VAR nmcOk = LOOKUPVALUE( gold_country_regulations[nmc_allowed_new_2025], gold_country_regulations[country_code], cc ) RETURN IF( ISBLANK(cc), ""Select a single building to check compliance."", ""EU 2023/1542 in "" & ctry & "": LFP "" & IF( lfpOk = TRUE(), ""approved"", ""restricted"" ) & "", NMC (new installs 2025) "" & IF( nmcOk = TRUE(), ""approved"", ""restricted"" ) & ""."" )",String,False,Insights (I),,"#,##0.0",,,
+gold_country_regulations,V5 Country Chemistry Flag,"VAR _country = SELECTEDVALUE( gold_country_regulations[country_code] )
+VAR _chem    = SELECTEDVALUE( gold_battery_technologies[battery_type] )
+VAR _is_eu   = CALCULATE( MAX(gold_country_regulations[is_eu_member]),
+                          gold_country_regulations[country_code] = _country )
+VAR _nmc_ok  = CALCULATE( MAX(gold_country_regulations[nmc_allowed_new_2025]),
+                          gold_country_regulations[country_code] = _country )
+VAR _sodium_ok = CALCULATE( MAX(gold_country_regulations[sodium_ion_approved]),
+                            gold_country_regulations[country_code] = _country )
+VAR _ss_ok   = CALCULATE( MAX(gold_country_regulations[solid_state_pilot]),
+                          gold_country_regulations[country_code] = _country )
+RETURN
+    SWITCH( TRUE(),
+        ISBLANK(_country) || ISBLANK(_chem), BLANK(),
+        _chem = ""LFP"",                                       1,
+        _chem = ""LFP-V2G"",                                   IF(_is_eu, 1, 0),
+        _chem = ""LFP-Supercap-Hybrid"",                       1,
+        _chem = ""NMC"" && _nmc_ok,                            0,
+        _chem = ""NMC"" && NOT _nmc_ok,                       -1,
+        _chem = ""Second-Life NMC"",                           IF(_is_eu, 0, -1),
+        _chem = ""NCA"",                                       0,
+        _chem = ""Sodium-Ion"" && _sodium_ok,                  1,
+        _chem = ""Sodium-Ion"" && NOT _sodium_ok,              0,
+        _chem = ""Solid-State"" && _ss_ok,                     1,
+        _chem = ""Solid-State"",                               0,
+        0 )",Int64,False,Page 9 / V5,,"#,##0.0",,,
+gold_country_regulations,V5 Country Chemistry Symbol,"VAR _f = [V5 Country Chemistry Flag]
+RETURN
+    SWITCH( TRUE(),
+        ISBLANK(_f), ""—"",
+        _f = 1,      ""✓"",
+        _f = 0,      ""⚠"",
+        _f = -1,     ""✗"",
+        """" )",String,False,Page 9 / V5,,"#,##0.0",,,
+gold_strategy_fitness,V1 Best Strategy For Building Type,"VAR _bt = SELECTEDVALUE( gold_strategy_fitness[building_type] )
+RETURN
+    CALCULATE(
+        SELECTEDVALUE( gold_strategy_fitness[strategy_label] ),
+        gold_strategy_fitness[building_type] = _bt,
+        gold_strategy_fitness[is_primary] = TRUE()
+    )",String,False,Page 9 / V1,,"#,##0.0",,,
+gold_strategy_fitness,I1 Debug,"VAR _bn = SELECTEDVALUE( silver_building_master[building_name] )
+VAR _bt = SELECTEDVALUE( silver_building_master[building_type] )
+VAR _bc = SELECTEDVALUE( silver_building_master[battery_capacity_kwh] )
+RETURN
+    ""bn="" & COALESCE(_bn, ""BLANK"") &
+    "" | bt="" & COALESCE(_bt, ""BLANK"") &
+    "" | cap="" & IF(ISBLANK(_bc), ""BLANK"", FORMAT(_bc, ""#,0""))",String,False,Page 9 / Insights,,"#,##0.0",,,
+gold_strategy_fitness,I1 Diagnostic Selection,"VAR _bn = SELECTEDVALUE( silver_building_master[building_name] )
+RETURN ""bn = "" & COALESCE(_bn, ""(blank — slicer not filtering this card)"")",String,False,Page 9 / Insights,,"#,##0.0",,,
+gold_strategy_fitness,V1 Strategy Fitness Score,AVERAGE( gold_strategy_fitness[fitness_score] ),Double,False,Page 9 / V1,,"#,##0.0",,,
+gold_strategy_fitness,V1 Fitness Color Bucket,"VAR _s = [V1 Strategy Fitness Score]
+RETURN
+    SWITCH( TRUE(),
+        _s >= 80, ""#27AE60"",
+        _s >= 60, ""#F39C12"",
+        _s >= 40, ""#E67E22"",
+        ""#C0392B"" )",String,False,Page 9 / V1,,"#,##0.0",,,
+gold_strategy_fitness,I1 Strategy Recommendation Text,"VAR _bt = SELECTEDVALUE( silver_building_master[building_type], ""office"" )
+VAR _country = SELECTEDVALUE( silver_building_master[country_code], ""DE"" )
+VAR _primary =
+    CALCULATE(
+        SELECTEDVALUE( gold_strategy_fitness[strategy_label] ),
+        gold_strategy_fitness[building_type] = _bt,
+        gold_strategy_fitness[is_primary] = TRUE() )
+VAR _secondary =
+    CALCULATE(
+        SELECTEDVALUE( gold_strategy_fitness[strategy_label] ),
+        gold_strategy_fitness[building_type] = _bt,
+        gold_strategy_fitness[is_secondary] = TRUE() )
+VAR _primary_savings =
+    CALCULATE(
+        AVERAGE( gold_strategy_fitness[typical_annual_savings_eur_per_kwh] ),
+        gold_strategy_fitness[building_type] = _bt,
+        gold_strategy_fitness[is_primary] = TRUE() )
+VAR _cap =
+    SELECTEDVALUE( silver_building_master[battery_capacity_kwh], 100 )
+VAR _est_eur = ROUND( _primary_savings * _cap, -2 )
+RETURN
+    ""For this "" & _bt & "" building in "" & _country & "", primary strategy: "" &
+    _primary &
+    IF( NOT ISBLANK(_secondary), "" (combined with "" & _secondary & "")"", """" ) &
+    "". Estimated annual savings ≈ €"" & FORMAT( _est_eur, ""#,0"" ) & "" (range ±25%)."" ",String,False,Page 9 / Insights,,"#,##0.0",,,
+gold_battery_simulation,C2 Payback Years,"// Payback of the building's installed (active / Measured) strategy.
+// Portfolio view averages the installed paybacks across buildings.
+CALCULATE (
+    AVERAGE ( gold_battery_simulation[payback_years] ),
+    gold_battery_simulation[is_active_strategy] = ""True""
+)",Double,False,Page 9 / KPI,,0.0,,,
+gold_battery_simulation,Scenario Payback Years,"VAR _p = DIVIDE ( SUM ( gold_battery_simulation[total_capex_eur] ), SUM ( gold_battery_simulation[annual_savings_eur] ) )
+RETURN IF ( _p > 0, _p, BLANK () )",Double,False,Battery,,0.0,,,
+gold_battery_simulation,C5 EU Compliance Status Text,"VAR _active_tech =
+    CALCULATE(
+        MAX( gold_battery_dispatch[battery_type] ),
+        gold_battery_dispatch[is_simulated] = FALSE()
+    )
+VAR _country =
+    SELECTEDVALUE( silver_building_master[country_code], ""DE"" )
+VAR _is_eu_member =
+    CALCULATE( MAX(gold_country_regulations[is_eu_member]),
+               gold_country_regulations[country_code] = _country )
+VAR _nmc_allowed =
+    CALCULATE( MAX(gold_country_regulations[nmc_allowed_new_2025]),
+               gold_country_regulations[country_code] = _country )
+VAR _battery_eu_compliant =
+    CALCULATE(
+        MAX( gold_battery_dispatch[eu_compliant] ),
+        gold_battery_dispatch[is_simulated] = FALSE()
+    )
+RETURN
+    SWITCH( TRUE(),
+        ISBLANK(_active_tech),                                   ""— No active battery"",
+        _active_tech = ""NMC"" && _country IN {""DE"",""AT""} && NOT _nmc_allowed,
+                            ""❌ NMC banned for new installs in "" & _country,
+        NOT _battery_eu_compliant && _is_eu_member,
+                            ""⚠ Non-compliant under EU 2023/1542"",
+        _is_eu_member && _battery_eu_compliant,
+                            ""✓ EU 2023/1542 compliant"",
+        NOT _is_eu_member,  ""ℹ Outside EU framework"",
+        ""ℹ Status unknown"" )",Int64,False,Page 9 / KPI,,"#,##0.0",,,
+gold_battery_simulation,C2 Payback Status Label,"VAR _y = [C2 Payback Years]
+RETURN
+    SWITCH( TRUE(),
+        ISBLANK(_y),       ""—"",
+        _y <= 5,           ""✓ Excellent"",
+        _y <= 8,           ""✓ Good"",
+        _y <= 12,          ""⚠ Acceptable"",
+        ""✗ Poor"" )",String,False,Page 9 / KPI,,"#,##0.0",,,
+gold_battery_simulation,V3 CAPEX EUR,AVERAGE( gold_battery_simulation[total_capex_eur] ),Double,False,Page 9 / V3,,"€ #,##0",,,
+gold_battery_simulation,V3 Payback Years,AVERAGE ( gold_battery_simulation[payback_years] ),Double,False,Page 9 / V3,,0.0,,,
+gold_battery_simulation,V3 Battery Chemistry Color,"VAR _tech =
+    SELECTEDVALUE( gold_battery_simulation[battery_type], ""LFP"" )
+RETURN
+    SWITCH( TRUE(),
+        _tech = ""LFP"",                   ""#27AE60"",
+        _tech = ""Sodium-Ion"",            ""#F1C40F"",
+        _tech = ""Solid-State"",           ""#9B59B6"",
+        _tech = ""LFP-V2G"",               ""#16A085"",
+        _tech IN {""NMC"",""NCA""},          ""#E67E22"",
+        _tech = ""Second-Life NMC"",       ""#7F8C8D"",
+        _tech = ""LFP-Supercap-Hybrid"",   ""#2980B9"",
+        ""#95A5A6"" )",String,False,Page 9 / V3,,"#,##0.0",,,
+gold_battery_simulation,V3 Payback Years Clean,"VAR _p = DIVIDE ( SUM ( gold_battery_simulation[total_capex_eur] ), SUM ( gold_battery_simulation[annual_savings_eur] ) )
+RETURN IF ( _p > 0, ROUND ( _p, 1 ), BLANK () )",Double,False,Page 9 / V3,,0.0,,,
+gold_iot_fdd,IoT FDD High Today,"VAR d=MAX(gold_iot_fdd[event_date]) RETURN CALCULATE( COUNTROWS(gold_iot_fdd), gold_iot_fdd[severity]=""High"", gold_iot_fdd[event_date]=d )",Int64,False,IoT (Page 8),,"#,##0",,,
+gold_iot_fdd,IoT FDD Cost Today EUR,"VAR d=MAX(gold_iot_fdd[event_date]) RETURN CALCULATE( SUM(gold_iot_fdd[cost_eur_estimate]), gold_iot_fdd[event_date]=d )",Double,False,IoT (Page 8),,"#,##0.00",,,
+gold_iot_fdd,IoT C4 Label v59,"VAR f=[IoT FDD High Today] VAR c=[IoT FDD Cost Today EUR] RETURN IF( f=0 && (c=0 || ISBLANK(c)), ""All Clear"", FORMAT(f,""0"") & "" faults - Est. EUR "" & FORMAT(ROUND(c,0),""0"") & "" today"" )",String,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_fdd,IoT C4 Color v59,"VAR f=[IoT FDD High Today] RETURN SWITCH( TRUE(), ISBLANK(f) || f=0,""#2ECC40"", f<=2,""#FF851B"", ""#FF4136"" )",String,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_fdd,IoT FDD Diagnoses Today,"VAR d=MAX(gold_iot_fdd[event_date]) RETURN CALCULATE( COUNTROWS(gold_iot_fdd), gold_iot_fdd[event_date]=d )",Int64,False,IoT (Page 8),,"#,##0",,,
+gold_iot_fdd,IoT FDD Max Priority,"MAXX( gold_iot_fdd, gold_iot_fdd[priority_score] )",Int64,False,IoT (Page 8),,0,,,
+gold_iot_fdd,IoT FDD Avg Confidence,AVERAGE( gold_iot_fdd[confidence] ),Double,False,IoT (Page 8),,0.00,,,
+gold_iot_fdd,IoT FDD Avg Confidence Pct,"VAR c=[IoT FDD Avg Confidence] RETURN IF( ISBLANK(c), ""--"", FORMAT(c,""0%"") )",String,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_fdd,IoT FDD Energy Impact kWh Today,"VAR d=MAX(gold_iot_fdd[event_date]) RETURN CALCULATE( SUM(gold_iot_fdd[energy_impact_kwh]), gold_iot_fdd[event_date]=d )",Double,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_fdd,IoT FDD Row Confidence,"VAR c=AVERAGE(gold_iot_fdd[confidence]) RETURN IF( ISBLANK(c), ""--"", FORMAT(c,""0%"") )",String,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_fdd,IoT FDD Priority Band,"VAR p=MAX(gold_iot_fdd[priority_score]) RETURN SWITCH( TRUE(), ISBLANK(p),""--"", p>=60,""Urgent"", p>=35,""High"", p>=20,""Medium"", ""Low"" )",String,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_fdd,IoT FDD Priority Color,"VAR p=MAX(gold_iot_fdd[priority_score]) RETURN SWITCH( TRUE(), ISBLANK(p),""#AAAAAA"", p>=60,""#FF4136"", p>=35,""#FF851B"", p>=20,""#FFDC00"", ""#2ECC40"" )",String,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_fdd,IoT FDD Row Cost Label,"VAR c=SUM(gold_iot_fdd[cost_eur_estimate]) RETURN IF( ISBLANK(c) || c=0, ""--"", ""Est. EUR "" & FORMAT(c,""0.00"") )",String,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_fdd,PV Underperformance Count,"CALCULATE( COUNTROWS( gold_iot_fdd ), gold_iot_fdd[fault_code] = ""PV_UNDERPERFORMANCE"" )",Int64,False,Solar - Realtime & Opportunity,,"#,##0",,,
+gold_iot_fdd,PV Loss EUR,"CALCULATE( SUM( gold_iot_fdd[cost_eur_estimate] ), gold_iot_fdd[fault_code] = ""PV_UNDERPERFORMANCE"" )",Double,False,Solar - Realtime & Opportunity,,"#,##0",,,
+gold_iot_fdd,IoT Waste Energy kWh,SUM( gold_iot_fdd[energy_impact_kwh] ),Double,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_fdd,IoT Waste Energy kWh Annual Est,"VAR d=CALCULATE( DISTINCTCOUNT(gold_iot_fdd[event_date]) ) VAR w=SUM(gold_iot_fdd[energy_impact_kwh]) RETURN ROUND( DIVIDE(w,d) * 365, 0 )",Double,False,IoT (Page 8),,"#,##0",,,
+gold_iot_fdd,IoT FDD Severity Color,"VAR s=MAX(gold_iot_fdd[severity]) RETURN SWITCH( TRUE(), s=""High"",""#FF4136"", s=""Medium"",""#FF851B"", s=""Low"",""#2ECC40"", ""#AAAAAA"" )",String,False,IoT (Page 8),,,,,
+gold_iot_fdd,IoT FDD Cost Heat,"VAR c=SUM(gold_iot_fdd[cost_eur_estimate]) RETURN SWITCH( TRUE(), ISBLANK(c) || c=0,""#777777"", c>=20,""#FF4136"", c>=8,""#FF851B"", ""#2ECC40"" )",String,False,IoT (Page 8),,,,,
+gold_iot_fdd,IoT FDD Confidence Color,"VAR c=AVERAGE(gold_iot_fdd[confidence]) RETURN SWITCH( TRUE(), ISBLANK(c),""#AAAAAA"", c>=0.8,""#2ECC40"", c>=0.5,""#FFDC00"", ""#FF851B"" )",String,False,IoT (Page 8),,,,,
+gold_iot_fdd,IoT FDD Findings Today,"VAR d = MAX ( gold_iot_fdd[event_date] ) RETURN CALCULATE ( COUNTROWS ( gold_iot_fdd ), gold_iot_fdd[event_date] = d )",Int64,False,IoT FDD (v59),,"#,##0",,,
+gold_iot_fdd,IoT FDD Count by Rule,COUNTROWS( gold_iot_fdd ),Int64,False,IoT FDD (v59),,"#,##0",,,
+gold_iot_fdd,IoT FDD Severity Sort,"SWITCH( MAX(gold_iot_fdd[severity]), ""High"", 3, ""Medium"", 2, ""Low"", 1, 0 )",Int64,False,IoT FDD (v59),,0,,,
+gold_iot_fdd,IoT FDD Cost Label,"VAR _c = SUM(gold_iot_fdd[cost_eur_estimate]) RETURN IF( ISBLANK(_c), ""--"", ""Est. €"" & FORMAT(_c, ""0.00"") )",String,False,IoT FDD (v59),,"#,##0.0",,,
+gold_iot_fdd,IoT Total Cost Today EUR,[IoT FDD Cost Today EUR],Double,False,IoT FDD (v59),,"#,##0.00",,,
+gold_iot_fdd,IoT FDD Top Diagnosis,"VAR _top = TOPN(1, gold_iot_fdd, gold_iot_fdd[priority_score], DESC) RETURN CONCATENATEX( _top, gold_iot_fdd[equipment] & "" — "" & gold_iot_fdd[fault_code] & "" ("" & FORMAT(gold_iot_fdd[confidence], ""0%"") & "")"", "", "" )",String,False,IoT Priority (v60),,"#,##0.0",,,
+gold_iot_fdd,IoT FDD Priority Sort,MAX(gold_iot_fdd[priority_score]),Int64,False,IoT (Page 8),,0,,,
+gold_iot_fdd,IoT Waste Cost EUR,SUM( gold_iot_fdd[cost_eur_estimate] ),Double,False,IoT (Page 8),,"#,##0.00",,,
+gold_iot_fdd,IoT Waste Cost EUR Annual Est,"VAR d=CALCULATE( DISTINCTCOUNT(gold_iot_fdd[event_date]) ) VAR w=SUM(gold_iot_fdd[cost_eur_estimate]) RETURN ROUND( DIVIDE(w,d) * 365, 0 )",Double,False,IoT (Page 8),,"#,##0",,,
+gold_iot_daily_summary,Data Quality Pct,"VAR d=MAX(gold_iot_daily_summary[event_date]) RETURN CALCULATE( AVERAGE(gold_iot_daily_summary[sensor_uptime_pct]), gold_iot_daily_summary[event_date]=d )",Double,False,IoT (Page 8),,0.0,,,
+gold_iot_daily_summary,Sensor Anomaly Rate Pct,"VAR d=MAX(gold_iot_daily_summary[event_date]) RETURN CALCULATE( AVERAGE(gold_iot_daily_summary[anomaly_rate_pct]), gold_iot_daily_summary[event_date]=d )",Double,False,IoT (Page 8),,0.0,,,
+gold_iot_daily_summary,V2 Sensor Uptime Pct,AVERAGE( gold_iot_daily_summary[sensor_uptime_pct] ),Double,False,IoT (Page 8),,0.0,,,
+gold_iot_daily_summary,V2 Uptime Color Index,"VAR u=[V2 Sensor Uptime Pct] RETURN SWITCH( TRUE(), ISBLANK(u),""#AAAAAA"", u>=95,""#2ECC40"", u>=85,""#FF851B"", ""#FF4136"" )",String,False,IoT (Page 8),,,,,
+gold_iot_daily_summary,Data Quality Display,"VAR q=[Data Quality Pct] RETURN IF( ISBLANK(q), ""--"", FORMAT(q,""0.0"") & ""% data quality"" )",String,False,IoT (Page 8),,,,,
+gold_iot_daily_summary,Data Quality Color,"VAR q=[Data Quality Pct] RETURN SWITCH( TRUE(), ISBLANK(q),""#AAAAAA"", q>=95,""#2ECC40"", q>=85,""#FF851B"", ""#FF4136"" )",String,False,IoT (Page 8),,,,,
+gold_iot_realtime,IoT Zone Setpoint Compliance Pct,"VAR _d = MAX ( gold_iot_realtime[event_date] ) RETURN CALCULATE ( AVERAGE ( gold_iot_realtime[in_setpoint_pct] ), gold_iot_realtime[event_date] = _d, gold_iot_realtime[sensor_type] IN { ""HVAC_temp"", ""humidity"", ""CO2"" } )",Double,False,IoT (Page 8),,0.0,,,
+gold_iot_realtime,IoT Zone Compliance Display,"VAR p=[IoT Zone Setpoint Compliance Pct] RETURN IF( ISBLANK(p), ""-- %"", FORMAT(ROUND(p,0),""0"") & ""% in setpoint (EN 16798)"" )",String,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_realtime,IoT Zone Compliance Color,"VAR p=[IoT Zone Setpoint Compliance Pct] RETURN SWITCH( TRUE(), ISBLANK(p),""#AAAAAA"", p>=90,""#2ECC40"", p>=75,""#FF851B"", ""#FF4136"" )",String,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_realtime,Realtime PV Power kW,"VAR _d = MAX ( gold_iot_realtime[event_date] ) RETURN CALCULATE ( AVERAGE ( gold_iot_realtime[reading_value_avg] ), gold_iot_realtime[event_date] = _d, gold_iot_realtime[sensor_type] = ""pv_ac_power"", REMOVEFILTERS ( gold_iot_realtime[sensor_location] ) )",Double,False,Solar - Realtime & Opportunity,,"#,##0.0",,,
+gold_iot_realtime,Peak PV Power kW,"CALCULATE( MAX( gold_iot_realtime[reading_value_max] ), gold_iot_realtime[sensor_type] = ""pv_ac_power"" )",Double,False,Solar - Realtime & Opportunity,,"#,##0.0",,,
+gold_iot_realtime,IoT CO2 Live,"VAR _d = MAX ( gold_iot_realtime[event_date] ) RETURN CALCULATE ( AVERAGE ( gold_iot_realtime[reading_value_avg] ), gold_iot_realtime[event_date] = _d, gold_iot_realtime[sensor_type] = ""CO2"", REMOVEFILTERS ( gold_iot_realtime[sensor_location] ) )",Double,False,IoT (Page 8),,"#,##0",,,
+gold_iot_realtime,Realtime Building Power kW,"VAR _d = MAX ( gold_iot_realtime[event_date] ) RETURN CALCULATE ( AVERAGE ( gold_iot_realtime[reading_value_avg] ), gold_iot_realtime[event_date] = _d, gold_iot_realtime[sensor_type] = ""building_kwh"", REMOVEFILTERS ( gold_iot_realtime[sensor_location] ) )",Double,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_realtime,IoT CO2 Display,"VAR c = [IoT CO2 Live] RETURN SWITCH ( TRUE (), ISBLANK ( c ), ""--"", c < 800, ""Good "" & FORMAT ( c, ""0"" ) & "" ppm"", c <= 1500, ""Fair "" & FORMAT ( c, ""0"" ) & "" ppm"", ""Poor "" & FORMAT ( c, ""0"" ) & "" ppm"" )",String,False,IoT (Page 8),,,,,
+gold_iot_realtime,IoT CO2 Color,"VAR c = [IoT CO2 Live] RETURN SWITCH ( TRUE (), ISBLANK ( c ), ""#AAAAAA"", c < 800, ""#2ECC40"", c <= 1500, ""#FF851B"", ""#FF4136"" )",String,False,IoT (Page 8),,,,,
+gold_iot_realtime,Realtime Building Baseline kW,"CALCULATE ( AVERAGE ( gold_iot_realtime[reading_value_avg] ), gold_iot_realtime[sensor_type] = ""building_kwh"", REMOVEFILTERS ( gold_iot_realtime[timestamp] ), REMOVEFILTERS ( gold_iot_realtime[hour_bucket] ), REMOVEFILTERS ( gold_iot_realtime[hour_of_day] ), REMOVEFILTERS ( gold_iot_realtime[event_date] ), REMOVEFILTERS ( gold_iot_realtime[sensor_location] ) )",Double,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_realtime,C1 Building Power Display,"VAR p=[Realtime Building Power kW] RETURN IF( ISBLANK(p), ""-- kW"", FORMAT(p,""#,##0.0"") & "" kW"" )",String,False,IoT (Page 8),,,,,
+gold_iot_realtime,C1 Building Power Color,"VAR p=[Realtime Building Power kW] VAR b=[Realtime Building Baseline kW] RETURN SWITCH( TRUE(), ISBLANK(p),""#AAAAAA"", b>0 && p>b*1.2,""#FF4136"", b>0 && p>b*1.05,""#FF851B"", ""#2ECC40"" )",String,False,IoT (Page 8),,,,,
+gold_iot_realtime,V1 HVAC Power kW,"VAR _d = MAX ( gold_iot_realtime[event_date] ) RETURN CALCULATE ( AVERAGE ( gold_iot_realtime[reading_value_avg] ), gold_iot_realtime[event_date] = _d, gold_iot_realtime[sensor_type] = ""hvac_kwh"", REMOVEFILTERS ( gold_iot_realtime[sensor_location] ) )",Double,False,IoT (Page 8),,"#,##0.0",,,
+gold_iot_realtime,Zone Comfort Cell Pct,"VAR _d = MAX ( gold_iot_realtime[event_date] ) RETURN ROUND ( CALCULATE ( AVERAGE ( gold_iot_realtime[in_setpoint_pct] ), gold_iot_realtime[event_date] = _d ), 0 )",Double,False,IoT (Page 8),,0,,,
+gold_iot_realtime,Active Sensor Locations,"VAR _d = MAX ( gold_iot_realtime[event_date] ) RETURN CALCULATE ( COUNTROWS ( SUMMARIZE ( gold_iot_realtime, gold_iot_realtime[building_id], gold_iot_realtime[sensor_location] ) ), gold_iot_realtime[event_date] = _d )",Int64,False,IoT (Page 8),,"#,##0",,,
+gold_iot_realtime,IoT Data As Of,"VAR _t = MAX ( gold_iot_realtime[timestamp] ) RETURN IF ( ISBLANK ( _t ), ""No data"", ""Data as of "" & FORMAT ( _t, ""dd MMM HH:mm"" ) )",String,False,IoT (Page 8),,,,,
+gold_iot_realtime,IoT CO2 Peak ppm,"VAR _d = MAX ( gold_iot_realtime[event_date] ) RETURN CALCULATE ( MAX ( gold_iot_realtime[reading_value_max] ), gold_iot_realtime[event_date] = _d, gold_iot_realtime[sensor_type] = ""CO2"", REMOVEFILTERS ( gold_iot_realtime[sensor_location] ) )",Double,False,IoT (Page 8),,"#,##0",,,
+gold_battery_dispatch,V2 Charge kWh Daily,"IFERROR( SUM( gold_battery_dispatch[charge_kwh] ), BLANK() )",Double,False,Page 9 / V2 Daily Flow,,"#,0",,,
+gold_battery_dispatch,V2 Discharge kWh Daily,"IFERROR( SUM( gold_battery_dispatch[discharge_kwh] ), BLANK() )",Double,False,Page 9 / V2 Daily Flow,,"#,0",,,
+gold_battery_dispatch,V2 PV Generation kWh,"IFERROR( SUM( gold_battery_dispatch[pv_generation_kwh] ), BLANK() )",Double,False,Page 9 / V2 Daily Flow,,"#,0",,,
+gold_battery_dispatch,V2 Grid Charge kWh Daily,"IFERROR( SUM( gold_battery_dispatch[grid_charge_kwh] ), BLANK() )",Double,False,Page 9 / V2 Daily Flow,,"#,0",,,
+gold_battery_dispatch,V2 PV Charge kWh Daily,"IFERROR( SUM( gold_battery_dispatch[pv_charge_kwh] ), BLANK() )",Double,False,Page 9 / V2 Daily Flow,,"#,0",,,
+gold_battery_dispatch,V2 Net Savings EUR Daily,"IFERROR( SUM( gold_battery_dispatch[net_savings_eur] ), BLANK() )",Double,False,Page 9 / V2 Daily Flow,,"€ #,##0",,,
+gold_battery_dispatch,C1 Annual Savings EUR,"VAR _has_active =
+    NOT ISBLANK ( CALCULATE ( COUNTROWS ( gold_battery_dispatch ),
+        gold_battery_dispatch[is_simulated] = FALSE() ) )
+VAR _annual_savings =
+    CALCULATE (
+        SUM ( gold_battery_dispatch[net_savings_eur] ),
+        gold_battery_dispatch[is_simulated] = FALSE(),
+        gold_battery_dispatch[date] >= DATE ( YEAR ( TODAY() ) - 1, MONTH ( TODAY() ), DAY ( TODAY() ) )
+    )
+VAR _fallback_sim =
+    CALCULATE (
+        AVERAGE ( gold_battery_simulation[annual_savings_eur] ),
+        gold_battery_simulation[is_active_strategy] = ""True""   -- TEXT column, not TRUE()
+    )
+RETURN
+    IF ( _has_active && NOT ISBLANK ( _annual_savings ) && _annual_savings > 0,
+        _annual_savings, _fallback_sim )",Double,False,Page 9 / KPI,,"€ #,##0",,,
+gold_battery_dispatch,C3 CO2 Avoided Tonnes Annual,"VAR _co2_kg =
+    CALCULATE(
+        SUM( gold_battery_dispatch[co2_avoided_kg] ),
+        gold_battery_dispatch[is_simulated] = FALSE(),
+        gold_battery_dispatch[date] >= DATE(YEAR(TODAY())-1, MONTH(TODAY()), DAY(TODAY()))
+    )
+RETURN
+    DIVIDE( _co2_kg, 1000 )",Double,False,Page 9 / KPI,,"#,0.0 ""tCO₂""",,,
+gold_battery_dispatch,C4 Round Trip Efficiency Pct,"VAR r = AVERAGE( gold_battery_dispatch[round_trip_efficiency] ) RETURN IF( r <= 1.5, r * 100, r )",Double,False,Page 9 / KPI,,0.0,,,
+gold_battery_dispatch,V4 Monthly Net Savings EUR,"CALCULATE(
+    SUM( gold_battery_dispatch[net_savings_eur] ),
+    gold_battery_dispatch[is_simulated] = FALSE() )",Double,False,Page 9 / V4,,"€ #,##0",,,
+gold_battery_dispatch,V4 Monthly CO2 Avoided Kg,"CALCULATE(
+    SUM( gold_battery_dispatch[co2_avoided_kg] ),
+    gold_battery_dispatch[is_simulated] = FALSE() )",Double,False,Page 9 / V4,,"#,0 ""kg""",,,
+gold_battery_dispatch,V7 Current SoH Pct,AVERAGE( gold_battery_dispatch[battery_health_percent] ),Double,False,Battery Health (V7),,0.0,,,
+gold_battery_dispatch,V7 Cycles Used Pct,"VAR used = SUM( gold_battery_dispatch[cycle_depth_pct] ) / 100.0 RETURN DIVIDE( used, [V7 Warranty Cycles] )",Double,False,Battery Health (V7),,0.0%,,,
+gold_battery_dispatch,V7 Years Until Replacement,"VAR ac = [V7 Annual Cycles] VAR cyc = DIVIDE( [V7 Warranty Cycles], ac ) RETURN IF( ISBLANK(cyc), BLANK(), MIN( cyc, 20 ) )",Double,False,Battery Health (V7),,0.0,,,
+gold_battery_dispatch,Active Battery Label,"VAR _tech =
+    CALCULATE(
+        MAX( gold_battery_dispatch[battery_type] ),
+        gold_battery_dispatch[is_simulated] = FALSE() )
+VAR _type =
+    CALCULATE(
+        MAX( gold_battery_dispatch[battery_type] ),
+        gold_battery_dispatch[is_simulated] = FALSE() )
+VAR _cap =
+    CALCULATE(
+        MAX( gold_battery_dispatch[capacity_kwh] ),
+        gold_battery_dispatch[is_simulated] = FALSE() )
+RETURN
+    IF( ISBLANK(_tech), ""— No active battery —"",
+        _type & "" · "" & FORMAT(_cap, ""#,0"") & "" kWh"" )",String,False,Page 9 / Helpers,,"#,##0.0",,,
+gold_battery_dispatch,Active Strategy Short Label,"VAR _s =
+    CALCULATE(
+        MAX( gold_battery_dispatch[strategy] ),
+        gold_battery_dispatch[is_simulated] = FALSE() )
+RETURN
+    SWITCH( TRUE(),
+        ISBLANK(_s),               ""— Select strategy —"",
+        _s = ""self_consumption"",   ""● Self-Consumption"",
+        _s = ""peak_shaving"",       ""● Peak-Shaving"",
+        _s = ""tou"",                ""● Time-of-Use"",
+        _s = ""backup"",             ""● Backup + Opportunistic"",
+        _s = ""frequency_reserve"",  ""● Frequency Reserve"",
+        _s = ""capacity_market"",    ""● Capacity Market"",
+        _s = ""v2g"",                ""● V2G Coordination"",
+        ""● "" & _s )",String,False,Page 9 / Helpers,,"#,##0.0",,,
+gold_battery_dispatch,Page9 Data As Of,"""Data as of "" &
+FORMAT(
+    CALCULATE( MAX(gold_battery_dispatch[date]),
+               gold_battery_dispatch[is_simulated] = FALSE() ),
+    ""MMMM yyyy"" )",String,False,Page 9 / Helpers,,"#,##0.0",,,
+gold_battery_dispatch,V7 Annual Cycles,"ROUND( AVERAGE( gold_battery_dispatch[cycle_depth_pct] ) / 100.0 * 365.0, 0 )",Double,False,Battery Health (V7),,"#,##0",,,
+gold_battery_dispatch,V7 Warranty Cycles,"AVERAGEX( VALUES( gold_battery_dispatch[battery_type] ), VAR _bt = gold_battery_dispatch[battery_type] RETURN CALCULATE( AVERAGE( gold_battery_technologies[warranty_cycles] ), gold_battery_technologies[battery_type] = _bt ) )",Double,False,Battery Health (V7),,"#,##0",,,
+gold_battery_dispatch,Charging Cost EUR,"VAR _d =
+    CALCULATE (
+        DATEDIFF ( MIN ( gold_battery_dispatch[date] ), MAX ( gold_battery_dispatch[date] ), DAY ) + 1,
+        gold_battery_dispatch[is_simulated] = FALSE ()
+    )
+VAR _y = DIVIDE ( _d, 365.25 )
+RETURN
+    DIVIDE (
+        CALCULATE ( SUM ( gold_battery_dispatch[grid_charge_cost_eur] ), gold_battery_dispatch[is_simulated] = FALSE () ),
+        _y
+    )",Double,False,Arbitrage (V8),,"#,##0",,,
+gold_battery_dispatch,Discharge Benefit EUR,"VAR _d =
+    CALCULATE (
+        DATEDIFF ( MIN ( gold_battery_dispatch[date] ), MAX ( gold_battery_dispatch[date] ), DAY ) + 1,
+        gold_battery_dispatch[is_simulated] = FALSE ()
+    )
+VAR _y = DIVIDE ( _d, 365.25 )
+RETURN
+    DIVIDE (
+        CALCULATE ( SUM ( gold_battery_dispatch[cost_avoided_eur] ), gold_battery_dispatch[is_simulated] = FALSE () ),
+        _y
+    )",Double,False,Arbitrage (V8),,"#,##0",,,
+gold_battery_dispatch,Net Arbitrage EUR,[Discharge Benefit EUR] - [Charging Cost EUR],Double,False,Arbitrage (V8),,"#,##0",,,
+gold_battery_dispatch,I4 Next Action Text,"VAR _yr_to_replace = [V7 Years Until Replacement]
+VAR _payback = [C2 Payback Years]
+RETURN
+    SWITCH( TRUE(),
+        ISBLANK(_yr_to_replace) && ISBLANK(_payback),
+            ""Run a 12-month dispatch simulation to populate financial metrics."",
+        NOT ISBLANK(_yr_to_replace) && _yr_to_replace < 2,
+            ""⚠ Battery cycle headroom < 2 years. Plan replacement procurement now (lead time 8-14 weeks for LFP)."",
+        NOT ISBLANK(_yr_to_replace) && _yr_to_replace < 5,
+            ""Cycle headroom "" & FORMAT(_yr_to_replace, ""0.0"") & "" years. Schedule mid-life maintenance + warranty audit."",
+        NOT ISBLANK(_payback) && _payback < 5,
+            ""✓ Strong investment case (payback < 5 years). Recommend portfolio rollout to similar buildings."",
+        ""Battery operating within design envelope. Monitor next mid-life review in 24 months."" )",String,False,Page 9 / Insights,,"#,##0.0",,,
+gold_battery_dispatch,V7 SoH Color,"VAR s=[V7 Current SoH Pct] RETURN SWITCH( TRUE(), ISBLANK(s),""#AAAAAA"", s>=90,""#2ECC40"", s>=80,""#FF851B"", ""#FF4136"" )",String,False,Battery Health (V7),,,,,
+gold_battery_dispatch,V7 Avg Cycle Depth Pct,AVERAGE( gold_battery_dispatch[cycle_depth_pct] ),Double,False,Battery Health (V7),,0.0,,,

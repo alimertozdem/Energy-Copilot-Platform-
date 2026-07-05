@@ -1,0 +1,7 @@
+role CustomerRLS
+	modelPermission: read
+
+	tablePermission silver_building_master = PATHCONTAINS( CUSTOMDATA(), silver_building_master[building_id] )
+
+	annotation PBI_Id = 861c2e2a5aeb40b1b1fda316dffa28f8
+
