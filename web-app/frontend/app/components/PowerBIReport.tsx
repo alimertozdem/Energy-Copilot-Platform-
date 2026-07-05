@@ -143,10 +143,23 @@ function makeBuildingFilter(buildingIds: string[]): models.IBasicFilter {
  * Clearing the building slicer lets the report-level filter scope cleanly.
  * Best-effort: any failure leaves the report as-is (no regression).
  */
-async function clearBuildingSlicers(report: Report): Promise<void> {
+async function clearBuildingSlicers(
+  report: Report,
+  clearedPages?: Set<string>
+): Promise<void> {
   try {
     const page = await report.getActivePage()
     if (!page) return
+    // Gate: clear a page's stale .pbix building-slicer selection only the FIRST
+    // time we see that page. The old behaviour ran on EVERY render, which also
+    // wiped the USER's own slicer picks -> in compare view, narrowing to one
+    // building snapped back to "All". Once-per-page keeps the blank-page
+    // protection while letting later user selections persist.
+    if (clearedPages) {
+      const name = page.displayName
+      if (name && clearedPages.has(name)) return
+      if (name) clearedPages.add(name)
+    }
     const visuals = await page.getVisuals()
     await Promise.all(
       visuals
@@ -195,6 +208,9 @@ export default function PowerBIReport({
   pageNameRef.current = pageName
   const pageIndexRef = useRef(pageIndex)
   pageIndexRef.current = pageIndex
+  // Pages whose stale .pbix building-slicer we've already cleared this session,
+  // so clearBuildingSlicers runs once per page and never wipes user picks.
+  const clearedPagesRef = useRef<Set<string>>(new Set())
 
   // Stable key for the building set. Depending on the raw `buildingIds` array
   // would re-run the token fetch (and thus FULLY re-embed the report → flicker)
@@ -252,7 +268,7 @@ export default function PowerBIReport({
         if (!cancelled && target && !target.isActive) {
           await target.setActive()
         }
-        if (!cancelled) await clearBuildingSlicers(report)
+        if (!cancelled) await clearBuildingSlicers(report, clearedPagesRef.current)
       } catch (e) {
         // Best-effort page nav — not fatal (the report still renders). warn,
         // not error, so it doesn't trip the dev error overlay.
@@ -368,7 +384,7 @@ export default function PowerBIReport({
                     const displayName = page?.displayName
                     if (displayName) onPageChanged(displayName)
                   }
-                  await clearBuildingSlicers(report)
+                  await clearBuildingSlicers(report, clearedPagesRef.current)
                 } catch (e) {
                   // Landing on a specific page is a best-effort enhancement; if
                   // the report's pages aren't ready / renamed, the report still
