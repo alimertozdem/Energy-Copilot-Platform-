@@ -17,7 +17,10 @@ import argparse
 import json
 import logging
 import os
+import signal
 import sys
+import time
+from contextlib import contextmanager
 from datetime import datetime, time as dtime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -54,6 +57,52 @@ logger = logging.getLogger("freelance_bot")
 CONFIG_DIR = ROOT / "config"
 TEMPLATE_DIR = CONFIG_DIR / "templates"
 DEFAULT_DB = ROOT / "data" / "jobs.db"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Run budget.
+#
+# The GitHub Actions job has a hard `timeout-minutes`. If we blow past it the
+# job is CANCELLED mid-flight: the run row is never finished, the dedup DB is
+# never cached, and the digest never fires. Each matched job costs up to three
+# THROTTLED LLM calls (_MIN_INTERVAL=6s in src/llm/gemini.py) plus latency, so
+# a fat LinkedIn digest email can easily produce more work than one job slot.
+#
+# We therefore bound each run by wall clock AND by LLM-scored job count, and we
+# stop BEFORE inserting a job row — an unprocessed job is simply not recorded,
+# so the next scan (30 min later) picks it up. Nothing is lost, work is spread.
+# ─────────────────────────────────────────────────────────────────────────────
+RUN_BUDGET_S = float(os.getenv("BOT_RUN_BUDGET_S", "480"))       # 8 min of a 15 min job
+MAX_LLM_JOBS = int(os.getenv("BOT_MAX_LLM_JOBS", "40"))          # hard cap per run
+COLLECT_BUDGET_S = float(os.getenv("BOT_COLLECT_BUDGET_S", "240"))  # 4 min to fetch
+
+
+@contextmanager
+def _time_limit(seconds: float, label: str):
+    """Hard wall-clock ceiling around a blocking block of code.
+
+    The per-job budget below only helps once we HAVE jobs. Source collection
+    happens before that, and a stalled IMAP conversation there is invisible to
+    it: imap_tools' socket timeout only bounds a single syscall, not a fetch
+    loop over hundreds of messages. SIGALRM bounds the whole phase.
+
+    Unix-only (GitHub runners are Linux); a no-op elsewhere.
+    """
+    if not hasattr(signal, "SIGALRM") or seconds <= 0:
+        yield
+        return
+
+    def _fire(signum, frame):
+        raise TimeoutError(f"{label} exceeded {seconds:.0f}s hard limit")
+
+    prev = signal.signal(signal.SIGALRM, _fire)
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, prev)
+
+
 
 
 def main() -> int:
@@ -103,12 +152,22 @@ def _run_scan(
 ) -> int:
     run_id = db.start_run()
     errors: list[str] = []
+    deadline = time.monotonic() + RUN_BUDGET_S
+    budget_hit = False
+    budget_reason = ""
+    deferred = 0
 
     raw_jobs: list[RawJob] = []
     try:
-        raw_jobs.extend(_collect_rss(sources_cfg, filters_cfg))
-        raw_jobs.extend(_collect_json(sources_cfg, filters_cfg))
-        raw_jobs.extend(_collect_email(sources_cfg, filters_cfg))
+        with _time_limit(COLLECT_BUDGET_S, "source collection"):
+            raw_jobs.extend(_collect_rss(sources_cfg, filters_cfg))
+            raw_jobs.extend(_collect_json(sources_cfg, filters_cfg))
+            raw_jobs.extend(_collect_email(sources_cfg, filters_cfg))
+    except TimeoutError as e:
+        # Partial results are kept on purpose: whatever was collected before the
+        # stall still gets processed, and the rest is retried next scan.
+        logger.error("Source collection timed out: %s", e)
+        errors.append(f"collect_timeout: {e}")
     except Exception as e:
         logger.exception("Source collection error")
         errors.append(str(e))
@@ -129,9 +188,24 @@ def _run_scan(
     in_quiet = _in_quiet_hours(filters_cfg["notifications"], tz)
     digest_mode = bool(filters_cfg["notifications"].get("digest_mode", False))
 
-    for raw in raw_jobs:
+    for idx, raw in enumerate(raw_jobs):
         if db.has_job(raw.job_id):
             continue
+
+        # Budget guard. Checked BEFORE db.insert_job so an unprocessed job is
+        # never recorded as seen — the next scan re-collects and handles it.
+        over_time = time.monotonic() >= deadline
+        over_calls = llm_attempts >= MAX_LLM_JOBS
+        if over_time or over_calls:
+            budget_hit = True
+            budget_reason = "time" if over_time else "llm_cap"
+            deferred = len(raw_jobs) - idx
+            logger.warning(
+                "Run budget reached (%s) — deferring %s and %d remaining item(s) "
+                "to the next scan", budget_reason, raw.job_id, deferred,
+            )
+            break
+
         new += 1
 
         # Tier 1 — keyword
@@ -263,6 +337,12 @@ def _run_scan(
         if ok:
             pushed += 1
             remaining_today -= 1
+
+    if budget_hit:
+        errors.append(
+            f"run_budget_reached[{budget_reason}]: stopped after {new} new job(s) / "
+            f"{llm_attempts} LLM call(s); {deferred} item(s) deferred to next scan"
+        )
 
     # LLM health canary — if EVERY scoring call failed, the model/key is dead.
     # Shout once a day instead of silently shipping an empty digest.

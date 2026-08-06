@@ -225,7 +225,12 @@ class EmailIMAPSource:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
         jobs: list[RawJob] = []
 
-        with MailBox(self.imap_host, self.imap_port).login(self.username, self.password) as mb:
+        # timeout is REQUIRED: without it a stalled socket blocks forever and the
+        # whole cron job gets killed by the runner's timeout-minutes.
+        imap_timeout = float(os.getenv("BOT_IMAP_TIMEOUT_S", "30"))
+        with MailBox(self.imap_host, self.imap_port, timeout=imap_timeout).login(
+            self.username, self.password
+        ) as mb:
             for folder in self.folders:
                 fname = folder["name"]
                 parser_name = folder["parser"]
@@ -243,7 +248,8 @@ class EmailIMAPSource:
 
                 folder_jobs = 0
                 criteria = AND(date_gte=cutoff.date())
-                for msg in mb.fetch(criteria, limit=100, reverse=True):
+                fetch_limit = int(os.getenv("BOT_IMAP_FETCH_LIMIT", "60"))
+                for msg in mb.fetch(criteria, limit=fetch_limit, reverse=True):
                     msg_dt = msg.date
                     if msg_dt and msg_dt.replace(tzinfo=timezone.utc) < cutoff:
                         continue

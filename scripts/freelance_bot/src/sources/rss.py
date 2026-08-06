@@ -7,16 +7,21 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import feedparser
+import httpx
 
 from .base import RawJob, to_utc_iso
 
 logger = logging.getLogger(__name__)
 
 _UA = "Mozilla/5.0 (compatible; EnergyLensBot/1.0; +https://github.com/alimertozdem)"
+# feedparser.parse(url) fetches via urllib with NO timeout — a slow feed can
+# hang the cron job indefinitely. Always fetch bytes ourselves, then parse.
+_HTTP_TIMEOUT = float(os.getenv("BOT_RSS_TIMEOUT_S", "20"))
 
 
 class RSSSource:
@@ -29,7 +34,20 @@ class RSSSource:
 
     def fetch(self, lookback_hours: int) -> list[RawJob]:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
-        feed = feedparser.parse(self.url, agent=_UA)
+
+        try:
+            resp = httpx.get(
+                self.url,
+                timeout=_HTTP_TIMEOUT,
+                follow_redirects=True,
+                headers={"User-Agent": _UA},
+            )
+            resp.raise_for_status()
+        except Exception as e:
+            logger.warning("RSS feed %s fetch failed: %s", self.url, e)
+            return []
+
+        feed = feedparser.parse(resp.content)
 
         if feed.bozo and not feed.entries:
             logger.warning("RSS feed %s parse error: %s", self.url, feed.bozo_exception)

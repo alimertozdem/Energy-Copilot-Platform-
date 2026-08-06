@@ -26,10 +26,19 @@ on:
         default: false
         type: boolean
 
+# A scan must never queue behind a stuck predecessor. Digest runs are NOT
+# grouped with scans, so a long scan can never swallow the daily/weekly digest.
+concurrency:
+  group: freelance-bot-${{ github.event.schedule || 'dispatch' }}
+  cancel-in-progress: false
+
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    # Must stay ABOVE the bot's own BOT_RUN_BUDGET_S (480s = 8 min) plus
+    # checkout + pip install headroom. The bot exits cleanly on its own budget;
+    # this is only a backstop. Runs previously died here at 12 min = Cancelled.
+    timeout-minutes: 15
 
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -39,6 +48,12 @@ jobs:
       FREELANCE_GMAIL_USER: ${{ secrets.FREELANCE_GMAIL_USER }}
       FREELANCE_GMAIL_APP_PASSWORD: ${{ secrets.FREELANCE_GMAIL_APP_PASSWORD }}
       LOG_LEVEL: INFO
+      # Run budget — keep BOT_RUN_BUDGET_S comfortably below timeout-minutes.
+      BOT_RUN_BUDGET_S: "480"
+      BOT_MAX_LLM_JOBS: "40"
+      BOT_COLLECT_BUDGET_S: "240"
+      LLM_HTTP_TIMEOUT_S: "25"
+      BOT_IMAP_TIMEOUT_S: "30"
 
     steps:
       - uses: actions/checkout@v4
@@ -88,4 +103,4 @@ jobs:
           if [ "${{ steps.mode.outputs.dry_run }}" = "true" ]; then
             ARGS="$ARGS --dry-run"
           fi
-                python -m src.main $ARGS
+          python -m src.main $ARGS

@@ -25,6 +25,9 @@ GROQ_MODEL = "llama-3.3-70b-versatile"  # fallback (still active as of 2026-06)
 
 # Free-tier throttle: minimum seconds between Gemini calls (env-tunable).
 _MIN_INTERVAL = float(os.getenv("GEMINI_MIN_INTERVAL_S", "6"))
+# Per-request ceiling. Kept well under the run budget: with retries a 60s
+# timeout let a single stuck job eat minutes of a 12-minute CI slot.
+_HTTP_TIMEOUT = float(os.getenv("LLM_HTTP_TIMEOUT_S", "25"))
 _last_gemini_ts = 0.0
 
 
@@ -98,7 +101,7 @@ def _call_gemini(prompt: str, api_key: str, temperature: float, max_tokens: int,
     if json_mode:
         body["generationConfig"]["responseMimeType"] = "application/json"
 
-    resp = httpx.post(url, json=body, params=params, headers=headers, timeout=60)
+    resp = httpx.post(url, json=body, params=params, headers=headers, timeout=_HTTP_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
 
@@ -125,7 +128,7 @@ def _call_groq(prompt: str, api_key: str, temperature: float, max_tokens: int, j
     if json_mode:
         body["response_format"] = {"type": "json_object"}
 
-    resp = httpx.post(url, json=body, headers=headers, timeout=60)
+    resp = httpx.post(url, json=body, headers=headers, timeout=_HTTP_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
     return data["choices"][0]["message"]["content"]
