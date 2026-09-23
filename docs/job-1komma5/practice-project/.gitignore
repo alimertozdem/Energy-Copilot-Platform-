@@ -1,0 +1,3 @@
+# regenerable in <30s by rerunning the pipeline
+output/*.duckdb
+output/*.duckdb.wal

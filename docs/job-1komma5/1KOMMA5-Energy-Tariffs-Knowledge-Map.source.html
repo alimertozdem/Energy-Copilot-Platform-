@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>1KOMMA5° — Energy Products &amp; Tariffs: Domain Knowledge Map</title>
+<style>
+@page { size: A4; margin: 20mm 18mm 18mm 18mm;
+  @bottom-center { content: counter(page) " / " counter(pages); font-family: "DejaVu Sans"; font-size: 8pt; color: #7a8a86; }
+  @bottom-left { content: "1KOMMA5° — Energy Products & Tariffs · Domain Knowledge Map"; font-family: "DejaVu Sans"; font-size: 7pt; color: #a9b5b2; }
+}
+@page :first { @bottom-left { content: ""; } @bottom-center { content: ""; } }
+body { font-family: "DejaVu Sans", sans-serif; font-size: 9.2pt; line-height: 1.5; color: #1c2b28; }
+h1 { font-size: 20pt; color: #0b3d33; margin: 0 0 4pt 0; line-height: 1.15; }
+h2 { font-size: 13pt; color: #0b7a5a; border-bottom: 1.6pt solid #0b7a5a; padding-bottom: 3pt; margin: 22pt 0 9pt 0; page-break-after: avoid; }
+h3 { font-size: 10.6pt; color: #0b3d33; margin: 14pt 0 5pt 0; page-break-after: avoid; }
+h4 { font-size: 9.4pt; color: #145143; margin: 10pt 0 3pt 0; page-break-after: avoid; }
+p { margin: 0 0 6pt 0; }
+ul, ol { margin: 0 0 7pt 0; padding-left: 15pt; }
+li { margin-bottom: 2.5pt; }
+.tr { background: #f2f8f6; border-left: 2.5pt solid #58b79a; padding: 4pt 7pt; margin: 4pt 0 9pt 0; font-size: 8.5pt; color: #244b42; }
+.tr b { color: #0b7a5a; }
+table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt 0; font-size: 8.2pt; }
+th { background: #0b3d33; color: #fff; text-align: left; padding: 4pt 5pt; font-weight: bold; }
+td { border-bottom: 0.5pt solid #d5e2de; padding: 3.5pt 5pt; vertical-align: top; }
+tr:nth-child(even) td { background: #f7fbfa; }
+.box { border: 0.8pt solid #cfe0da; border-radius: 3pt; padding: 7pt 9pt; margin: 8pt 0 11pt 0; background: #fbfdfc; }
+.warn { border-left: 3pt solid #c0562f; background: #fdf5f2; padding: 6pt 9pt; margin: 8pt 0 11pt 0; }
+.warn b { color: #a3441f; }
+.cover { text-align: left; padding-top: 55mm; }
+.cover .kicker { font-size: 9pt; letter-spacing: 2.5pt; color: #0b7a5a; text-transform: uppercase; margin-bottom: 10pt; }
+.cover .sub { font-size: 11pt; color: #4a5f5a; margin-top: 8pt; line-height: 1.45; }
+.cover .meta { margin-top: 30mm; font-size: 8.5pt; color: #6b7d78; line-height: 1.7; border-top: 0.8pt solid #d5e2de; padding-top: 8pt; }
+.pb { page-break-before: always; }
+code { font-family: "DejaVu Sans Mono"; font-size: 8pt; background: #eef4f2; padding: 0.5pt 2.5pt; border-radius: 2pt; }
+.small { font-size: 8pt; color: #5d6f6a; }
+.tag { display: inline-block; background: #e4f0ec; color: #0b7a5a; font-size: 7.5pt; padding: 1pt 5pt; border-radius: 8pt; margin-right: 3pt; }
+.num { font-weight: bold; color: #0b7a5a; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+<div class="kicker">Domain Knowledge Map</div>
+<h1>Working in Energy Products &amp; Tariffs</h1>
+<h1 style="color:#0b7a5a;">1KOMMA5°</h1>
+<div class="sub">Everything you need to know to be genuinely competent — and therefore confident — in a European dynamic-tariff product team.<br>
+English content with short Turkish explanations.</div>
+<div class="meta">
+Prepared for: <b>Ali Mert Özdemir</b><br>
+Role: Internship Product Management — Energy Products &amp; Tariffs (m/f/d)<br>
+Locations: Berlin / Hamburg / München / Remote · Duration: min. 6 months, ideally full-time<br>
+Interview: 45-minute video call (1st round)<br>
+Date: 6 August 2026
+</div>
+</div>
+
+<div class="pb"></div>
+<h2>0. Read this first — what the job actually is</h2>
+
+<p>The job title says "Product Management". The job content is <b>energy-market product ownership inside a regulated retail business</b>. This is not a data-engineering role, and it is not a strategy role. It sits in the middle of four functions and translates between them:</p>
+
+<table>
+<tr><th style="width:23%">Function</th><th>What they give you</th><th>What they need from you</th></tr>
+<tr><td><b>Regulation / Legal</b></td><td>New laws, BNetzA rulings, deadlines</td><td>Translation into concrete product and system decisions</td></tr>
+<tr><td><b>Trading / Energy Ops</b></td><td>Spot prices, hedging, forecast, imbalance cost</td><td>Tariff structures they can actually source and hedge</td></tr>
+<tr><td><b>Operations / Billing</b></td><td>Market communication, switching, invoicing</td><td>Process fixes that reduce failures and manual work</td></tr>
+<tr><td><b>Commercial / Growth</b></td><td>Conversion, churn, competitor pricing</td><td>Products that sell and still carry margin</td></tr>
+</table>
+
+<div class="tr"><b>TR:</b> Bu rol veri mühendisliği değil. İşin özü: enerji piyasası kurallarını ve fiyat mekaniğini anlayıp, bunları satılabilir ve faturalanabilir bir tarif ürününe çevirmek. Dört ekibin (regülasyon, trading, operasyon/faturalama, ticari) ortak dilini konuşmak zorundasın.</div>
+
+<h3>The five things the job description literally asks for</h3>
+<ol>
+<li><b>Own well-scoped initiatives</b> — analysis → recommendation → implementation, with accountability for the outcome.</li>
+<li><b>Work on dynamic electricity tariff products</b> across core markets — improvements, feature rollouts, customer experience.</li>
+<li><b>Support regulatory product launches</b> — the JD names <b>Direktvermarktung</b> explicitly.</li>
+<li><b>Analyse and improve Marktkommunikation processes</b> — "make our energy retail engine faster and more reliable".</li>
+<li><b>Monitor KPIs and present</b> to Product Managers and stakeholders.</li>
+</ol>
+
+<p>Sections 2.7 (Direktvermarktung) and 2.10 (Marktkommunikation) of this document are therefore the two highest-leverage topics in it. Most candidates for an internship cannot talk about Marktkommunikation at all. If you can, you are immediately in a different category.</p>
+
+<div class="tr"><b>TR:</b> İlanda ismi geçen iki teknik konu <b>Direktvermarktung</b> ve <b>Marktkommunikation</b>. Bu dokümandaki 2.7 ve 2.10 bölümleri bu yüzden en kritik. Staj adaylarının neredeyse hiçbiri Marktkommunikation'ı anlatamaz — sen anlatabilirsen doğrudan ayrışırsın.</div>
+
+<div class="warn">
+<b>The uncomfortable part, stated up front.</b> Two real risks, neither of them technical:
+<ul style="margin-bottom:0">
+<li><b>German.</b> The profile says "excellent written and spoken English <i>and German</i>". Marktkommunikation, EnWG, EEG, BNetzA rulings and DSO correspondence are all in German. If your German is not conversational, expect this question and answer it honestly with a plan (current level, what you are doing about it, and the fact that you can read energy-regulatory German — which is true if you work through Section 7 of this document).</li>
+<li><b>Work permit.</b> The invitation asks for your valid work permit including <b>Zusatzblatt</b>, plus residence permit. Have scans ready <i>before</i> the call. Know your own permitted working hours as a student. Do not improvise this answer.</li>
+</ul>
+</div>
+
+<div class="tr"><b>TR:</b> İki gerçek risk teknik değil: (1) <b>Almanca</b> — ilanda "excellent" yazıyor, MaKo ve mevzuat Almanca. Dürüst seviye + somut plan söyle. (2) <b>Çalışma izni</b> — mailde Zusatzblatt dahil belge istiyorlar; görüşmeden önce taratıp hazır tut ve haftalık izinli çalışma saatini net bil.</div>
+
+<div class="pb"></div>
+<h2>1. The company — understand the business model, not the marketing</h2>
+
+<h3>1.1 Three revenue engines</h3>
+<p>1KOMMA5° is not a solar installer and not an energy supplier. It is deliberately all three layers of the home-energy stack at once, because each layer monetises the previous one:</p>
+
+<table>
+<tr><th style="width:22%">Layer</th><th>What it is</th><th>Economics</th></tr>
+<tr><td><b>1. Hardware + installation</b></td><td>One-stop-shop: PV, battery, heat pump, wallbox, installed by acquired regional craft businesses ("Meisterbetriebe")</td><td>High revenue, low margin, cyclical, capital-intensive. This is the customer-acquisition engine.</td></tr>
+<tr><td><b>2. Heartbeat AI (software)</b></td><td>Home energy management + control layer; a flat software fee; now also opened to <i>existing third-party</i> systems</td><td>Recurring, high-margin, asset-light. This is the equity story.</td></tr>
+<tr><td><b>3. Energy retail + flexibility</b></td><td>Dynamic tariff supply, aggregation of the installed base into a virtual power plant (VPP) trading on wholesale and flexibility markets</td><td>Recurring margin per customer per year, scales with the installed base. <b>This is your team.</b></td></tr>
+</table>
+
+<p>The strategic logic: layer 1 buys the customer, layer 2 gives control of the assets, layer 3 monetises that control every day for 20 years. Layer 3 is what turns a hardware company into a software-and-energy company — which is exactly what matters ahead of an IPO.</p>
+
+<div class="tr"><b>TR:</b> Üç katman: (1) donanım+kurulum = müşteri kazanma motoru, düşük marj; (2) Heartbeat yazılımı = tekrarlayan yüksek marj; (3) enerji tedariği + esneklik ticareti = her gün gelir üreten katman ve senin ekibin. Şirketin değerlemesi 1. katmandan çok 2. ve 3. katmana bağlı — bu yüzden tarif ekibi stratejik merkezde.</div>
+
+<h3>1.2 Numbers worth holding in your head</h3>
+<table>
+<tr><th style="width:38%">Metric</th><th>Value</th><th>Why it matters</th></tr>
+<tr><td>Revenue 2024</td><td>≈ €520M (+36% organic)</td><td>Grew while the German solar market shrank</td></tr>
+<tr><td>Revenue outlook 2026</td><td>≈ €660M, EBITDA-positive</td><td>Shift from growth-at-any-cost to profitable scale</td></tr>
+<tr><td>Latest raise</td><td>€150M pre-IPO round</td><td>IPO is the near-term corporate goal</td></tr>
+<tr><td>Heartbeat AI investment</td><td>&gt; €100M planned 2025–2027</td><td>Software/energy is where the money is going</td></tr>
+<tr><td>VPP flexibility</td><td>500 MW (2025) → <b>1 GW shiftable load</b> (2026)</td><td>Claimed largest residential VPP in Europe</td></tr>
+<tr><td>Connected systems</td><td>&gt; 100,000 systems; &gt; 120,000 customers</td><td>The base your tariff products are sold into</td></tr>
+<tr><td>Scale</td><td>3,000+ people, 80+ locations, Finland → Australia</td><td>"Core markets" in the JD = multi-country, not just DE</td></tr>
+<tr><td>2030 target</td><td>1.5 million households on renewables</td><td>The number the whole company is steered by</td></tr>
+<tr><td>Leadership</td><td>Philipp Schröder (CEO, ex-Tesla DE, ex-sonnen), Micha Grüber</td><td>Founder is an energy-market operator, not a generalist</td></tr>
+</table>
+
+<div class="tr"><b>TR:</b> Bu tablodaki 3-4 sayıyı ezberle (520M ciro, 1 GW esnek kapasite, 100k+ bağlı sistem, 2030'da 1,5M hane). Görüşmede "şirketi anlamış" izlenimi bu sayılarla verilir, genel övgüyle değil.</div>
+
+<h3>1.3 The product that explains the whole strategy: "free electricity"</h3>
+<p>In Sweden, 1KOMMA5° launched <b>Dynamic Pulse</b>: customers whose PV <i>and</i> battery are connected to Heartbeat get electricity at <b>0 cent/kWh for 15,000 kWh per year</b>. You should be able to explain why this is not a giveaway:</p>
+<ul>
+<li>The customer surrenders <b>control</b> of the battery (and increasingly the heat pump / EV) to the aggregator.</li>
+<li>The aggregator monetises that control: spot arbitrage (charge cheap / discharge expensive), intraday trading, balancing-market capacity, avoided grid fees, and imbalance-portfolio smoothing.</li>
+<li>If the flexibility value captured per customer per year exceeds the wholesale cost of that customer's energy, giving the energy away is rational — and it is an extremely strong acquisition and retention weapon.</li>
+<li>It also locks the customer to the platform: leaving means losing free electricity. Churn drops.</li>
+</ul>
+<p>The follow-up question you should be ready for: <i>"would this work in Germany?"</i> A defensible answer names the blockers rather than guessing: German retail price is ~two-thirds non-commodity (grid fees, levies, taxes, VAT) which you cannot zero out; battery-only flexibility earns less where spot spreads are narrower; and §14a curtailment plus metering coverage limit how much flexibility is actually addressable. So the German version is more likely to be a <i>deep discount on the commodity component</i> than a headline zero.</p>
+
+<div class="tr"><b>TR:</b> İsveç'teki "bedava elektrik" ürünü hediye değil: müşteri bataryanın kontrolünü veriyor, şirket bu esnekliği piyasada paraya çeviriyor. Almanya'da aynısı zor — çünkü faturanın ~%60'ı şebeke bedeli, vergi ve harçlar; onları sıfırlayamazsın. Bu cevabı verebilmek, ürün mantığını anladığını gösterir.</div>
+
+<h3>1.4 Competitive map — know who you are compared against</h3>
+<table>
+<tr><th style="width:20%">Player</th><th>Model</th><th>Where 1KOMMA5° differs</th></tr>
+<tr><td><b>Tibber</b></td><td>Dynamic tariff + app + hardware ecosystem, monthly fee, "Pulse" optical meter reader</td><td>Tibber is software-first without owning installation; 1K5 owns the installer network</td></tr>
+<tr><td><b>Octopus Energy</b></td><td>Large-scale retail + Kraken platform licensing; day-ahead prices published a day ahead (Agile)</td><td>Octopus is a platform/retail giant; 1K5 is asset-and-flex centric</td></tr>
+<tr><td><b>aWATTar</b></td><td>Lowest base fee, spot passthrough, technical/enthusiast audience</td><td>Price-led niche, no hardware</td></tr>
+<tr><td><b>Ostrom</b></td><td>Pure passthrough: no markup on the spot price, higher monthly fee</td><td>Radical transparency positioning</td></tr>
+<tr><td><b>Rabot Charge</b></td><td>Dynamic tariff optimised around EV charging</td><td>Single-device focus</td></tr>
+<tr><td><b>Enpal</b></td><td>Closest structural rival in Germany: vertically integrated PV + battery + heat pump + tariff + VPP</td><td>Head-on competitor on the same bundle logic</td></tr>
+<tr><td><b>sonnen</b></td><td>Battery manufacturer with sonnenCommunity VPP</td><td>Hardware-led VPP, narrower stack</td></tr>
+<tr><td><b>E.ON / EnBW / Vattenfall / Stadtwerke</b></td><td>Incumbents, now legally obliged to offer dynamic tariffs</td><td>Huge base, slow product cycles, weak device control</td></tr>
+</table>
+<p><b>Honest note on positioning:</b> independent German comparisons generally conclude that 1KOMMA5° is <i>not</i> the cheapest standalone dynamic tariff and only makes economic sense as part of the PV + storage + wallbox bundle. Knowing this — and framing it as the central product tension your team has to solve — is far stronger than pretending it is the cheapest.</p>
+
+<div class="tr"><b>TR:</b> Bağımsız karşılaştırmalar 1KOMMA5°'yi "tek başına tarif olarak pahalı, ama paketle birlikte mantıklı" diye konumlandırıyor. Bunu bilip "işte ekibin çözmesi gereken asıl gerilim bu" diye çerçevelemek, şirketi savunmaya çalışmaktan çok daha güçlü durur.</div>
+
+<div class="pb"></div>
+<h2>2. Energy domain — the core 60%</h2>
+
+<h3>2.1 Market roles: who is allowed to do what</h3>
+<p>Almost every product question in European energy retail eventually becomes "which role do we hold, and what does that role permit?". Learn these:</p>
+<table>
+<tr><th style="width:26%">Role (DE)</th><th style="width:18%">EN</th><th>Function</th></tr>
+<tr><td><b>Erzeuger</b></td><td>Generator</td><td>Produces electricity (utility-scale or rooftop)</td></tr>
+<tr><td><b>Übertragungsnetzbetreiber (ÜNB)</b></td><td>TSO</td><td>High-voltage transmission, system balance. Germany has four: 50Hertz, Amprion, TenneT DE, TransnetBW</td></tr>
+<tr><td><b>Verteilnetzbetreiber (VNB)</b></td><td>DSO</td><td>Distribution grid, connection, grid fees, §14a control. ~850 of them in Germany — a major source of process friction</td></tr>
+<tr><td><b>Lieferant</b></td><td>Supplier / retailer</td><td>Sells energy to the end customer, holds the supply contract, invoices</td></tr>
+<tr><td><b>Bilanzkreisverantwortlicher (BKV)</b></td><td>Balance responsible party</td><td>Commits to a schedule and pays for deviations. The financial heart of retail</td></tr>
+<tr><td><b>Messstellenbetreiber (MSB)</b></td><td>Metering point operator</td><td>Installs and operates the meter. <b>gMSB</b> = default (usually the DSO), <b>wMSB</b> = competitive third party</td></tr>
+<tr><td><b>Direktvermarkter</b></td><td>Direct marketer</td><td>Sells a generator's output on the market, carries the forecast risk</td></tr>
+<tr><td><b>Aggregator</b></td><td>Aggregator / VPP operator</td><td>Pools small assets into a tradable, controllable unit</td></tr>
+<tr><td><b>Grundversorger</b></td><td>Default supplier</td><td>Legally obliged local supplier of last resort; the expensive fallback tariff</td></tr>
+<tr><td><b>Bundesnetzagentur (BNetzA)</b></td><td>Federal regulator</td><td>Writes the rulebooks (GPKE, MaBiS, §14a determinations); its "Beschlüsse" create product deadlines</td></tr>
+</table>
+<p>1KOMMA5° holds several of these simultaneously: installer, HEMS provider, <b>Lieferant</b>, <b>BKV</b>, <b>Aggregator</b>, and increasingly <b>Direktvermarkter</b>. That combination is the actual moat.</p>
+
+<div class="tr"><b>TR:</b> Enerji piyasasında her şey "rol"e bağlı. Lieferant (tedarikçi), BKV (denge grubu sorumlusu), MSB (sayaç işletmecisi), Direktvermarkter (direkt satış), Aggregator (havuzlayıcı). 1KOMMA5° bunların çoğunu aynı anda taşıyor — asıl rekabet avantajı bu. BNetzA = düzenleyici kurum, kural kitaplarını o yazıyor.</div>
+
+<h3>2.2 Wholesale markets — where the price in your tariff comes from</h3>
+<p>A dynamic tariff is a retail wrapper around a wholesale price. You must know the sequence:</p>
+<ol>
+<li><b>Forward / futures market (EEX)</b> — years, quarters, months ahead. Used for hedging fixed-price tariffs.</li>
+<li><b>Day-ahead auction (EPEX SPOT)</b> — the reference price for almost every dynamic tariff. Bids close at <b>12:00 CET</b> for the following day; results are published early afternoon. Since <b>1 October 2025</b> the German day-ahead auction clears in <b>15-minute market time units (MTU)</b> — <b>96 prices per day</b> instead of 24. It is a <i>uniform-price</i> (single clearing price) auction, coupled across Europe via SDAC.</li>
+<li><b>Intraday</b> — continuous trading up to shortly before delivery, plus intraday auctions (IDA). This is where forecast errors get corrected. Coupled via SIDC.</li>
+<li><b>Balancing / Regelleistung</b> — TSO-procured reserves: <b>FCR</b> (Primärregelleistung), <b>aFRR</b> (Sekundärregelleistung), <b>mFRR</b> (Minutenreserve). Aggregated batteries can prequalify and earn capacity + energy payments here.</li>
+<li><b>Redispatch</b> — TSO-instructed generation shifts to relieve grid congestion. Redispatch 2.0 obligations apply from 100 kW upward, so single households are out of scope, but pooled assets are strategically relevant.</li>
+</ol>
+
+<div class="box">
+<b>The 15-minute switch is a product event, not a technicality.</b> 96 MTUs/day means: sharper price peaks and troughs, more arbitrage value for a battery, better matching of PV shape, more data volume (35,040 intervals/year per meter), and billing logic that must be quarter-hour native. Any tariff product built on hourly assumptions is now structurally mispriced. Expect this to come up.
+</div>
+
+<div class="tr"><b>TR:</b> Sıra şu: vadeli piyasa (EEX) → gün-öncesi ihale (EPEX, saat 12:00 kapanış) → gün-içi (intraday) → dengeleme (FCR/aFRR/mFRR) → redispatch. <b>1 Ekim 2025'ten beri Alman gün-öncesi piyasası 15 dakikalık dilimlerle işliyor: günde 96 fiyat.</b> Bu, batarya için daha çok arbitraj fırsatı ve faturalama mantığında çeyrek-saat zorunluluğu demek. Ürün açısından kritik bir değişiklik.</div>
+
+<h4>Price formation you should be able to explain in 30 seconds</h4>
+<p><b>Merit order:</b> plants are dispatched cheapest-marginal-cost first (renewables ≈ 0 → nuclear/lignite → coal → gas → oil). The <i>last</i> plant needed sets the price for everyone. So gas often sets the price even when renewables dominate volume. When renewable supply exceeds inflexible demand, prices go <b>negative</b> — producers pay to feed in. Negative prices are the single most important phenomenon for your product: they are simultaneously the reason dynamic tariffs are attractive, the reason feed-in support is being withdrawn, and the reason flexibility has value.</p>
+
+<div class="tr"><b>TR:</b> Merit order = en ucuz santral önce devreye girer, fiyatı <i>son devreye giren</i> santral belirler. Bu yüzden yenilenebilir çok olsa bile fiyatı sık sık gaz belirler. Arz talebi aştığında fiyat <b>negatife</b> düşer. Negatif fiyatlar bu işin merkezinde: dinamik tarifin cazibesi, EEG desteğinin geri çekilmesi ve esnekliğin değeri hep buradan geliyor.</div>
+
+<h3>2.3 Anatomy of a German retail price (2026)</h3>
+<p>This is the single most useful table in the document, because it tells you how much of the bill a dynamic tariff can actually influence.</p>
+<table>
+<tr><th style="width:44%">Component</th><th style="width:20%">Approx. 2026</th><th>Dynamic?</th></tr>
+<tr><td>Household average total price</td><td><b>≈ 37.2 ct/kWh</b> (2025: 39.3)</td><td>—</td></tr>
+<tr><td>Procurement + sales + margin</td><td>≈ 41% (≈ 15.4 ct)</td><td><b>Yes</b> — this is the part that follows the spot price</td></tr>
+<tr><td>Grid fees (Netzentgelte)</td><td>≈ 24.8% (≈ 9.26 ct)</td><td>Only via §14a Module 3 (time-variable)</td></tr>
+<tr><td>Taxes, levies, surcharges</td><td>≈ 33.9% (≈ 12.61 ct)</td><td>No</td></tr>
+<tr><td>&nbsp;&nbsp;· Electricity tax (Stromsteuer)</td><td>2.05 ct</td><td>No</td></tr>
+<tr><td>&nbsp;&nbsp;· §19 StromNEV levy</td><td>1.56 ct</td><td>No</td></tr>
+<tr><td>&nbsp;&nbsp;· Offshore grid levy</td><td>0.94 ct</td><td>No</td></tr>
+<tr><td>&nbsp;&nbsp;· KWKG levy (cogeneration)</td><td>0.45 ct</td><td>No</td></tr>
+<tr><td>&nbsp;&nbsp;· Concession fee + 19% VAT</td><td>remainder</td><td>No (VAT scales with the total)</td></tr>
+<tr><td>2026 change driver</td><td>Grid fees ≈ −15% y/y</td><td>Due to a €6.5bn state subsidy to grid operators</td></tr>
+</table>
+<div class="box">
+<b>The product conclusion:</b> only roughly 40% of the bill is exposed to the wholesale price. A customer who shifts 30% of consumption into the cheapest quarter-hours does not cut their bill by 30% — they cut it by 30% of ~40%, minus fees. Anyone in a tariff team who cannot do this arithmetic will over-promise savings, and over-promised savings are the #1 driver of churn and regulatory complaints in this segment.<br><br>
+Which is exactly why <b>§14a Module 3 (time-variable grid fees)</b> matters so much: it puts a second ~25% of the bill in play. Spot + time-variable grid fee = a real two-signal optimisation. This is where dynamic tariff products are heading, and it is a great thing to bring up unprompted.
+</div>
+
+<div class="tr"><b>TR:</b> Faturanın sadece ~%40'ı borsa fiyatına bağlı. %25 şebeke bedeli, %34 vergi/harç. Yani müşteri tüketiminin %30'unu ucuz saatlere kaydırsa faturası %30 değil, kabaca %30 × %40 kadar düşer. Bu aritmetiği bilmeyen biri tasarruf vaadini şişirir — ve şişirilmiş vaat bu sektörde 1 numaralı müşteri kaybı sebebi. §14a Modül 3 (zaman değişkenli şebeke bedeli) bu yüzden çok önemli: faturanın ikinci %25'ini de optimize edilebilir hale getiriyor.</div>
+
+<h3>2.4 Dynamic tariffs as a product</h3>
+<p><b>Legal base:</b> since <b>1 January 2025</b>, §41a EnWG obliges every German electricity supplier to offer a dynamic tariff. This turned a differentiator into a commodity feature — so competition moved to <i>optimisation quality</i>, <i>hardware integration</i> and <i>transparency</i>, not to the existence of the product.</p>
+
+<h4>Price build-up of a dynamic tariff</h4>
+<p><code>Customer price per 15 min = Day-ahead price (MTU) + supplier markup (ct/kWh) + grid fee + levies + taxes + VAT</code>, plus a <b>monthly base fee</b> (Grundgebühr).</p>
+
+<table>
+<tr><th style="width:24%">Business model</th><th>Mechanics</th><th>Trade-off</th></tr>
+<tr><td><b>Pure passthrough</b></td><td>0 markup on spot; revenue purely from the base fee (Ostrom-style)</td><td>Maximum trust, zero margin flexibility, no buffer for imbalance cost</td></tr>
+<tr><td><b>Markup + low base fee</b></td><td>Small ct/kWh markup, minimal monthly fee (aWATTar-style)</td><td>Margin scales with volume; attractive to low-consumption customers</td></tr>
+<tr><td><b>Ecosystem-bundled</b></td><td>Tariff attached to hardware + HEMS; margin comes from flexibility and the bundle, not the ct/kWh (1KOMMA5°, Tibber)</td><td>Higher headline price, higher total customer value; requires the hardware to be there</td></tr>
+<tr><td><b>Flex-for-energy swap</b></td><td>Very low or zero commodity price in exchange for asset control (Dynamic Pulse)</td><td>Best retention weapon; only works where flex value &gt; energy cost</td></tr>
+</table>
+
+<h4>Risks that sit behind the price — know these names</h4>
+<ul>
+<li><b>Volume risk</b> — the customer consumes more/less than forecast.</li>
+<li><b>Profile / shape risk</b> — <i>when</i> they consume differs from the hedged shape. A dynamic tariff transfers most of this to the customer, which is precisely why it can be cheaper.</li>
+<li><b>Imbalance risk (Ausgleichsenergie)</b> — deviation between the schedule and reality, settled at the imbalance price. Owned by the BKV.</li>
+<li><b>Basis risk</b> — the hedge and the actual delivery point/period do not match (very relevant after the 15-min switch).</li>
+<li><b>Credit / bad debt risk</b> — rises when prices spike.</li>
+<li><b>Regulatory risk</b> — a levy or ruling changes the cost stack mid-contract.</li>
+</ul>
+
+<div class="tr"><b>TR:</b> §41a EnWG uyarınca 2025'ten beri Almanya'da her tedarikçi dinamik tarif sunmak <b>zorunda</b> — yani ürünün varlığı artık fark değil, kalitesi fark. Fiyat kurgusu: spot fiyat + tedarikçi marjı + şebeke + vergi + KDV, artı aylık sabit ücret. Arkasındaki riskler: hacim, profil/şekil, dengeleme (Ausgleichsenergie), baz riski, tahsilat, mevzuat. Dinamik tarifin ucuz olmasının sebebi, profil riskinin müşteriye devredilmesi.</div>
+
+<h4>The KPI set you would actually be monitoring</h4>
+<table>
+<tr><th style="width:34%">KPI</th><th>Definition / why</th></tr>
+<tr><td><b>Attach rate</b></td><td>% of the installed hardware base that also holds the tariff. The single most important number for a bundled model.</td></tr>
+<tr><td><b>Time-to-supply</b></td><td>Days from contract signature to first supplied kWh. Driven almost entirely by Marktkommunikation quality.</td></tr>
+<tr><td><b>Switch success rate</b></td><td>% of supplier switches completed without manual intervention or rejection.</td></tr>
+<tr><td><b>Gross margin per customer per year</b></td><td>(energy margin + software fee + flex revenue) − (imbalance cost + service cost).</td></tr>
+<tr><td><b>Realised vs. average price ratio</b></td><td>Customer's volume-weighted price ÷ simple average price. &lt;1 means optimisation is genuinely working. This is the honest measure of HEMS value.</td></tr>
+<tr><td><b>Flex capture</b></td><td>€ per kW of controllable capacity per year, split by revenue stream.</td></tr>
+<tr><td><b>Forecast error (MAPE)</b></td><td>Portfolio forecast accuracy — drives imbalance cost directly.</td></tr>
+<tr><td><b>Churn / retention</b></td><td>Especially churn in the first 90 days, which usually traces back to a billing or expectation failure.</td></tr>
+<tr><td><b>Savings-promise accuracy</b></td><td>Promised vs. actual savings. Underrated, and a regulatory exposure.</td></tr>
+</table>
+
+<div class="tr"><b>TR:</b> Bu tablodan en az üçünü konuşabilir olmalısın: <b>attach rate</b> (donanım tabanının kaçı tarifi de alıyor), <b>time-to-supply</b> (sözleşmeden ilk kWh'ye kaç gün — tamamen MaKo kalitesine bağlı) ve <b>realised/average price ratio</b> (optimizasyon gerçekten işe yarıyor mu). Üçüncüsü özellikle iyi bir cevap, çünkü HEMS'in değerini dürüst ölçen metrik.</div>
+
+<h3>2.5 Metering — the physical precondition for everything</h3>
+<ul>
+<li><b>MsbG</b> (Messstellenbetriebsgesetz) governs metering. <b>iMSys</b> = intelligentes Messsystem: a digital meter plus a <b>Smart Meter Gateway (SMGW)</b> with certified communication. A <b>moderne Messeinrichtung (mME)</b> is digital but <i>not</i> communicating — it cannot support a dynamic tariff on its own.</li>
+<li><b>15-minute interval values from the iMSys are what makes dynamic billing, energy sharing and §14a Module 3 possible.</b> No iMSys, no real dynamic product.</li>
+<li>The <b>CLS channel</b> in the SMGW is the standardised path for controlling devices behind the meter — the regulated alternative to a vendor cloud.</li>
+<li><b>Since the Solarspitzengesetz (in force 25 February 2025):</b> new PV systems from <b>7 kW</b> must be equipped with an iMSys plus a control box by the metering point operator. Without an intelligent metering system, feed-in is capped at <b>60% of nominal capacity</b> (§9(2) EEG 2023).</li>
+<li>Workaround used by the market: optical meter readers (e.g. Tibber Pulse-type devices) read a modern meter locally and stream consumption to the app. Good enough for transparency and optimisation; <b>not</b> a substitute for regulated billing data.</li>
+</ul>
+
+<div class="tr"><b>TR:</b> <b>iMSys</b> = akıllı sayaç + iletişim kutusu (SMGW). <b>mME</b> = dijital ama iletişimsiz sayaç — dinamik tarif için yetmez. 15 dakikalık veri olmadan dinamik faturalama, energy sharing ve §14a Modül 3 mümkün değil. Solarspitzengesetz'ten (25 Şubat 2025) beri 7 kW üstü yeni PV'lerde iMSys + kontrol kutusu zorunlu; yoksa besleme %60 ile sınırlanıyor. Optik okuyucular (Tibber Pulse tipi) şeffaflık sağlar ama resmi faturalama verisi yerine geçmez.</div>
+
+<h3>2.6 Flexibility and the virtual power plant</h3>
+<p>A <b>VPP (virtuelles Kraftwerk)</b> pools many small assets so they behave, commercially and technically, like one dispatchable plant. Heartbeat is 1KOMMA5°'s VPP: PV, home batteries, heat pumps, EV chargers and wallboxes across &gt;100,000 systems, now ~1 GW of shiftable load.</p>
+
+<h4>Revenue stacking — how the same battery earns money several ways</h4>
+<table>
+<tr><th style="width:30%">Stream</th><th>Mechanism</th><th>Notes</th></tr>
+<tr><td><b>Spot arbitrage</b></td><td>Charge in cheap MTUs, discharge in expensive ones</td><td>Value = daily spread × usable kWh × round-trip efficiency, minus degradation</td></tr>
+<tr><td><b>Intraday trading</b></td><td>Trade the pool's position after day-ahead</td><td>Also reduces the portfolio's own imbalance</td></tr>
+<tr><td><b>Balancing markets</b></td><td>FCR / aFRR capacity + energy payments</td><td>Requires TSO prequalification and pooling compliance; strict availability obligations</td></tr>
+<tr><td><b>Self-consumption</b></td><td>Avoid buying at full retail price (~37 ct) instead of exporting at a low feed-in rate</td><td>Usually the largest single value for a household — the "boring" one that dominates</td></tr>
+<tr><td><b>Avoided / reduced grid fees</b></td><td>§14a modules; time-variable grid fee windows</td><td>Regulated, predictable, currently under-exploited</td></tr>
+<tr><td><b>Negative-price capture</b></td><td>Get paid to consume when prices are below zero</td><td>Growing rapidly with solar build-out</td></tr>
+</table>
+
+<h4>Physical numbers to hold in your head (defensible ranges, not exact claims)</h4>
+<ul>
+<li>Residential PV system: <b>8–12 kWp</b>; German specific yield ≈ <b>950–1,100 kWh per kWp per year</b>.</li>
+<li>Home battery: <b>5–15 kWh</b> usable; C-rate ~0.5–1; round-trip efficiency <b>85–92%</b>; ~6,000–10,000 cycles for LFP; usable depth of discharge 90–100% for LFP.</li>
+<li>Heat pump: <b>COP 3–4.5</b> at design point; annual <b>SCOP / JAZ 3.0–4.2</b> in German retrofits — the seasonal figure is the honest one.</li>
+<li>EV: <b>40–80 kWh</b> battery, home AC charging <b>11 kW</b> (3-phase); a single EV roughly doubles household consumption.</li>
+<li>Average German household: ~<b>2,500–4,000 kWh/year</b>; with heat pump + EV, <b>8,000–15,000 kWh/year</b>.</li>
+<li>§14a curtailment floor: a controllable device may be dimmed but at least <b>4.2 kW</b> must remain available.</li>
+</ul>
+<p>Always present these as <i>ranges with the assumption stated</i>. In energy, a confident single number that is wrong destroys credibility faster than an honest range.</p>
+
+<div class="tr"><b>TR:</b> VPP = binlerce küçük varlığı tek bir santral gibi yönetmek. Aynı batarya birkaç yoldan para kazanır: spot arbitraj, intraday, dengeleme piyasası, öz-tüketim, şebeke bedeli optimizasyonu, negatif fiyat yakalama. Ev için en büyük kalem genelde sıkıcı olanı: öz-tüketim. Fiziksel sayıları <b>aralık</b> olarak ve varsayımını söyleyerek ver — enerjide yanlış tek bir kesin sayı, dürüst bir aralıktan çok daha fazla itibar kaybettirir.</div>
+
+<h3>2.7 Direktvermarktung — the regulatory launch named in the job description</h3>
+<p>Three ways a PV system's output can be monetised in Germany:</p>
+<table>
+<tr><th style="width:28%">Model</th><th>How it works</th><th>Who it suits</th></tr>
+<tr><td><b>Einspeisevergütung</b><br>(fixed feed-in tariff)</td><td>DSO pays a fixed statutory rate per kWh exported. Simple, no market exposure.</td><td>Small rooftops that want zero complexity</td></tr>
+<tr><td><b>Marktprämienmodell</b><br>(direct marketing with market premium)</td><td>A <b>Direktvermarkter</b> sells the output on the exchange. The grid operator pays a monthly <b>Marktprämie</b> = <i>anzulegender Wert</i> − <i>monthly market value</i> for that technology (floored at zero), plus a management premium. Mandatory above 100 kW.</td><td>Larger systems; the standard commercial route</td></tr>
+<tr><td><b>Sonstige Direktvermarktung</b></td><td>Sell freely on the market or via PPA with <b>no</b> EEG premium at all. Full price exposure, full upside.</td><td>Systems that can beat the subsidy, or that want independence</td></tr>
+</table>
+
+<h4>Why this is suddenly a product opportunity for small rooftops</h4>
+<ul>
+<li>The <b>Solarspitzengesetz</b> substantially <b>simplified direct marketing below 100 kWp</b> — the administrative barrier that used to make it uneconomic for a 10 kWp roof has come down.</li>
+<li>At the same time, <b>§51 EEG</b> logic was extended: once an iMSys is installed, <b>no feed-in remuneration is paid for hours when the exchange price is negative</b>. Fixed feed-in is therefore getting structurally worse.</li>
+<li>Result: for a household with iMSys + battery + HEMS, "sell my surplus intelligently" starts to beat "collect a shrinking fixed rate". That is a new product line, and it is what the JD means by "regulatory product launches (e.g. Direktvermarktung)".</li>
+</ul>
+
+<h4>What the Direktvermarkter actually has to do — the operational reality</h4>
+<ol>
+<li><b>Forecast</b> generation per 15-minute interval (weather models + system-specific model).</li>
+<li><b>Bid</b> into day-ahead by 12:00 CET; correct on intraday as forecasts update.</li>
+<li><b>Register</b> the asset with the grid operator and assign it to a <b>Bilanzkreis</b>.</li>
+<li><b>Submit schedules (Fahrpläne)</b> to the TSO — reported in defined increments.</li>
+<li><b>Carry the imbalance risk</b>: every forecast error is settled as <b>Ausgleichsenergie</b> at the imbalance price, which can be brutal in tight hours.</li>
+<li><b>Settle and invoice</b> the plant owner, and claim the market premium.</li>
+</ol>
+<div class="box">
+<b>The product question you should be able to frame — and you would be unusually strong if you framed it unprompted:</b><br>
+"For a 10 kWp rooftop with a battery, at what monthly average market value does Direktvermarktung beat the fixed feed-in tariff, once you subtract the direct marketer's fee, the imbalance cost from forecast error, and the hours where negative prices zero out the alternative anyway? And do we pass the imbalance risk to the customer or absorb it in the portfolio?"<br><br>
+That single question demonstrates you understand the economics, the operations <i>and</i> the customer-experience trade-off at once. Aggregating thousands of small rooftops is exactly how a company like 1KOMMA5° makes that maths work: portfolio effects cancel individual forecast errors.
+</div>
+
+<div class="tr"><b>TR:</b> Üç model: sabit besleme tarifesi (Einspeisevergütung), piyasa primi modeli (Marktprämie = referans değer − aylık piyasa değeri), ve primsiz serbest satış. Solarspitzengesetz 100 kWp altı için direkt satışı <b>basitleştirdi</b>; aynı zamanda iMSys varsa negatif fiyat saatlerinde besleme ödemesi <b>kesiliyor</b>. Yani sabit tarife kötüleşiyor, direkt satış cazipleşiyor — ilanda geçen "Direktvermarktung" ürünü tam olarak bu. Operasyonel gerçek: 15 dakikalık üretim tahmini, gün-öncesi teklif, denge grubu, TSO'ya program bildirimi ve tahmin hatasının dengeleme maliyeti. Binlerce küçük çatıyı havuzlamak bu matematiği çalıştırıyor, çünkü portföyde hatalar birbirini götürüyor.</div>
+
+<h3>2.8 §14a EnWG — grid-side control and time-variable grid fees</h3>
+<ul>
+<li><b>Since 1 January 2024</b>, DSOs <b>must</b> connect new controllable consumption devices — heat pumps, wallboxes, home batteries — and in exchange may curtail them (down to a 4.2 kW floor) when the local grid is stressed. Connection can no longer be refused for grid reasons.</li>
+<li>In return, the customer chooses one of three modules:
+<ul>
+<li><b>Module 1</b> — flat annual grid-fee discount, roughly <b>€110–190/year</b>. No second meter, simplest billing.</li>
+<li><b>Module 2</b> — percentage reduction on the grid-fee energy component; requires a <b>separate meter</b>; worthwhile for heavy users.</li>
+<li><b>Module 3</b> — <b>time-variable grid fees</b> (available since April 2025): three price windows per day; requires a <b>Smart Meter Gateway</b>. Combinable with Module 1.</li>
+</ul>
+</li>
+<li><b>From mid-2026</b> a revised BNetzA determination applies with stricter requirements, and grid-oriented control shifts from a voluntary option to a precondition for the DSO to connect controllable loads promptly.</li>
+</ul>
+<div class="box"><b>Why the tariff team cares:</b> Module 3 + a dynamic tariff creates a <b>two-signal optimisation problem</b> — the HEMS must minimise (spot price + time-variable grid fee) jointly, and those two signals do not always point the same way. Cheap spot hours can coincide with expensive grid windows. Solving that well is a genuine, currently unsolved product differentiator, and it is a first-class thing to raise in an interview.</div>
+
+<div class="tr"><b>TR:</b> §14a: 2024'ten beri şebeke işletmecisi ısı pompası, wallbox ve bataryayı bağlamak <b>zorunda</b>; karşılığında sıkışma anında kısabiliyor (en az 4,2 kW kalmak şartıyla). Müşteri üç modülden birini seçiyor: sabit indirim (~110–190 €/yıl), yüzdesel indirim (ayrı sayaç şart), veya <b>zaman değişkenli şebeke bedeli</b> (SMGW şart). 2026 ortasından itibaren BNetzA'nın yeni kararıyla kurallar sıkılaşıyor. Ürün açısından kritik nokta: Modül 3 + dinamik tarif = <b>iki sinyalli optimizasyon</b>; ucuz borsa saati pahalı şebeke penceresine denk gelebilir. Bunu iyi çözmek gerçek bir farklılaşma.</div>
+
+<h3>2.9 Energy sharing — a brand-new product surface (live 1 June 2026)</h3>
+<ul>
+<li><b>§42c EnWG</b> made energy sharing legally possible in Germany <b>from 1 June 2026</b>: sharing self-generated renewable electricity with other people or companies <b>through the public distribution grid</b>.</li>
+<li>Difference from existing models: <b>Mieterstrom</b> and <b>gemeinschaftliche Gebäudeversorgung (GGV)</b> stay inside one building; energy sharing crosses buildings — streets, blocks, neighbourhoods.</li>
+<li><b>Scope:</b> initially within the same DSO settlement area; <b>from June 2028</b> extendable to neighbouring grid areas within the same control zone.</li>
+<li><b>Requirements:</b> <b>iMSys on both sides</b>, a joint-use agreement, and each participant still needs a separate supply contract for residual power.</li>
+<li><b>Reality check:</b> all DSOs are legally obliged to enable it from June 2026, but several have already signalled that technical implementation will come later. Expect a messy rollout — which for a well-organised supplier is an advantage, not a problem.</li>
+</ul>
+<p>This is only weeks old as a live regime. If you can describe it accurately, you are current with the market — and "what should our energy-sharing product look like, and which DSO areas are actually ready?" is a perfect intern initiative.</p>
+
+<div class="tr"><b>TR:</b> <b>1 Haziran 2026'da yürürlüğe girdi</b> (§42c EnWG): kendi ürettiğin yenilenebilir elektriği <b>kamu şebekesi üzerinden</b> başkalarıyla paylaşabiliyorsun. Mieterstrom/GGV tek binayla sınırlıydı; bu ise mahalle ölçeğinde. Şart: iki tarafta da akıllı sayaç + ortak kullanım sözleşmesi + artık tüketim için ayrı tedarik sözleşmesi. Başlangıçta aynı şebeke bölgesi içinde, 2028'den itibaren komşu bölgelere. Birçok şebeke işletmecisi teknik olarak hazır değil — yani düzenli çalışan bir tedarikçi için fırsat. Bu konuyu doğru anlatmak "piyasayı güncel takip ediyor" demenin en net yolu.</div>
+
+<div class="pb"></div>
+<h3>2.10 Marktkommunikation — the section that will set you apart</h3>
+<p>The JD says: <i>"Dive into our market communication workflows, identify inefficiencies, and drive initiatives that make our energy retail engine faster and more reliable."</i> Here is what that sentence actually means.</p>
+
+<h4>What Marktkommunikation (MaKo) is</h4>
+<p>Standardised, machine-to-machine business-document exchange between all market partners in the German energy sector — supplier, DSO, metering operator, balance responsible party. It uses <b>EDIFACT</b> (the UN standard, in a BDEW-defined energy subset), exchanged over defined secure transport. Every customer relationship in German energy retail is created, changed and ended by these messages. When they fail, the customer is not supplied, not billed, or billed wrongly.</p>
+
+<h4>The rulebooks</h4>
+<table>
+<tr><th style="width:16%">Rulebook</th><th>Full name</th><th>Covers</th></tr>
+<tr><td><b>GPKE</b></td><td>Geschäftsprozesse zur Kundenbelieferung mit Elektrizität</td><td>Supplier switching, move-in / move-out, master-data maintenance — the core retail processes</td></tr>
+<tr><td><b>WiM</b></td><td>Wechselprozesse im Messwesen</td><td>Changing the metering point operator, meter operations</td></tr>
+<tr><td><b>MaBiS</b></td><td>Marktregeln für die Bilanzkreisabrechnung Strom</td><td>Balance-group settlement: aggregating volumes and settling them between market participants</td></tr>
+<tr><td><b>GeLi Gas</b></td><td>Geschäftsprozesse Lieferantenwechsel Gas</td><td>The gas equivalent of GPKE</td></tr>
+</table>
+
+<h4>The identifiers — get these right or nothing works</h4>
+<ul>
+<li><b>MaLo-ID</b> (Marktlokations-ID) — an <b>11-digit</b> number identifying a <i>market location</i>: a point where energy is consumed or fed in. This is the central identifier of the German electricity and gas market; supplier switches, balance-group assignment, meter-value transmission and billing all key off it.</li>
+<li><b>MeLo-ID</b> (Messlokations-ID) — identifies the <i>metering location</i> (the physical meter). One market location can relate to several metering locations, and vice versa. Confusing the two is a classic, expensive error.</li>
+<li><b>Bilanzkreis</b> + <b>EIC codes</b> — the balancing group the location is assigned to, and the standard market-participant codes.</li>
+</ul>
+
+<h4>The processes and the messages</h4>
+<table>
+<tr><th style="width:30%">Process</th><th>Typical message types</th></tr>
+<tr><td>Lieferantenwechsel (supplier switch)</td><td><b>UTILMD</b> (master data / registration), acknowledged by <b>CONTRL</b> / <b>APERAK</b></td></tr>
+<tr><td>Einzug / Auszug (move in / move out)</td><td>UTILMD</td></tr>
+<tr><td>Stammdatenänderung (master-data change)</td><td>UTILMD</td></tr>
+<tr><td>Meter readings / interval values</td><td><b>MSCONS</b></td></tr>
+<tr><td>Invoicing between market partners</td><td><b>INVOIC</b>, remittance advice <b>REMADV</b></td></tr>
+<tr><td>Balance-group settlement</td><td>MaBiS aggregation messages</td></tr>
+<tr><td>Errors and rejections</td><td><b>APERAK</b> (application error), <b>CONTRL</b> (syntax acknowledgement)</td></tr>
+</table>
+
+<h4>Why it breaks — and therefore what "improving MaKo" means</h4>
+<p>Failure modes, in rough order of frequency:</p>
+<ul>
+<li>Wrong or missing <b>MaLo-ID</b>, or a MaLo/MeLo mix-up → registration rejected.</li>
+<li>Mismatched master data (name, address, meter number) between supplier and DSO → rejection.</li>
+<li><b>Deadlines missed</b>: GPKE processes have statutory windows; a late message restarts the process and pushes the supply start date.</li>
+<li>Format/version drift after a BNetzA rulebook update (these change on fixed dates and everyone has to migrate).</li>
+<li>Silent failures — a rejection nobody picked up, so the customer sits in limbo for weeks.</li>
+<li>Each of those lands as a manual clearing case, a support ticket, a delayed first invoice, and eventually churn.</li>
+</ul>
+
+<div class="box">
+<b>How to turn this into a credible intern initiative — this is your best single answer to "what would you work on?":</b>
+<ol style="margin-bottom:0">
+<li>Instrument the funnel: contract signed → UTILMD sent → acknowledged → supply start → first invoice. Measure conversion and elapsed time at each step.</li>
+<li>Classify every rejection by message type × error code × DSO. Almost always a small number of causes produce most of the volume.</li>
+<li>Quantify the cost: manual minutes per case × case volume, plus delayed-revenue days, plus first-90-day churn attributable to a failed start.</li>
+<li>Fix the top causes at the source — validation at the point of data capture beats clearing downstream. Propose which checks move into the signup flow.</li>
+<li>Report one number to the business: <b>switch success rate</b> and <b>median time-to-supply</b>, by market and by DSO.</li>
+</ol>
+</div>
+
+<div class="tr"><b>TR:</b> <b>Marktkommunikation</b>, Alman enerji piyasasında tedarikçi–şebeke–sayaç işletmecisi arasındaki standart makine-makine mesajlaşması (EDIFACT). Kural kitapları: <b>GPKE</b> (tedarikçi değişimi, taşınma, ana veri), <b>WiM</b> (sayaç), <b>MaBiS</b> (denge grubu mutabakatı). Kimlikler: <b>MaLo-ID</b> (11 haneli, tüketim/besleme noktası) ve <b>MeLo-ID</b> (fiziksel sayaç) — ikisini karıştırmak klasik ve pahalı hata. Mesajlar: <b>UTILMD</b> (kayıt/ana veri), <b>MSCONS</b> (sayaç değerleri), <b>APERAK/CONTRL</b> (hata/onay), <b>INVOIC</b>. Bozulma sebepleri: yanlış MaLo, uyuşmayan ana veri, kaçırılan yasal süreler, format sürüm değişimi, fark edilmemiş red mesajları. Sonuç: elle düzeltme, gecikmiş ilk fatura, müşteri kaybı. "MaKo'yu iyileştirmek" = bu hunideki her adımı ölçmek, red sebeplerini sınıflamak, maliyetini paraya çevirmek ve doğrulamayı kayıt anına taşımak. Görüşmede "ne üzerinde çalışırdın?" sorusuna en güçlü cevap bu.</div>
+
+<div class="pb"></div>
+<h2>3. Product management craft in a regulated energy business — 25%</h2>
+
+<h3>3.1 What "own a well-scoped initiative" means in practice</h3>
+<p>Six steps. Interns who skip steps 1 and 6 are the ones who do not get the full-time offer.</p>
+<ol>
+<li><b>Frame the problem as a number.</b> Not "our switching is slow" but "median time-to-supply is 34 days versus a 21-day target; each extra day costs X in delayed revenue and Y in churn risk."</li>
+<li><b>Get the data yourself.</b> Do not wait for a dashboard. Pull it, clean it, sanity-check the total against a known figure.</li>
+<li><b>Produce 2–3 real options</b> with cost, effort, risk and a recommendation. One option must always be "do nothing" with its cost stated.</li>
+<li><b>Pressure-test with the people who own the consequences</b> — trading for price risk, legal for compliance, ops for workload, engineering for feasibility.</li>
+<li><b>Implement in the smallest shippable slice.</b> One market, one segment, one DSO.</li>
+<li><b>Measure and publish the result</b>, including when it did not work. Reporting a failed experiment honestly buys more trust than a vague success.</li>
+</ol>
+
+<div class="tr"><b>TR:</b> "Kendi inisiyatifini yürütmek" şu demek: problemi <b>sayıya çevir</b> → veriyi kendin çek → maliyet/efor/risk ile 2-3 seçenek sun (biri her zaman "hiçbir şey yapmama" ve onun maliyeti) → sonucu taşıyacak ekiplerle test et → en küçük dilimle uygula → ölçüp yayınla, başarısız olduysa da. 1. ve 6. adımı atlayan stajyerler tam zamanlı teklif almıyor.</div>
+
+<h3>3.2 The skill that differentiates this role: regulation → product translation</h3>
+<p>Use this five-column pattern every time a law or ruling lands. It works for §14a, §42c, Solarspitzengesetz, anything:</p>
+<table>
+<tr><th>1. Legal text</th><th>2. Obligation</th><th>3. Who is affected</th><th>4. System change</th><th>5. Customer-facing change</th></tr>
+<tr><td>§42c EnWG, in force 1 Jun 2026</td><td>DSOs must enable energy sharing; participants need iMSys + joint-use agreement</td><td>Customers with PV + iMSys in a DSO area that is actually ready</td><td>New contract type, allocation logic per 15-min MTU, billing split, MaKo registration path</td><td>New product tier, eligibility checker, transparent allocation statement in the app</td></tr>
+</table>
+<p>Then add the two columns that make it a decision rather than an analysis: <b>deadline</b> and <b>owner</b>.</p>
+
+<div class="tr"><b>TR:</b> Bu rolün ayırt edici becerisi: mevzuatı ürüne çevirmek. Beş kolon: yasa metni → doğan yükümlülük → kimi etkiliyor → hangi sistem değişikliği → müşteriye ne olarak görünüyor. Sonuna <b>tarih</b> ve <b>sahip</b> kolonlarını ekle; analiz böylece karara dönüşür. Bu şablonu görüşmede kullanmak çok iyi durur.</div>
+
+<h3>3.3 Prioritisation in a regulated product</h3>
+<ul>
+<li><b>Compliance deadlines come first</b> and are non-negotiable. In energy, "we chose not to ship it" is not available if the law says June.</li>
+<li>For everything else, a simple <b>RICE</b> or impact/effort view is enough. Do not over-engineer frameworks in an interview.</li>
+<li>State the <b>opportunity cost</b> explicitly: what are we not doing because we are doing this?</li>
+<li>Watch for the trap: regulatory work consumes all capacity and no discretionary improvement ever ships. A good PM protects a slice for customer-experience work.</li>
+</ul>
+
+<h3>3.4 The unit-economics model you should be able to build in Google Sheets in 30 minutes</h3>
+<p>Sheets fluency is a hard requirement in the JD ("Google Sheets a must"). Build this once, from scratch, before the interview — the structure matters more than the numbers:</p>
+<table>
+<tr><th style="width:34%">Block</th><th>Rows</th></tr>
+<tr><td><b>Inputs (one clearly marked block)</b></td><td>Annual consumption kWh · PV kWp · specific yield · battery kWh · round-trip efficiency · spot average ct/kWh · supplier markup · base fee €/month · grid fee ct/kWh · levies+tax ct/kWh · VAT · CAC · churn %</td></tr>
+<tr><td><b>Volume logic</b></td><td>PV generation · self-consumption share · grid import · export volume · shifted volume</td></tr>
+<tr><td><b>Revenue</b></td><td>Energy margin (markup × import) · base fee × 12 · software fee · flex revenue €/kW/yr × controllable kW</td></tr>
+<tr><td><b>Cost</b></td><td>Imbalance cost · service &amp; support cost per customer · payment/bad debt · metering cost</td></tr>
+<tr><td><b>Outputs</b></td><td>Gross margin per customer per year · payback on CAC (months) · LTV at given churn · LTV/CAC</td></tr>
+<tr><td><b>Sensitivity</b></td><td>Two-way data table: spot average × churn → LTV/CAC. State which input the answer is most sensitive to.</td></tr>
+</table>
+<p>Discipline rules: no hardcoded numbers inside formulas, every assumption on the input block with a source note, units in every label, and one sentence at the top saying what the model is for.</p>
+
+<div class="tr"><b>TR:</b> İlan "Google Sheets şart" diyor. Görüşmeden önce bu modeli bir kez sıfırdan kur: girdiler tek blokta, hacim mantığı, gelir, maliyet, çıktı (müşteri başı yıllık brüt marj, CAC geri dönüşü, LTV/CAC) ve iki yönlü duyarlılık tablosu. Kural: formül içine sabit sayı gömme, her varsayımın kaynağını yaz, her etikette birim olsun. Sayılardan çok <b>yapı</b> değerlendirilir.</div>
+
+<h3>3.5 Communication habits that get an intern taken seriously</h3>
+<ul>
+<li><b>Answer first, then explain.</b> Recommendation in sentence one, reasoning after.</li>
+<li><b>Quantify or flag.</b> Every claim is either a number with a source or explicitly labelled an assumption.</li>
+<li><b>Say "I don't know" cleanly</b>, then say how you would find out and by when. In an energy interview this is a strength, because the domain is genuinely large and pretending is transparent.</li>
+<li><b>Disagree with the mechanism, not the person</b>: "I'd expect that to break at step X because Y — have we tested that?"</li>
+<li><b>Never present a number you cannot reproduce.</b> You will be asked where it came from.</li>
+</ul>
+
+<div class="tr"><b>TR:</b> Önce cevap, sonra gerekçe. Her iddia ya kaynaklı bir sayı ya da açıkça "varsayım" etiketli. <b>"Bilmiyorum"</b> demeyi öğren — nasıl öğreneceğini ve ne zaman söyleyerek. Enerjide bu güç göstergesi, çünkü alan çok geniş ve bilmiş görünmek anında anlaşılıyor. Üretemediğin bir sayıyı asla sunma; kaynağı sorulur.</div>
+
+<div class="pb"></div>
+<h2>4. Data &amp; tooling — 15%, but where you already have an edge</h2>
+
+<p>The JD asks for "analytical and structured thinker, comfortable with data and spreadsheets (Google Sheets a must, SQL or Python a plus)". So data is a supporting skill here — but it is <i>your</i> supporting skill, and it is how you will produce work faster than the other interns.</p>
+
+<h3>4.1 Google Sheets, to a professional standard</h3>
+<ul>
+<li><code>QUERY()</code> — SQL-like filtering and aggregation inside Sheets. The single highest-leverage function; learn it properly.</li>
+<li><code>SUMIFS / COUNTIFS / AVERAGEIFS</code>, <code>XLOOKUP</code> (or <code>INDEX/MATCH</code>), <code>ARRAYFORMULA</code>, <code>UNIQUE</code>, <code>FILTER</code>, <code>SPLIT</code>.</li>
+<li>Pivot tables with calculated fields; two-way <b>data tables</b> for sensitivity; <b>named ranges</b>; data validation; conditional formatting for threshold flags.</li>
+<li><code>IMPORTDATA</code> / <code>IMPORTJSON</code>-style pulls for price feeds if a live sheet is needed.</li>
+<li>Model hygiene: inputs / calculations / outputs on separate blocks or tabs; units in labels; a "read me" cell; no magic numbers.</li>
+</ul>
+
+<h3>4.2 SQL you will actually use</h3>
+<ul>
+<li><code>SELECT / WHERE / GROUP BY / HAVING / ORDER BY</code>; all four join types and when an outer join hides a data-quality bug.</li>
+<li><b>Window functions</b> — the ones that matter for interval energy data: <code>LAG()</code> / <code>LEAD()</code> for deltas between consecutive intervals, <code>SUM() OVER (PARTITION BY ... ORDER BY ...)</code> for cumulative volume, <code>ROW_NUMBER()</code> for deduplication, <code>AVG() OVER</code> for rolling baselines.</li>
+<li><code>DATE_TRUNC</code> / bucketing to 15-minute, hourly, daily granularity; calendar joins so missing intervals show as gaps instead of vanishing.</li>
+<li><b>CTEs</b> (<code>WITH</code>) to keep multi-step logic readable — this is a communication skill as much as a technical one.</li>
+<li>A cohort/retention query: customers grouped by signup month, activity by month since signup.</li>
+</ul>
+
+<h3>4.3 Time-series realities that cause real bugs</h3>
+<div class="box">
+<ul style="margin-bottom:0">
+<li><b>96 intervals per day, 35,040 per year</b> at 15-minute resolution. Per meter. Volume grows fast.</li>
+<li><b>Daylight saving time</b>: in the CET/CEST zone one day per year has <b>23 hours</b> and one has <b>25</b>. Every naive <code>× 96</code> assumption breaks twice a year. Store and compute in <b>UTC</b>, display in local time.</li>
+<li><b>Missing and substitute values</b> (<i>Ersatzwerte</i>): meter data arrives late, incomplete, or estimated. Never silently treat missing as zero — a missing interval and a zero-consumption interval mean completely different things commercially.</li>
+<li><b>kW vs kWh</b>: power vs energy. At 15-minute resolution, energy = average power × 0.25 h. Mixing these up is the most common analytical error in the industry.</li>
+<li><b>Sign conventions</b>: import positive / export negative, or two separate registers? Get this defined before you compute anything.</li>
+<li><b>Restatements</b>: meter values get corrected after the fact, so yesterday's report legitimately changes. Version your numbers.</li>
+</ul>
+</div>
+
+<div class="tr"><b>TR:</b> Enerji verisinde gerçek hatalar buradan çıkıyor: 15 dakikalık çözünürlükte günde 96, yılda 35.040 aralık; yaz saati yüzünden yılda bir gün 23, bir gün 25 saat (UTC'de sakla, yerel saatte göster); eksik veri sıfır demek <b>değil</b> (Ersatzwerte); kW ile kWh'yi karıştırma (15 dk'da enerji = ortalama güç × 0,25); işaret konvansiyonunu baştan tanımla; sayaç değerleri sonradan düzeltilir, yani dünkü rapor meşru şekilde değişir.</div>
+
+<h3>4.4 Python — and the one analysis worth actually doing before the interview</h3>
+<p><code>pandas</code> essentials: <code>read_csv</code>, <code>to_datetime</code>, <code>set_index</code>, <code>resample('15min')</code>, <code>groupby().agg()</code>, <code>merge</code>, <code>pivot_table</code>, <code>rolling()</code>, <code>tz_localize</code> / <code>tz_convert</code>.</p>
+<div class="box">
+<b>The single most impressive thing you could bring:</b> a small <b>tariff backtest</b>. Take a year of German day-ahead prices and one load profile. Compute: (a) the bill under a fixed tariff, (b) the bill under a dynamic tariff with no behaviour change, (c) the bill with a battery shifting N kWh/day into the cheapest quarter-hours. Report the <b>realised/average price ratio</b> and the euro delta — and state your assumptions and their sensitivity.<br><br>
+This is one afternoon of work. It demonstrates energy understanding, data skill, product judgement and honesty about assumptions simultaneously. Almost no internship candidate does it.
+</div>
+
+<h3>4.5 Data sources and APIs to know by name</h3>
+<table>
+<tr><th style="width:32%">Source</th><th>What you get</th></tr>
+<tr><td><b>ENTSO-E Transparency Platform</b></td><td>Pan-European day-ahead prices, load, generation by type, cross-border flows. The canonical free source; free API key.</td></tr>
+<tr><td><b>EPEX SPOT</b></td><td>The exchange itself — day-ahead and intraday products, market rules, the 15-minute MTU documentation.</td></tr>
+<tr><td><b>SMARD (BNetzA)</b></td><td>Official German market data portal — generation, consumption, prices, balancing. Free downloads, good for sanity checks.</td></tr>
+<tr><td><b>Energy-Charts (Fraunhofer ISE)</b></td><td>Best free visualisations of German generation and prices; excellent for building intuition quickly.</td></tr>
+<tr><td><b>Agora Energiewende / Agorameter</b></td><td>Policy-grade analysis and data on the German transition.</td></tr>
+<tr><td><b>aWATTar / Tibber public price APIs</b></td><td>Retail-facing hourly/quarter-hourly price endpoints — how competitors expose prices to customers and devices.</td></tr>
+<tr><td><b>Marktstammdatenregister (MaStR)</b></td><td>Official register of every generation asset in Germany. Useful for market sizing.</td></tr>
+<tr><td><b>BNetzA / BDEW publications</b></td><td>Rulebook changes, determinations, price statistics. The source of your deadlines.</td></tr>
+</table>
+
+<h3>4.6 How the data stack in this kind of company usually looks</h3>
+<p>Device telemetry → event streaming (Kafka / MQTT ingestion) → cloud warehouse (Snowflake / BigQuery / Databricks) → transformation layer (dbt) → BI (Looker / Metabase / Power BI) plus reverse-ETL into operational tools. Market data and MaKo messages land as separate pipelines and get joined on <b>MaLo-ID</b>.</p>
+<div class="box"><b>Your Fabric experience maps one-to-one — say it in their vocabulary:</b> bronze/silver/gold = raw / staging / marts; Lakehouse Delta tables = warehouse tables; notebooks = transformation jobs; DAX measures = the semantic/metrics layer; EventStream + KQL = streaming ingestion + hot path. You are not learning a new concept, you are learning a different vendor's word for it. Say exactly that — it signals transferability instead of tool loyalty.</div>
+
+<div class="tr"><b>TR:</b> Fabric bilgin birebir karşılık buluyor: bronze/silver/gold = raw/staging/marts, Lakehouse = veri ambarı, notebook = dönüşüm işi, DAX ölçüleri = metrik katmanı, EventStream+KQL = akış yutma. Görüşmede tam olarak bunu söyle: "kavramlar aynı, sadece satıcının kelimeleri farklı." Bu, araç bağımlılığı değil transfer edilebilirlik sinyali verir.</div>
+
+<div class="pb"></div>
+<h2>5. Your own bridge — how EnergyLens maps to this job</h2>
+<p>You have an unusual asset for an internship candidate: you have already built the analytical half of this exact problem domain. Map it explicitly rather than describing it generally.</p>
+<table>
+<tr><th style="width:40%">What the JD asks for</th><th>What you have already built</th></tr>
+<tr><td>Work on dynamic electricity tariff products</td><td>A daily pipeline ingesting day-ahead prices (EPEX-based) with country/hour granularity, fallback logic and CO<sub>2</sub> intensity, feeding downstream ROI calculations</td></tr>
+<tr><td>Understand flexibility and asset economics</td><td>A battery dispatch and simulation module with strategy comparison, ROI/payback and an explicit honest split of measured vs. modelled vs. prospective results</td></tr>
+<tr><td>Analyse and improve process/data reliability</td><td>A five-protocol IoT ingestion layer (BACnet/IP, Modbus TCP, MQTT, REST, plus edge agent) normalising heterogeneous device data to standard units and a common schema</td></tr>
+<tr><td>Monitor KPIs and present findings</td><td>A full KPI/metrics layer with 200+ measures over a medallion architecture, plus a 10-page decision-support report and a live web application</td></tr>
+<tr><td>Regulatory product launches</td><td>Compliance modules built against real regimes: EU Battery Regulation 2023/1542, ESRS-E1-aligned reporting, German CO2KostAufG, EPBD/MEPS logic</td></tr>
+<tr><td>Ownership with minimal handholding</td><td>You scoped, architected, built, deployed and documented the whole platform solo, and made the strategic call to build production-grade rather than MVP</td></tr>
+</table>
+<div class="warn">
+<b>Say the limitation before they find it.</b> EnergyLens runs on synthetic and estimated data; there is no completed customer pilot yet. State that plainly and early. Two reasons: it is true, and in an energy interview an unprompted honest caveat is read as domain maturity. The version that damages you is being caught claiming validated savings you cannot evidence.<br><br>
+Frame it as: <i>"I built the full analytics stack end to end on synthetic and public data. What I have not yet done is validate the savings model against a real metered building — which is exactly the part I would learn fastest inside a company with 100,000 connected systems."</i>
+</div>
+
+<div class="tr"><b>TR:</b> Bu tablo senin en güçlü kozun: ilanın her satırına karşılık gelen somut bir şey inşa etmişsin. Ama <b>sınırı sen söyle</b>: EnergyLens sentetik/tahmini veriyle çalışıyor, tamamlanmış bir pilot yok. Bunu erken ve net söylemek enerji sektöründe olgunluk sinyali; yakalanmak ise itibar kaybı. Kalıp: "tüm analitik yığını uçtan uca kurdum, henüz yapmadığım şey modeli gerçek sayaç verisiyle doğrulamak — ve bu tam olarak 100.000 bağlı sistemi olan bir şirkette en hızlı öğrenebileceğim şey."</div>
+
+<div class="pb"></div>
+<h2>6. Study plan — what to do with the time you have</h2>
+
+<h3>6.1 Before the call (highest return per hour, in this order)</h3>
+<table>
+<tr><th style="width:8%">#</th><th style="width:30%">Task</th><th>Why it is first</th></tr>
+<tr><td><b>1</b></td><td>Scan the work permit, <b>Zusatzblatt</b> and residence permit; write down your permitted weekly hours</td><td>They asked for it in the invitation. Being unprepared here is the only avoidable disqualifier.</td></tr>
+<tr><td><b>2</b></td><td>Learn Section 7 glossary cold — <b>German terms with their English meaning</b></td><td>You will hear Netzentgelt, Bilanzkreis, Direktvermarktung, Marktkommunikation, Lieferantenwechsel in the call. Recognition is 80% of the confidence.</td></tr>
+<tr><td><b>3</b></td><td>Be able to recite the retail price stack (2.3) and the "only ~40% is dynamic" conclusion</td><td>It is the fastest proof that you think in numbers, not slogans.</td></tr>
+<tr><td><b>4</b></td><td>Prepare the Marktkommunikation initiative from 2.10 as your "what would you work on" answer</td><td>Directly from the JD; almost no candidate can do it.</td></tr>
+<tr><td><b>5</b></td><td>Prepare a 90-second EnergyLens story with the honest caveat built in</td><td>Your differentiator, delivered with credibility intact.</td></tr>
+<tr><td><b>6</b></td><td>Prepare your German answer: current level, evidence, and what you are doing about it</td><td>Do not let this question find you unprepared.</td></tr>
+<tr><td><b>7</b></td><td>Spend 30 minutes on Energy-Charts and SMARD looking at a real week of prices</td><td>Turns abstract knowledge into visual intuition. You will speak differently afterwards.</td></tr>
+<tr><td><b>8</b></td><td>Write three real questions for them (see 6.3)</td><td>Questions reveal level more than answers do.</td></tr>
+</table>
+
+<h3>6.2 Two-week deepening plan (also the right first-month plan on the job)</h3>
+<table>
+<tr><th style="width:14%">Days</th><th>Focus</th><th>Output you produce</th></tr>
+<tr><td><b>1–2</b></td><td>Market roles + wholesale sequence (2.1, 2.2)</td><td>One page: who does what, drawn from memory</td></tr>
+<tr><td><b>3–4</b></td><td>Retail price stack + dynamic tariff mechanics (2.3, 2.4)</td><td>Sheets model: bill under fixed vs. dynamic tariff</td></tr>
+<tr><td><b>5–6</b></td><td>Metering + §14a (2.5, 2.8)</td><td>Decision table: which module suits which customer, and why</td></tr>
+<tr><td><b>7–8</b></td><td>Direktvermarktung economics (2.7)</td><td>Break-even analysis: DV vs. fixed feed-in for a 10 kWp roof</td></tr>
+<tr><td><b>9–10</b></td><td>Marktkommunikation processes (2.10)</td><td>Process map: contract → first invoice, with failure points marked</td></tr>
+<tr><td><b>11–12</b></td><td>Flexibility &amp; VPP revenue stacking (2.6)</td><td>Python backtest: dynamic tariff with and without battery shifting</td></tr>
+<tr><td><b>13–14</b></td><td>Energy sharing + competitor teardown (2.9, 1.4)</td><td>One-pager: what our energy-sharing product should be, and which competitor is closest</td></tr>
+</table>
+<p class="small">Every row produces an artefact. Reading without producing does not create confidence — producing does. Six of these seven artefacts are also directly reusable as work samples.</p>
+
+<h3>6.3 Questions worth asking them</h3>
+<ul>
+<li>"How is ownership split between the global tariff product team and the local market teams — where does a Germany-specific regulatory change get decided?"</li>
+<li>"With Module 3 time-variable grid fees, are you optimising jointly against spot and grid fee yet, or is spot still the dominant signal?"</li>
+<li>"On Direktvermarktung for small rooftops — is the plan to absorb imbalance risk in the portfolio or pass it to the customer?"</li>
+<li>"What does the switching funnel look like today — where do you lose the most days between contract and first supplied kWh?"</li>
+<li>"Is the Swedish Dynamic Pulse logic transferable to Germany given the non-commodity share of the bill, or does it become a discount rather than a zero?"</li>
+<li>"What separates an intern who converts to full-time from one who does not, in this team specifically?"</li>
+</ul>
+<p>Pick two or three. Each of these is only askable by someone who has understood the business, which is the point.</p>
+
+<div class="tr"><b>TR:</b> Sıralama önemli: (1) belgeler, (2) Almanca terim sözlüğü, (3) fiyat yapısı ve "sadece %40'ı dinamik" sonucu, (4) MaKo inisiyatifi cevabı, (5) EnergyLens hikâyesi + dürüst çekince, (6) Almanca seviyesi cevabı, (7) gerçek fiyat grafiklerine bak, (8) soruların. İki haftalık planın her satırı bir <b>çıktı</b> üretiyor — okumak güven vermiyor, üretmek veriyor. Soru sormak seviyeni cevaplardan daha çok gösterir; listeden 2-3 tanesini seç.</div>
+
+<div class="pb"></div>
+<h2>7. Glossary — German / English / Turkish</h2>
+<p class="small">Learn the left column by recognition. This is the highest-value page in the document for working in a German energy company.</p>
+<table>
+<tr><th style="width:27%">German</th><th style="width:30%">English</th><th>Türkçe</th></tr>
+<tr><td>Energiewende</td><td>Energy transition</td><td>Enerji dönüşümü</td></tr>
+<tr><td>Stromlieferant / Versorger</td><td>Electricity supplier</td><td>Elektrik tedarikçisi</td></tr>
+<tr><td>Grundversorger / Grundversorgung</td><td>Default supplier / basic supply</td><td>Son kaynak tedarikçi (pahalı varsayılan tarife)</td></tr>
+<tr><td>Übertragungsnetzbetreiber (ÜNB)</td><td>Transmission system operator (TSO)</td><td>İletim şebekesi işletmecisi</td></tr>
+<tr><td>Verteilnetzbetreiber (VNB)</td><td>Distribution system operator (DSO)</td><td>Dağıtım şebekesi işletmecisi</td></tr>
+<tr><td>Netzentgelt / Netzgebühren</td><td>Grid fee / network charge</td><td>Şebeke kullanım bedeli</td></tr>
+<tr><td>Netzanschluss</td><td>Grid connection</td><td>Şebeke bağlantısı</td></tr>
+<tr><td>Bilanzkreis</td><td>Balancing group</td><td>Denge grubu</td></tr>
+<tr><td>Bilanzkreisverantwortlicher (BKV)</td><td>Balance responsible party</td><td>Denge grubu sorumlusu</td></tr>
+<tr><td>Ausgleichsenergie</td><td>Balancing / imbalance energy</td><td>Dengeleme enerjisi (tahmin sapmasının maliyeti)</td></tr>
+<tr><td>Regelleistung / Regelenergie</td><td>Balancing reserve / control power</td><td>Yedek kapasite piyasası</td></tr>
+<tr><td>Primär-/Sekundärregelleistung</td><td>FCR / aFRR</td><td>Primer / sekonder frekans kontrolü</td></tr>
+<tr><td>Minutenreserve</td><td>mFRR / tertiary reserve</td><td>Dakika yedeği</td></tr>
+<tr><td>Redispatch</td><td>Redispatch</td><td>Şebeke sıkışması için üretim kaydırma</td></tr>
+<tr><td>Fahrplan</td><td>Schedule / nomination</td><td>Program bildirimi</td></tr>
+<tr><td>Börsenstrompreis / Spotpreis</td><td>Exchange / spot price</td><td>Borsa elektrik fiyatı</td></tr>
+<tr><td>Day-Ahead-Auktion</td><td>Day-ahead auction</td><td>Gün öncesi ihale</td></tr>
+<tr><td>Intraday-Handel</td><td>Intraday trading</td><td>Gün içi ticaret</td></tr>
+<tr><td>Marktzeiteinheit (MTU), Viertelstunde</td><td>Market time unit, quarter-hour</td><td>Piyasa zaman birimi, çeyrek saat</td></tr>
+<tr><td>Merit Order</td><td>Merit order</td><td>Maliyet sıralı devreye alma</td></tr>
+<tr><td>Negative Preise</td><td>Negative prices</td><td>Negatif fiyatlar</td></tr>
+<tr><td>Beschaffung</td><td>Procurement / sourcing</td><td>Tedarik (enerji alımı)</td></tr>
+<tr><td>Absicherung / Hedging</td><td>Hedging</td><td>Riskten korunma</td></tr>
+<tr><td>Dynamischer Stromtarif</td><td>Dynamic electricity tariff</td><td>Dinamik elektrik tarifi</td></tr>
+<tr><td>Grundpreis / Arbeitspreis</td><td>Base fee / unit price</td><td>Sabit ücret / birim fiyat</td></tr>
+<tr><td>Aufschlag</td><td>Markup / adder</td><td>Tedarikçi marjı</td></tr>
+<tr><td>Stromsteuer</td><td>Electricity tax</td><td>Elektrik vergisi</td></tr>
+<tr><td>Umlage (KWKG, §19 StromNEV, Offshore)</td><td>Levy / surcharge</td><td>Yasal harç / katkı payı</td></tr>
+<tr><td>Konzessionsabgabe</td><td>Concession fee</td><td>İmtiyaz bedeli</td></tr>
+<tr><td>Mehrwertsteuer (MwSt)</td><td>VAT</td><td>KDV</td></tr>
+<tr><td>Zähler / Zählerstand</td><td>Meter / meter reading</td><td>Sayaç / sayaç okuması</td></tr>
+<tr><td>Intelligentes Messsystem (iMSys)</td><td>Smart metering system</td><td>Akıllı sayaç sistemi</td></tr>
+<tr><td>Moderne Messeinrichtung (mME)</td><td>Modern (non-communicating) meter</td><td>Dijital ama iletişimsiz sayaç</td></tr>
+<tr><td>Smart-Meter-Gateway (SMGW)</td><td>Smart meter gateway</td><td>Akıllı sayaç iletişim ağ geçidi</td></tr>
+<tr><td>Messstellenbetreiber (gMSB / wMSB)</td><td>Metering point operator (default / competitive)</td><td>Sayaç işletmecisi (varsayılan / rekabetçi)</td></tr>
+<tr><td>Marktlokation (MaLo-ID)</td><td>Market location ID (11-digit)</td><td>Piyasa noktası kimliği</td></tr>
+<tr><td>Messlokation (MeLo-ID)</td><td>Metering location ID</td><td>Ölçüm noktası kimliği</td></tr>
+<tr><td>Marktkommunikation (MaKo)</td><td>Market communication</td><td>Piyasa katılımcıları arası standart mesajlaşma</td></tr>
+<tr><td>Lieferantenwechsel</td><td>Supplier switch</td><td>Tedarikçi değişikliği</td></tr>
+<tr><td>Einzug / Auszug</td><td>Move-in / move-out</td><td>Taşınma giriş / çıkış süreci</td></tr>
+<tr><td>Stammdaten</td><td>Master data</td><td>Ana veri</td></tr>
+<tr><td>GPKE / WiM / MaBiS</td><td>Retail / metering / settlement rulebooks</td><td>Süreç kural kitapları</td></tr>
+<tr><td>Direktvermarktung</td><td>Direct marketing of generation</td><td>Üretimin piyasada doğrudan satışı</td></tr>
+<tr><td>Direktvermarkter</td><td>Direct marketer</td><td>Direkt satış aracısı</td></tr>
+<tr><td>Marktprämie / Managementprämie</td><td>Market premium / management premium</td><td>Piyasa primi / yönetim primi</td></tr>
+<tr><td>Anzulegender Wert</td><td>Applicable (reference) value</td><td>Referans destek değeri</td></tr>
+<tr><td>Monatsmarktwert</td><td>Monthly market value</td><td>Aylık piyasa değeri</td></tr>
+<tr><td>Einspeisevergütung</td><td>Feed-in tariff</td><td>Sabit besleme tarifesi</td></tr>
+<tr><td>Einspeisung / Eigenverbrauch</td><td>Feed-in / self-consumption</td><td>Şebekeye verme / öz tüketim</td></tr>
+<tr><td>Volleinspeisung / Überschusseinspeisung</td><td>Full feed-in / surplus feed-in</td><td>Tam besleme / fazla besleme</td></tr>
+<tr><td>Einspeisebegrenzung (60%-Regel)</td><td>Feed-in cap (60% rule)</td><td>Besleme sınırlaması</td></tr>
+<tr><td>Steuerbare Verbrauchseinrichtung</td><td>Controllable consumption device</td><td>Kontrol edilebilir tüketim cihazı</td></tr>
+<tr><td>Netzorientierte Steuerung</td><td>Grid-oriented control / curtailment</td><td>Şebeke odaklı kısıtlama</td></tr>
+<tr><td>Zeitvariable Netzentgelte</td><td>Time-variable grid fees</td><td>Zaman değişkenli şebeke bedeli</td></tr>
+<tr><td>Energy Sharing (§42c EnWG)</td><td>Energy sharing</td><td>Enerji paylaşımı (komşuyla)</td></tr>
+<tr><td>Mieterstrom</td><td>Tenant electricity</td><td>Kiracı elektriği modeli</td></tr>
+<tr><td>Gemeinschaftliche Gebäudeversorgung (GGV)</td><td>Collective building supply</td><td>Bina içi ortak tedarik</td></tr>
+<tr><td>Virtuelles Kraftwerk</td><td>Virtual power plant (VPP)</td><td>Sanal santral</td></tr>
+<tr><td>Flexibilität / Lastverschiebung</td><td>Flexibility / load shifting</td><td>Esneklik / yük kaydırma</td></tr>
+<tr><td>Wärmepumpe (JAZ)</td><td>Heat pump (seasonal performance factor)</td><td>Isı pompası (yıllık verim katsayısı)</td></tr>
+<tr><td>Wallbox / Ladepunkt</td><td>Wallbox / charging point</td><td>Ev şarj ünitesi</td></tr>
+<tr><td>Speicher / Batteriespeicher</td><td>Storage / battery storage</td><td>Depolama / batarya</td></tr>
+<tr><td>Erzeugungsanlage</td><td>Generation asset</td><td>Üretim tesisi</td></tr>
+<tr><td>EnWG / EEG / MsbG</td><td>Energy Industry Act / Renewables Act / Metering Act</td><td>Enerji Piyasası / Yenilenebilir / Sayaç kanunları</td></tr>
+<tr><td>Bundesnetzagentur (BNetzA)</td><td>Federal Network Agency (regulator)</td><td>Federal düzenleyici kurum</td></tr>
+<tr><td>Beschluss / Festlegung</td><td>Regulatory determination / ruling</td><td>Düzenleyici karar</td></tr>
+<tr><td>Solarspitzengesetz</td><td>"Solar peak" act</td><td>Güneş tepe üretimi yasası</td></tr>
+<tr><td>Marktstammdatenregister (MaStR)</td><td>Market master data register</td><td>Resmî tesis kayıt sistemi</td></tr>
+</table>
+
+<div class="pb"></div>
+<h2>8. Honest risk register</h2>
+<table>
+<tr><th style="width:23%">Risk</th><th style="width:10%">Severity</th><th>How to handle it</th></tr>
+<tr><td><b>German language</b></td><td>High</td><td>The JD asks for excellent German. Do not bluff. State your real level, note that you can read regulatory German (EnWG/EEG/BNetzA terminology — true after Section 7), commit to a concrete improvement path, and point out that MaKo and price analysis are largely structured-data work. Ask directly what the day-to-day language of the team is — some 1KOMMA5° global product teams operate in English.</td></tr>
+<tr><td><b>Work permit / Zusatzblatt</b></td><td>High</td><td>They asked in writing. Have scans ready before the call and know your permitted hours. This is administrative, not a judgement on you — but arriving unprepared reads as carelessness.</td></tr>
+<tr><td><b>6 months, ideally full-time</b></td><td>Medium</td><td>Check this against your MSc obligations and your freelance/EnergyLens commitments <i>before</i> the call, and give a clear answer. Ambiguity here worries hiring managers more than a "no".</td></tr>
+<tr><td><b>Profile fit vs. business/econ students</b></td><td>Medium</td><td>You will be compared against candidates with consulting internships. Your counter is not "I also know business" — it is that you can build the analysis they can only request. Lead with the tariff backtest and the unit-economics model.</td></tr>
+<tr><td><b>Over-claiming on EnergyLens</b></td><td>Medium</td><td>Synthetic data, no completed pilot. Say it first, every time.</td></tr>
+<tr><td><b>Being seen as "the data person"</b></td><td>Low-Medium</td><td>This is a product role. Whenever you describe a technical capability, close the loop with the decision it enabled — otherwise you get filed as an analyst, not a future PM.</td></tr>
+</table>
+
+<div class="tr"><b>TR:</b> Gerçek riskler sıralı: (1) <b>Almanca</b> — bluff yapma, gerçek seviyeyi + mevzuat Almancasını okuyabildiğini + somut planı söyle ve ekibin günlük dilini sor (1KOMMA5°'nin global ürün ekipleri sıklıkla İngilizce çalışıyor). (2) <b>Çalışma izni</b> — belgeleri görüşmeden önce hazırla, izinli saatini bil. (3) <b>6 ay tam zamanlı</b> — yüksek lisans ve freelance yükünle çakışmasını önceden netleştir; belirsizlik "hayır"dan daha çok endişe yaratır. (4) <b>Profil karşılaştırması</b> — danışmanlık stajı yapmış işletme öğrencileriyle yarışıyorsun; kozun "ben de iş bilirim" değil, "onların sadece talep edebildiği analizi ben kurabiliyorum". (5) EnergyLens'te abartma. (6) "Veri adamı" damgası yememek için her teknik yetenek anlatımını, sağladığı <b>karar</b> ile kapat.</div>
+
+<h2>Closing note</h2>
+<p>Confidence in this domain does not come from knowing everything — the German energy market is genuinely too large for that, and everyone in the room knows it. It comes from three things: knowing the <b>structure</b> (who does what, in what order, under which rule), knowing your <b>numbers</b> (and their sources and their sensitivity), and being <b>precise about what you do not know</b>. You already have the hardest part, which is the ability to build. This document is the vocabulary and the map to put around it.</p>
+
+<div class="tr"><b>TR:</b> Bu alanda güven her şeyi bilmekten gelmez — Alman enerji piyasası bunun için fazla geniş ve odadaki herkes bunu biliyor. Güven üç şeyden gelir: <b>yapıyı</b> bilmek (kim ne yapıyor, hangi sırada, hangi kurala göre), <b>sayılarını</b> bilmek (kaynağı ve duyarlılığıyla) ve <b>bilmediğin şeyi net söylemek</b>. Zor olan kısım — inşa etme becerisi — sende zaten var. Bu doküman onun etrafına giydirilecek kelime dağarcığı ve harita.</div>
+
+<p class="small" style="margin-top:18pt; border-top:0.8pt solid #d5e2de; padding-top:6pt;">
+<b>Sources used:</b> 1KOMMA5° job posting and press releases · pv-magazine · smart-energy.com · ess-news · Sifted / Dealroom / techfundingnews (funding) · EPEX SPOT and Next Kraftwerke (15-minute day-ahead) · BNetzA-derived price composition summaries (Mainova, strom-report, EnBW) · §14a EnWG explainers (Netze BW, Vattenfall, Finanztip) · Solarspitzengesetz explainers (metergrid, reonic, Logic Energy) · §42c energy sharing (GÖRG, DGS, metergrid) · Marktkommunikation references (Wikipedia, stromhaltig, enerchy) · dynamic tariff market comparisons 2026.<br>
+Figures for 2026 are current as of August 2026 and should be re-checked before quoting externally. Physical performance figures are stated as ranges with assumptions, not guarantees.
+</p>
+
+</body>
+</html>

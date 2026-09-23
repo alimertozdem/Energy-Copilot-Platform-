@@ -93,3 +93,6 @@ report-design/*ifreler*
 
 # career-ops (local job-search tool — not part of the product)
 career-ops/
+
+# curated public-portfolio export (separate repo, not part of this repo)
+portfolio-export/
