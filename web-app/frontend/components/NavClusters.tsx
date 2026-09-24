@@ -25,56 +25,40 @@ type Cluster = { id: string; label: string; items: NavItem[] }
 
 const CLUSTERS: Cluster[] = [
   {
-    id: "monitor",
-    label: "Monitor",
-    items: [
-      { href: "/portfolio", label: "Portfolio" },
-      { href: "/buildings", label: "Buildings" },
-      { href: "/residential", label: "Residential" },
-      { href: "/alerts", label: "Alerts", badge: "alerts" },
-      { href: "/solar", label: "Solar" },
-      { href: "/hvac", label: "Heating & HVAC" },
-    ],
+    id: "portfolio",
+    label: "Portfolio",
+    items: [{ href: "/portfolio", label: "Portfolio" }],
   },
   {
-    id: "act",
-    label: "Act",
-    items: [
-      { href: "/actions", label: "Actions", badge: "actions" },
-      { href: "/decarbonisation", label: "Decarbonise" },
-      { href: "/financing", label: "Financing" },
-    ],
+    id: "decarbonisation",
+    label: "Decarbonisation & CRREM",
+    items: [{ href: "/decarbonisation", label: "Decarbonisation & CRREM" }],
   },
-  { id: "comply", label: "Compliance", items: [{ href: "/compliance", label: "Compliance" }] },
-  { id: "assist", label: "Copilot", items: [{ href: "/copilot", label: "Copilot" }] },
   {
-    id: "more",
-    label: "More",
+    id: "actions",
+    label: "Action Planner",
+    items: [{ href: "/actions", label: "Action Planner", badge: "actions" }],
+  },
+  {
+    id: "reports",
+    label: "Reports & Compliance",
+    items: [{ href: "/compliance", label: "Reports & Compliance" }],
+  },
+  {
+    id: "tools",
+    label: "Araçlar & Analiz",
     items: [
-      { href: "/connections", label: "Connections" },
-      { href: "/partners", label: "Partners" },
+      { href: "/buildings", label: "Bina Listesi" },
+      { href: "/solar", label: "Güneş Enerjisi (Solar)" },
+      { href: "/hvac", label: "Isıtma & HVAC" },
+      { href: "/alerts", label: "Sistem Uyarıları", badge: "alerts" },
+      { href: "/residential", label: "Konut Modülü" },
+      { href: "/connections", label: "Veri Bağlantıları" },
+      { href: "/copilot", label: "AI Danışman" },
     ],
   },
 ]
 
-function isActive(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(href + "/")
-}
-
-function Pill({ count, tone }: { count: number; tone: "amber" | "red" }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold tabular-nums border",
-        tone === "red"
-          ? "bg-red-500/20 text-red-200 border-red-500/40"
-          : "bg-amber-500/20 text-amber-200 border-amber-500/40"
-      )}
-    >
-      {count > 99 ? "99+" : count}
-    </span>
-  )
-}
 
 // ---------- desktop (md+) ----------
 
