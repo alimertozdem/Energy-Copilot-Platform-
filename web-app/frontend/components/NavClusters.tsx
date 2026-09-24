@@ -1,15 +1,7 @@
 "use client"
 
 /**
- * NavClusters — clustered primary navigation (design audit P0-1, 2026-06-15).
- *
- * Collapses the former flat 9+ item bar into intent groups:
- *   Monitor · Act · Compliance · Copilot  (+ a small More for setup/relationship routes).
- * Single-item clusters render as a direct link; multi-item clusters as a dropdown.
- * Pending counts (open actions / unhandled alerts) surface on the cluster button so
- * triage stays glanceable without opening the menu. Routes are unchanged — pure IA.
- *
- * Exports DesktopNav (md+) and MobileNav (hamburger) used by AppChrome.
+ * NavClusters — clustered primary navigation (commercial workflow).
  */
 
 import Link from "next/link"
@@ -59,6 +51,24 @@ const CLUSTERS: Cluster[] = [
   },
 ]
 
+function isActive(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(href + "/")
+}
+
+function Pill({ count, tone }: { count: number; tone: "amber" | "red" }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold tabular-nums border",
+        tone === "red"
+          ? "bg-red-500/20 text-red-200 border-red-500/40"
+          : "bg-amber-500/20 text-amber-200 border-amber-500/40"
+      )}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  )
+}
 
 // ---------- desktop (md+) ----------
 
@@ -253,7 +263,7 @@ export function MobileNav() {
   )
 }
 
-// ---------- badge hooks (open actions / unhandled alerts) ----------
+// ---------- badge hooks ----------
 
 function useOpenActionsCount(): number | null {
   const pathname = usePathname()
