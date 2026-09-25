@@ -2,10 +2,10 @@
 
 /**
  * OnboardingWizard -- multi-step state machine for the mandatory first-building
- * flow. Owns step index, shared form data, and submit state. Each step
- * component receives `data` + `update` and drives `onNext`/`onBack`.
+ * flow. Owns step index, shared form data, and submit state.
  *
- *   0 Welcome - 1 Building - 2 Systems - 3 Review - 4 Done
+ * Streamlined commercial flow (zero-hardware first):
+ *   0 Welcome -> 1 Building Basics -> 2 Energy & Systems -> 3 Review & Launch -> 4 Done
  */
 import { useState } from "react"
 import Link from "next/link"
@@ -14,7 +14,6 @@ import { LogoCard } from "@/app/components/LogoCard"
 import { cn } from "@/lib/utils"
 import { BuildingBasicsStep } from "@/components/onboarding/BuildingBasicsStep"
 import { SystemsStep } from "@/components/onboarding/SystemsStep"
-import { EnvelopeStep } from "@/components/onboarding/EnvelopeStep"
 import { ReviewStep } from "@/components/onboarding/ReviewStep"
 import { DoneStep } from "@/components/onboarding/DoneStep"
 import { WizardScorePreview } from "@/components/onboarding/WizardScorePreview"
@@ -25,7 +24,9 @@ import {
   type BuildingModuleInput,
 } from "@/lib/api/buildings"
 
-import { type OnboardingData, INITIAL_DATA, STEPS } from "./types"
+import { type OnboardingData, INITIAL_DATA } from "./types"
+
+const STREAMLINED_STEPS = ["Welcome", "Building", "Energy & Systems", "Review", "Done"] as const
 
 function toNumber(s: string): number | null {
   const n = parseFloat(s)
@@ -37,8 +38,6 @@ function toIntOrNull(s: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-// On-site fossil combustion (drives Scope 1 + the CO₂ cost split). Unknown when
-// no heating is chosen or it's free-text "other".
 function gasFlag(d: OnboardingData): boolean | null {
   const h = d.heating_system
   if (!h || h === "other") return null
@@ -46,7 +45,7 @@ function gasFlag(d: OnboardingData): boolean | null {
 }
 
 export function OnboardingWizard({ userName }: { userName: string | null }) {
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState<number>(0)
   const [data, setData] = useState<OnboardingData>(INITIAL_DATA)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -54,22 +53,18 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
   const [savedId, setSavedId] = useState("")
 
   function update(patch: Partial<OnboardingData>) {
-    setData((d) => ({ ...d, ...patch }))
+    setData((d: OnboardingData) => ({ ...d, ...patch }))
   }
 
-  const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1))
-  const back = () => setStep((s) => Math.max(s - 1, 0))
+  const next = () => setStep((s: number) => Math.min(s + 1, STREAMLINED_STEPS.length - 1))
+  const back = () => setStep((s: number) => Math.max(s - 1, 0))
 
-  // Live Data Score mirror (consumption not yet uploaded → months = 0).
   const preview = previewReadiness(data)
 
   async function submit() {
     setSubmitting(true)
     setError(null)
 
-    // The data method + protocol/sensor config are stored as JSON on the
-    // relevant module notes (no schema change) — the edge / Fabric side reads
-    // this to configure ingestion for the building.
     const metersNotes = JSON.stringify({
       data_method: data.data_method || null,
       data_source: data.data_source || null,
@@ -94,7 +89,6 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
     if (data.has_battery) modules.push({ module_key: "battery", enabled: true })
     if (data.has_solar) modules.push({ module_key: "solar", enabled: true })
 
-    // "Other" heating/cooling sends the free-text value the user typed.
     const heatingValue =
       data.heating_system === "other"
         ? data.heating_other.trim() || "other"
@@ -135,7 +129,7 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
     }
     setSavedName(result.data.name)
     setSavedId(result.data.id)
-    setStep(5)
+    setStep(4)
   }
 
   function resetForAnother() {
@@ -158,7 +152,7 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
       <div className="relative z-10 w-full max-w-2xl">
         <div className="mb-6 flex flex-col items-center text-center">
           <LogoCard iconSize={56} />
-          <p className="mt-3 text-[11px] uppercase tracking-[0.18em] text-text-faint">Set up your building</p>
+          <p className="mt-3 text-[11px] uppercase tracking-[0.18em] text-text-faint">Commercial Decarbonisation Onboarding</p>
         </div>
 
         <div className="relative rounded-2xl border border-brand-emerald/20 bg-bg-elevated/70 p-8 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-sm">
@@ -168,55 +162,47 @@ export function OnboardingWizard({ userName }: { userName: string | null }) {
             aria-hidden
           />
           <ProgressBar step={step} />
-          {step > 0 && step < STEPS.length - 1 && (
+          {step > 0 && step < STREAMLINED_STEPS.length - 1 && (
             <WizardScorePreview preview={preview} />
           )}
 
           <div key={step} className="el-fade-up">
-          {step === 0 && <WelcomeStep userName={userName} onNext={next} />}
-          {step === 1 && (
-            <BuildingBasicsStep
-              data={data}
-              update={update}
-              onNext={next}
-              onBack={back}
-            />
-          )}
-          {step === 2 && (
-            <SystemsStep
-              data={data}
-              update={update}
-              onNext={next}
-              onBack={back}
-            />
-          )}
-          {step === 3 && (
-            <EnvelopeStep
-              data={data}
-              update={update}
-              onNext={next}
-              onBack={back}
-            />
-          )}
-          {step === 4 && (
-            <ReviewStep
-              data={data}
-              onSubmit={submit}
-              onBack={back}
-              submitting={submitting}
-              error={error}
-            />
-          )}
-          {step === 5 && (
-            <DoneStep
-              buildingName={savedName}
-              buildingId={savedId}
-              dataMethod={data.data_method}
-              epcClass={data.epc_class || null}
-              heatingSystem={data.heating_system || null}
-              onAddAnother={resetForAnother}
-            />
-          )}
+            {step === 0 && <WelcomeStep userName={userName} onNext={next} />}
+            {step === 1 && (
+              <BuildingBasicsStep
+                data={data}
+                update={update}
+                onNext={next}
+                onBack={back}
+              />
+            )}
+            {step === 2 && (
+              <SystemsStep
+                data={data}
+                update={update}
+                onNext={next}
+                onBack={back}
+              />
+            )}
+            {step === 3 && (
+              <ReviewStep
+                data={data}
+                onSubmit={submit}
+                onBack={back}
+                submitting={submitting}
+                error={error}
+              />
+            )}
+            {step === 4 && (
+              <DoneStep
+                buildingName={savedName}
+                buildingId={savedId}
+                dataMethod={data.data_method}
+                epcClass={data.epc_class || null}
+                heatingSystem={data.heating_system || null}
+                onAddAnother={resetForAnother}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -228,7 +214,7 @@ function ProgressBar({ step }: { step: number }) {
   return (
     <div className="mb-6">
       <div className="flex items-center gap-1.5">
-        {STEPS.map((label, i) => (
+        {STREAMLINED_STEPS.map((label, i) => (
           <div
             key={label}
             className={cn(
@@ -239,7 +225,7 @@ function ProgressBar({ step }: { step: number }) {
         ))}
       </div>
       <p className="mt-2 text-xs text-text-faint">
-        Step {Math.min(step + 1, STEPS.length)} of {STEPS.length} - {STEPS[step]}
+        Step {Math.min(step + 1, STREAMLINED_STEPS.length)} of {STREAMLINED_STEPS.length} — {STREAMLINED_STEPS[step]}
       </p>
     </div>
   )
@@ -258,15 +244,12 @@ function WelcomeStep({
         Welcome{userName ? `, ${userName.split(" ")[0]}` : ""}
       </h1>
       <p className="text-text-muted text-sm mb-4">
-        Let&apos;s add your first building. It takes about a minute — and
-        no new hardware is required.
+        Set up your building in 3 simple steps — no hardware or IoT gateways required.
       </p>
-      <p className="text-sm text-text-muted mb-6">
-        We&apos;ll capture a few details (location, type, size) and which energy
-        systems it has. Your KPIs, reports and advisor come alive from your
-        first utility bill or meter export — no sensors needed. Connect live
-        data later if you want real-time monitoring. Meanwhile, explore the
-        sample portfolio to see exactly what you&apos;ll get.
+      <p className="text-sm text-text-muted mb-6 leading-relaxed">
+        We&apos;ll capture your building&apos;s basic characteristics (location, type, floor area)
+        and existing heating system. Your decarbonisation trajectory, CRREM stranding risks and
+        investment roadmap activate directly from your first utility bill or CSV meter export.
       </p>
       <button
         type="button"
@@ -276,9 +259,9 @@ function WelcomeStep({
         Get started
       </button>
       <p className="mt-4 text-sm text-text-muted">
-        Managing a portfolio?{" "}
+        Managing multiple assets?{" "}
         <Link href="/buildings/import" className="text-brand-emerald hover:underline">
-          Import buildings from CSV
+          Bulk import buildings from CSV
         </Link>
       </p>
     </div>
