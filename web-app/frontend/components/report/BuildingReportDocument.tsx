@@ -99,7 +99,7 @@ export function BuildingReportDocument({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `2px solid ${LINE}`, paddingBottom: 12, marginBottom: 16 }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, color: NAVY }}>
-              {building.building_name || "Commercial Asset Report"}
+          {building.name || "Commercial Asset Report"}
             </div>
             <div style={{ fontSize: 11, color: MUTED, textTransform: "capitalize", marginTop: 4 }}>
               {building.building_type.replace(/_/g, " ")} · {fmtInt(building.floor_area_m2)} m² · {building.epc_class ? `EPC Sınıfı ${building.epc_class}` : "Mevcut Durum"}{building.city ? ` · ${building.city}` : ""}
