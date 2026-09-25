@@ -10,18 +10,21 @@ import type { PortfolioBuildingRow } from "@/lib/api/portfolio"
 import {
   pathwayValue,
   summarizeStranding,
+  type StrandingResult,
   type StrandingStatus,
 } from "@/lib/crrem"
 
 import {
   BAD,
   Chip,
+  DANGER,
   EMERALD,
   FAINT,
   fmtInt,
   GOOD,
   INK,
   MUTED,
+  Notice,
   SectionTitle,
   StatCard,
   tdL,
@@ -30,7 +33,6 @@ import {
 } from "./reportKit"
 
 const AMBER = "#b45309"
-const DANGER = "#b91c1c"
 
 function num(v: number | null, d = 1): string {
   if (v === null || !Number.isFinite(v)) return "—"
@@ -38,25 +40,40 @@ function num(v: number | null, d = 1): string {
 }
 
 function statusBadge(status: StrandingStatus, year: number | null) {
-  if (status === "stranded_today") {
+  if (status === "stranded_now") {
     return <Chip label="STRANDED TODAY" color={DANGER} />
   }
-  if (status === "strands_by_2030") {
+  if (status === "stranding" && year !== null && year <= 2030) {
     return <Chip label={`CRITICAL RISK (${year})`} color={AMBER} />
   }
-  if (status === "strands_after_2030") {
+  if (status === "stranding" && year !== null && year > 2030) {
     return <Chip label={`Risk in ${year}`} color={MUTED} />
   }
-  return <Chip label="COMPLIANT 2050" color={GOOD} />
+  if (status === "on_track") {
+    return <Chip label="COMPLIANT 2050" color={GOOD} />
+  }
+  return <Chip label="NO DATA" color={FAINT} />
 }
 
 export function CrremReportDocument({
   buildings,
+  buildingsError,
 }: {
   buildings: PortfolioBuildingRow[]
+  buildingsError?: string | null
 }) {
-  const { results, summary } = summarizeStranding(buildings)
+  if (buildingsError) {
+    return <Notice error={buildingsError} label="CRREM stranding" />
+  }
+
+  const summary = summarizeStranding(buildings)
+  const results = summary.results
   const totalArea = buildings.reduce((acc, b) => acc + (b.floor_area_m2 || 0), 0)
+  const assessedBuildings = results.filter((r) => r.intensity !== null)
+  const avgIntensity =
+    assessedBuildings.length > 0
+      ? assessedBuildings.reduce((acc, r) => acc + (r.intensity || 0), 0) / assessedBuildings.length
+      : null
 
   return (
     <div style={{ fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif" }}>
@@ -130,36 +147,27 @@ export function CrremReportDocument({
       >
         <StatCard
           label="Portfolio Carbon Intensity"
-          value={
-            summary.portfolio_intensity_kg_per_m2 !== null
-              ? `${num(summary.portfolio_intensity_kg_per_m2)} kg`
-              : "—"
-          }
+          value={avgIntensity !== null ? `${num(avgIntensity)} kg` : "—"}
           hint="/m²·yr operational baseline"
-          color={
-            summary.portfolio_intensity_kg_per_m2 !== null &&
-            summary.portfolio_intensity_kg_per_m2 > 35
-              ? AMBER
-              : GOOD
-          }
+          color={avgIntensity !== null && avgIntensity > 35 ? AMBER : GOOD}
         />
         <StatCard
           label="Stranded Today"
-          value={summary.stranded_today_count}
-          hint="Assets exceeding 2026 cap"
-          color={summary.stranded_today_count > 0 ? DANGER : GOOD}
+          value={summary.strandedNow}
+          hint="Assets exceeding current cap"
+          color={summary.strandedNow > 0 ? DANGER : GOOD}
         />
         <StatCard
           label="High Risk (Pre-2030)"
-          value={summary.strands_by_2030_count}
+          value={summary.strandedBy2030}
           hint="Strands within current cycle"
-          color={summary.strands_by_2030_count > 0 ? AMBER : GOOD}
+          color={summary.strandedBy2030 > 0 ? AMBER : GOOD}
         />
         <StatCard
-          label="Long-Term Compliant"
-          value={summary.not_stranded_by_2050_count}
-          hint="Aligned through 2050 pathway"
-          color={GOOD}
+          label="Avg Stranding Year"
+          value={summary.avgStrandingYear ? `${summary.avgStrandingYear}` : "—"}
+          hint="Of stranded assets"
+          color={summary.avgStrandingYear && summary.avgStrandingYear <= 2030 ? BAD : INK}
         />
       </div>
 
@@ -190,41 +198,42 @@ export function CrremReportDocument({
         </thead>
         <tbody>
           {results.map((r, idx) => {
-            const cap2030 = pathwayValue(r.property_type, 2030)
-            const isAbby = r.name.toLowerCase().includes("abby") || r.name.toLowerCase().includes("bdg2")
+            const b = r.building
+            const cap2030 = pathwayValue(b.building_type, 2030)
+            const isAbby = (b.name || "").toLowerCase().includes("abby") || (b.name || "").toLowerCase().includes("bdg2")
             return (
               <tr
-                key={r.fabric_building_id}
+                key={b.fabric_building_id || idx}
                 style={{
                   borderBottom: "1px solid #e5e7eb",
                   background: isAbby ? "#f0fdf4" : idx % 2 === 0 ? "#ffffff" : "#f9fafb",
                 }}
               >
                 <td style={tdL}>
-                  <div style={{ fontWeight: 600, color: INK }}>{r.name}</div>
+                  <div style={{ fontWeight: 600, color: INK }}>{b.name}</div>
                   {isAbby && (
                     <div style={{ fontSize: "9px", color: EMERALD, fontWeight: 700 }}>
                       ★ ASHRAE Real Benchmark Reference Asset
                     </div>
                   )}
                 </td>
-                <td style={tdL}>{r.property_type}</td>
-                <td style={tdL}>{r.city ? `${r.city}, ${r.country || ""}` : r.country || "—"}</td>
-                <td style={tdR}>{fmtInt(r.floor_area_m2)}</td>
-                <td style={{ ...tdR, fontWeight: 600 }}>{num(r.operational_intensity_kg_per_m2)}</td>
+                <td style={tdL}>{b.building_type ? b.building_type.replace(/_/g, " ") : "—"}</td>
+                <td style={tdL}>{b.city ? `${b.city}, ${b.country || ""}` : b.country || "—"}</td>
+                <td style={tdR}>{fmtInt(b.floor_area_m2)}</td>
+                <td style={{ ...tdR, fontWeight: 600 }}>{num(r.intensity)}</td>
                 <td style={{ ...tdR, color: MUTED }}>{num(cap2030)}</td>
                 <td
                   style={{
                     ...tdR,
                     textAlign: "center",
                     fontWeight: 700,
-                    color: r.stranding_year && r.stranding_year <= 2030 ? BAD : INK,
+                    color: r.strandingYear && r.strandingYear <= 2030 ? BAD : INK,
                   }}
                 >
-                  {r.stranding_year ?? "Aligned"}
+                  {r.strandingYear ?? "Aligned"}
                 </td>
                 <td style={{ textAlign: "center", padding: "6px 8px" }}>
-                  {statusBadge(r.status, r.stranding_year)}
+                  {statusBadge(r.status, r.strandingYear)}
                 </td>
               </tr>
             )
