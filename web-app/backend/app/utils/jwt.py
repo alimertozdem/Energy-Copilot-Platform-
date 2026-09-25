@@ -157,6 +157,19 @@ def get_current_user(
 
     Use when the endpoint needs more than user_id (e.g. email for audit logs).
     """
+from sqlalchemy import text
+
+def get_current_user(
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> User:
+    """FastAPI dependency: return the full User row and set RLS session context."""
+    # PostgreSQL RLS politikasının tetiklenmesi için session değişkenini ayarla:
+    try:
+        db.execute(text(f"SET LOCAL app.current_user_id = '{user_id}'"))
+    except Exception:
+        pass
+
     user = db.get(User, user_id)
     if user is None or not user.is_active:
         raise HTTPException(
@@ -164,6 +177,7 @@ def get_current_user(
             detail="User not found or inactive",
         )
     return user
+
 
 
 def get_current_platform_admin(

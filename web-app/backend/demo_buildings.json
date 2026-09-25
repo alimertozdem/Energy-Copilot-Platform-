@@ -59,4 +59,17 @@
     "epc_class": "D",
     "kwh_30d": 127778.68
   }
+  
+,  {
+    "fabric_building_id": "B007",
+    "name": "BDG2 Benchmark Office Abby",
+    "city": "Frankfurt",
+    "country": "DE",
+    "building_type": "Office",
+    "floor_area_m2": 4895.0,
+    "epc_class": "C",
+    "kwh_30d": 63958.33
+  }
 ]
+
+
