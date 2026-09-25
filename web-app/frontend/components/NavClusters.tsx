@@ -38,15 +38,17 @@ const CLUSTERS: Cluster[] = [
   },
   {
     id: "tools",
-    label: "Araçlar & Analiz",
+      {
+    id: "tools",
+    label: "Tools & Analytics",
     items: [
-      { href: "/buildings", label: "Bina Listesi" },
-      { href: "/solar", label: "Güneş Enerjisi (Solar)" },
-      { href: "/hvac", label: "Isıtma & HVAC" },
-      { href: "/alerts", label: "Sistem Uyarıları", badge: "alerts" },
-      { href: "/residential", label: "Konut Modülü" },
-      { href: "/connections", label: "Veri Bağlantıları" },
-      { href: "/copilot", label: "AI Danışman" },
+      { href: "/buildings", label: "All Buildings" },
+      { href: "/solar", label: "Solar PV Performance" },
+      { href: "/hvac", label: "HVAC & Heat Pumps" },
+      { href: "/alerts", label: "System Alerts", badge: "alerts" },
+      { href: "/residential", label: "Residential Assets" },
+      { href: "/connections", label: "Data Connections" },
+      { href: "/copilot", label: "AI Advisory Copilot" },
     ],
   },
 ]
