@@ -31,14 +31,18 @@ const CLUSTERS: Cluster[] = [
     label: "Action Planner",
     items: [{ href: "/actions", label: "Action Planner", badge: "actions" }],
   },
+  
+  {
+    id: "actions",
+    label: "Action Planner",
+    items: [{ href: "/actions", label: "Action Planner", badge: "actions" }],
+  },
   {
     id: "reports",
     label: "Reports & Compliance",
     items: [{ href: "/compliance", label: "Reports & Compliance" }],
   },
   {
-    id: "tools",
-      {
     id: "tools",
     label: "Tools & Analytics",
     items: [
@@ -52,6 +56,7 @@ const CLUSTERS: Cluster[] = [
     ],
   },
 ]
+
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/")
